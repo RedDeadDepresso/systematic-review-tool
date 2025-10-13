@@ -11,9 +11,25 @@ export const registerUser = async (data: {
 	return res.data;
 };
 
-export const loginUser = async (data: { username: string; password: string }) => {
+export const loginUser = async (data: { email: string; password: string }) => {
 	const res = await api.post("/auth/login/", data);
 	localStorage.setItem("access_token", res.data.access);
 	localStorage.setItem("refresh_token", res.data.refresh);
 	return res.data;
 };
+
+export async function getCurrentUser() {
+	const token = localStorage.getItem("access_token");
+	if (!token) throw new Error("Not authenticated");
+
+	const res = await api.get("/auth/user/", {
+		headers: { Authorization: `Bearer ${token}` },
+	});
+	return res.data;
+}
+
+export function logout() {
+	localStorage.removeItem("access_token");
+	localStorage.removeItem("refresh_token");
+	window.location.href = "/login";
+}

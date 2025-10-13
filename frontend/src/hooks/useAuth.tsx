@@ -1,13 +1,14 @@
-// src/hooks/useAuth.ts
-import { useMutation } from "@tanstack/react-query";
-import { loginUser, registerUser } from "../api/auth";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { getCurrentUser, loginUser, registerUser } from "../api/auth";
 import { useRouter } from "@tanstack/react-router";
 
 export const useLogin = () => {
 	const router = useRouter();
 	return useMutation({
 		mutationFn: loginUser,
-		onSuccess: () => {},
+		onSuccess: () => {
+			router.navigate({ to: "/" });
+		},
 	});
 };
 
@@ -20,3 +21,11 @@ export const useRegister = () => {
 		},
 	});
 };
+
+export function useAuth() {
+  return useQuery({
+    queryKey: ["currentUser"],
+    queryFn: getCurrentUser,
+    retry: false,
+  });
+}

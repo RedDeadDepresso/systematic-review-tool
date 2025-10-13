@@ -1,14 +1,14 @@
+import { RegisterForm } from "@/components/register-form";
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { LoginForm } from "@/components/login-form";
 
-export const Route = createFileRoute("/login")({
-	component: LoginPage,
+export const Route = createFileRoute("/register")({
+	component: RegisterPage,
 	beforeLoad: async () => {
 		const token = localStorage.getItem("access_token");
 		if (token) throw redirect({ to: "/" });
 	},
 });
 
-function LoginPage() {
-	return <LoginForm />;
+function RegisterPage() {
+	return <RegisterForm />;
 }

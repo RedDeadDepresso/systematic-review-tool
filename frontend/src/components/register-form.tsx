@@ -11,17 +11,8 @@ import { Input } from "@/components/ui/input";
 import { useRegister } from "@/hooks/useAuth";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { errorMessage } from "./error-message";
 
-export function renderError(error: any) {
-	if (!error?.response?.data) return null;
-	return Object.entries(error.response.data).map(([field, messages]: [string, any]) =>
-		messages.map((message: string, i: number) => (
-			<p key={`${field}-${i}`} className="text-red-500 text-sm">
-				{field}: {message}
-			</p>
-		))
-	);
-}
 
 export function RegisterForm() {
 	const register = useRegister();
@@ -115,7 +106,7 @@ export function RegisterForm() {
 								</FieldDescription>
 							</Field>
 						</FieldGroup>
-						{register.error && renderError(register.error)}
+						{register.error && errorMessage(register.error)}
 					</FieldGroup>
 				</form>
 			</CardContent>
