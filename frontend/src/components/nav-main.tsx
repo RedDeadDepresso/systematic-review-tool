@@ -1,4 +1,4 @@
-import { Archive, ChevronRight, Folder, House } from "lucide-react";
+import { Archive, ChevronRight, Folder, House, UserRoundPlus, Lock } from "lucide-react";
 
 import {
 	Collapsible,
@@ -73,6 +73,32 @@ export function NavMain() {
 						</SidebarMenuItem>
 					</Collapsible>
 				))}
+			</SidebarMenu>
+		</SidebarGroup>
+	);
+}
+
+export function NavMainUnauthenticated() {
+	const router = useRouter();
+
+	return (
+		<SidebarGroup>
+			<SidebarMenu>
+				<SidebarMenuItem>
+					<SidebarMenuButton
+						tooltip="Login"
+						onClick={() => router.navigate({ to: "/login" })}
+					>
+						<Lock />
+						<span>Login</span>
+					</SidebarMenuButton>
+				</SidebarMenuItem>
+				<SidebarMenuItem>
+					<SidebarMenuButton tooltip="Register" onClick={() => router.navigate({ to: "/register" })}>
+						<UserRoundPlus />
+						<span>Register</span>
+					</SidebarMenuButton>
+				</SidebarMenuItem>
 			</SidebarMenu>
 		</SidebarGroup>
 	);

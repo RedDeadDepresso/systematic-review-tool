@@ -1,4 +1,4 @@
-import { Navbar } from "@/components/navbar";
+import { AppLayout } from "@/components/app-layout";
 import { RegisterForm } from "@/components/register-form";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
@@ -12,9 +12,8 @@ export const Route = createFileRoute("/register")({
 
 function RegisterPage() {
 	return (
-		<>
-			<Navbar />
-			<RegisterForm />;
-		</>
+		<AppLayout pageTitle="Register" isAuthenticated={false}>
+			<RegisterForm />
+		</AppLayout>
 	);
 }

@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { LoginForm } from "@/components/login-form";
-import { Navbar } from "@/components/navbar";
+import { AppLayout } from "@/components/app-layout";
 
 export const Route = createFileRoute("/login")({
 	component: LoginPage,
@@ -12,9 +12,8 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
 	return (
-		<>
-			<Navbar />
-			<LoginForm />;
-		</>
+		<AppLayout pageTitle="Login" isAuthenticated={false}>
+			<LoginForm />
+		</AppLayout>
 	);
 }
