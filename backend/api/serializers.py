@@ -1,4 +1,4 @@
-from api.models import User
+from api.models import Review, User
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
 from rest_framework.permissions import AllowAny
@@ -33,3 +33,9 @@ class RegisterSerializer(ModelSerializer):
         validated_data.pop('confirm_password')
         user = User.objects.create_user(**validated_data)
         return user
+
+
+class ReviewSerializer(ModelSerializer):
+    class Meta:
+        model = Review
+        fields = ['title', 'description', 'is_archived']
