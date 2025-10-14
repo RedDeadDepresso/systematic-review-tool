@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { getCurrentUser, loginUser, registerUser } from "../api/auth";
+import { getCurrentUser, loginUser, refreshAccessToken, registerUser } from "../api/auth";
 import { useRouter } from "@tanstack/react-router";
 
 export const useLogin = () => {
@@ -22,10 +22,20 @@ export const useRegister = () => {
 	});
 };
 
-export function useAuth() {
-  return useQuery({
-    queryKey: ["currentUser"],
-    queryFn: getCurrentUser,
-    retry: false,
-  });
+export function useCurrentUser() {
+	return useQuery({
+		queryKey: ["currentUser"],
+		queryFn: async () => {
+			try {
+				return await getCurrentUser();
+			} catch (error: any) {
+				if (error.response?.status === 401) {
+					await refreshAccessToken();
+					return await getCurrentUser();
+				}
+				throw error;
+			}
+		},
+		retry: false,
+	});
 }

@@ -12,12 +12,10 @@ import {
 	SheetTrigger,
 } from "@/components/ui/sheet";
 
-import { Button, buttonVariants } from "./ui/button";
+import { buttonVariants } from "./ui/button";
 import { Menu } from "lucide-react";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Link } from "@tanstack/react-router";
-import { logout } from "@/api/auth";
-import { LogOut } from "lucide-react";
 
 interface RouteProps {
 	href: string;
@@ -89,10 +87,6 @@ export function Navbar() {
 
 					<div className="hidden md:flex gap-2">
 						<ModeToggle />
-						<Button variant="outline" size="icon" onClick={logout} className="hover:text-red-500">
-							<LogOut className="h-[1.2rem] w-[1.2rem" />
-							<span className="sr-only">Log out</span>
-						</Button>
 					</div>
 				</NavigationMenuList>
 			</NavigationMenu>

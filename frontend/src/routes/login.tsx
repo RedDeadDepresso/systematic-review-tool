@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { LoginForm } from "@/components/login-form";
+import { Navbar } from "@/components/navbar";
 
 export const Route = createFileRoute("/login")({
 	component: LoginPage,
@@ -10,5 +11,10 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-	return <LoginForm />;
+	return (
+		<>
+			<Navbar />
+			<LoginForm />;
+		</>
+	);
 }

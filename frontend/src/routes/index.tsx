@@ -1,43 +1,45 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import logo from "../logo.svg";
+import { createFileRoute, redirect } from "@tanstack/react-router"
+import { AppSidebar } from "@/components/app-sidebar"
+import { DataTable } from "@/components/data-table"
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar"
+
+import { Separator } from "@/components/ui/separator"
 
 export const Route = createFileRoute("/")({
-	component: App,
+	component: IndexPage,
 	beforeLoad: async () => {
 		const token = localStorage.getItem("access_token");
 		if (!token) throw redirect({ to: "/login" });
 	},
 });
 
-function App() {
-	return (
-		<div className="text-center">
-			<header className="min-h-screen flex flex-col items-center justify-center bg-[#282c34] text-white text-[calc(10px+2vmin)]">
-				<img
-					src={logo}
-					className="h-[40vmin] pointer-events-none animate-[spin_20s_linear_infinite]"
-					alt="logo"
-				/>
-				<p>
-					Edit <code>src/routes/index.tsx</code> and save to reload.
-				</p>
-				<a
-					className="text-[#61dafb] hover:underline"
-					href="https://reactjs.org"
-					target="_blank"
-					rel="noopener noreferrer"
-				>
-					Learn React
-				</a>
-				<a
-					className="text-[#61dafb] hover:underline"
-					href="https://tanstack.com"
-					target="_blank"
-					rel="noopener noreferrer"
-				>
-					Learn TanStack
-				</a>
-			</header>
-		</div>
-	);
+function IndexPage() {
+  return (
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+          <div className="flex items-center gap-2 px-4">
+            <SidebarTrigger className="-ml-1" />
+            <Separator
+              orientation="vertical"
+              className="mr-2 data-[orientation=vertical]:h-4"
+            />
+			Home
+          </div>
+        </header>
+        <div className="flex flex-1 flex-col">
+          <div className="@container/main flex flex-1 flex-col gap-2">
+            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+              <DataTable data={[]} />
+            </div>
+          </div>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
+  )
 }

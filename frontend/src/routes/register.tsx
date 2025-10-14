@@ -1,3 +1,4 @@
+import { Navbar } from "@/components/navbar";
 import { RegisterForm } from "@/components/register-form";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
@@ -10,5 +11,10 @@ export const Route = createFileRoute("/register")({
 });
 
 function RegisterPage() {
-	return <RegisterForm />;
+	return (
+		<>
+			<Navbar />
+			<RegisterForm />;
+		</>
+	);
 }

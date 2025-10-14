@@ -11,7 +11,7 @@ export const registerUser = async (data: {
 	return res.data;
 };
 
-export const loginUser = async (data: { email: string; password: string }) => {
+export async function loginUser(data: { email: string; password: string }) {
 	const res = await api.post("/auth/login/", data);
 	localStorage.setItem("access_token", res.data.access);
 	localStorage.setItem("refresh_token", res.data.refresh);
@@ -28,7 +28,27 @@ export async function getCurrentUser() {
 	return res.data;
 }
 
-export function logout() {
+export async function refreshAccessToken() {
+	const refresh = localStorage.getItem("refresh_token");
+	if (!refresh) {
+		window.location.href = "/login";
+		throw new Error("No refresh token");
+	}
+
+	try {
+		const res = await api.post("/auth/token/refresh/", { refresh });
+		localStorage.setItem("access_token", res.data.access);
+		api.defaults.headers.common["Authorization"] = `Bearer ${res.data.access}`;
+		return res.data;
+	} catch (error) {
+		localStorage.removeItem("access_token");
+		localStorage.removeItem("refresh_token");
+		window.location.href = "/login";
+		throw new Error("Token refresh failed");
+	}
+};
+
+export function logoutUser() {
 	localStorage.removeItem("access_token");
 	localStorage.removeItem("refresh_token");
 	window.location.href = "/login";
