@@ -36,7 +36,7 @@ export async function refreshAccessToken() {
 	}
 
 	try {
-		const res = await api.post("/auth/token/refresh/", { refresh });
+		const res = await api.post("/auth/refresh/", { refresh });
 		localStorage.setItem("access_token", res.data.access);
 		api.defaults.headers.common["Authorization"] = `Bearer ${res.data.access}`;
 		return res.data;

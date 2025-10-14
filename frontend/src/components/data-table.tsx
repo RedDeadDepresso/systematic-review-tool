@@ -103,6 +103,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
+import { ReviewForm } from "./review-form"
 
 export const schema = z.object({
   id: z.number(),
@@ -409,10 +410,7 @@ export function DataTable({
           View
         </Label>
         <div className="flex items-center justify-end gap-2 w-full">
-          <Button variant="outline" size="sm">
-            <IconPlus />
-            <span className="hidden lg:inline">Create Review</span>
-          </Button>
+          <ReviewForm />
         </div>
       </div>
       <TabsContent
