@@ -39,3 +39,13 @@ class ReviewSerializer(ModelSerializer):
     class Meta:
         model = Review
         fields = ['title', 'description', 'is_archived']
+
+
+class ReviewListSerializer(ModelSerializer):
+    articles = serializers.IntegerField(default=10)
+    date_created = serializers.DateTimeField(format="%d %b %Y")
+    owner = serializers.StringRelatedField()
+
+    class Meta:
+        model = Review
+        fields = ['title', 'date_created', "owner", "articles"]

@@ -39,7 +39,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 class Review(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    date_created = models.DateTimeField(auto_now_add=True)
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
     is_archived = models.BooleanField(default=False)
 
