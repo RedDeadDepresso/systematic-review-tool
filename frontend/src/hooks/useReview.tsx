@@ -1,11 +1,19 @@
-import { createReview } from "@/api/review";
-import { useMutation } from "@tanstack/react-query";
+import { createReview, fetchReviews } from "@/api/review";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 export const useCreateReview = () => {
 	return useMutation({
 		mutationFn: createReview,
 		onSuccess: () => {
-            console.log("Review created successfully");
+			toast.success("Review has been created.")
 		},
 	});
 };
+
+export const useFetchReviews = (params: { is_archived: boolean }) => {
+	return useQuery({
+		queryKey: ['reviews', params],
+		queryFn: () => fetchReviews(params),
+	});
+}

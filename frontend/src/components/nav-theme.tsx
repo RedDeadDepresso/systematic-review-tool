@@ -23,11 +23,9 @@ export function NavTheme() {
 			<SidebarMenuItem>
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
-						<SidebarMenuButton size="lg">
-							<SidebarMenuButton tooltip="Theme">
-								<Palette />
-								<span>Theme</span>
-							</SidebarMenuButton>
+						<SidebarMenuButton tooltip="Theme">
+							<Palette />
+							<span>Theme</span>
 						</SidebarMenuButton>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent

@@ -52,6 +52,7 @@ export function RegisterForm() {
 								placeholder="John"
 								required
 								onChange={handleChange}
+								disabled={register.isPending}
 							/>
 						</Field>
 						<Field>
@@ -63,6 +64,7 @@ export function RegisterForm() {
 								placeholder="Doe"
 								required
 								onChange={handleChange}
+								disabled={register.isPending}
 							/>
 						</Field>
 						<Field>
@@ -74,6 +76,7 @@ export function RegisterForm() {
 								placeholder="m@example.com"
 								required
 								onChange={handleChange}
+								disabled={register.isPending}
 							/>
 						</Field>
 						<Field>
@@ -84,6 +87,7 @@ export function RegisterForm() {
 								type="password"
 								required
 								onChange={handleChange}
+								disabled={register.isPending}
 							/>
 							<FieldDescription>Must be at least 8 characters long.</FieldDescription>
 						</Field>
@@ -95,12 +99,13 @@ export function RegisterForm() {
 								type="password"
 								required
 								onChange={handleChange}
+								disabled={register.isPending}
 							/>
 							<FieldDescription>Please confirm your password.</FieldDescription>
 						</Field>
 						<FieldGroup>
 							<Field>
-								<Button type="submit">Create Account</Button>
+								<Button type="submit" disabled={register.isPending}>Create Account</Button>
 								<FieldDescription className="px-6 text-center">
 									Already have an account? <Link to="/login">Sign in</Link>
 								</FieldDescription>

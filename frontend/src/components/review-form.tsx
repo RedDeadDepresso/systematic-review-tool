@@ -52,6 +52,7 @@ export function ReviewForm() {
 								name="title"
 								placeholder="Review title has to be unique"
 								onChange={handleChange}
+								disabled={review.isPending}
 							/>
 						</div>
 						<div className="grid gap-3">
@@ -62,6 +63,7 @@ export function ReviewForm() {
 								placeholder="Describe your review!"
 								rows={8}
 								onChange={handleChange}
+								disabled={review.isPending}
 							/>
 						</div>
 					</div>
@@ -69,7 +71,7 @@ export function ReviewForm() {
 						<DialogClose asChild>
 							<Button variant="outline">Cancel</Button>
 						</DialogClose>
-						<Button type="submit">Save</Button>
+						<Button type="submit" disabled={review.isPending}>Save</Button>
 					</DialogFooter>
 				</form>
 			</DialogContent>

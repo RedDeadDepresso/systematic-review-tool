@@ -25,9 +25,12 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
 		e.preventDefault();
 		login.mutate(form);
 	};
-  
+
 	return (
-		<div className={cn("flex flex-col gap-6 w-full max-w-2xl mx-auto", className)} {...props}>
+		<div
+			className={cn("flex flex-col gap-6 w-full max-w-2xl mx-auto", className)}
+			{...props}
+		>
 			<Card>
 				<CardHeader>
 					<CardTitle>Login to your account</CardTitle>
@@ -40,7 +43,15 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
 						<FieldGroup>
 							<Field>
 								<FieldLabel htmlFor="email">Email</FieldLabel>
-								<Input id="email" type="email" name="email" placeholder="m@example.com" required onChange={handleChange} />
+								<Input
+									id="email"
+									type="email"
+									name="email"
+									placeholder="m@example.com"
+									required
+									onChange={handleChange}
+									disabled={login.isPending}
+								/>
 							</Field>
 							<Field>
 								<div className="flex items-center">
@@ -52,10 +63,19 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
 										Forgot your password?
 									</a>
 								</div>
-								<Input id="password" type="password" name="password" required onChange={handleChange}/>
+								<Input
+									id="password"
+									type="password"
+									name="password"
+									required
+									onChange={handleChange}
+									disabled={login.isPending}
+								/>
 							</Field>
 							<Field>
-								<Button type="submit">Login</Button>
+								<Button type="submit" disabled={login.isPending}>
+									Login
+								</Button>
 								<FieldDescription className="text-center">
 									Don&apos;t have an account? <Link to="/register">Sign up</Link>
 								</FieldDescription>

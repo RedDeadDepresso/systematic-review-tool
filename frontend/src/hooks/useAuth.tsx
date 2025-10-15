@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { getCurrentUser, loginUser, refreshAccessToken, registerUser } from "../api/auth";
 import { useRouter } from "@tanstack/react-router";
+import { toast } from "sonner";
 
 export const useLogin = () => {
 	const router = useRouter();
@@ -8,6 +9,7 @@ export const useLogin = () => {
 		mutationFn: loginUser,
 		onSuccess: () => {
 			router.navigate({ to: "/" });
+			toast.success("Login successful.")
 		},
 	});
 };
@@ -18,6 +20,7 @@ export const useRegister = () => {
 		mutationFn: registerUser,
 		onSuccess: () => {
 			router.navigate({ to: "/login" });
+			toast.success("Registered successfully.")
 		},
 	});
 };
