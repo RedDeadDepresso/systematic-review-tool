@@ -1,4 +1,12 @@
-import { Archive, ChevronRight, Folder, House, UserRoundPlus, Lock } from "lucide-react";
+import {
+	Archive,
+	ChevronRight,
+	Folder,
+	House,
+	UserRoundPlus,
+	Lock,
+	type LucideIcon,
+} from "lucide-react";
 
 import {
 	Collapsible,
@@ -15,22 +23,33 @@ import {
 	SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import { useRouter } from "@tanstack/react-router";
+import { useFetchReviews } from "@/hooks/useReview";
+import type { Review } from "@/types/review";
+
+export type NavMainItem = {
+	title: string;
+	icon: LucideIcon;
+	items?: Review[];
+};
 
 export function NavMain() {
+	const { data: activeReviews } = useFetchReviews({
+		is_active: true,
+	});
+	const { data: inactiveReviews } = useFetchReviews({
+		is_active: false,
+	});
 	const router = useRouter();
-	const items = [
+	const items: NavMainItem[] = [
 		{
 			title: "Archived Reviews",
-			url: "#",
 			icon: Archive,
-			items: [],
+			items: activeReviews,
 		},
 		{
 			title: "Active Reviews",
-			url: "#",
 			icon: Folder,
-			isActive: true,
-			items: [],
+			items: inactiveReviews,
 		},
 	];
 	return (
@@ -43,12 +62,7 @@ export function NavMain() {
 					</SidebarMenuButton>
 				</SidebarMenuItem>
 				{items.map((item) => (
-					<Collapsible
-						key={item.title}
-						asChild
-						defaultOpen={item.isActive}
-						className="group/collapsible"
-					>
+					<Collapsible key={item.title} asChild className="group/collapsible">
 						<SidebarMenuItem>
 							<CollapsibleTrigger asChild>
 								<SidebarMenuButton tooltip={item.title}>
@@ -62,7 +76,7 @@ export function NavMain() {
 									{item.items?.map((subItem) => (
 										<SidebarMenuSubItem key={subItem.title}>
 											<SidebarMenuSubButton asChild>
-												<a href={subItem.url}>
+												<a href="#">
 													<span>{subItem.title}</span>
 												</a>
 											</SidebarMenuSubButton>
@@ -94,7 +108,10 @@ export function NavMainUnauthenticated() {
 					</SidebarMenuButton>
 				</SidebarMenuItem>
 				<SidebarMenuItem>
-					<SidebarMenuButton tooltip="Register" onClick={() => router.navigate({ to: "/register" })}>
+					<SidebarMenuButton
+						tooltip="Register"
+						onClick={() => router.navigate({ to: "/register" })}
+					>
 						<UserRoundPlus />
 						<span>Register</span>
 					</SidebarMenuButton>

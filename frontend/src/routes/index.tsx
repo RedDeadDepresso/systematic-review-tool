@@ -12,19 +12,19 @@ export const Route = createFileRoute("/")({
 });
 
 function IndexPage() {
-	const {data: activeReviews, isLoading : isLoadingAchive} = useFetchReviews({is_archived: false});
-	const {data: inactiveReviews, isLoading: isLoadingInactive } = useFetchReviews({is_archived: true});
+	const { data: activeReviews, isLoading: isLoadingActive } = useFetchReviews({
+		is_active: true,
+	});
+	const { data: inactiveReviews, isLoading: isLoadingInactive } = useFetchReviews({
+		is_active: false,
+	});
 
 	return (
 		<AppLayout pageTitle="Home" isAuthenticated={true}>
-			<h2 className="text-2xl font-semibold mb-4 text-foreground">
-				Active Reviews
-			</h2>
-			{!isLoadingAchive && <ReviewTable data={activeReviews} inactive={false} />}
-			<h2 className="text-2xl font-semibold mb-4 text-foreground">
-				Inactive Reviews
-			</h2>
-			{!isLoadingInactive && <ReviewTable data={inactiveReviews} inactive={true} />}
+			<h2 className="text-2xl font-semibold mb-4 text-foreground">Active Reviews</h2>
+			{!isLoadingActive && <ReviewTable data={activeReviews} isActive={true} />}
+			<h2 className="text-2xl font-semibold mb-4 text-foreground">Inactive Reviews</h2>
+			{!isLoadingInactive && <ReviewTable data={inactiveReviews} isActive={false} />}
 		</AppLayout>
 	);
 }

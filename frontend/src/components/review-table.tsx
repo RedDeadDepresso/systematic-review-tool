@@ -30,7 +30,6 @@ import {
 	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
 	DropdownMenuItem,
-	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -53,95 +52,118 @@ import {
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ArrowUpDown } from "lucide-react";
 import { ReviewForm } from "./review-form";
+import { useEditReview } from "@/hooks/useReview";
+import { useQueryClient } from "@tanstack/react-query";
+import type { ReviewRow } from "@/types/review";
 
 export const schema = z.object({
 	title: z.string(),
 	date_created: z.string(),
 	owner: z.string(),
 	articles: z.number(),
+	id: z.number(),
 });
 
-const columns: ColumnDef<z.infer<typeof schema>>[] = [
-	{
-		accessorKey: "title",
-		header: ({ column }) => {
-			return (
-				<Button
-					variant="ghost"
-					onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-				>
-					Title
-					<ArrowUpDown className="ml-2 h-4 w-4" />
-				</Button>
-			);
-		},
-		enableHiding: false,
-	},
-	{
-		accessorKey: "date_created",
-		header: ({ column }) => {
-			return (
-				<Button
-					variant="ghost"
-					onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-				>
-					Date Created
-					<ArrowUpDown className="ml-2 h-4 w-4" />
-				</Button>
-			);
-		},
-	},
-	{
-		accessorKey: "owner",
-		header: ({ column }) => {
-			return (
-				<Button
-					variant="ghost"
-					onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-				>
-					Owner
-					<ArrowUpDown className="ml-2 h-4 w-4" />
-				</Button>
-			);
-		},
-	},
-	{
-		accessorKey: "articles",
-		header: ({ column }) => {
-			return (
-				<Button
-					variant="ghost"
-					onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-				>
-					N. of Articles
-					<ArrowUpDown className="ml-2 h-4 w-4" />
-				</Button>
-			);
-		},
-	},
-	{
-		id: "actions",
-		cell: () => (
-			<DropdownMenu>
-				<DropdownMenuTrigger asChild>
+export function createColumns(
+	isActive: boolean,
+	onToggleArchive: (rowData: ReviewRow) => void
+) {
+	const columns: ColumnDef<z.infer<typeof schema>>[] = [
+		{
+			accessorKey: "title",
+			header: ({ column }) => {
+				return (
 					<Button
 						variant="ghost"
-						className="data-[state=open]:bg-muted text-muted-foreground flex size-8"
-						size="icon"
+						onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
 					>
-						<IconDotsVertical />
-						<span className="sr-only">Open menu</span>
+						Title
+						<ArrowUpDown className="ml-2 h-4 w-4" />
 					</Button>
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end" className="w-32">
-					<DropdownMenuItem variant="destructive">Archive</DropdownMenuItem>
-				</DropdownMenuContent>
-			</DropdownMenu>
-		),
-	},
-];
+				);
+			},
+			enableHiding: false,
+		},
+		{
+			accessorKey: "date_created",
+			header: ({ column }) => {
+				return (
+					<Button
+						variant="ghost"
+						onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+					>
+						Date Created
+						<ArrowUpDown className="ml-2 h-4 w-4" />
+					</Button>
+				);
+			},
+		},
+		{
+			accessorKey: "owner",
+			header: ({ column }) => {
+				return (
+					<Button
+						variant="ghost"
+						onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+					>
+						Owner
+						<ArrowUpDown className="ml-2 h-4 w-4" />
+					</Button>
+				);
+			},
+		},
+		{
+			accessorKey: "articles",
+			header: ({ column }) => {
+				return (
+					<Button
+						variant="ghost"
+						onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+					>
+						N. of Articles
+						<ArrowUpDown className="ml-2 h-4 w-4" />
+					</Button>
+				);
+			},
+		},
+		{
+			id: "actions",
+			cell: ({ row }) => (
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<Button
+							variant="ghost"
+							className="data-[state=open]:bg-muted text-muted-foreground flex size-8"
+							size="icon"
+						>
+							<IconDotsVertical />
+							<span className="sr-only">Open menu</span>
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="end" className="w-32">
+						<DropdownMenuItem
+							variant="destructive"
+							onClick={() => {
+								onToggleArchive(row.original);
+							}}
+						>
+							{isActive ? "Archive" : "Unarchive"}
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
+			),
+		},
+	];
+	return columns;
+}
 
-export function ReviewTable({ data, inactive }: { data: z.infer<typeof schema>[], inactive: boolean }) {
+export function ReviewTable({
+	data,
+	isActive,
+}: {
+	data: z.infer<typeof schema>[];
+	isActive: boolean;
+}) {
 	const [rowSelection, setRowSelection] = React.useState({});
 	const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
 	const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -150,6 +172,28 @@ export function ReviewTable({ data, inactive }: { data: z.infer<typeof schema>[]
 		pageIndex: 0,
 		pageSize: 10,
 	});
+
+	const editReview = useEditReview();
+	const queryClient = useQueryClient();
+
+	const onToggleArchive = async (rowData: ReviewRow) => {
+		editReview.mutate({
+			id: rowData.id,
+			data: { is_active: !isActive },
+		});
+		queryClient.setQueryData(["reviews", { is_active: isActive }], (old: any = []) =>
+			old.filter((r: any) => r.id !== rowData.id)
+		);
+		queryClient.setQueryData(
+			["reviews", { is_active: !isActive }],
+			(oldData: any = []) => [...oldData, rowData]
+		);
+	};
+
+	const columns = React.useMemo(
+		() => createColumns(isActive, onToggleArchive),
+		[isActive, onToggleArchive]
+	);
 
 	const table = useReactTable({
 		data,
@@ -189,7 +233,7 @@ export function ReviewTable({ data, inactive }: { data: z.infer<typeof schema>[]
 					className="max-w-sm"
 				/>
 				<div className="flex items-center gap-2">
-					{!inactive && <ReviewForm />}
+					{isActive && <ReviewForm />}
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
 							<Button variant="outline" size="sm">
@@ -230,7 +274,11 @@ export function ReviewTable({ data, inactive }: { data: z.infer<typeof schema>[]
 								<TableRow key={headerGroup.id}>
 									{headerGroup.headers.map((header) => {
 										return (
-											<TableHead key={header.id} colSpan={header.colSpan} className="text-center">
+											<TableHead
+												key={header.id}
+												colSpan={header.colSpan}
+												className="text-center"
+											>
 												{header.isPlaceholder
 													? null
 													: flexRender(
@@ -246,7 +294,7 @@ export function ReviewTable({ data, inactive }: { data: z.infer<typeof schema>[]
 						<TableBody>
 							{table.getRowModel().rows?.length ? (
 								table.getRowModel().rows.map((row) => (
-									<TableRow key={row.id} >
+									<TableRow key={row.id}>
 										{row.getVisibleCells().map((cell) => (
 											<TableCell key={cell.id} className="text-center">
 												{flexRender(cell.column.columnDef.cell, cell.getContext())}
