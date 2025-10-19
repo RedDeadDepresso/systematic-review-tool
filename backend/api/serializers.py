@@ -38,7 +38,7 @@ class RegisterSerializer(ModelSerializer):
 class ReviewSerializer(ModelSerializer):
     class Meta:
         model = Review
-        fields = ['title', 'description', 'is_archived']
+        fields = ['title', 'description', 'is_active']
 
 
 class ReviewListSerializer(ModelSerializer):
@@ -48,4 +48,4 @@ class ReviewListSerializer(ModelSerializer):
 
     class Meta:
         model = Review
-        fields = ['title', 'date_created', "owner", "articles"]
+        fields = ['title', 'date_created', "owner", "articles", "id"]

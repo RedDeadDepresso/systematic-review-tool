@@ -7,4 +7,4 @@ class ReviewFilter(filters.FilterSet):
 
     class Meta:
         model = Review
-        fields = ["title", "is_archived"]
+        fields = ["title", "is_active"]

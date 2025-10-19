@@ -43,3 +43,16 @@ class ReviewListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+
+
+class ReviewRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ReviewSerializer
+    queryset = Review.objects.all()
+
+    def get_object(self):
+        obj = super().get_object()
+        if obj.owner != self.request.user:
+            raise PermissionDenied("You do not have permission to access this review.")
+        return obj
+    
