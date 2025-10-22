@@ -1,8 +1,9 @@
-from api.models import Review, User
+from collections import defaultdict
+
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
-from rest_framework.permissions import AllowAny
-from collections import defaultdict
+
+from api.models import Review, User
 
 
 class RegisterSerializer(ModelSerializer):
@@ -11,8 +12,8 @@ class RegisterSerializer(ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'email', 'password', "confirm_password"]
-        extra_kwargs = {'password': {'write_only': True}}
+        fields = ["first_name", "last_name", "email", "password", "confirm_password"]
+        extra_kwargs = {"password": {"write_only": True}}
 
     def validate(self, data):
         """
@@ -21,16 +22,16 @@ class RegisterSerializer(ModelSerializer):
         detail = defaultdict(list)
         if User.objects.filter(email=data["email"]).exists():
             detail["Email"].append("A user with this email already exists.")
-        if len(data['password']) < 8:
+        if len(data["password"]) < 8:
             detail["Password"].append("Password must be at least 8 characters long.")
-        if data['password'] != data['confirm_password']:
+        if data["password"] != data["confirm_password"]:
             detail["Password"].append("Passwords do not match.")
         if detail:
             raise serializers.ValidationError(detail)
         return data
 
     def create(self, validated_data):
-        validated_data.pop('confirm_password')
+        validated_data.pop("confirm_password")
         user = User.objects.create_user(**validated_data)
         return user
 
@@ -43,8 +44,8 @@ class ReviewSerializer(ModelSerializer):
 
     class Meta:
         model = Review
-        fields = ['title', 'description', 'is_active', "reference_count"]
-    
+        fields = ["title", "description", "is_active", "reference_count"]
+
 
 class ReviewListSerializer(ModelSerializer):
     date_created = serializers.DateTimeField(format="%d %b %Y")
@@ -53,4 +54,4 @@ class ReviewListSerializer(ModelSerializer):
 
     class Meta:
         model = Review
-        fields = ['title', 'date_created', "owner", "reference_count", "id"]
+        fields = ["title", "date_created", "owner", "reference_count", "id"]
