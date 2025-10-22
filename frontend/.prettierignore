@@ -1,0 +1,36 @@
+# Ignore node dependencies
+node_modules/
+
+# Ignore build outputs
+dist/
+build/
+out/
+.next/
+coverage/
+
+# Ignore lock and config files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Ignore assets and binaries
+public/
+*.svg
+*.png
+*.jpg
+*.ico
+
+# Ignore environment files
+.env
+.env.*
+
+# Optional: generated docs or temp files
+*.log
+.cache/
+
+*.js
+*.cjs
+*.mjs
+*.d.ts
+*.d.mts
+vite.config.ts
