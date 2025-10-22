@@ -36,16 +36,21 @@ class RegisterSerializer(ModelSerializer):
 
 
 class ReviewSerializer(ModelSerializer):
+    reference_count = serializers.SerializerMethodField()
+
+    def get_reference_count(self, obj):
+        return obj.reference_set.count()
+
     class Meta:
         model = Review
-        fields = ['title', 'description', 'is_active']
-
+        fields = ['title', 'description', 'is_active', "reference_count"]
+    
 
 class ReviewListSerializer(ModelSerializer):
-    articles = serializers.IntegerField(default=10)
     date_created = serializers.DateTimeField(format="%d %b %Y")
     owner = serializers.StringRelatedField()
+    reference_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Review
-        fields = ['title', 'date_created', "owner", "articles", "id"]
+        fields = ['title', 'date_created', "owner", "reference_count", "id"]

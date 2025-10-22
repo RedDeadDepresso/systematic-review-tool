@@ -45,3 +45,17 @@ class Review(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class Reference(models.Model):
+    review = models.ForeignKey(Review, on_delete=models.CASCADE)
+    title = models.CharField(max_length=255)
+    publication_types = models.CharField(max_length=255)
+    authors = models.CharField(max_length=255)
+    journal = models.CharField(max_length=255)
+    search_methods = models.CharField(max_length=255)
+    article_customizations = models.CharField(max_length=255)
+    abstract = models.TextField(blank=True)
+
+    def __str__(self):
+        return self.review.title + " - " + self.title
