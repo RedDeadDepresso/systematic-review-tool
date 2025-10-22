@@ -8,11 +8,10 @@ import {
 } from "@/components/ui/card";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { useRegister } from "@/hooks/useAuth";
+import { useRegister } from "@/hooks/use-auth";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { errorMessage } from "./error-message";
-
 
 export function RegisterForm() {
 	const register = useRegister();
@@ -105,7 +104,9 @@ export function RegisterForm() {
 						</Field>
 						<FieldGroup>
 							<Field>
-								<Button type="submit" disabled={register.isPending}>Create Account</Button>
+								<Button type="submit" disabled={register.isPending}>
+									Create Account
+								</Button>
 								<FieldDescription className="px-6 text-center">
 									Already have an account? <Link to="/login">Sign in</Link>
 								</FieldDescription>

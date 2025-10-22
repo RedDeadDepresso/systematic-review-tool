@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { ReviewTable } from "@/components/review-table";
 import { AppLayout } from "@/components/app-layout";
-import { useFetchReviews } from "@/hooks/useReview";
+import { useFetchReviews } from "@/hooks/use-review";
 
 export const Route = createFileRoute("/")({
 	component: IndexPage,

@@ -23,7 +23,7 @@ import {
 	SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import { Link, useRouter } from "@tanstack/react-router";
-import { useFetchReviews } from "@/hooks/useReview";
+import { useFetchReviews } from "@/hooks/use-review";
 import type { ReviewRow } from "@/types/review";
 
 export type NavMainItem = {

@@ -12,7 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreateReview } from "@/hooks/useReview";
+import { useCreateReview } from "@/hooks/use-review";
 import { IconPlus } from "@tabler/icons-react";
 import { useState } from "react";
 
@@ -71,7 +71,9 @@ export function ReviewForm() {
 						<DialogClose asChild>
 							<Button variant="outline">Cancel</Button>
 						</DialogClose>
-						<Button type="submit" disabled={review.isPending}>Save</Button>
+						<Button type="submit" disabled={review.isPending}>
+							Save
+						</Button>
 					</DialogFooter>
 				</form>
 			</DialogContent>

@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { useLogin } from "../hooks/useAuth";
+import { useLogin } from "../hooks/use-auth";
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { errorMessage } from "./error-message";

@@ -2,7 +2,7 @@ import { AppLayout } from "@/components/app-layout";
 import { UploadReferencesForm } from "@/components/upload-references-form";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { useFetchReview } from "@/hooks/useReview";
+import { useFetchReview } from "@/hooks/use-review";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { CheckCircle2, FileCheck, FileText, FileX2, Trash2 } from "lucide-react";
 

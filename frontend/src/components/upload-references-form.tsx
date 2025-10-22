@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useUploadReviewReferences } from "@/hooks/useReview";
+import { useUploadReviewReferences } from "@/hooks/use-review";
 import { useState, type ChangeEvent } from "react";
 
 export function UploadReferencesForm({ reviewId }: { reviewId: number | string }) {

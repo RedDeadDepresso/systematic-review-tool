@@ -10,7 +10,7 @@ import {
 	SidebarMenuItem,
 	SidebarRail,
 } from "@/components/ui/sidebar";
-import { useCurrentUser } from "@/hooks/useAuth";
+import { useCurrentUser } from "@/hooks/use-auth";
 import { BookOpenCheck } from "lucide-react";
 import { NavTheme } from "./nav-theme";
 

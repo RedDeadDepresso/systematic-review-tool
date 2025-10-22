@@ -52,7 +52,7 @@ import {
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ArrowUpDown } from "lucide-react";
 import { ReviewForm } from "./review-form";
-import { useEditReview } from "@/hooks/useReview";
+import { useEditReview } from "@/hooks/use-review";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ReviewRow } from "@/types/review";
 import { useRouter } from "@tanstack/react-router";
