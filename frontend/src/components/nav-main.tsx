@@ -22,14 +22,14 @@ import {
 	SidebarMenuSubButton,
 	SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
-import { useRouter } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { useFetchReviews } from "@/hooks/useReview";
-import type { Review } from "@/types/review";
+import type { ReviewRow } from "@/types/review";
 
 export type NavMainItem = {
 	title: string;
 	icon: LucideIcon;
-	items?: Review[];
+	items?: ReviewRow[];
 };
 
 export function NavMain() {
@@ -44,12 +44,12 @@ export function NavMain() {
 		{
 			title: "Archived Reviews",
 			icon: Archive,
-			items: activeReviews,
+			items: inactiveReviews,
 		},
 		{
 			title: "Active Reviews",
 			icon: Folder,
-			items: inactiveReviews,
+			items: activeReviews,
 		},
 	];
 	return (
@@ -76,9 +76,9 @@ export function NavMain() {
 									{item.items?.map((subItem) => (
 										<SidebarMenuSubItem key={subItem.title}>
 											<SidebarMenuSubButton asChild>
-												<a href="#">
+												<Link to="/reviews/$reviewId" params={{ reviewId: subItem.id }}>
 													<span>{subItem.title}</span>
-												</a>
+												</Link>
 											</SidebarMenuSubButton>
 										</SidebarMenuSubItem>
 									))}

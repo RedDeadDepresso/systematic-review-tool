@@ -55,12 +55,13 @@ import { ReviewForm } from "./review-form";
 import { useEditReview } from "@/hooks/useReview";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ReviewRow } from "@/types/review";
+import { useRouter } from "@tanstack/react-router";
 
 export const schema = z.object({
 	title: z.string(),
 	date_created: z.string(),
 	owner: z.string(),
-	articles: z.number(),
+	reference_count: z.number(),
 	id: z.number(),
 });
 
@@ -113,14 +114,14 @@ export function createColumns(
 			},
 		},
 		{
-			accessorKey: "articles",
+			accessorKey: "reference_count",
 			header: ({ column }) => {
 				return (
 					<Button
 						variant="ghost"
 						onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
 					>
-						N. of Articles
+						N. of References
 						<ArrowUpDown className="ml-2 h-4 w-4" />
 					</Button>
 				);
@@ -175,6 +176,8 @@ export function ReviewTable({
 
 	const editReview = useEditReview();
 	const queryClient = useQueryClient();
+
+	const router = useRouter();
 
 	const onToggleArchive = async (rowData: ReviewRow) => {
 		editReview.mutate({
@@ -294,7 +297,11 @@ export function ReviewTable({
 						<TableBody>
 							{table.getRowModel().rows?.length ? (
 								table.getRowModel().rows.map((row) => (
-									<TableRow key={row.id}>
+									<TableRow
+										className="cursor-pointer"
+										key={row.id}
+										onClick={() => router.navigate({ to: `/reviews/${row.original.id}` })}
+									>
 										{row.getVisibleCells().map((cell) => (
 											<TableCell key={cell.id} className="text-center">
 												{flexRender(cell.column.columnDef.cell, cell.getContext())}

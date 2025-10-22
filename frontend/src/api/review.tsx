@@ -10,6 +10,11 @@ export const fetchReviews = async (params: { is_active: boolean }) => {
 	return res.data;
 };
 
+export const fetchReview = async (id: number | string) => {
+	const res = await api.get(`/reviews/${id}`);
+	return res.data;
+};
+
 export const editReview = async ({
 	id,
 	data,
@@ -22,5 +27,19 @@ export const editReview = async ({
 	};
 }) => {
 	const res = await api.patch(`/reviews/${id}/`, data);
+	return res.data;
+};
+
+export const UploadReviewReferences = async (data: {
+	reviewId: number | string;
+	formData: FormData;
+}) => {
+	const res = await api.post(
+		`/reviews/${data.reviewId}/references/upload/`,
+		data.formData,
+		{
+			headers: { "Content-Type": "multipart/form-data" },
+		}
+	);
 	return res.data;
 };
