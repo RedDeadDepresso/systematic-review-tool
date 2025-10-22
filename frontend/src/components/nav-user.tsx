@@ -2,13 +2,9 @@ import {
   IconDotsVertical,
   IconLogout,
   IconUserCircle,
-} from "@tabler/icons-react"
+} from '@tabler/icons-react';
 
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,18 +13,18 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from '@/components/ui/dropdown-menu';
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from "@/components/ui/sidebar"
-import { logoutUser } from "@/api/auth"
+} from '@/components/ui/sidebar';
+import { logoutUser } from '@/api/auth';
 
-export function NavUser({user} : any ) {
-  const { isMobile } = useSidebar()
-  const full_name = user?.first_name + " " + user?.last_name;
+export function NavUser({ user }: any) {
+  const { isMobile } = useSidebar();
+  const full_name = user?.first_name + ' ' + user?.last_name;
   const initials = user?.first_name?.[0] + user?.last_name?.[0];
 
   return (
@@ -42,7 +38,9 @@ export function NavUser({user} : any ) {
             >
               <Avatar className="h-8 w-8 rounded-lg grayscale">
                 <AvatarImage src={user?.avatar} alt={full_name} />
-                <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
+                <AvatarFallback className="rounded-lg">
+                  {initials}
+                </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{full_name}</span>
@@ -55,7 +53,7 @@ export function NavUser({user} : any ) {
           </DropdownMenuTrigger>
           <DropdownMenuContent
             className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-            side={isMobile ? "bottom" : "right"}
+            side={isMobile ? 'bottom' : 'right'}
             align="end"
             sideOffset={4}
           >
@@ -63,7 +61,9 @@ export function NavUser({user} : any ) {
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={user?.avatar} alt={full_name} />
-                  <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
+                  <AvatarFallback className="rounded-lg">
+                    {initials}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{full_name}</span>
@@ -89,5 +89,5 @@ export function NavUser({user} : any ) {
         </DropdownMenu>
       </SidebarMenuItem>
     </SidebarMenu>
-  )
+  );
 }
