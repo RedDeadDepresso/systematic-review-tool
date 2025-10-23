@@ -11,6 +11,7 @@ import {
   FileX2,
   Trash2,
 } from 'lucide-react';
+import { ReviewNavigationMenu } from '@/components/review-navigation-menu';
 
 export const Route = createFileRoute('/reviews/$reviewId')({
   component: ReviewPage,
@@ -29,6 +30,7 @@ function ReviewPage() {
       pageTitle={isLoading ? '...' : data.title}
       isAuthenticated={true}
     >
+      <ReviewNavigationMenu reviewId={reviewId} />
       <div className="space-y-6">
         {/* Review Info Section */}
         <Card className="p-6">

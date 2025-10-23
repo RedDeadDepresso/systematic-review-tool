@@ -31,9 +31,14 @@ export default [
     },
     rules: {
       ...configPrettier.rules,
-      'prettier/prettier': 'error',
       'react/react-in-jsx-scope': 'off',
       'no-unused-vars': 'off',
+      'prettier/prettier': [
+        'error',
+        {
+          endOfLine: 'auto',
+        },
+      ],
     },
   },
 ];
