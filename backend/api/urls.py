@@ -2,6 +2,8 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from api.views import (
+    ReferenceListView,
+    ReferenceRetrieveView,
     RegisterView,
     RetrieveUserView,
     ReviewListCreateView,
@@ -24,5 +26,15 @@ urlpatterns = [
         "reviews/<int:pk>/references/upload/",
         ReviewUploadReferencesView.as_view(),
         name="upload_references",
+    ),
+    path(
+        "reviews/<int:pk>/references/",
+        ReferenceListView.as_view(),
+        name="references",
+    ),
+    path(
+        "reviews/<int:review_pk>/references/<int:pk>/",
+        ReferenceRetrieveView.as_view(),
+        name="reference",
     ),
 ]

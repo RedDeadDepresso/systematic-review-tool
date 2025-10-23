@@ -62,4 +62,4 @@ class Reference(models.Model):
     abstract = models.TextField(blank=True)
 
     def __str__(self):
-        return self.review.title + " - " + self.title
+        return f"{self.review.id} {self.id}"

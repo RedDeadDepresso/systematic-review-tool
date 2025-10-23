@@ -2,6 +2,7 @@ import os
 
 import bibtexparser
 from django.db.models import Count
+from django.shortcuts import get_object_or_404
 from django_filters import rest_framework as filters
 from rest_framework import generics, permissions, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -9,7 +10,13 @@ from rest_framework.response import Response
 
 from api.filters import ReviewFilter
 from api.models import Reference, Review, User
-from api.serializers import RegisterSerializer, ReviewListSerializer, ReviewSerializer
+from api.serializers import (
+    ReferenceListSerializer,
+    ReferenceSerializer,
+    RegisterSerializer,
+    ReviewListSerializer,
+    ReviewSerializer,
+)
 
 
 class RegisterView(generics.CreateAPIView):
@@ -129,3 +136,24 @@ class ReviewUploadReferencesView(generics.GenericAPIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class ReferenceListView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ReferenceListSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        review_id = self.kwargs["pk"]
+        return Reference.objects.filter(review=review_id)
+
+
+class ReferenceRetrieveView(generics.RetrieveAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ReferenceSerializer
+
+    def get_queryset(self):
+        review_id = self.kwargs["review_pk"]
+        reference_pk = self.kwargs["pk"]
+        review = get_object_or_404(Review, pk=review_id, owner=self.request.user)
+        return Reference.objects.filter(review=review, pk=reference_pk)

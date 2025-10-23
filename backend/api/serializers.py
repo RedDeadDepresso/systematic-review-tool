@@ -3,7 +3,7 @@ from collections import defaultdict
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
 
-from api.models import Review, User
+from api.models import Reference, Review, User
 
 
 class RegisterSerializer(ModelSerializer):
@@ -55,3 +55,23 @@ class ReviewListSerializer(ModelSerializer):
     class Meta:
         model = Review
         fields = ["title", "date_created", "owner", "reference_count", "id"]
+
+
+class ReferenceSerializer(ModelSerializer):
+    class Meta:
+        model = Reference
+        fields = [
+            "title",
+            "publication_types",
+            "authors",
+            "journal",
+            "search_methods",
+            "article_customizations",
+            "abstract",
+        ]
+
+
+class ReferenceListSerializer(ModelSerializer):
+    class Meta:
+        model = Reference
+        fields = ["title", "authors", "id"]
