@@ -9,6 +9,7 @@ out/
 coverage/
 
 # Ignore lock and config files
+package.json
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
@@ -33,4 +34,5 @@ public/
 *.mjs
 *.d.ts
 *.d.mts
+*.gen.ts
 vite.config.ts
