@@ -4,12 +4,12 @@ import bibtexparser
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from django_filters import rest_framework as filters
-from rest_framework import generics, permissions, status
+from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from api.filters import ReviewFilter
-from api.models import Reference, Review, User
+from api.models import Reference, ReferenceDuplicatePair, Review, User
 from api.serializers import (
     ReferenceListSerializer,
     ReferenceSerializer,
@@ -59,19 +59,17 @@ class ReviewListCreateView(generics.ListCreateAPIView):
         serializer.save(owner=self.request.user)
 
 
-class IsReviewOwner(permissions.BasePermission):
+class ReviewRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ReviewSerializer
+    queryset = Review.objects.all()
+
     def has_object_permission(self, request, view, obj):
         return obj.owner == request.user
 
 
-class ReviewRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated, IsReviewOwner]
-    serializer_class = ReviewSerializer
-    queryset = Review.objects.all()
-
-
 class ReviewUploadReferencesView(generics.GenericAPIView):
-    permission_classes = [IsAuthenticated, IsReviewOwner]
+    permission_classes = [IsAuthenticated]
     queryset = Review.objects.all()
 
     def extract_fields(self, review_id, search_methods, entry):
@@ -106,6 +104,8 @@ class ReviewUploadReferencesView(generics.GenericAPIView):
         )
 
     def post(self, request, *args, **kwargs):
+        review_id = kwargs["pk"]
+        review = get_object_or_404(Review, pk=review_id, owner=request.user)
         uploaded_file = request.FILES.get("file")
 
         if not uploaded_file:
@@ -122,13 +122,15 @@ class ReviewUploadReferencesView(generics.GenericAPIView):
                 )
 
         bib_database = bibtexparser.load(uploaded_file)
-        review_id = kwargs["pk"]
         search_methods = f"Uploaded References [{uploaded_file.name}]"
         references = [
             self.extract_fields(review_id, search_methods, entry)
             for entry in bib_database.entries
         ]
         Reference.objects.bulk_create(references)
+
+        review.reference_duplicate_detected = False
+        review.save()
 
         return Response(
             {
@@ -157,3 +159,31 @@ class ReferenceRetrieveView(generics.RetrieveAPIView):
         reference_pk = self.kwargs["pk"]
         review = get_object_or_404(Review, pk=review_id, owner=self.request.user)
         return Reference.objects.filter(review=review, pk=reference_pk)
+
+
+class ReferenceDuplicatePairCreateView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ReferenceSerializer
+
+    def post(self, request, *args, **kwargs):
+        review_id = self.kwargs["review_pk"]
+        review = get_object_or_404(Review, pk=review_id, owner=self.request.user)
+        if review.reference_duplicate_detected:
+            return Response(
+                {
+                    "error": "Duplicate detection has already been performed for this review."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        queryset = Reference.objects.filter(review=review)
+        created_count = ReferenceDuplicatePair.create_pairs(review, queryset)
+
+        review.reference_duplicate_detected = True
+        review.save()
+
+        return Response(
+            {
+                "duplicates_found_count": created_count,
+            }
+        )

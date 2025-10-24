@@ -3,7 +3,9 @@ from django.contrib.auth.models import (
     BaseUserManager,
     PermissionsMixin,
 )
-from django.db import models
+from django.contrib.postgres.indexes import GinIndex, OpClass
+from django.db import connection, models, transaction
+from django.db.models.functions import Lower
 
 
 class UserManager(BaseUserManager):
@@ -46,6 +48,7 @@ class Review(models.Model):
     date_created = models.DateTimeField(auto_now_add=True)
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
     is_active = models.BooleanField(default=True)
+    reference_duplicate_detected = models.BooleanField(default=False)
 
     def __str__(self):
         return self.title
@@ -61,5 +64,92 @@ class Reference(models.Model):
     article_customizations = models.CharField(max_length=255)
     abstract = models.TextField(blank=True)
 
+    class Meta:
+        indexes = [
+            GinIndex(
+                OpClass(Lower("title"), "gin_trgm_ops"), name="reference_title_trgm_idx"
+            ),
+        ]
+
     def __str__(self):
         return f"{self.review.id} {self.id}"
+
+
+class ReferenceDuplicatePair(models.Model):
+    review = models.ForeignKey(Review, on_delete=models.CASCADE)
+    reference1 = models.ForeignKey(
+        "Reference", on_delete=models.CASCADE, related_name="duplicate_reference1"
+    )
+    reference2 = models.ForeignKey(
+        "Reference", on_delete=models.CASCADE, related_name="duplicate_reference2"
+    )
+    similarity_score = models.FloatField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["review", "reference1", "reference2"],
+                name="unique_duplicatepair_per_review_refs",
+            ),
+        ]
+
+    @classmethod
+    def _find_pairs(cls, queryset, threshold=0.5):
+        """Find similar Reference title pairs within queryset."""
+        table = Reference._meta.db_table
+        ids = list(queryset.values_list("id", flat=True))
+        if not ids:
+            return []
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"""
+                SELECT
+                    a.id AS id1,
+                    b.id AS id2,
+                    similarity(a.title, b.title) AS sim
+                FROM {table} a
+                JOIN {table} b
+                  ON a.id < b.id
+                WHERE a.id = ANY(%s)
+                  AND b.id = ANY(%s)
+                  AND similarity(a.title, b.title) > %s
+                ORDER BY sim DESC
+                """,
+                [ids, ids, threshold],
+            )
+            return cursor.fetchall()
+
+    @classmethod
+    @transaction.atomic
+    def _create_pairs(cls, review, raw_pairs):
+        """Create DuplicatePair objects from detected pairs."""
+        to_create = []
+        for r in raw_pairs:
+            to_create.append(
+                ReferenceDuplicatePair(
+                    review=review,
+                    reference1_id=r[0],
+                    reference2_id=r[1],
+                    similarity_score=r[2],
+                )
+            )
+
+        created = 0
+        for obj in to_create:
+            try:
+                obj.save()
+                created += 1
+            except Exception:
+                continue
+        return created
+
+    @classmethod
+    def create_pairs(cls, review, queryset, threshold=0.5):
+        """Find and create DuplicatePair objects from detected pairs. queryset is a Reference queryset."""
+        raw_pairs = cls._find_pairs(queryset, threshold)
+        created_count = cls._create_pairs(review, raw_pairs)
+        return created_count
+
+    def __str__(self):
+        return f"DuplicatePair({self.reference1.id}, {self.reference2.id})"

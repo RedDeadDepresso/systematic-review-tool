@@ -38,13 +38,23 @@ class RegisterSerializer(ModelSerializer):
 
 class ReviewSerializer(ModelSerializer):
     reference_count = serializers.SerializerMethodField()
+    reference_duplicates_count = serializers.SerializerMethodField()
 
     def get_reference_count(self, obj):
         return obj.reference_set.count()
 
+    def get_reference_duplicates_count(self, obj):
+        return obj.referenceduplicatepair_set.count()
+
     class Meta:
         model = Review
-        fields = ["title", "description", "is_active", "reference_count"]
+        fields = [
+            "title",
+            "description",
+            "is_active",
+            "reference_count",
+            "reference_duplicates_count",
+        ]
 
 
 class ReviewListSerializer(ModelSerializer):
