@@ -3,6 +3,7 @@ export type Review = {
   description: string;
   is_active: boolean;
   reference_count: number;
+  reference_duplicates_count: number;
 };
 
 export type ReviewRow = {

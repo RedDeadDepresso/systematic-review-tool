@@ -12,3 +12,8 @@ export const fetchReference = async (
   const res = await api.get(`/reviews/${reviewId}/references/${referenceId}/`);
   return res.data;
 };
+
+export const detectDuplicateReferences = async (reviewId: number | string) => {
+  const res = await api.post(`/reviews/${reviewId}/reference-duplicate-pairs/`);
+  return res.data;
+};

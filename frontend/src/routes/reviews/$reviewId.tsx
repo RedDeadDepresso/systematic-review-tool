@@ -12,6 +12,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import { ReviewNavigationMenu } from '@/components/review-navigation-menu';
+import { useDetectDuplicateReferences } from '@/hooks/use-reference';
+import { Spinner } from '@/components/ui/spinner';
 
 export const Route = createFileRoute('/reviews/$reviewId')({
   component: ReviewPage,
@@ -24,6 +26,11 @@ export const Route = createFileRoute('/reviews/$reviewId')({
 function ReviewPage() {
   const { reviewId } = Route.useParams();
   const { data, isLoading } = useFetchReview(reviewId);
+  const { mutate, isPending } = useDetectDuplicateReferences();
+
+  const handleDetectDuplicates = () => {
+    mutate({ reviewId });
+  };
 
   return (
     <AppLayout
@@ -94,9 +101,14 @@ function ReviewPage() {
                   Total Duplicates
                 </h3>
                 <p className="text-center text-4xl font-semibold text-foreground">
-                  7
+                  {isLoading ? '0' : data.reference_duplicates_count}
                 </p>
-                <Button className="w-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200">
+                <Button
+                  className="w-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                  onClick={handleDetectDuplicates}
+                  disabled={isPending}
+                >
+                  {isPending && <Spinner />}
                   Detect Duplicates
                 </Button>
               </div>
