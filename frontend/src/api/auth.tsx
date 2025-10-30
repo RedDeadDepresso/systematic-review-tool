@@ -1,4 +1,5 @@
 import api from './axios';
+import { redirect } from '@tanstack/react-router';
 
 export const registerUser = async (data: {
   first_name: string;
@@ -51,5 +52,5 @@ export async function refreshAccessToken() {
 export function logoutUser() {
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
-  window.location.href = '/login';
+  redirect({ to: '/login' });
 }

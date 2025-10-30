@@ -52,7 +52,7 @@ import {
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { ArrowUpDown } from 'lucide-react';
 import { ReviewForm } from './review-form';
-import { useEditReview } from '@/hooks/use-review';
+import { useDeleteReview, useEditReview } from '@/hooks/use-review';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ReviewRow } from '@/types/review';
 import { useRouter } from '@tanstack/react-router';
@@ -67,7 +67,8 @@ export const schema = z.object({
 
 export function createColumns(
   isActive: boolean,
-  onToggleArchive: (rowData: ReviewRow) => void
+  onToggleArchive: (rowData: ReviewRow) => void,
+  onDelete: (rowData: ReviewRow) => void
 ) {
   const columns: ColumnDef<z.infer<typeof schema>>[] = [
     {
@@ -144,11 +145,21 @@ export function createColumns(
           <DropdownMenuContent align="end" className="w-32">
             <DropdownMenuItem
               variant="destructive"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 onToggleArchive(row.original);
               }}
             >
               {isActive ? 'Archive' : 'Unarchive'}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(row.original);
+              }}
+            >
+              Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -178,6 +189,7 @@ export function ReviewTable({
   });
 
   const editReview = useEditReview();
+  const deleteReview = useDeleteReview();
   const queryClient = useQueryClient();
 
   const router = useRouter();
@@ -197,8 +209,18 @@ export function ReviewTable({
     );
   };
 
+  const onDelete = async (rowData: ReviewRow) => {
+    deleteReview.mutate({
+      id: rowData.id,
+    });
+    queryClient.setQueryData(
+      ['reviews', { is_active: isActive }],
+      (old: any = []) => old.filter((r: any) => r.id !== rowData.id)
+    );
+  };
+
   const columns = React.useMemo(
-    () => createColumns(isActive, onToggleArchive),
+    () => createColumns(isActive, onToggleArchive, onDelete),
     [isActive, onToggleArchive]
   );
 

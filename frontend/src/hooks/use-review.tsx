@@ -10,15 +10,6 @@ import type { Review } from '@/types/review';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-export const useCreateReview = () => {
-  return useMutation({
-    mutationFn: createReview,
-    onSuccess: () => {
-      toast.success('Review has been created.');
-    },
-  });
-};
-
 export const useFetchReviews = (params: { is_active: boolean }) => {
   return useQuery({
     queryKey: ['reviews', params],
@@ -30,6 +21,23 @@ export const useFetchReview = (id: number | string) => {
   return useQuery({
     queryKey: ['reviews', id],
     queryFn: () => fetchReview(id),
+  });
+};
+
+export const useCreateReview = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createReview,
+    onSuccess: (data) => {
+      toast.success('Review has been created.');
+      queryClient.setQueryData(
+        ['reviews', { is_active: true }],
+        (oldData: Review[] = []) => {
+          if (!oldData) return [data];
+          return [...oldData, data];
+        }
+      );
+    },
   });
 };
 
@@ -58,6 +66,18 @@ export const useUploadReviewReferences = () => {
           reference_count: oldData.reference_count + uploaded_reference_count,
         };
       });
+    },
+  });
+};
+
+export const useDeleteReview = () => {
+  return useMutation({
+    mutationFn: deleteReview,
+    onSuccess: () => {
+      toast.success('Review deleted successfully.');
+    },
+    onError: () => {
+      toast.error('Delete failed.');
     },
   });
 };
