@@ -1,5 +1,6 @@
 import {
   createReview,
+  deleteReview,
   editReview,
   fetchReview,
   fetchReviews,

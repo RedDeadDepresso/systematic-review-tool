@@ -17,3 +17,22 @@ export const detectDuplicateReferences = async (reviewId: number | string) => {
   const res = await api.post(`/reviews/${reviewId}/reference-duplicate-pairs/`);
   return res.data;
 };
+
+export const fetchDuplicateReference = async (reviewId: number | string) => {
+  const res = await api.get(
+    `/reviews/${reviewId}/reference-duplicate-pairs/retrieve/`
+  );
+  return res.data;
+};
+
+export const resolveDuplicateReferences = async (
+  reviewId: number | string,
+  referenceDuplicateId: number | string,
+  selection: 1 | 2
+) => {
+  const res = await api.post(
+    `/reviews/${reviewId}/reference-duplicate-pairs/${referenceDuplicateId}/resolve/`,
+    { selection: selection }
+  );
+  return res.data;
+};

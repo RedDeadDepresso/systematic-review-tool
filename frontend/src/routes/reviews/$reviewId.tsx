@@ -14,6 +14,8 @@ import {
 import { ReviewNavigationMenu } from '@/components/review-navigation-menu';
 import { useDetectDuplicateReferences } from '@/hooks/use-reference';
 import { Spinner } from '@/components/ui/spinner';
+import { useState } from 'react';
+import { ResolveDuplicatesDialog } from '@/components/resolve-duplicate-dialog';
 
 export const Route = createFileRoute('/reviews/$reviewId')({
   component: ReviewPage,
@@ -27,6 +29,7 @@ function ReviewPage() {
   const { reviewId } = Route.useParams();
   const { data, isLoading } = useFetchReview(reviewId);
   const { mutate, isPending } = useDetectDuplicateReferences();
+  const [isOpen, setIsOpen] = useState<boolean>(false);
 
   const handleDetectDuplicates = () => {
     mutate({ reviewId });
@@ -37,6 +40,12 @@ function ReviewPage() {
       pageTitle={isLoading ? '...' : data.title}
       isAuthenticated={true}
     >
+      <ResolveDuplicatesDialog
+        reviewId={reviewId}
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+      />
+
       <ReviewNavigationMenu reviewId={reviewId} />
       <div className="space-y-6">
         {/* Review Info Section */}
@@ -80,7 +89,7 @@ function ReviewPage() {
           <h2 className="mb-2 text-xl font-semibold text-foreground">
             Data Summary
           </h2>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {/* Imported References Card */}
             <Card className="p-6">
               <div className="space-y-4">
@@ -121,11 +130,12 @@ function ReviewPage() {
                   Unresolved
                 </h3>
                 <p className="text-center text-4xl font-semibold text-foreground">
-                  0
+                  {isLoading ? '0' : data.reference_duplicates_count}
                 </p>
                 <Button
                   className="w-full bg-gray-200 text-gray-600 hover:bg-gray-300"
-                  disabled
+                  disabled={isLoading || data.reference_duplicates_count === 0}
+                  onClick={() => setIsOpen(true)}
                 >
                   Continue Resolving
                 </Button>
@@ -133,7 +143,7 @@ function ReviewPage() {
             </Card>
 
             {/* Status Summary Card */}
-            <Card className="p-6">
+            {/* <Card className="p-6">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -165,7 +175,7 @@ function ReviewPage() {
                   <span className="text-2xl font-bold text-foreground">4</span>
                 </div>
               </div>
-            </Card>
+            </Card> */}
           </div>
         </Card>
       </div>

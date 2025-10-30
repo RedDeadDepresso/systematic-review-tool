@@ -46,3 +46,8 @@ export const UploadReviewReferences = async (data: {
   );
   return res.data;
 };
+
+export const deleteReview = async (id: number | string) => {
+  const res = await api.delete(`/reviews/${id}`);
+  return res.data;
+};

@@ -1,7 +1,9 @@
 import {
   detectDuplicateReferences,
+  fetchDuplicateReference,
   fetchReference,
   fetchReferences,
+  resolveDuplicateReferences,
 } from '@/api/reference';
 import type { Reference } from '@/types/reference';
 import type { Review } from '@/types/review';
@@ -70,6 +72,50 @@ export const useDetectDuplicateReferences = () => {
           ...oldData,
           reference_duplicates_count:
             oldData.reference_duplicates_count + duplicates_found_count,
+        };
+      });
+    },
+    onError: (error: AxiosError) => {
+      const message = error?.response?.data?.error;
+      if (message) toast.error(message);
+    },
+  });
+};
+
+export const useFetchDuplicateReference = ({
+  reviewId,
+}: {
+  reviewId: string | number;
+}) => {
+  return useQuery({
+    queryKey: ['reviews', reviewId, 'referenceDuplicatePair'],
+    queryFn: () => fetchDuplicateReference(reviewId),
+  });
+};
+
+export const useResolveDuplicateReferences = () => {
+  const queryClient = useQueryClient();
+  return useMutation<
+    { detail: string },
+    unknown,
+    {
+      reviewId: number | string;
+      referenceDuplicateId: number | string;
+      selection: 1 | 2;
+    }
+  >({
+    mutationFn: ({ reviewId, referenceDuplicateId, selection }) =>
+      resolveDuplicateReferences(reviewId, referenceDuplicateId, selection),
+    onSuccess: ({ detail }: { detail: string }, { reviewId }) => {
+      toast.success(`${detail}`);
+      queryClient.invalidateQueries({
+        queryKey: ['reviews', reviewId, 'referenceDuplicatePair'],
+      });
+      queryClient.setQueryData(['reviews', reviewId], (oldData: Review) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          reference_duplicates_count: oldData.reference_duplicates_count - 1,
         };
       });
     },

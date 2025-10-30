@@ -13,3 +13,9 @@ export type ReferenceRow = {
   title: string;
   authors: string;
 };
+
+export type DuplicateReferencePair = {
+  reference1: Reference;
+  reference2: Reference;
+  similarity_score: number;
+};
