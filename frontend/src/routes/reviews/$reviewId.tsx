@@ -1,4 +1,3 @@
-import { AppLayout } from '@/components/app-layout';
 import { UploadReferencesForm } from '@/components/upload-references-form';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -14,8 +13,9 @@ import {
 import { ReviewNavigationMenu } from '@/components/review-navigation-menu';
 import { useDetectDuplicateReferences } from '@/hooks/use-reference';
 import { Spinner } from '@/components/ui/spinner';
-import { useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { ResolveDuplicatesDialog } from '@/components/resolve-duplicate-dialog';
+import { AppLayoutContext } from '@/context/app-layout-context';
 
 export const Route = createFileRoute('/reviews/$reviewId')({
   component: ReviewPage,
@@ -30,16 +30,19 @@ function ReviewPage() {
   const { data, isLoading } = useFetchReview(reviewId);
   const { mutate, isPending } = useDetectDuplicateReferences();
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
+
+  useEffect(() => {
+    setPageTitle('Review Data');
+    setIsAuthenticated(true);
+  }, []);
 
   const handleDetectDuplicates = () => {
     mutate({ reviewId });
   };
 
   return (
-    <AppLayout
-      pageTitle={isLoading ? '...' : data.title}
-      isAuthenticated={true}
-    >
+    <>
       <ResolveDuplicatesDialog
         reviewId={reviewId}
         isOpen={isOpen}
@@ -179,6 +182,6 @@ function ReviewPage() {
           </div>
         </Card>
       </div>
-    </AppLayout>
+    </>
   );
 }

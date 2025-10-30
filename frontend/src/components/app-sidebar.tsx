@@ -13,8 +13,18 @@ import {
 import { useCurrentUser } from '@/hooks/use-auth';
 import { BookOpenCheck } from 'lucide-react';
 import { NavTheme } from './nav-theme';
+import { useContext } from 'react';
+import { AppLayoutContext } from '@/context/app-layout-context';
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { isAuthenticated } = useContext(AppLayoutContext);
+  if (isAuthenticated) return <AppSidebarAuthenticated />;
+  return <AppSidebarUnauthenticated />;
+}
+
+export function AppSidebarAuthenticated({
+  ...props
+}: React.ComponentProps<typeof Sidebar>) {
   const { data, isLoading } = useCurrentUser();
   return (
     <Sidebar collapsible="icon" {...props}>

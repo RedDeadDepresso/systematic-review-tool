@@ -1,29 +1,18 @@
-import {
-  AppSidebar,
-  AppSidebarUnauthenticated,
-} from '@/components/app-sidebar';
+import { AppSidebar } from '@/components/app-sidebar';
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
+import { useContext } from 'react';
+import { AppLayoutContext } from '@/context/app-layout-context';
 
-type AppLayoutProps = {
-  pageTitle: string;
-  isAuthenticated: boolean;
-  children: React.ReactNode;
-};
-
-export function AppLayout({
-  pageTitle,
-  isAuthenticated,
-  children,
-}: AppLayoutProps) {
+export function AppLayout({ children }: { children: React.ReactNode }) {
+  const { pageTitle } = useContext(AppLayoutContext);
   return (
     <SidebarProvider>
-      {isAuthenticated && <AppSidebar />}
-      {!isAuthenticated && <AppSidebarUnauthenticated />}
+      <AppSidebar />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
           <div className="flex items-center gap-2 px-4">

@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createRouter } from '@tanstack/react-router';
 import { ThemeProvider } from './components/theme-provider.tsx';
+import { AppLayoutProvider } from '@/context/app-layout-context.tsx';
 
 // Import the generated route tree
 import { routeTree } from './routeTree.gen';
@@ -37,7 +38,9 @@ if (rootElement && !rootElement.innerHTML) {
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <RouterProvider router={router} />
+          <AppLayoutProvider>
+            <RouterProvider router={router} />
+          </AppLayoutProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </StrictMode>

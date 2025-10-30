@@ -1,7 +1,8 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { ReviewTable } from '@/components/review-table';
-import { AppLayout } from '@/components/app-layout';
 import { useFetchReviews } from '@/hooks/use-review';
+import { useContext, useEffect } from 'react';
+import { AppLayoutContext } from '@/context/app-layout-context';
 
 export const Route = createFileRoute('/')({
   component: IndexPage,
@@ -20,8 +21,15 @@ function IndexPage() {
       is_active: false,
     });
 
+  const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
+
+  useEffect(() => {
+    setPageTitle('Home');
+    setIsAuthenticated(true);
+  }, []);
+
   return (
-    <AppLayout pageTitle="Home" isAuthenticated={true}>
+    <>
       <h2 className="text-2xl font-semibold mb-4 text-foreground">
         Active Reviews
       </h2>
@@ -32,6 +40,6 @@ function IndexPage() {
       {!isLoadingInactive && (
         <ReviewTable data={inactiveReviews} isActive={false} />
       )}
-    </AppLayout>
+    </>
   );
 }

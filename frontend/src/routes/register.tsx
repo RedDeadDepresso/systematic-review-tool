@@ -1,6 +1,7 @@
-import { AppLayout } from '@/components/app-layout';
 import { RegisterForm } from '@/components/register-form';
+import { AppLayoutContext } from '@/context/app-layout-context';
 import { createFileRoute, redirect } from '@tanstack/react-router';
+import { useContext, useEffect } from 'react';
 
 export const Route = createFileRoute('/register')({
   component: RegisterPage,
@@ -11,9 +12,10 @@ export const Route = createFileRoute('/register')({
 });
 
 function RegisterPage() {
-  return (
-    <AppLayout pageTitle="Register" isAuthenticated={false}>
-      <RegisterForm />
-    </AppLayout>
-  );
+  const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
+  useEffect(() => {
+    setPageTitle('Register');
+    setIsAuthenticated(false);
+  }, []);
+  return <RegisterForm />;
 }

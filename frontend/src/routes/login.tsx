@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { LoginForm } from '@/components/login-form';
-import { AppLayout } from '@/components/app-layout';
+import { useContext, useEffect } from 'react';
+import { AppLayoutContext } from '@/context/app-layout-context';
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
@@ -11,9 +12,12 @@ export const Route = createFileRoute('/login')({
 });
 
 function LoginPage() {
-  return (
-    <AppLayout pageTitle="Login" isAuthenticated={false}>
-      <LoginForm />
-    </AppLayout>
-  );
+  const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
+
+  useEffect(() => {
+    setPageTitle('Login');
+    setIsAuthenticated(false);
+  }, []);
+
+  return <LoginForm />;
 }
