@@ -39,6 +39,8 @@ class RegisterSerializer(ModelSerializer):
 class ReviewSerializer(ModelSerializer):
     reference_count = serializers.SerializerMethodField()
     reference_duplicates_count = serializers.SerializerMethodField()
+    date_created = serializers.DateTimeField(format="%d %b %Y", read_only=True)
+    owner = serializers.CharField(read_only=True)
 
     def get_reference_count(self, obj):
         return obj.reference_set.count()
@@ -54,6 +56,8 @@ class ReviewSerializer(ModelSerializer):
             "is_active",
             "reference_count",
             "reference_duplicates_count",
+            "date_created",
+            "owner",
         ]
 
 
