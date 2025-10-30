@@ -3,6 +3,8 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from api.views import (
     ReferenceDuplicatePairCreateView,
+    ReferenceDuplicatePairResolveView,
+    ReferenceDuplicatePairRetrieveView,
     ReferenceListView,
     ReferenceRetrieveView,
     RegisterView,
@@ -42,5 +44,15 @@ urlpatterns = [
         "reviews/<int:review_pk>/reference-duplicate-pairs/",
         ReferenceDuplicatePairCreateView.as_view(),
         name="reference_duplicate_pairs",
+    ),
+    path(
+        "reviews/<int:review_pk>/reference-duplicate-pairs/retrieve/",
+        ReferenceDuplicatePairRetrieveView.as_view(),
+        name="reference_duplicate_pairs",
+    ),
+    path(
+        "reviews/<int:review_pk>/reference-duplicate-pairs/<int:pk>/resolve/",
+        ReferenceDuplicatePairResolveView.as_view(),
+        name="reference_duplicate_pairs_resolve",
     ),
 ]

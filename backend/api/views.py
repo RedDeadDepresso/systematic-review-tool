@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from api.filters import ReviewFilter
 from api.models import Reference, ReferenceDuplicatePair, Review, User
 from api.serializers import (
+    ReferenceDuplicatePairSerializer,
     ReferenceListSerializer,
     ReferenceSerializer,
     RegisterSerializer,
@@ -85,9 +86,9 @@ class ReviewUploadReferencesView(generics.GenericAPIView):
 
         publication_type = publication_types.get(entry.get("ENTRYTYPE", ""), "Other")
         authors = (
-            [a.strip() for a in entry.get("author", "").split(" and ")]
+            ", ".join(a.strip() for a in entry.get("author", "").split(" and "))
             if "author" in entry
-            else []
+            else ""
         )
         journal = entry.get("journal") or entry.get("booktitle") or ""
         article_customizations = entry.get("note") or entry.get("howpublished")
@@ -186,4 +187,61 @@ class ReferenceDuplicatePairCreateView(generics.GenericAPIView):
             {
                 "duplicates_found_count": created_count,
             }
+        )
+
+
+class ReferenceDuplicatePairRetrieveView(generics.RetrieveAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ReferenceDuplicatePairSerializer
+
+    def get_object(self):
+        review_id = self.kwargs.get("review_pk")
+        review = get_object_or_404(Review, pk=review_id, owner=self.request.user)
+        return ReferenceDuplicatePair.objects.filter(review=review).first()
+
+    def get(self, request, *args, **kwargs):
+        obj = self.get_object()
+        if obj is None:
+            return Response(
+                {"detail": "No reference duplicate pair found for this review."},
+                status=status.HTTP_200_OK,
+            )
+        serializer = self.get_serializer(obj)
+        return Response(serializer.data)
+
+
+class ReferenceDuplicatePairResolveView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        review_id = kwargs.get("review_pk")
+        duplicate_pair_id = kwargs.get("pk")
+
+        review = get_object_or_404(Review, pk=review_id, owner=request.user)
+        duplicate_pair = get_object_or_404(
+            ReferenceDuplicatePair, review=review, pk=duplicate_pair_id
+        )
+
+        try:
+            selection = int(request.data.get("selection"))
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "Selection must be an integer (1 or 2)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if selection == 1:
+            duplicate_pair.reference2.delete()
+        elif selection == 2:
+            duplicate_pair.reference1.delete()
+        else:
+            return Response(
+                {"detail": "Invalid selection. Must be 1 or 2."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        duplicate_pair.delete()
+        return Response(
+            {"detail": "Reference duplicate resolved successfully."},
+            status=status.HTTP_200_OK,
         )
