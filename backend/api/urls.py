@@ -2,11 +2,14 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from api.views import (
+    KeywordListCreateView,
+    NoteListCreateView,
+    NoteRetrieveUpdateDestroyView,
     ReferenceDuplicatePairCreateView,
     ReferenceDuplicatePairResolveView,
     ReferenceDuplicatePairRetrieveView,
     ReferenceListView,
-    ReferenceRetrieveView,
+    ReferenceRetrieveUpdateView,
     RegisterView,
     RetrieveUserView,
     ReviewListCreateView,
@@ -37,7 +40,7 @@ urlpatterns = [
     ),
     path(
         "reviews/<int:review_pk>/references/<int:pk>/",
-        ReferenceRetrieveView.as_view(),
+        ReferenceRetrieveUpdateView.as_view(),
         name="reference",
     ),
     path(
@@ -54,5 +57,20 @@ urlpatterns = [
         "reviews/<int:review_pk>/reference-duplicate-pairs/<int:pk>/resolve/",
         ReferenceDuplicatePairResolveView.as_view(),
         name="reference_duplicate_pairs_resolve",
+    ),
+    path(
+        "reviews/<int:review_pk>/keywords/",
+        KeywordListCreateView.as_view(),
+        name="keywords",
+    ),
+    path(
+        "reviews/<int:review_pk>/references/<int:reference_pk>/notes/",
+        NoteListCreateView.as_view(),
+        name="notes",
+    ),
+    path(
+        "reviews/<int:review_pk>/references/<int:reference_pk>/notes/<int:note_pk>/",
+        NoteRetrieveUpdateDestroyView.as_view(),
+        name="note",
     ),
 ]

@@ -55,6 +55,13 @@ class Review(models.Model):
 
 
 class Reference(models.Model):
+    STATUS_CHOICES = [
+        ("Undecided", "Undecided"),
+        ("Excluded", "Excluded"),
+        ("Maybe", "Maybe"),
+        ("Included", "Included"),
+    ]
+
     review = models.ForeignKey(Review, on_delete=models.CASCADE)
     title = models.CharField(max_length=255)
     publication_types = models.CharField(max_length=255)
@@ -63,6 +70,11 @@ class Reference(models.Model):
     search_methods = models.CharField(max_length=255)
     article_customizations = models.CharField(max_length=255)
     abstract = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default="Undecided",
+    )
 
     class Meta:
         indexes = [
@@ -153,3 +165,19 @@ class ReferenceDuplicatePair(models.Model):
 
     def __str__(self):
         return f"DuplicatePair({self.reference1.id}, {self.reference2.id})"
+
+
+class Keyword(models.Model):
+    review = models.ForeignKey(Review, on_delete=models.CASCADE)
+    name = models.CharField(max_length=150)
+    is_inclusive = models.BooleanField()
+
+
+class Note(models.Model):
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notes")
+    content = models.TextField()
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_edited = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Note by {self.author.username} on {self.date_created.strftime('%Y-%m-%d %H:%M')}"

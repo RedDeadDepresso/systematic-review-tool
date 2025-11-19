@@ -8,11 +8,12 @@ from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from api.filters import ReviewFilter
-from api.models import Reference, ReferenceDuplicatePair, Review, User
+from api.filters import KeywordFilter, ReviewFilter
+from api.models import Keyword, Note, Reference, ReferenceDuplicatePair, Review, User
 from api.serializers import (
+    KeywordSerializer,
+    NoteSerializer,
     ReferenceDuplicatePairSerializer,
-    ReferenceListSerializer,
     ReferenceSerializer,
     RegisterSerializer,
     ReviewListSerializer,
@@ -143,7 +144,7 @@ class ReviewUploadReferencesView(generics.GenericAPIView):
 
 class ReferenceListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
-    serializer_class = ReferenceListSerializer
+    serializer_class = ReferenceSerializer
     pagination_class = None
 
     def get_queryset(self):
@@ -151,7 +152,7 @@ class ReferenceListView(generics.ListAPIView):
         return Reference.objects.filter(review=review_id)
 
 
-class ReferenceRetrieveView(generics.RetrieveAPIView):
+class ReferenceRetrieveUpdateView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ReferenceSerializer
 
@@ -245,3 +246,32 @@ class ReferenceDuplicatePairResolveView(generics.GenericAPIView):
             {"detail": "Reference duplicate resolved successfully."},
             status=status.HTTP_200_OK,
         )
+
+
+class KeywordListCreateView(generics.ListCreateAPIView):
+    serializer_class = KeywordSerializer
+    filter_backends = (filters.DjangoFilterBackend,)
+    filterset_class = KeywordFilter
+
+    def get_queryset(self):
+        review_id = self.kwargs["review_pk"]
+        return Keyword.objects.filter(review_id=review_id)
+
+    def perform_create(self, serializer):
+        review_id = self.kwargs["review_pk"]
+        serializer.save(review_id=review_id)
+
+
+class NoteRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Note.objects.all()
+    serializer_class = NoteSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class NoteListCreateView(generics.ListCreateAPIView):
+    queryset = Note.objects.all()
+    serializer_class = NoteSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
