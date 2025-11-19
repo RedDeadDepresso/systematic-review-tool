@@ -1,5 +1,6 @@
 import {
   detectDuplicateReferences,
+  editReference,
   fetchDuplicateReference,
   fetchReference,
   fetchReferences,
@@ -122,6 +123,24 @@ export const useResolveDuplicateReferences = () => {
     onError: (error: AxiosError) => {
       const message = error?.response?.data?.error;
       if (message) toast.error(message);
+    },
+  });
+};
+
+export const useEditReference = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: editReference,
+    onSuccess: (updatedReference, { reviewId: reviewId }) => {
+      queryClient.setQueryData(
+        ['reviews', reviewId, 'references'],
+        (oldData: []) => {
+          if (!oldData) return oldData;
+          return oldData.map((ref: Reference) =>
+            ref.id === updatedReference.id ? updatedReference : ref
+          );
+        }
+      );
     },
   });
 };

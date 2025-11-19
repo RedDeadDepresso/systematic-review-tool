@@ -36,3 +36,21 @@ export const resolveDuplicateReferences = async (
   );
   return res.data;
 };
+
+export const editReference = async ({
+  reviewId,
+  referenceId,
+  data,
+}: {
+  reviewId: number;
+  referenceId: number;
+  data: {
+    status: 'Undecided' | 'Excluded' | 'Maybe' | 'Included';
+  };
+}) => {
+  const res = await api.patch(
+    `/reviews/${reviewId}/references/${referenceId}/`,
+    data
+  );
+  return res.data;
+};

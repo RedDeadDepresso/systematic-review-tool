@@ -1,4 +1,5 @@
 export type Reference = {
+  id: number;
   title: string;
   publication_types: string;
   authors: string;
@@ -6,6 +7,7 @@ export type Reference = {
   search_methods: string;
   article_customizations: string;
   abstract: string;
+  status: 'Undecided' | 'Excluded' | 'Maybe' | 'Included';
 };
 
 export type ReferenceRow = {

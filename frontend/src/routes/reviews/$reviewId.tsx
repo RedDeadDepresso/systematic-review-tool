@@ -33,7 +33,7 @@ function ReviewPage() {
   const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
 
   useEffect(() => {
-    setPageTitle('Review Data');
+    setPageTitle('Overview');
     setIsAuthenticated(true);
   }, []);
 

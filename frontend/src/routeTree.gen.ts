@@ -8,130 +8,150 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root';
-import { Route as RegisterRouteImport } from './routes/register';
-import { Route as LoginRouteImport } from './routes/login';
-import { Route as IndexRouteImport } from './routes/index';
-import { Route as ReviewsReviewIdRouteImport } from './routes/reviews/$reviewId';
-import { Route as ReviewDataReviewIdRouteImport } from './routes/review-data/$reviewId';
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as RegisterRouteImport } from './routes/register'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as ScreeningReviewIdRouteImport } from './routes/screening/$reviewId'
+import { Route as ReviewsReviewIdRouteImport } from './routes/reviews/$reviewId'
+import { Route as ReviewDataReviewIdRouteImport } from './routes/review-data/$reviewId'
 
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
+const ScreeningReviewIdRoute = ScreeningReviewIdRouteImport.update({
+  id: '/screening/$reviewId',
+  path: '/screening/$reviewId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReviewsReviewIdRoute = ReviewsReviewIdRouteImport.update({
   id: '/reviews/$reviewId',
   path: '/reviews/$reviewId',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ReviewDataReviewIdRoute = ReviewDataReviewIdRouteImport.update({
   id: '/review-data/$reviewId',
   path: '/review-data/$reviewId',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute;
-  '/login': typeof LoginRoute;
-  '/register': typeof RegisterRoute;
-  '/review-data/$reviewId': typeof ReviewDataReviewIdRoute;
-  '/reviews/$reviewId': typeof ReviewsReviewIdRoute;
+  '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
+  '/review-data/$reviewId': typeof ReviewDataReviewIdRoute
+  '/reviews/$reviewId': typeof ReviewsReviewIdRoute
+  '/screening/$reviewId': typeof ScreeningReviewIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute;
-  '/login': typeof LoginRoute;
-  '/register': typeof RegisterRoute;
-  '/review-data/$reviewId': typeof ReviewDataReviewIdRoute;
-  '/reviews/$reviewId': typeof ReviewsReviewIdRoute;
+  '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
+  '/review-data/$reviewId': typeof ReviewDataReviewIdRoute
+  '/reviews/$reviewId': typeof ReviewsReviewIdRoute
+  '/screening/$reviewId': typeof ScreeningReviewIdRoute
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  '/': typeof IndexRoute;
-  '/login': typeof LoginRoute;
-  '/register': typeof RegisterRoute;
-  '/review-data/$reviewId': typeof ReviewDataReviewIdRoute;
-  '/reviews/$reviewId': typeof ReviewsReviewIdRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
+  '/review-data/$reviewId': typeof ReviewDataReviewIdRoute
+  '/reviews/$reviewId': typeof ReviewsReviewIdRoute
+  '/screening/$reviewId': typeof ScreeningReviewIdRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
+  fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/login'
     | '/register'
     | '/review-data/$reviewId'
-    | '/reviews/$reviewId';
-  fileRoutesByTo: FileRoutesByTo;
+    | '/reviews/$reviewId'
+    | '/screening/$reviewId'
+  fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
     | '/register'
     | '/review-data/$reviewId'
-    | '/reviews/$reviewId';
+    | '/reviews/$reviewId'
+    | '/screening/$reviewId'
   id:
     | '__root__'
     | '/'
     | '/login'
     | '/register'
     | '/review-data/$reviewId'
-    | '/reviews/$reviewId';
-  fileRoutesById: FileRoutesById;
+    | '/reviews/$reviewId'
+    | '/screening/$reviewId'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  LoginRoute: typeof LoginRoute;
-  RegisterRoute: typeof RegisterRoute;
-  ReviewDataReviewIdRoute: typeof ReviewDataReviewIdRoute;
-  ReviewsReviewIdRoute: typeof ReviewsReviewIdRoute;
+  IndexRoute: typeof IndexRoute
+  LoginRoute: typeof LoginRoute
+  RegisterRoute: typeof RegisterRoute
+  ReviewDataReviewIdRoute: typeof ReviewDataReviewIdRoute
+  ReviewsReviewIdRoute: typeof ReviewsReviewIdRoute
+  ScreeningReviewIdRoute: typeof ScreeningReviewIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
     '/register': {
-      id: '/register';
-      path: '/register';
-      fullPath: '/register';
-      preLoaderRoute: typeof RegisterRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
-      id: '/login';
-      path: '/login';
-      fullPath: '/login';
-      preLoaderRoute: typeof LoginRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
-      id: '/';
-      path: '/';
-      fullPath: '/';
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/screening/$reviewId': {
+      id: '/screening/$reviewId'
+      path: '/screening/$reviewId'
+      fullPath: '/screening/$reviewId'
+      preLoaderRoute: typeof ScreeningReviewIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reviews/$reviewId': {
-      id: '/reviews/$reviewId';
-      path: '/reviews/$reviewId';
-      fullPath: '/reviews/$reviewId';
-      preLoaderRoute: typeof ReviewsReviewIdRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/reviews/$reviewId'
+      path: '/reviews/$reviewId'
+      fullPath: '/reviews/$reviewId'
+      preLoaderRoute: typeof ReviewsReviewIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/review-data/$reviewId': {
-      id: '/review-data/$reviewId';
-      path: '/review-data/$reviewId';
-      fullPath: '/review-data/$reviewId';
-      preLoaderRoute: typeof ReviewDataReviewIdRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/review-data/$reviewId'
+      path: '/review-data/$reviewId'
+      fullPath: '/review-data/$reviewId'
+      preLoaderRoute: typeof ReviewDataReviewIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -141,7 +161,8 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   ReviewDataReviewIdRoute: ReviewDataReviewIdRoute,
   ReviewsReviewIdRoute: ReviewsReviewIdRoute,
-};
+  ScreeningReviewIdRoute: ScreeningReviewIdRoute,
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()
