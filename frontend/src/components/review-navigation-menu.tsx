@@ -5,7 +5,6 @@ import {
 } from './ui/navigation-menu';
 import { Link, useRouterState } from '@tanstack/react-router';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Separator } from '@radix-ui/react-separator';
 
 export function ReviewNavigationMenu({
   reviewId,

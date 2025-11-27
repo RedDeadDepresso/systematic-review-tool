@@ -3,19 +3,15 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useFetchReview } from '@/hooks/use-review';
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import {
-  CheckCircle2,
-  FileCheck,
-  FileText,
-  FileX2,
-  Trash2,
-} from 'lucide-react';
+import { FileCheck, FileText } from 'lucide-react';
 import { ReviewNavigationMenu } from '@/components/review-navigation-menu';
 import { useDetectDuplicateReferences } from '@/hooks/use-reference';
 import { Spinner } from '@/components/ui/spinner';
 import { useContext, useEffect, useState } from 'react';
 import { ResolveDuplicatesDialog } from '@/components/resolve-duplicate-dialog';
 import { AppLayoutContext } from '@/context/app-layout-context';
+import InvitationDialog from '@/components/invitation-dialog';
+import { useCurrentUser } from '@/hooks/use-auth';
 
 export const Route = createFileRoute('/reviews/$reviewId')({
   component: ReviewPage,
@@ -31,6 +27,7 @@ function ReviewPage() {
   const { mutate, isPending } = useDetectDuplicateReferences();
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
+  const { data: user, isLoading: isUserLoading } = useCurrentUser();
 
   useEffect(() => {
     setPageTitle('Overview');
@@ -43,13 +40,19 @@ function ReviewPage() {
 
   return (
     <>
-      <ResolveDuplicatesDialog
-        reviewId={reviewId}
-        isOpen={isOpen}
-        onClose={() => setIsOpen(false)}
-      />
-
-      <ReviewNavigationMenu reviewId={reviewId} />
+      {!isUserLoading && !isLoading && user.display_name === data.owner && (
+        <ResolveDuplicatesDialog
+          reviewId={reviewId}
+          isOpen={isOpen}
+          onClose={() => setIsOpen(false)}
+        />
+      )}
+      <div className="flex items-center justify-between mb-6">
+        <ReviewNavigationMenu reviewId={reviewId} />
+        {!isUserLoading && !isLoading && user.display_name === data.owner && (
+          <InvitationDialog reviewId={reviewId} />
+        )}
+      </div>
       <div className="space-y-6">
         {/* Review Info Section */}
         <Card className="p-6">
@@ -102,7 +105,11 @@ function ReviewPage() {
                 <p className="text-center text-4xl font-semibold text-foreground">
                   {isLoading ? '0' : data.reference_count}
                 </p>
-                <UploadReferencesForm reviewId={reviewId} />
+                {!isUserLoading &&
+                  !isLoading &&
+                  user.display_name === data.owner && (
+                    <UploadReferencesForm reviewId={reviewId} />
+                  )}
               </div>
             </Card>
 
@@ -115,14 +122,18 @@ function ReviewPage() {
                 <p className="text-center text-4xl font-semibold text-foreground">
                   {isLoading ? '0' : data.reference_duplicates_count}
                 </p>
-                <Button
-                  className="w-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
-                  onClick={handleDetectDuplicates}
-                  disabled={isPending}
-                >
-                  {isPending && <Spinner />}
-                  Detect Duplicates
-                </Button>
+                {!isUserLoading &&
+                  !isLoading &&
+                  user.display_name === data.owner && (
+                    <Button
+                      className="w-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                      onClick={handleDetectDuplicates}
+                      disabled={isPending}
+                    >
+                      {isPending && <Spinner />}
+                      Detect Duplicates
+                    </Button>
+                  )}
               </div>
             </Card>
 
@@ -135,13 +146,19 @@ function ReviewPage() {
                 <p className="text-center text-4xl font-semibold text-foreground">
                   {isLoading ? '0' : data.reference_duplicates_count}
                 </p>
-                <Button
-                  className="w-full bg-gray-200 text-gray-600 hover:bg-gray-300"
-                  disabled={isLoading || data.reference_duplicates_count === 0}
-                  onClick={() => setIsOpen(true)}
-                >
-                  Continue Resolving
-                </Button>
+                {!isUserLoading &&
+                  !isLoading &&
+                  user.display_name === data.owner && (
+                    <Button
+                      className="w-full bg-gray-200 text-gray-600 hover:bg-gray-300"
+                      disabled={
+                        isLoading || data.reference_duplicates_count === 0
+                      }
+                      onClick={() => setIsOpen(true)}
+                    >
+                      Continue Resolving
+                    </Button>
+                  )}
               </div>
             </Card>
 

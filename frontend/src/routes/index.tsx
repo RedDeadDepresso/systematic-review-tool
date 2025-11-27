@@ -3,6 +3,8 @@ import { ReviewTable } from '@/components/review-table';
 import { useFetchReviews } from '@/hooks/use-review';
 import { useContext, useEffect } from 'react';
 import { AppLayoutContext } from '@/context/app-layout-context';
+import { useFetchInvitations } from '@/hooks/use-invitation';
+import { InvitationTable } from '@/components/invitation-table';
 
 export const Route = createFileRoute('/')({
   component: IndexPage,
@@ -20,6 +22,8 @@ function IndexPage() {
     useFetchReviews({
       is_active: false,
     });
+  const { data: invitations, isLoading: isLoadingInvitations } =
+    useFetchInvitations();
 
   const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
 
@@ -40,6 +44,10 @@ function IndexPage() {
       {!isLoadingInactive && (
         <ReviewTable data={inactiveReviews} isActive={false} />
       )}
+      <h2 className="text-2xl font-semibold mb-4 text-foreground">
+        Invitations
+      </h2>
+      {!isLoadingInvitations && <InvitationTable data={invitations ?? []} />}
     </>
   );
 }
