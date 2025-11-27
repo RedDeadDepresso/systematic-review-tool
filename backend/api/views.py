@@ -1,21 +1,35 @@
 import os
 
 import bibtexparser
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from django_filters import rest_framework as filters
-from rest_framework import generics, status
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework import generics, status, views
+from rest_framework.permissions import (
+    SAFE_METHODS,
+    AllowAny,
+    BasePermission,
+    IsAuthenticated,
+)
 from rest_framework.response import Response
 
 from api.filters import KeywordFilter, ReviewFilter
-from api.models import Keyword, Note, Reference, ReferenceDuplicatePair, Review, User
+from api.models import (
+    Keyword,
+    Note,
+    Reference,
+    ReferenceDuplicatePair,
+    Review,
+    ReviewInvitation,
+    User,
+)
 from api.serializers import (
     KeywordSerializer,
     NoteSerializer,
     ReferenceDuplicatePairSerializer,
     ReferenceSerializer,
     RegisterSerializer,
+    ReviewInvitationSerializer,
     ReviewListSerializer,
     ReviewSerializer,
 )
@@ -36,6 +50,7 @@ class RetrieveUserView(generics.RetrieveAPIView):
             "first_name": user.first_name,
             "last_name": user.last_name,
             "email": user.email,
+            "display_name": str(user),
             "avatar": "",
         }
         return Response(user_data, status=status.HTTP_200_OK)
@@ -48,8 +63,12 @@ class ReviewListCreateView(generics.ListCreateAPIView):
     filterset_class = ReviewFilter
 
     def get_queryset(self):
-        return Review.objects.filter(owner=self.request.user).annotate(
-            reference_count=Count("reference")
+        user = self.request.user
+
+        return (
+            Review.objects.filter(Q(owner=user) | Q(collaborators=user))
+            .distinct()
+            .annotate(reference_count=Count("reference"))
         )
 
     def get_serializer_class(self):
@@ -61,13 +80,28 @@ class ReviewListCreateView(generics.ListCreateAPIView):
         serializer.save(owner=self.request.user)
 
 
-class ReviewRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated]
-    serializer_class = ReviewSerializer
-    queryset = Review.objects.all()
+class IsOwnerOrCollaboratorReadOnly(BasePermission):
+    """
+    Owners can do anything.
+    Collaborators can only read.
+    Others get no access.
+    """
 
     def has_object_permission(self, request, view, obj):
-        return obj.owner == request.user
+        user = request.user
+
+        # SAFE METHODS: collaborators + owner can view
+        if request.method in SAFE_METHODS:
+            return user == obj.owner or user in obj.collaborators.all()
+
+        # WRITE METHODS: only owner
+        return user == obj.owner
+
+
+class ReviewRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated, IsOwnerOrCollaboratorReadOnly]
+    serializer_class = ReviewSerializer
+    queryset = Review.objects.all()
 
 
 class ReviewUploadReferencesView(generics.GenericAPIView):
@@ -149,7 +183,13 @@ class ReferenceListView(generics.ListAPIView):
 
     def get_queryset(self):
         review_id = self.kwargs["pk"]
-        return Reference.objects.filter(review=review_id)
+        review = get_object_or_404(Review, pk=review_id)
+        if (
+            review.owner == self.request.user
+            or self.request.user in review.collaborators.all()
+        ):
+            return Reference.objects.filter(review=review_id)
+        return Reference.objects.none()
 
 
 class ReferenceRetrieveUpdateView(generics.RetrieveUpdateAPIView):
@@ -159,8 +199,13 @@ class ReferenceRetrieveUpdateView(generics.RetrieveUpdateAPIView):
     def get_queryset(self):
         review_id = self.kwargs["review_pk"]
         reference_pk = self.kwargs["pk"]
-        review = get_object_or_404(Review, pk=review_id, owner=self.request.user)
-        return Reference.objects.filter(review=review, pk=reference_pk)
+        review = get_object_or_404(Review, pk=review_id)
+        if (
+            review.owner == self.request.user
+            or self.request.user in review.collaborators.all()
+        ):
+            return Reference.objects.filter(review=review, pk=reference_pk)
+        return Reference.objects.none()
 
 
 class ReferenceDuplicatePairCreateView(generics.GenericAPIView):
@@ -275,3 +320,65 @@ class NoteListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+
+
+class ReviewInvitationCreateView(views.APIView):
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        review = get_object_or_404(Review, pk=kwargs["pk"], owner=user)
+        emails = request.data.get("emails", [])
+        for email in emails:
+            if email == request.user.email:
+                continue
+            ReviewInvitation.objects.create(email=email, review=review, invited_by=user)
+            # invite_link = request.build_absolute_uri(
+            #     reverse("accept-invite", args=[str(invitation.token)])
+            # )
+            # send_mail(
+            #     "You're invited to review!",
+            #     f"Click to join the review: {invite_link}",
+            #     "no-reply@example.com",
+            #     [email],
+            # )
+        return Response(
+            {"detail": "Invitations sent successfully."},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ReviewInvitationListView(generics.ListAPIView):
+    serializer_class = ReviewInvitationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ReviewInvitation.objects.filter(email=self.request.user.email)
+
+
+class ReviewInvitationUpdateView(views.APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        invitation_id = kwargs.get("pk")
+        invitation = get_object_or_404(
+            ReviewInvitation, pk=invitation_id, email=request.user.email
+        )
+
+        action = request.data.get("action")
+        if action == "accept":
+            invitation.review.collaborators.add(request.user)
+            invitation.delete()
+            return Response(
+                {"detail": "Invitation accepted."},
+                status=status.HTTP_200_OK,
+            )
+        elif action == "decline":
+            invitation.delete()
+            return Response(
+                {"detail": "Invitation declined."},
+                status=status.HTTP_200_OK,
+            )
+        else:
+            return Response(
+                {"detail": "Invalid action."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )

@@ -3,7 +3,15 @@ from collections import defaultdict
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
 
-from api.models import Keyword, Note, Reference, ReferenceDuplicatePair, Review, User
+from api.models import (
+    Keyword,
+    Note,
+    Reference,
+    ReferenceDuplicatePair,
+    Review,
+    ReviewInvitation,
+    User,
+)
 
 
 class RegisterSerializer(ModelSerializer):
@@ -118,3 +126,13 @@ class NoteSerializer(serializers.ModelSerializer):
         model = Note
         fields = ["id", "author", "content", "date_created", "date_edited"]
         read_only_fields = ["author", "date_created", "date_edited"]
+
+
+class ReviewInvitationSerializer(ModelSerializer):
+    review = serializers.StringRelatedField()
+    invited_by = serializers.StringRelatedField()
+    created_at = serializers.DateTimeField(format="%d %b %Y")
+
+    class Meta:
+        model = ReviewInvitation
+        fields = "__all__"

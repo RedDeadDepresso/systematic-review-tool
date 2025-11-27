@@ -12,6 +12,9 @@ from api.views import (
     ReferenceRetrieveUpdateView,
     RegisterView,
     RetrieveUserView,
+    ReviewInvitationCreateView,
+    ReviewInvitationListView,
+    ReviewInvitationUpdateView,
     ReviewListCreateView,
     ReviewRetrieveUpdateDestroyView,
     ReviewUploadReferencesView,
@@ -28,6 +31,11 @@ urlpatterns = [
     path("auth/user/", RetrieveUserView.as_view(), name="user"),
     path("reviews/", ReviewListCreateView.as_view(), name="reviews"),
     path("reviews/<int:pk>/", ReviewRetrieveUpdateDestroyView.as_view(), name="review"),
+    path(
+        "reviews/<int:pk>/invites/",
+        ReviewInvitationCreateView.as_view(),
+        name="review_invites",
+    ),
     path(
         "reviews/<int:pk>/references/upload/",
         ReviewUploadReferencesView.as_view(),
@@ -72,5 +80,9 @@ urlpatterns = [
         "reviews/<int:review_pk>/references/<int:reference_pk>/notes/<int:note_pk>/",
         NoteRetrieveUpdateDestroyView.as_view(),
         name="note",
+    ),
+    path("invites/", ReviewInvitationListView.as_view(), name="invites"),
+    path(
+        "invites/<int:pk>/", ReviewInvitationUpdateView.as_view(), name="invite_update"
     ),
 ]

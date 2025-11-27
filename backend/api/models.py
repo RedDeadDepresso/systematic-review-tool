@@ -49,6 +49,7 @@ class Review(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
     is_active = models.BooleanField(default=True)
     reference_duplicate_detected = models.BooleanField(default=False)
+    collaborators = models.ManyToManyField(User, related_name="collaborators")
 
     def __str__(self):
         return self.title
@@ -181,3 +182,27 @@ class Note(models.Model):
 
     def __str__(self):
         return f"Note by {self.author.username} on {self.date_created.strftime('%Y-%m-%d %H:%M')}"
+
+
+class ReviewInvitation(models.Model):
+    email = models.EmailField()
+    review = models.ForeignKey(Review, on_delete=models.CASCADE)
+    invited_by = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="sent_invitations"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Invitation to {self.email} for review {self.review.id}"
+
+
+class Notification(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="notifications"
+    )
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Notification for {self.user.email} at {self.created_at.strftime('%Y-%m-%d %H:%M')}"
