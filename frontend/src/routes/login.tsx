@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { LoginForm } from '@/components/login-form';
+import { LoginForm } from '@/components/auth/login-form';
 import { useContext, useEffect } from 'react';
 import { AppLayoutContext } from '@/context/app-layout-context';
 

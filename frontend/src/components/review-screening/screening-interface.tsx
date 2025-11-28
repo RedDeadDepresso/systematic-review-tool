@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import type { Opinion, Reference } from '@/types/reference';
 import type { Keyword } from '@/types/keyword';
-import { Input } from './ui/input';
+import { Input } from '../ui/input';
 import { useCreateKeyword } from '@/hooks/use-keyword';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -32,7 +32,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from './ui/dropdown-menu';
+} from '../ui/dropdown-menu';
 import * as React from 'react';
 import {
   type ColumnDef,
@@ -45,13 +45,13 @@ import {
   type SortingState,
   useReactTable,
 } from '@tanstack/react-table';
-import { ReviewNavigationMenu } from './review-navigation-menu';
-import { Badge } from './ui/badge';
+import { ReviewNavigationMenu } from '../review-index/review-navigation-menu';
+import { Badge } from '../ui/badge';
 import { useCreateNote } from '@/hooks/use-note';
 import { NoteList } from './notes';
 import { useUpdateReferenceOpinion } from '@/hooks/use-opinion';
 import { useEditReview, useFetchReview } from '@/hooks/use-review';
-import { Spinner } from './ui/spinner';
+import { Spinner } from '../ui/spinner';
 
 const columns: ColumnDef<Reference>[] = [
   {

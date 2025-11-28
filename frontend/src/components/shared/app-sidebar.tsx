@@ -1,5 +1,5 @@
-import { NavMain, NavMainUnauthenticated } from '@/components/nav-main';
-import { NavUser } from '@/components/nav-user';
+import { NavMain, NavMainUnauthenticated } from '@/components/shared/nav-main';
+import { NavUser } from '@/components/shared/nav-user';
 import {
   Sidebar,
   SidebarContent,
@@ -16,7 +16,7 @@ import { NavTheme } from './nav-theme';
 import { useContext } from 'react';
 import { AppLayoutContext } from '@/context/app-layout-context';
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar() {
   const { isAuthenticated } = useContext(AppLayoutContext);
   if (isAuthenticated) return <AppSidebarAuthenticated />;
   return <AppSidebarUnauthenticated />;

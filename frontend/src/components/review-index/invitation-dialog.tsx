@@ -8,7 +8,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import EmailChipsInput from '@/components/email-chip-input';
+import EmailChipsInput from '@/components/review-index/email-chip-input';
 import { useSendInvitations } from '@/hooks/use-invitation';
 
 export default function InvitationDialog({

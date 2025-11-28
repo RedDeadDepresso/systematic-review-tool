@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { useRegister } from '@/hooks/use-auth';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
-import { errorMessage } from './error-message';
+import { errorMessage } from '../shared/error-message';
 
 export function RegisterForm() {
   const register = useRegister();

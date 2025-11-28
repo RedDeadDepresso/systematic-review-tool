@@ -1,19 +1,19 @@
-import { UploadReferencesForm } from '@/components/upload-references-form';
+import { UploadReferencesForm } from '@/components/review-index/upload-references-form';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useFetchReview } from '@/hooks/use-review';
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { FileCheck, FileText } from 'lucide-react';
-import { ReviewNavigationMenu } from '@/components/review-navigation-menu';
+import { ReviewNavigationMenu } from '@/components/review-index/review-navigation-menu';
 import { useDetectDuplicateReferences } from '@/hooks/use-reference';
 import { Spinner } from '@/components/ui/spinner';
 import { useContext, useEffect, useState } from 'react';
-import { ResolveDuplicatesDialog } from '@/components/resolve-duplicate-dialog';
+import { ResolveDuplicatesDialog } from '@/components/review-index/resolve-duplicate-dialog';
 import { AppLayoutContext } from '@/context/app-layout-context';
-import InvitationDialog from '@/components/invitation-dialog';
+import InvitationDialog from '@/components/review-index/invitation-dialog';
 import { useCurrentUser } from '@/hooks/use-auth';
 
-export const Route = createFileRoute('/reviews/$reviewId')({
+export const Route = createFileRoute('/reviews/$reviewId/')({
   component: ReviewPage,
   beforeLoad: async () => {
     const token = localStorage.getItem('access_token');

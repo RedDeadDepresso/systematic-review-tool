@@ -1,11 +1,11 @@
-import ScreeningInterface from '@/components/screening-interface';
+import ScreeningInterface from '@/components/review-screening/screening-interface';
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { useFetchKeywords } from '@/hooks/use-keyword';
 import { useFetchReferences } from '@/hooks/use-reference';
 import { createFileRoute } from '@tanstack/react-router';
 import { useContext, useEffect } from 'react';
 
-export const Route = createFileRoute('/screening/$reviewId')({
+export const Route = createFileRoute('/reviews/$reviewId/screening')({
   component: RouteComponent,
 });
 

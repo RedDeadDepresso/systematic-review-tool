@@ -1,10 +1,10 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { ReviewTable } from '@/components/review-table';
+import { ReviewTable } from '@/components/index/review-table';
 import { useFetchReviews } from '@/hooks/use-review';
 import { useContext, useEffect } from 'react';
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { useFetchInvitations } from '@/hooks/use-invitation';
-import { InvitationTable } from '@/components/invitation-table';
+import { InvitationTable } from '@/components/index/invitation-table';
 
 export const Route = createFileRoute('/')({
   component: IndexPage,

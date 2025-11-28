@@ -1,11 +1,11 @@
-import { ReferenceTable } from '@/components/reference-table';
-import { ReviewNavigationMenu } from '@/components/review-navigation-menu';
+import { ReferenceTable } from '@/components/review-data/reference-table';
+import { ReviewNavigationMenu } from '@/components/review-index/review-navigation-menu';
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { useFetchReferences } from '@/hooks/use-reference';
 import { createFileRoute } from '@tanstack/react-router';
 import { useContext, useEffect } from 'react';
 
-export const Route = createFileRoute('/review-data/$reviewId')({
+export const Route = createFileRoute('/reviews/$reviewId/review-data')({
   component: RouteComponent,
 });
 

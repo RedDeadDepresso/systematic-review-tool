@@ -14,10 +14,10 @@ import {
   FieldLabel,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { useLogin } from '../hooks/use-auth';
+import { useLogin } from '../../hooks/use-auth';
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { errorMessage } from './error-message';
+import { errorMessage } from '../shared/error-message';
 
 export function LoginForm({
   className,

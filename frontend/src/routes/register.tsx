@@ -1,4 +1,4 @@
-import { RegisterForm } from '@/components/register-form';
+import { RegisterForm } from '@/components/auth/register-form';
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { useContext, useEffect } from 'react';

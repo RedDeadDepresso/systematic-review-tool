@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent } from './ui/card';
+import { Card, CardContent } from '../ui/card';
 import { fetchNotes } from '@/api/note';
-import { Skeleton } from './ui/skeleton';
+import { Skeleton } from '../ui/skeleton';
 import type { Note } from '@/types/note';
 
 export function NoteList({

@@ -2,7 +2,7 @@ import {
   NavigationMenuList,
   NavigationMenu,
   NavigationMenuItem,
-} from './ui/navigation-menu';
+} from '../ui/navigation-menu';
 import { Link, useRouterState } from '@tanstack/react-router';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -19,8 +19,8 @@ export function ReviewNavigationMenu({
 
   const tabs = [
     { label: 'Overview', path: `/reviews/${reviewId}` },
-    { label: 'Review Data', path: `/review-data/${reviewId}` },
-    { label: 'Screening', path: `/screening/${reviewId}` },
+    { label: 'Review Data', path: `/reviews/${reviewId}/review-data` },
+    { label: 'Screening', path: `/reviews/${reviewId}/screening` },
   ];
 
   return (
