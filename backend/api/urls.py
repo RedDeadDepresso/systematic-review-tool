@@ -9,6 +9,7 @@ from api.views import (
     ReferenceDuplicatePairResolveView,
     ReferenceDuplicatePairRetrieveView,
     ReferenceListView,
+    ReferenceOpinionUpdateView,
     ReferenceRetrieveUpdateView,
     RegisterView,
     RetrieveUserView,
@@ -84,5 +85,10 @@ urlpatterns = [
     path("invites/", ReviewInvitationListView.as_view(), name="invites"),
     path(
         "invites/<int:pk>/", ReviewInvitationUpdateView.as_view(), name="invite_update"
+    ),
+    path(
+        "reviews/<int:review_pk>/references/<int:reference_pk>/opinions/",
+        ReferenceOpinionUpdateView.as_view(),
+        name="opinions",
     ),
 ]

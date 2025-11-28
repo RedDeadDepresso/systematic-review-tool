@@ -1,7 +1,7 @@
 import os
 
 import bibtexparser
-from django.db.models import Count, Q
+from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404
 from django_filters import rest_framework as filters
 from rest_framework import generics, status, views
@@ -19,6 +19,7 @@ from api.models import (
     Note,
     Reference,
     ReferenceDuplicatePair,
+    ReferenceOpinion,
     Review,
     ReviewInvitation,
     User,
@@ -27,6 +28,7 @@ from api.serializers import (
     KeywordSerializer,
     NoteSerializer,
     ReferenceDuplicatePairSerializer,
+    ReferenceOpinionSerializer,
     ReferenceSerializer,
     RegisterSerializer,
     ReviewInvitationSerializer,
@@ -183,13 +185,82 @@ class ReferenceListView(generics.ListAPIView):
 
     def get_queryset(self):
         review_id = self.kwargs["pk"]
+        user = self.request.user
         review = get_object_or_404(Review, pk=review_id)
-        if (
+
+        # Access control
+        if not (review.owner == user or user in review.collaborators.all()):
+            return Reference.objects.none()
+
+        qs = Reference.objects.filter(review=review_id)
+
+        if review.is_blinded:
+            # Blinded -> ONLY this user's opinion
+            qs = qs.prefetch_related(
+                Prefetch(
+                    "referenceopinion_set",
+                    queryset=ReferenceOpinion.objects.filter(reviewer=user)
+                    .select_related("reviewer")
+                    .only(
+                        "id",
+                        "status",
+                        "reviewer__first_name",
+                        "reviewer__last_name",
+                        "reviewer__email",
+                    ),
+                    to_attr="opinions_for_user",
+                )
+            )
+        else:
+            # Not blinded -> include ALL opinions
+            qs = qs.prefetch_related(
+                Prefetch(
+                    "referenceopinion_set",
+                    queryset=ReferenceOpinion.objects.select_related("reviewer").only(
+                        "id",
+                        "status",
+                        "reviewer__first_name",
+                        "reviewer__last_name",
+                        "reviewer__email",
+                    ),
+                    to_attr="opinions_all",
+                )
+            )
+
+        return qs
+
+
+class ReferenceOpinionUpdateView(generics.UpdateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ReferenceOpinionSerializer
+
+    def get_queryset(self):
+        review_id = self.kwargs["review_pk"]
+        reference_id = self.kwargs["reference_pk"]
+
+        review = get_object_or_404(Review, pk=review_id)
+
+        if not (
             review.owner == self.request.user
             or self.request.user in review.collaborators.all()
         ):
-            return Reference.objects.filter(review=review_id)
-        return Reference.objects.none()
+            return ReferenceOpinion.objects.none()
+
+        return ReferenceOpinion.objects.filter(
+            reference_id=reference_id, reviewer=self.request.user
+        )
+
+    def get_object(self):
+        review_id = self.kwargs["review_pk"]
+        reference_id = self.kwargs["reference_pk"]
+
+        review = get_object_or_404(Review, pk=review_id)
+        reference = get_object_or_404(Reference, pk=reference_id, review=review)
+
+        opinion, created = ReferenceOpinion.objects.get_or_create(
+            reference=reference, reviewer=self.request.user
+        )
+        return opinion
 
 
 class ReferenceRetrieveUpdateView(generics.RetrieveUpdateAPIView):
@@ -318,8 +389,40 @@ class NoteListCreateView(generics.ListCreateAPIView):
     serializer_class = NoteSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        review_id = self.kwargs["review_pk"]
+        reference_id = self.kwargs["reference_pk"]
+        review = get_object_or_404(Review, pk=review_id)
+        if not (
+            review.owner == self.request.user
+            or self.request.user in review.collaborators.all()
+        ):
+            return Note.objects.none()
+        reference = get_object_or_404(Reference, pk=reference_id, review=review)
+        if review.is_blinded:
+            queryset = Note.objects.filter(
+                reference=reference, author=self.request.user
+            )
+        else:
+            queryset = Note.objects.filter(reference=reference)
+        return queryset
+
     def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
+        review_id = self.kwargs["review_pk"]
+        reference_id = self.kwargs["reference_pk"]
+
+        review = get_object_or_404(Review, pk=review_id)
+        if not (
+            review.owner == self.request.user
+            or self.request.user in review.collaborators.all()
+        ):
+            raise generics.PermissionDenied("You do not have permission to add notes.")
+        reference = get_object_or_404(Reference, pk=reference_id, review=review)
+
+        serializer.save(
+            author=self.request.user,
+            reference=reference,
+        )
 
 
 class ReviewInvitationCreateView(views.APIView):

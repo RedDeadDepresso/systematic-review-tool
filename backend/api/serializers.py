@@ -8,6 +8,7 @@ from api.models import (
     Note,
     Reference,
     ReferenceDuplicatePair,
+    ReferenceOpinion,
     Review,
     ReviewInvitation,
     User,
@@ -66,6 +67,13 @@ class ReviewSerializer(ModelSerializer):
             "reference_duplicates_count",
             "date_created",
             "owner",
+            "is_blinded",
+        ]
+        read_only_fields = [
+            "owner",
+            "date_created",
+            "reference_count",
+            "reference_duplicates_count",
         ]
 
 
@@ -79,20 +87,12 @@ class ReviewListSerializer(ModelSerializer):
         fields = ["title", "date_created", "owner", "reference_count", "id"]
 
 
-class ReferenceSerializer(ModelSerializer):
+class ReferenceSerializer(serializers.ModelSerializer):
+    opinions = serializers.SerializerMethodField()
+
     class Meta:
         model = Reference
-        fields = [
-            "id",
-            "title",
-            "publication_types",
-            "authors",
-            "journal",
-            "search_methods",
-            "article_customizations",
-            "abstract",
-            "status",
-        ]
+        fields = "__all__"
         read_only_fields = [
             "id",
             "title",
@@ -103,6 +103,38 @@ class ReferenceSerializer(ModelSerializer):
             "article_customizations",
             "abstract",
         ]
+
+    def get_opinions(self, obj):
+        # Blinded -> return current user's opinion
+        if hasattr(obj, "opinions_for_user"):
+            if obj.opinions_for_user:
+                op = obj.opinions_for_user[0]
+                return {
+                    "reviewer": str(op.reviewer),
+                    "status": op.status,
+                }
+            return None
+
+        # Not blinded -> return all opinions
+        if hasattr(obj, "opinions_all"):
+            return [
+                {
+                    "reviewer": str(op.reviewer),
+                    "status": op.status,
+                }
+                for op in obj.opinions_all
+            ]
+
+        return None
+
+
+class ReferenceOpinionSerializer(ModelSerializer):
+    reviewer = serializers.StringRelatedField()
+
+    class Meta:
+        model = ReferenceOpinion
+        fields = ["id", "reviewer", "status"]
+        read_only_fields = ["id", "reviewer"]
 
 
 class ReferenceDuplicatePairSerializer(ModelSerializer):

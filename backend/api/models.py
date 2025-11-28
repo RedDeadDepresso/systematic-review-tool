@@ -50,6 +50,7 @@ class Review(models.Model):
     is_active = models.BooleanField(default=True)
     reference_duplicate_detected = models.BooleanField(default=False)
     collaborators = models.ManyToManyField(User, related_name="collaborators")
+    is_blinded = models.BooleanField(default=True)
 
     def __str__(self):
         return self.title
@@ -71,11 +72,6 @@ class Reference(models.Model):
     search_methods = models.CharField(max_length=255)
     article_customizations = models.CharField(max_length=255)
     abstract = models.TextField(blank=True)
-    status = models.CharField(
-        max_length=10,
-        choices=STATUS_CHOICES,
-        default="Undecided",
-    )
 
     class Meta:
         indexes = [
@@ -168,6 +164,24 @@ class ReferenceDuplicatePair(models.Model):
         return f"DuplicatePair({self.reference1.id}, {self.reference2.id})"
 
 
+class ReferenceOpinion(models.Model):
+    reference = models.ForeignKey(Reference, on_delete=models.CASCADE)
+    reviewer = models.ForeignKey(User, on_delete=models.CASCADE)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("Undecided", "Undecided"),
+            ("Excluded", "Excluded"),
+            ("Maybe", "Maybe"),
+            ("Included", "Included"),
+        ],
+        default="Undecided",
+    )
+
+    class Meta:
+        unique_together = ("reference", "reviewer")
+
+
 class Keyword(models.Model):
     review = models.ForeignKey(Review, on_delete=models.CASCADE)
     name = models.CharField(max_length=150)
@@ -176,6 +190,9 @@ class Keyword(models.Model):
 
 class Note(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notes")
+    reference = models.ForeignKey(
+        Reference, on_delete=models.CASCADE, related_name="notes"
+    )
     content = models.TextField()
     date_created = models.DateTimeField(auto_now_add=True)
     date_edited = models.DateTimeField(auto_now=True)
