@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   sendInvites,
   fetchInvites,
@@ -26,6 +26,8 @@ export function useFetchInvitations() {
 }
 
 export function useUpdateInvitationStatus() {
+  const queryClient = useQueryClient();
+
   return useMutation<
     Invitation,
     Error,
@@ -33,8 +35,14 @@ export function useUpdateInvitationStatus() {
   >({
     mutationFn: ({ inviteId, action }) =>
       updateInvitationStatus(inviteId, action),
-    onSuccess: () => toast.success('Invitation status updated.'),
-    onError: (error) =>
-      toast.error(`Failed to update invitation status: ${error.message}`),
+    onSuccess: (data, variables) => {
+      toast.success('Invitation status updated.');
+      queryClient.setQueryData<Invitation[]>(['invitations'], (oldData) => {
+        if (!oldData) return [];
+
+        // Remove the updated invitation from the list
+        return oldData.filter((inv) => inv.id !== variables.inviteId);
+      });
+    },
   });
 }

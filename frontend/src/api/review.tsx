@@ -14,7 +14,7 @@ export const fetchReviews = async (params: { is_active: boolean }) => {
 };
 
 export const fetchReview = async (id: number | string) => {
-  const res = await api.get(`/reviews/${id}`);
+  const res = await api.get(`/reviews/${id}/`);
   return res.data;
 };
 
@@ -27,6 +27,7 @@ export const editReview = async ({
     title?: string;
     description?: string;
     is_active?: boolean;
+    is_blinded?: boolean;
   };
 }) => {
   const res = await api.patch(`/reviews/${id}/`, data);

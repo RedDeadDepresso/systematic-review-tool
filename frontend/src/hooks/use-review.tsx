@@ -42,8 +42,20 @@ export const useCreateReview = () => {
 };
 
 export const useEditReview = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: editReview,
+    onSuccess: (data, variables) => {
+      // Update the review object
+      queryClient.setQueryData(['reviews', variables.id], data);
+
+      // Invalidate references if needed
+      if (variables.data?.is_blinded !== undefined) {
+        queryClient.invalidateQueries({
+          queryKey: ['reviews', variables.id, 'references'],
+        });
+      }
+    },
   });
 };
 

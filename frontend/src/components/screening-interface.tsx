@@ -19,8 +19,10 @@ import {
   XCircle,
   AlignLeft,
   Users,
+  Eye,
+  Star,
 } from 'lucide-react';
-import type { Reference } from '@/types/reference';
+import type { Opinion, Reference } from '@/types/reference';
 import type { Keyword } from '@/types/keyword';
 import { Input } from './ui/input';
 import { useCreateKeyword } from '@/hooks/use-keyword';
@@ -44,10 +46,12 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import { ReviewNavigationMenu } from './review-navigation-menu';
-import { useEditReference } from '@/hooks/use-reference';
 import { Badge } from './ui/badge';
-import { useCreateNote, useFetchNotes } from '@/hooks/use-note';
+import { useCreateNote } from '@/hooks/use-note';
 import { NoteList } from './notes';
+import { useUpdateReferenceOpinion } from '@/hooks/use-opinion';
+import { useEditReview, useFetchReview } from '@/hooks/use-review';
+import { Spinner } from './ui/spinner';
 
 const columns: ColumnDef<Reference>[] = [
   {
@@ -103,6 +107,11 @@ function highlightText(
   });
 }
 
+function normalizeOpinions(opinions: Opinion[] | undefined) {
+  if (!opinions) return [];
+  return Array.isArray(opinions) ? opinions : [opinions];
+}
+
 export default function ScreeningInterface({
   reviewId,
   references,
@@ -131,9 +140,11 @@ export default function ScreeningInterface({
   const [excludeInput, setExcludeInput] = useState('');
 
   const { mutate, isPending } = useCreateKeyword();
-  const editReference = useEditReference();
+  const updateReferenceOpinion = useUpdateReferenceOpinion();
+  const editReview = useEditReview();
   const [content, setContent] = useState('');
   const createNote = useCreateNote();
+  const [keywordFilter, setKeywordFilter] = useState(true);
 
   const handleKeywordSubmit = (
     e: React.FormEvent<HTMLFormElement>,
@@ -161,14 +172,17 @@ export default function ScreeningInterface({
     if (!content.trim()) return;
 
     createNote.mutate(
-      { reviewId, referenceId: selectedReference, data: { content } },
+      {
+        reviewId,
+        referenceId: references[selectedReference].id,
+        data: { content },
+      },
       {
         onSuccess: () => {
-          setContent(''); // clear the input after success
+          setContent('');
         },
         onError: (error) => {
           console.error(error);
-          // You can also show a toast here if you want custom behavior
         },
       }
     );
@@ -205,21 +219,68 @@ export default function ScreeningInterface({
 
   const statuses = ['All', 'Undecided', 'Excluded', 'Maybe', 'Included'];
 
+  React.useEffect(() => {
+    document.body.style.overflow = 'hidden';
+
+    // Cleanup in case component unmounts
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, []);
+  const fetchReview = useFetchReview(Number(reviewId));
+
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-screen flex-col overflow-hidden">
       <ReviewNavigationMenu reviewId={reviewId} />
+      <div className="flex items-center justify-between w-full mt-6">
+        <h3 className="text-sm font-semibold ">
+          Showing {statusFilter} references
+        </h3>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="gap-1"
+            size="sm"
+            onClick={() =>
+              editReview.mutate({
+                id: Number(reviewId),
+                data: {
+                  is_blinded: fetchReview.data?.is_blinded ? false : true,
+                },
+              })
+            }
+            disabled={editReview.isPending || fetchReview.isLoading}
+          >
+            <Eye className="h-3 w-3" />
+            {fetchReview.isLoading ? (
+              <Spinner />
+            ) : fetchReview.data?.is_blinded ? (
+              'Blind On'
+            ) : (
+              'Blind Off'
+            )}
+          </Button>
+          <Button variant="outline" className="gap-1" size="sm">
+            <Upload className="h-3 w-3" />
+            Upload PDF
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1 bg-transparent"
+            onClick={() => setKeywordFilter(!keywordFilter)}
+          >
+            <Filter className="h-4 w-4" />
+            Filters
+          </Button>
+        </div>
+      </div>
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left Sidebar - references List */}
         <div className="w-80 border-r border-gray-200 flex flex-col ">
           {/* Header */}
           <div className="border-b border-gray-200 p-4">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-semibold ">
-                Showing {statusFilter} references
-              </h3>
-            </div>
-
             <div className="flex items-center gap-2">
               <Checkbox id="select-all" />
 
@@ -301,61 +362,72 @@ export default function ScreeningInterface({
 
           {/* references List */}
           <div className="flex-1 overflow-y-auto">
-            {table.getRowModel().rows.map((row) => (
-              <div
-                key={row.index}
-                onClick={() => setSelectedReference(row.index)}
-                className={`
-              cursor-pointer 
-              border-b border-border 
-              p-4 
-              transition-colors 
-              ${selectedReference === row.index ? 'bg-muted' : 'hover:bg-accent'}
-            `}
-              >
-                <div className="flex items-start gap-3">
-                  <Checkbox className="mt-1" />
-                  <div className="flex-1">
-                    <div className="flex items-start gap-2">
-                      <span className="text-xs font-semibold text-gray-400 w-5">
-                        {row.index}
-                      </span>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium leading-snug">
-                          {highlightText(
-                            row.original.title,
-                            selectedIncludeKeywords,
-                            selectedExcludeKeywords
-                          )}
-                        </p>
-                        {/* <p className="text-xs text-gray-500 mt-1">Date: {reference.date}</p> */}
-                        <p className="text-xs text-muted-foreground">
-                          {row.original.authors}
-                        </p>
-                        {row.original.status !== 'Undecided' && (
-                          <Badge
-                            className={`flex items-center gap-1 ${
-                              row.original.status === 'Included'
-                                ? 'bg-green-50 text-green-700 border-green-200'
-                                : row.original.status === 'Maybe'
-                                  ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
-                                  : row.original.status === 'Excluded'
-                                    ? 'bg-red-50 text-red-700 border-red-200'
-                                    : 'bg-gray-50 text-gray-600 border-gray-200'
-                            }`}
-                          >
-                            {row.original.status === 'Included' && '✓'}
-                            {row.original.status === 'Maybe' && '?'}
-                            {row.original.status === 'Excluded' && '✕'}
-                            <span>{row.original.status}</span>
-                          </Badge>
-                        )}
+            {table.getRowModel().rows.map((row) => {
+              const opinions = normalizeOpinions(row.original.opinions);
+
+              return (
+                <div
+                  key={row.index}
+                  onClick={() => setSelectedReference(row.index)}
+                  className={`
+        cursor-pointer 
+        border-b border-border 
+        p-4 
+        transition-colors 
+        ${selectedReference === row.index ? 'bg-muted' : 'hover:bg-accent'}
+      `}
+                >
+                  <div className="flex items-start gap-3">
+                    <Checkbox className="mt-1" />
+                    <div className="flex-1">
+                      <div className="flex items-start gap-2">
+                        <span className="text-xs font-semibold text-gray-400 w-5">
+                          {row.index}
+                        </span>
+                        <div className="flex-1">
+                          {/* Title */}
+                          <p className="text-sm font-medium leading-snug">
+                            {highlightText(
+                              row.original.title,
+                              selectedIncludeKeywords,
+                              selectedExcludeKeywords
+                            )}
+                          </p>
+
+                          {/* Authors */}
+                          <p className="text-xs text-muted-foreground">
+                            {row.original.authors}
+                          </p>
+
+                          {/* ALL opinion badges */}
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {opinions.map((op, idx) => (
+                              <Badge
+                                key={idx}
+                                className={`flex items-center gap-1 ${
+                                  op.status === 'Included'
+                                    ? 'bg-green-50 text-green-700 border-green-200'
+                                    : op.status === 'Maybe'
+                                      ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                      : op.status === 'Excluded'
+                                        ? 'bg-red-50 text-red-700 border-red-200'
+                                        : 'bg-gray-50 text-gray-600 border-gray-200'
+                                }`}
+                              >
+                                {op.status === 'Included' && '✓'}
+                                {op.status === 'Maybe' && '?'}
+                                {op.status === 'Excluded' && '✕'}
+                                <span>{op.reviewer}</span>
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -375,40 +447,6 @@ export default function ScreeningInterface({
                 <MoreHorizontal className="h-5 w-5" />
               </Button> */}
             </div>
-
-            {/* Metadata Tags */}
-            {/* <div className="flex flex-wrap gap-2">
-              <Badge variant="outline" className="gap-1">
-                <BookOpen className="h-3 w-3" />
-                PICO
-              </Badge>
-              <Badge variant="outline" className="gap-1">
-                <Eye className="h-3 w-3" />
-                Blind On
-              </Badge>
-              <Badge variant="outline" className="gap-1">
-                <Star className="h-3 w-3" />
-                Ratings
-              </Badge>
-              <Badge variant="outline" className="gap-1">
-                <FileText className="h-3 w-3" />
-                Samples
-              </Badge>
-              <Badge variant="outline" className="gap-1">
-                <Upload className="h-3 w-3" />
-                Upload PDF
-              </Badge>
-              <Button variant="ghost" size="sm" className="px-2">
-                <MoreHorizontal className="h-5 w-5" />
-              </Button>
-              <Button variant="outline" size="sm">
-                Criteria
-              </Button>
-              <Button variant="outline" size="sm" className="gap-1 bg-transparent">
-                <Filter className="h-4 w-4" />
-                Filters
-              </Button>
-            </div> */}
           </div>
 
           {/* Article Content */}
@@ -467,6 +505,7 @@ export default function ScreeningInterface({
               reviewId={Number(reviewId)}
               referenceId={references[selectedReference].id}
             />
+
             {/* <div>
               <h3 className="text-sm font-semibold  mb-2 flex items-center gap-2">
                 <span className="text-lg">⚙️</span>
@@ -482,13 +521,13 @@ export default function ScreeningInterface({
               <Button
                 className="flex-1 bg-green-50 text-green-700 border border-green-200 hover:bg-green-100"
                 onClick={() =>
-                  editReference.mutate({
+                  updateReferenceOpinion.mutate({
                     reviewId: Number(reviewId),
                     referenceId: references[selectedReference].id,
                     data: { status: 'Included' },
                   })
                 }
-                disabled={editReference.isPending}
+                disabled={updateReferenceOpinion.isPending}
               >
                 ✓ Include
               </Button>
@@ -496,13 +535,13 @@ export default function ScreeningInterface({
               <Button
                 className="flex-1 bg-yellow-50 text-yellow-700 border border-yellow-200 hover:bg-yellow-100"
                 onClick={() =>
-                  editReference.mutate({
+                  updateReferenceOpinion.mutate({
                     reviewId: Number(reviewId),
                     referenceId: references[selectedReference].id,
                     data: { status: 'Maybe' },
                   })
                 }
-                disabled={editReference.isPending}
+                disabled={updateReferenceOpinion.isPending}
               >
                 ? Maybe
               </Button>
@@ -510,13 +549,13 @@ export default function ScreeningInterface({
               <Button
                 className="flex-1 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100"
                 onClick={() =>
-                  editReference.mutate({
+                  updateReferenceOpinion.mutate({
                     reviewId: Number(reviewId),
                     referenceId: references[selectedReference].id,
                     data: { status: 'Excluded' },
                   })
                 }
-                disabled={editReference.isPending}
+                disabled={updateReferenceOpinion.isPending}
               >
                 ✕ Exclude
               </Button>
@@ -552,24 +591,25 @@ export default function ScreeningInterface({
         </div>
 
         {/* Right Sidebar - Filters */}
-        <div className="w-72 border-l border-gray-200 flex flex-col  overflow-hidden">
-          {/* Filter Header */}
-          <div className="border-b border-gray-200 p-4">
-            <div className="flex items-center gap-2">
-              <Search className="h-4 w-4 text-gray-400" />
-              <Input
-                type="text"
-                placeholder="Search"
-                className="flex-1 bg-transparent text-sm placeholder-gray-400 outline-none"
-              />
+        {keywordFilter && (
+          <div className="w-72 border-l border-gray-200 flex flex-col overflow-y-auto">
+            {/* Filter Header */}
+            <div className="border-b border-gray-200 p-4">
+              <div className="flex items-center gap-2">
+                <Search className="h-4 w-4 text-gray-400" />
+                <Input
+                  type="text"
+                  placeholder="Search"
+                  className="flex-1 bg-transparent text-sm placeholder-gray-400 outline-none"
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Filters Content */}
-          <div className="flex-1 overflow-y-auto">
-            {/* Include Keywords Section */}
-            <div className="border-b border-gray-100 p-4">
-              {/* <button
+            {/* Filters Content */}
+            <div className="flex-1">
+              {/* Include Keywords Section */}
+              <div className="border-b border-gray-100 p-4">
+                {/* <button
                 onClick={() =>
                   setExpandedFilters({
                     ...expandedFilters,
@@ -578,102 +618,104 @@ export default function ScreeningInterface({
                 }
                 className="flex w-full items-center justify-between"
               > */}
-              <button
-                onClick={() =>
-                  sethideInputs({
-                    ...hideInputs,
-                    include: !hideInputs.include,
-                  })
-                }
-                className="flex w-full items-center justify-between cursor-pointer"
-              >
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <span className="text-sm font-medium ">
-                    Keywords for include
-                  </span>
-                </div>
-                <Plus className="h-4 w-4 text-green-600" />
-              </button>
-              {!hideInputs.include && (
-                <form onSubmit={(e) => handleKeywordSubmit(e, true)}>
-                  <Input
-                    value={includeInput}
-                    onChange={(e) =>
-                      setIncludeInput((e.target as HTMLInputElement).value)
-                    }
-                    placeholder="Add include keyword and press Enter"
-                    disabled={isPending}
-                  />
-                </form>
-              )}
-
-              {expandedFilters.include && (
-                <div className="mt-3 space-y-2">
+                <button
+                  onClick={() =>
+                    sethideInputs({
+                      ...hideInputs,
+                      include: !hideInputs.include,
+                    })
+                  }
+                  className="flex w-full items-center justify-between cursor-pointer"
+                >
                   <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="select-all-include"
-                      checked={
-                        selectedIncludeKeywords.length ===
-                        inclusiveKeywords.length
-                      }
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedIncludeKeywords(
-                            inclusiveKeywords.map((k) => k.name)
-                          );
-                        } else {
-                          setSelectedIncludeKeywords([]);
-                        }
-                      }}
-                    />
-                    <label
-                      htmlFor="select-all-include"
-                      className="text-sm  flex-1 cursor-pointer"
-                    >
-                      Select All
-                    </label>
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <span className="text-sm font-medium ">
+                      Keywords for include
+                    </span>
                   </div>
+                  <Plus className="h-4 w-4 text-green-600" />
+                </button>
+                {!hideInputs.include && (
+                  <form onSubmit={(e) => handleKeywordSubmit(e, true)}>
+                    <Input
+                      value={includeInput}
+                      onChange={(e) =>
+                        setIncludeInput((e.target as HTMLInputElement).value)
+                      }
+                      placeholder="Add include keyword and press Enter"
+                      disabled={isPending}
+                    />
+                  </form>
+                )}
 
-                  <Separator />
-
-                  {inclusiveKeywords.map((keyword) => (
-                    <div
-                      key={keyword.name}
-                      className="flex items-center gap-2 pl-6"
-                    >
+                {expandedFilters.include && (
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-center gap-2">
                       <Checkbox
-                        id={`include-${keyword.name}`}
-                        checked={selectedIncludeKeywords.includes(keyword.name)}
+                        id="select-all-include"
+                        checked={
+                          selectedIncludeKeywords.length ===
+                          inclusiveKeywords.length
+                        }
                         onCheckedChange={(checked) => {
                           if (checked) {
-                            setSelectedIncludeKeywords((prev) => [
-                              ...prev,
-                              keyword.name,
-                            ]);
-                          } else {
-                            setSelectedIncludeKeywords((prev) =>
-                              prev.filter((k) => k !== keyword.name)
+                            setSelectedIncludeKeywords(
+                              inclusiveKeywords.map((k) => k.name)
                             );
+                          } else {
+                            setSelectedIncludeKeywords([]);
                           }
                         }}
                       />
                       <label
-                        htmlFor={`include-${keyword.name}`}
-                        className="text-sm flex-1 cursor-pointer"
+                        htmlFor="select-all-include"
+                        className="text-sm  flex-1 cursor-pointer"
                       >
-                        {keyword.name}
+                        Select All
                       </label>
-                      {/* <span className="text-xs text-gray-400">0</span> */}
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
 
-            {/* Exclude Keywords Section */}
-            <div className="border-b border-gray-100 p-4">
-              {/* <button
+                    <Separator />
+
+                    {inclusiveKeywords.map((keyword) => (
+                      <div
+                        key={keyword.name}
+                        className="flex items-center gap-2 pl-6"
+                      >
+                        <Checkbox
+                          id={`include-${keyword.name}`}
+                          checked={selectedIncludeKeywords.includes(
+                            keyword.name
+                          )}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedIncludeKeywords((prev) => [
+                                ...prev,
+                                keyword.name,
+                              ]);
+                            } else {
+                              setSelectedIncludeKeywords((prev) =>
+                                prev.filter((k) => k !== keyword.name)
+                              );
+                            }
+                          }}
+                        />
+                        <label
+                          htmlFor={`include-${keyword.name}`}
+                          className="text-sm flex-1 cursor-pointer"
+                        >
+                          {keyword.name}
+                        </label>
+                        {/* <span className="text-xs text-gray-400">0</span> */}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Exclude Keywords Section */}
+              <div className="border-b border-gray-100 p-4">
+                {/* <button
                 onClick={() =>
                   setExpandedFilters({
                     ...expandedFilters,
@@ -688,102 +730,105 @@ export default function ScreeningInterface({
                 </div>
                 <Plus className="h-4 w-4 text-red-600" />
               </button> */}
-              <button
-                onClick={() =>
-                  sethideInputs({
-                    ...hideInputs,
-                    exclude: !hideInputs.exclude,
-                  })
-                }
-                className="flex w-full items-center justify-between cursor-pointer"
-              >
-                <div className="flex items-center gap-2">
-                  <XCircle className="h-4 w-4 text-red-600" />
-                  <span className="text-sm font-medium ">
-                    Keywords for exclude
-                  </span>
-                </div>
-                <Plus className="h-4 w-4 text-red-600" />
-              </button>
-
-              {!hideInputs.exclude && (
-                <form onSubmit={(e) => handleKeywordSubmit(e, false)}>
-                  <Input
-                    value={excludeInput}
-                    onChange={(e) =>
-                      setExcludeInput((e.target as HTMLInputElement).value)
-                    }
-                    placeholder="Add exclude keyword and press Enter"
-                    disabled={isPending}
-                  />
-                </form>
-              )}
-
-              {expandedFilters.exclude && (
-                <div className="mt-3 space-y-2">
+                <button
+                  onClick={() =>
+                    sethideInputs({
+                      ...hideInputs,
+                      exclude: !hideInputs.exclude,
+                    })
+                  }
+                  className="flex w-full items-center justify-between cursor-pointer"
+                >
                   <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="select-all-exclude"
-                      checked={
-                        selectedExcludeKeywords.length ===
-                        exclusiveKeywords.length
-                      }
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedExcludeKeywords(
-                            exclusiveKeywords.map((k) => k.name)
-                          );
-                        } else {
-                          setSelectedExcludeKeywords([]);
-                        }
-                      }}
-                    />
-
-                    <label
-                      htmlFor="select-all-exclude"
-                      className="text-sm  flex-1 cursor-pointer"
-                    >
-                      Select All
-                    </label>
+                    <XCircle className="h-4 w-4 text-red-600" />
+                    <span className="text-sm font-medium ">
+                      Keywords for exclude
+                    </span>
                   </div>
+                  <Plus className="h-4 w-4 text-red-600" />
+                </button>
 
-                  <Separator />
+                {!hideInputs.exclude && (
+                  <form onSubmit={(e) => handleKeywordSubmit(e, false)}>
+                    <Input
+                      value={excludeInput}
+                      onChange={(e) =>
+                        setExcludeInput((e.target as HTMLInputElement).value)
+                      }
+                      placeholder="Add exclude keyword and press Enter"
+                      disabled={isPending}
+                    />
+                  </form>
+                )}
 
-                  {exclusiveKeywords.map((keyword) => (
-                    <div
-                      key={keyword.name}
-                      className="flex items-center gap-2 pl-6"
-                    >
+                {expandedFilters.exclude && (
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-center gap-2">
                       <Checkbox
-                        id={`exclude-${keyword.name}`}
-                        checked={selectedExcludeKeywords.includes(keyword.name)}
+                        id="select-all-exclude"
+                        checked={
+                          selectedExcludeKeywords.length ===
+                          exclusiveKeywords.length
+                        }
                         onCheckedChange={(checked) => {
                           if (checked) {
-                            setSelectedExcludeKeywords((prev) => [
-                              ...prev,
-                              keyword.name,
-                            ]);
-                          } else {
-                            setSelectedExcludeKeywords((prev) =>
-                              prev.filter((k) => k !== keyword.name)
+                            setSelectedExcludeKeywords(
+                              exclusiveKeywords.map((k) => k.name)
                             );
+                          } else {
+                            setSelectedExcludeKeywords([]);
                           }
                         }}
                       />
+
                       <label
-                        htmlFor={`exclude-${keyword.name}`}
+                        htmlFor="select-all-exclude"
                         className="text-sm  flex-1 cursor-pointer"
                       >
-                        {keyword.name}
+                        Select All
                       </label>
-                      {/* <span className="text-xs text-gray-400">15</span> */}
                     </div>
-                  ))}
-                </div>
-              )}
+
+                    <Separator />
+
+                    {exclusiveKeywords.map((keyword) => (
+                      <div
+                        key={keyword.name}
+                        className="flex items-center gap-2 pl-6"
+                      >
+                        <Checkbox
+                          id={`exclude-${keyword.name}`}
+                          checked={selectedExcludeKeywords.includes(
+                            keyword.name
+                          )}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedExcludeKeywords((prev) => [
+                                ...prev,
+                                keyword.name,
+                              ]);
+                            } else {
+                              setSelectedExcludeKeywords((prev) =>
+                                prev.filter((k) => k !== keyword.name)
+                              );
+                            }
+                          }}
+                        />
+                        <label
+                          htmlFor={`exclude-${keyword.name}`}
+                          className="text-sm  flex-1 cursor-pointer"
+                        >
+                          {keyword.name}
+                        </label>
+                        {/* <span className="text-xs text-gray-400">15</span> */}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -1,3 +1,8 @@
+export type Opinion = {
+  reviewer: string;
+  status: 'Included' | 'Excluded' | 'Maybe';
+};
+
 export type Reference = {
   id: number;
   title: string;
@@ -7,7 +12,7 @@ export type Reference = {
   search_methods: string;
   article_customizations: string;
   abstract: string;
-  status: 'Undecided' | 'Excluded' | 'Maybe' | 'Included';
+  opinions?: Opinion[];
 };
 
 export type ReferenceRow = {
