@@ -5,6 +5,7 @@ from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404
 from django_filters import rest_framework as filters
 from rest_framework import generics, status, views
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import (
     SAFE_METHODS,
     AllowAny,
@@ -266,6 +267,7 @@ class ReferenceOpinionUpdateView(generics.UpdateAPIView):
 class ReferenceRetrieveUpdateView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ReferenceSerializer
+    parser_classes = [MultiPartParser, FormParser]
 
     def get_queryset(self):
         review_id = self.kwargs["review_pk"]

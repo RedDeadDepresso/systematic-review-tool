@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib.auth.models import (
     AbstractBaseUser,
     BaseUserManager,
@@ -56,6 +58,10 @@ class Review(models.Model):
         return self.title
 
 
+def reference_upload_path(instance, filename):
+    return f"references/{uuid.uuid4()}/{filename}"
+
+
 class Reference(models.Model):
     STATUS_CHOICES = [
         ("Undecided", "Undecided"),
@@ -72,6 +78,7 @@ class Reference(models.Model):
     search_methods = models.CharField(max_length=255)
     article_customizations = models.CharField(max_length=255)
     abstract = models.TextField(blank=True)
+    file = models.FileField(upload_to=reference_upload_path, blank=True, null=True)
 
     class Meta:
         indexes = [
