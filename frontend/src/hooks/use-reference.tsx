@@ -5,6 +5,7 @@ import {
   fetchReference,
   fetchReferences,
   resolveDuplicateReferences,
+  uploadReferenceFile,
 } from '@/api/reference';
 import type { Reference } from '@/types/reference';
 import type { Review } from '@/types/review';
@@ -141,6 +142,19 @@ export const useEditReference = () => {
           );
         }
       );
+    },
+  });
+};
+
+export const useUploadReferenceFile = () => {
+  return useMutation({
+    mutationFn: uploadReferenceFile,
+    onSuccess: () => {
+      toast.success(`Reference file has been uploaded.`);
+    },
+    onError: (error: AxiosError) => {
+      const message = error?.response?.data?.error;
+      if (message) toast.error(message);
     },
   });
 };

@@ -54,3 +54,18 @@ export const editReference = async ({
   );
   return res.data;
 };
+
+export const uploadReferenceFile = async (data: {
+  reviewId: number;
+  referenceId: number;
+  formData: FormData;
+}) => {
+  const res = await api.patch(
+    `/reviews/${data.reviewId}/references/${data.referenceId}/`,
+    data.formData,
+    {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }
+  );
+  return res.data;
+};

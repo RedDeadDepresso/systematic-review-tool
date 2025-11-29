@@ -3,14 +3,17 @@ import { ReviewNavigationMenu } from '../review-index/review-navigation-menu';
 import { Button } from '../ui/button';
 import { Eye, Filter, Upload } from 'lucide-react';
 import { Spinner } from '../ui/spinner';
+import { UploadReferenceFileDialog } from './upload-reference-file-dialog';
 
 export function Header({
   reviewId,
+  referenceId,
   statusFilter,
   hideKeywordFilters,
   setHideKeywordFilters,
 }: {
   reviewId: number;
+  referenceId: number;
   statusFilter: string;
   hideKeywordFilters: boolean;
   setHideKeywordFilters: (value: boolean) => void;
@@ -49,10 +52,10 @@ export function Header({
               'Blind Off'
             )}
           </Button>
-          <Button variant="outline" className="gap-1" size="sm">
-            <Upload className="h-3 w-3" />
-            Upload PDF
-          </Button>
+          <UploadReferenceFileDialog
+            reviewId={reviewId}
+            referenceId={referenceId}
+          />
           <Button
             variant="outline"
             size="sm"

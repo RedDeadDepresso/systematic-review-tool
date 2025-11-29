@@ -42,6 +42,7 @@ export default function ScreeningInterface({
       {/* Top Navigation Menu */}
       <Header
         reviewId={Number(reviewId)}
+        referenceId={references[selectedReference].id}
         statusFilter={statusFilter}
         hideKeywordFilters={hideKeywordFilters}
         setHideKeywordFilters={setHideKeywordFilters}
