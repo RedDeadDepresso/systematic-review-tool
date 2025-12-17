@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import type { Reference } from '@/types/reference';
 import type { Keyword } from '@/types/keyword';
-import { KeywordFilters } from './keyword-filters';
-import { ArticleDetails } from './article-details';
+import { KeywordFilters } from '@/components/review-screening/keyword-filters';
 import { ReferenceTable } from './reference-table';
-import { Header } from './header';
+import { Header } from '@/components/review-screening/header';
 
 export default function ScreeningInterface({
   reviewId,
@@ -30,7 +29,7 @@ export default function ScreeningInterface({
   >([]);
 
   return (
-    <div className="flex h-lvh flex-col overflow-hidden">
+    <div className="flex h-screen flex-col overflow-hidden">
       {/* Top Navigation Menu */}
       <Header
         reviewId={Number(reviewId)}
@@ -52,16 +51,6 @@ export default function ScreeningInterface({
           setSelectedReference={setSelectedReference}
           statusFilter={statusFilter}
           setStatusFilter={setStatusFilter}
-          selectedIncludeKeywords={selectedIncludeKeywords}
-          selectedExcludeKeywords={selectedExcludeKeywords}
-        />
-
-        {/* Center - Article Details */}
-        <ArticleDetails
-          reviewId={Number(reviewId)}
-          reference={
-            selectedReference === null ? null : references[selectedReference]
-          }
           selectedIncludeKeywords={selectedIncludeKeywords}
           selectedExcludeKeywords={selectedExcludeKeywords}
         />

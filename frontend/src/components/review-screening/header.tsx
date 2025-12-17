@@ -1,7 +1,7 @@
 import { useEditReview, useFetchReview } from '@/hooks/use-review';
 import { ReviewNavigationMenu } from '../review-index/review-navigation-menu';
 import { Button } from '../ui/button';
-import { Eye, Filter, Upload } from 'lucide-react';
+import { Eye, Filter } from 'lucide-react';
 import { Spinner } from '../ui/spinner';
 import { UploadReferenceFileDialog } from './upload-reference-file-dialog';
 
@@ -13,7 +13,7 @@ export function Header({
   setHideKeywordFilters,
 }: {
   reviewId: number;
-  referenceId: number;
+  referenceId: number | null;
   statusFilter: string;
   hideKeywordFilters: boolean;
   setHideKeywordFilters: (value: boolean) => void;

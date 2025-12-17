@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ReviewsReviewIdIndexRouteImport } from './routes/reviews/$reviewId/index'
 import { Route as ReviewsReviewIdScreeningRouteImport } from './routes/reviews/$reviewId/screening'
 import { Route as ReviewsReviewIdReviewDataRouteImport } from './routes/reviews/$reviewId/review-data'
+import { Route as ReviewsReviewIdFullTextScreeningRouteImport } from './routes/reviews/$reviewId/full-text-screening'
 
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
@@ -48,11 +49,18 @@ const ReviewsReviewIdReviewDataRoute =
     path: '/reviews/$reviewId/review-data',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ReviewsReviewIdFullTextScreeningRoute =
+  ReviewsReviewIdFullTextScreeningRouteImport.update({
+    id: '/reviews/$reviewId/full-text-screening',
+    path: '/reviews/$reviewId/full-text-screening',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/reviews/$reviewId/full-text-screening': typeof ReviewsReviewIdFullTextScreeningRoute
   '/reviews/$reviewId/review-data': typeof ReviewsReviewIdReviewDataRoute
   '/reviews/$reviewId/screening': typeof ReviewsReviewIdScreeningRoute
   '/reviews/$reviewId': typeof ReviewsReviewIdIndexRoute
@@ -61,6 +69,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/reviews/$reviewId/full-text-screening': typeof ReviewsReviewIdFullTextScreeningRoute
   '/reviews/$reviewId/review-data': typeof ReviewsReviewIdReviewDataRoute
   '/reviews/$reviewId/screening': typeof ReviewsReviewIdScreeningRoute
   '/reviews/$reviewId': typeof ReviewsReviewIdIndexRoute
@@ -70,6 +79,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/reviews/$reviewId/full-text-screening': typeof ReviewsReviewIdFullTextScreeningRoute
   '/reviews/$reviewId/review-data': typeof ReviewsReviewIdReviewDataRoute
   '/reviews/$reviewId/screening': typeof ReviewsReviewIdScreeningRoute
   '/reviews/$reviewId/': typeof ReviewsReviewIdIndexRoute
@@ -80,6 +90,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/register'
+    | '/reviews/$reviewId/full-text-screening'
     | '/reviews/$reviewId/review-data'
     | '/reviews/$reviewId/screening'
     | '/reviews/$reviewId'
@@ -88,6 +99,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/register'
+    | '/reviews/$reviewId/full-text-screening'
     | '/reviews/$reviewId/review-data'
     | '/reviews/$reviewId/screening'
     | '/reviews/$reviewId'
@@ -96,6 +108,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/register'
+    | '/reviews/$reviewId/full-text-screening'
     | '/reviews/$reviewId/review-data'
     | '/reviews/$reviewId/screening'
     | '/reviews/$reviewId/'
@@ -105,6 +118,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
+  ReviewsReviewIdFullTextScreeningRoute: typeof ReviewsReviewIdFullTextScreeningRoute
   ReviewsReviewIdReviewDataRoute: typeof ReviewsReviewIdReviewDataRoute
   ReviewsReviewIdScreeningRoute: typeof ReviewsReviewIdScreeningRoute
   ReviewsReviewIdIndexRoute: typeof ReviewsReviewIdIndexRoute
@@ -154,6 +168,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReviewsReviewIdReviewDataRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reviews/$reviewId/full-text-screening': {
+      id: '/reviews/$reviewId/full-text-screening'
+      path: '/reviews/$reviewId/full-text-screening'
+      fullPath: '/reviews/$reviewId/full-text-screening'
+      preLoaderRoute: typeof ReviewsReviewIdFullTextScreeningRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -161,6 +182,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
+  ReviewsReviewIdFullTextScreeningRoute: ReviewsReviewIdFullTextScreeningRoute,
   ReviewsReviewIdReviewDataRoute: ReviewsReviewIdReviewDataRoute,
   ReviewsReviewIdScreeningRoute: ReviewsReviewIdScreeningRoute,
   ReviewsReviewIdIndexRoute: ReviewsReviewIdIndexRoute,

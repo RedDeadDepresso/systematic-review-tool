@@ -147,10 +147,20 @@ export const useEditReference = () => {
 };
 
 export const useUploadReferenceFile = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: uploadReferenceFile,
-    onSuccess: () => {
+    onSuccess: (updatedReference, { reviewId: reviewId }) => {
       toast.success(`Reference file has been uploaded.`);
+      queryClient.setQueryData(
+        ['reviews', reviewId, 'references'],
+        (oldData: []) => {
+          if (!oldData) return oldData;
+          return oldData.map((ref: Reference) =>
+            ref.id === updatedReference.id ? updatedReference : ref
+          );
+        }
+      );
     },
     onError: (error: AxiosError) => {
       const message = error?.response?.data?.error;

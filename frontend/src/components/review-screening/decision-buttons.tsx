@@ -7,7 +7,7 @@ export function DecisionButtons({
   reference,
 }: {
   reviewId: number;
-  reference: Reference;
+  reference: Reference | null;
 }) {
   const updateReferenceOpinion = useUpdateReferenceOpinion();
 
@@ -16,13 +16,14 @@ export function DecisionButtons({
       <Button
         className="flex-1 bg-green-50 text-green-700 border border-green-200 hover:bg-green-100"
         onClick={() =>
+          reference &&
           updateReferenceOpinion.mutate({
             reviewId: reviewId,
             referenceId: reference.id,
             data: { status: 'Included' },
           })
         }
-        disabled={updateReferenceOpinion.isPending}
+        disabled={reference === null || updateReferenceOpinion.isPending}
       >
         ✓ Include
       </Button>
@@ -30,13 +31,14 @@ export function DecisionButtons({
       <Button
         className="flex-1 bg-yellow-50 text-yellow-700 border border-yellow-200 hover:bg-yellow-100"
         onClick={() =>
+          reference &&
           updateReferenceOpinion.mutate({
             reviewId: reviewId,
             referenceId: reference.id,
             data: { status: 'Maybe' },
           })
         }
-        disabled={updateReferenceOpinion.isPending}
+        disabled={reference === null || updateReferenceOpinion.isPending}
       >
         ? Maybe
       </Button>
@@ -44,13 +46,14 @@ export function DecisionButtons({
       <Button
         className="flex-1 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100"
         onClick={() =>
+          reference &&
           updateReferenceOpinion.mutate({
             reviewId: reviewId,
             referenceId: reference.id,
             data: { status: 'Excluded' },
           })
         }
-        disabled={updateReferenceOpinion.isPending}
+        disabled={reference === null || updateReferenceOpinion.isPending}
       >
         ✕ Exclude
       </Button>

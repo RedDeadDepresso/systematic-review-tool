@@ -13,6 +13,7 @@ export type Reference = {
   article_customizations: string;
   abstract: string;
   opinions?: Opinion[];
+  file?: string;
 };
 
 export type ReferenceRow = {

@@ -21,6 +21,10 @@ export function ReviewNavigationMenu({
     { label: 'Overview', path: `/reviews/${reviewId}` },
     { label: 'Review Data', path: `/reviews/${reviewId}/review-data` },
     { label: 'Screening', path: `/reviews/${reviewId}/screening` },
+    {
+      label: 'Full Text Screening',
+      path: `/reviews/${reviewId}/full-text-screening`,
+    },
   ];
 
   return (

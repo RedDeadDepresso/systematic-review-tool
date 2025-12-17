@@ -20,7 +20,7 @@ export function UploadReferenceFileDialog({
   referenceId,
 }: {
   reviewId: number;
-  referenceId: number;
+  referenceId: number | null;
 }) {
   const uploadReferenceFile = useUploadReferenceFile();
   const [file, setFile] = useState<File | null>(null);
@@ -30,7 +30,7 @@ export function UploadReferenceFileDialog({
   };
 
   const handleUpload = () => {
-    if (!file) return;
+    if (!file || referenceId === null) return;
 
     const formData = new FormData();
     formData.append('file', file);
@@ -45,7 +45,12 @@ export function UploadReferenceFileDialog({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-1" size="sm">
+        <Button
+          variant="outline"
+          className="gap-1"
+          size="sm"
+          disabled={referenceId === null}
+        >
           <Upload className="h-3 w-3" />
           Upload PDF
         </Button>

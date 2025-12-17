@@ -23,7 +23,9 @@ import { ArrowUpDown, ChevronDown } from 'lucide-react';
 import type { Opinion, Reference } from '@/types/reference';
 import { Checkbox } from '../ui/checkbox';
 import { Badge } from '../ui/badge';
-import { highlightText } from './highlight-text';
+import { highlightText } from '@/components/review-screening/highlight-text';
+import { ReferenceDialog } from './pdf-dialog';
+import { DecisionButtons } from '../review-screening/decision-buttons';
 
 const columns: ColumnDef<Reference>[] = [
   {
@@ -62,7 +64,12 @@ function normalizeOpinions(opinions: Opinion[] | undefined) {
   return Array.isArray(opinions) ? opinions : [opinions];
 }
 
+function getFilenameFromUrl(url: string) {
+  return url.split('/').pop() || '';
+}
+
 export function ReferenceTable({
+  reviewId,
   data,
   selectedReference,
   setSelectedReference,
@@ -85,6 +92,7 @@ export function ReferenceTable({
     []
   );
   const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [openPdfDialog, setOpenPdfDialog] = React.useState(false);
 
   const table = useReactTable<Reference>({
     data,
@@ -110,7 +118,7 @@ export function ReferenceTable({
   return (
     <>
       {/* Header */}
-      <div className="h-full w-80 border-r border-gray-200 flex flex-col ">
+      <div className="border-r border-gray-200 flex flex-col w-full">
         <div className="border-b border-gray-200 p-4">
           <div className="flex items-center gap-2">
             <Checkbox id="select-all" />
@@ -192,6 +200,16 @@ export function ReferenceTable({
         </div>
 
         {/* references List */}
+        {openPdfDialog &&
+          selectedReference !== null &&
+          data[selectedReference].file && (
+            <ReferenceDialog
+              open={!!openPdfDialog}
+              onOpenChange={(open) => !open && setOpenPdfDialog(false)}
+              title={data[selectedReference].title}
+              fileUrl={data[selectedReference].file}
+            />
+          )}
         <div className="flex-1 overflow-y-auto">
           {table.getRowModel().rows.map((row) => {
             const opinions = normalizeOpinions(row.original.opinions);
@@ -200,6 +218,9 @@ export function ReferenceTable({
               <div
                 key={row.index}
                 onClick={() => setSelectedReference(row.index)}
+                onDoubleClick={() => {
+                  row.original.file && setOpenPdfDialog(true);
+                }}
                 className={`
         cursor-pointer 
         border-b border-border 
@@ -230,6 +251,13 @@ export function ReferenceTable({
                           {row.original.authors}
                         </p>
 
+                        {/* File */}
+                        {row.original.file && (
+                          <p className="text-xs text-muted-foreground">
+                            {getFilenameFromUrl(row.original.file)}
+                          </p>
+                        )}
+
                         {/* ALL opinion badges */}
                         <div className="flex flex-wrap gap-2 mt-2">
                           {opinions.map((op, idx) => (
@@ -259,6 +287,14 @@ export function ReferenceTable({
               </div>
             );
           })}
+        </div>
+        <div className="border-t p-3">
+          <DecisionButtons
+            reviewId={reviewId}
+            reference={
+              selectedReference !== null ? data[selectedReference] : null
+            }
+          />
         </div>
       </div>
     </>
