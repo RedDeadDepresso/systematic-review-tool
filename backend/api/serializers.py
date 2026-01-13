@@ -4,6 +4,7 @@ from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
 
 from api.models import (
+    Code,
     Keyword,
     Note,
     Reference,
@@ -168,3 +169,18 @@ class ReviewInvitationSerializer(ModelSerializer):
     class Meta:
         model = ReviewInvitation
         fields = "__all__"
+
+
+class CodeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Code
+        fields = [
+            "id",
+            "user",
+            "reference",
+            "position",
+            "content",
+            "comment",
+            "color",
+        ]
+        read_only_fields = ["id", "user"]

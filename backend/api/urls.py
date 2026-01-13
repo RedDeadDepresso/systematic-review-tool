@@ -2,6 +2,7 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from api.views import (
+    CodeListCreateView,
     KeywordListCreateView,
     NoteListCreateView,
     NoteRetrieveUpdateDestroyView,
@@ -90,5 +91,10 @@ urlpatterns = [
         "reviews/<int:review_pk>/references/<int:reference_pk>/opinions/",
         ReferenceOpinionUpdateView.as_view(),
         name="opinions",
+    ),
+    path(
+        "reviews/references/<int:reference_pk>/codes/",
+        CodeListCreateView.as_view(),
+        name="codes",
     ),
 ]

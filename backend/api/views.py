@@ -16,6 +16,7 @@ from rest_framework.response import Response
 
 from api.filters import KeywordFilter, ReviewFilter
 from api.models import (
+    Code,
     Keyword,
     Note,
     Reference,
@@ -26,6 +27,7 @@ from api.models import (
     User,
 )
 from api.serializers import (
+    CodeSerializer,
     KeywordSerializer,
     NoteSerializer,
     ReferenceDuplicatePairSerializer,
@@ -487,3 +489,16 @@ class ReviewInvitationUpdateView(views.APIView):
                 {"detail": "Invalid action."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+
+class CodeListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = CodeSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+
+        return Code.objects.filter(user=user, reference=self.kwargs["reference_pk"])
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)

@@ -230,3 +230,19 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Notification for {self.user.email} at {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+
+
+class Code(models.Model):
+    reference = models.ForeignKey(Reference, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # react-pdf-highlighter payloads
+    position = models.JSONField()
+    content = models.JSONField()
+    comment = models.JSONField(null=True, blank=True)
+    color = models.CharField(max_length=20, default="#fff59d")
+
+    def __str__(self):
+        page = self.position.get("pageNumber", "?")
+        return f"Highlight {self.id} (page {page})"
