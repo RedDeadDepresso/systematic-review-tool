@@ -1,53 +1,213 @@
-import { useState } from 'react';
-import { Document } from 'react-pdf';
-import { pdfjs } from 'react-pdf';
-import { PDFPage } from './pdf-page';
-import type { Code } from '@/types/code';
-import 'react-pdf/dist/Page/TextLayer.css';
-import 'react-pdf/dist/Page/AnnotationLayer.css';
-import { Spinner } from '../ui/spinner';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  PdfLoader,
+  PdfHighlighter,
+  Highlight,
+  AreaHighlight,
+  Popup,
+  Tip,
+} from 'react-pdf-highlighter';
+import type {
+  IHighlight,
+  NewHighlight,
+  ScaledPosition,
+  Content,
+} from 'react-pdf-highlighter';
 
-// Required worker for react-pdf
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
+import { Spinner } from '../ui/spinner';
+import 'react-pdf-highlighter/dist/style.css';
+import { Sidebar } from './pdf-sidebar';
+import type { Code } from '@/types/code';
+import { useCreateCode } from '@/hooks/use-code';
+
+const getNextId = () => String(Math.random()).slice(2);
+
+const parseIdFromHash = () =>
+  document.location.hash.slice('#highlight-'.length);
+
+const resetHash = () => {
+  document.location.hash = '';
+};
+
+const HighlightPopup = ({
+  comment,
+}: {
+  comment: { text: string; emoji: string };
+}) =>
+  comment.text ? (
+    <div className="Highlight__popup">
+      {comment.emoji} {comment.text}
+    </div>
+  ) : null;
 
 export function PDFViewer({
+  referenceId,
   fileUrl,
   codes,
 }: {
+  referenceId: number;
   fileUrl: string;
   codes: Code[];
 }) {
-  const [numPages, setNumPages] = useState<number>(0);
+  const [highlights, setHighlights] = useState<Array<IHighlight>>(codes);
+  const scrollViewerTo = useRef((highlight: IHighlight) => {});
+  const createCode = useCreateCode();
+
+  const scrollToHighlightFromHash = useCallback(() => {
+    const highlight = getHighlightById(parseIdFromHash());
+    if (highlight) {
+      scrollViewerTo.current(highlight);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('hashchange', scrollToHighlightFromHash, false);
+    return () => {
+      window.removeEventListener(
+        'hashchange',
+        scrollToHighlightFromHash,
+        false
+      );
+    };
+  }, [scrollToHighlightFromHash]);
+
+  const getHighlightById = (id: string) => {
+    return highlights.find((highlight) => highlight.id === id);
+  };
+
+  const addHighlight = (highlight: NewHighlight) => {
+    createCode.mutate(
+      {
+        reference: referenceId,
+        data: {
+          reference: referenceId,
+          position: highlight.position,
+          content: highlight.content,
+          comment: highlight.comment,
+          color: 'yellow',
+        },
+      },
+      {
+        onSuccess: () => {
+          setHighlights((prevHighlights) => [
+            { ...highlight, id: getNextId() },
+            ...prevHighlights,
+          ]);
+        },
+      }
+    );
+  };
+
+  const updateHighlight = (
+    highlightId: string,
+    position: Partial<ScaledPosition>,
+    content: Partial<Content>
+  ) => {
+    console.log('Updating highlight', highlightId, position, content);
+    setHighlights((prevHighlights) =>
+      prevHighlights.map((h) => {
+        const {
+          id,
+          position: originalPosition,
+          content: originalContent,
+          ...rest
+        } = h;
+        return id === highlightId
+          ? {
+              id,
+              position: { ...originalPosition, ...position },
+              content: { ...originalContent, ...content },
+              ...rest,
+            }
+          : h;
+      })
+    );
+  };
 
   return (
-    <Document
-      file={fileUrl}
-      onLoadSuccess={({ numPages }) => setNumPages(numPages)}
-      loading={
-        <div className="w-full h-[80vh] flex items-center justify-center">
-          <Spinner className="size-12" />
-        </div>
-      }
-      error={
-        <div className="w-full h-[80vh] flex flex-col items-center justify-center text-red-500">
-          <p className="text-lg font-semibold">Failed to load PDF</p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Please try again later or upload a new file.
-          </p>
-        </div>
-      }
-      className="flex flex-col items-center justify-center overflow-auto"
-    >
-      {Array.from({ length: numPages }, (_, index) => (
-        <PDFPage
-          key={index}
-          pageNumber={index + 1}
-          codes={codes.filter((c) => c.page_number === index + 1)}
-        />
-      ))}
-    </Document>
+    <div className="flex h-screen w-full relative">
+      <Sidebar highlights={highlights} />
+      <div className="h-screen w-full relative">
+        <PdfLoader
+          url={fileUrl}
+          beforeLoad={
+            <div className="w-full h-[80vh] flex items-center justify-center">
+              <Spinner className="size-12" />
+            </div>
+          }
+        >
+          {(pdfDocument) => (
+            <PdfHighlighter
+              pdfDocument={pdfDocument}
+              enableAreaSelection={(event) => event.altKey}
+              onScrollChange={resetHash}
+              scrollRef={(scrollTo) => {
+                scrollViewerTo.current = scrollTo;
+                scrollToHighlightFromHash();
+              }}
+              onSelectionFinished={(
+                position,
+                content,
+                hideTipAndSelection,
+                transformSelection
+              ) => (
+                <Tip
+                  onOpen={transformSelection}
+                  onConfirm={(comment) => {
+                    addHighlight({ content, position, comment });
+                    hideTipAndSelection();
+                  }}
+                />
+              )}
+              highlightTransform={(
+                highlight,
+                index,
+                setTip,
+                hideTip,
+                viewportToScaled,
+                screenshot,
+                isScrolledTo
+              ) => {
+                const isTextHighlight = !highlight.content?.image;
+
+                const component = isTextHighlight ? (
+                  <Highlight
+                    isScrolledTo={isScrolledTo}
+                    position={highlight.position}
+                    comment={highlight.comment}
+                  />
+                ) : (
+                  <AreaHighlight
+                    isScrolledTo={isScrolledTo}
+                    highlight={highlight}
+                    onChange={(boundingRect) => {
+                      updateHighlight(
+                        highlight.id,
+                        { boundingRect: viewportToScaled(boundingRect) },
+                        { image: screenshot(boundingRect) }
+                      );
+                    }}
+                  />
+                );
+
+                return (
+                  <Popup
+                    popupContent={<HighlightPopup {...highlight} />}
+                    onMouseOver={(popupContent) =>
+                      setTip(highlight, (highlight) => popupContent)
+                    }
+                    onMouseOut={hideTip}
+                    key={index}
+                  >
+                    {component}
+                  </Popup>
+                );
+              }}
+              highlights={highlights}
+            />
+          )}
+        </PdfLoader>
+      </div>
+    </div>
   );
 }

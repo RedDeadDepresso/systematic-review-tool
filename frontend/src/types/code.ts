@@ -1,8 +1,5 @@
-export type Code = {
-  id: number;
-  title: string;
-  page_number: number;
-  character_start: number;
-  character_end: number;
-  color: string;
-};
+import type { IHighlight } from 'react-pdf-highlighter';
+
+export interface Code extends IHighlight {
+  reference: number;
+}

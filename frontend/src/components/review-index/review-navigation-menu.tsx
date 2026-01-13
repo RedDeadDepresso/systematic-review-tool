@@ -25,6 +25,10 @@ export function ReviewNavigationMenu({
       label: 'Full Text Screening',
       path: `/reviews/${reviewId}/full-text-screening`,
     },
+    {
+      label: 'Coding & Theming',
+      path: `/reviews/${reviewId}/coding-and-theming`,
+    },
   ];
 
   return (

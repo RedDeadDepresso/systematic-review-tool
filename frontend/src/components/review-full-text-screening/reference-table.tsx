@@ -204,6 +204,7 @@ export function ReferenceTable({
           selectedReference !== null &&
           data[selectedReference].file && (
             <ReferenceDialog
+              referenceId={data[selectedReference].id}
               open={!!openPdfDialog}
               onOpenChange={(open) => !open && setOpenPdfDialog(false)}
               title={data[selectedReference].title}
