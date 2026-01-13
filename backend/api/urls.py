@@ -3,6 +3,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from api.views import (
     CodeListCreateView,
+    CodeRetrieveUpdateDestroyView,
     KeywordListCreateView,
     NoteListCreateView,
     NoteRetrieveUpdateDestroyView,
@@ -20,6 +21,7 @@ from api.views import (
     ReviewListCreateView,
     ReviewRetrieveUpdateDestroyView,
     ReviewUploadReferencesView,
+    ThemeListCreateView,
 )
 
 
@@ -93,8 +95,17 @@ urlpatterns = [
         name="opinions",
     ),
     path(
-        "reviews/references/<int:reference_pk>/codes/",
+        "references/<int:reference_pk>/codes/",
         CodeListCreateView.as_view(),
         name="codes",
+    ),
+    path(
+        "reviews/<int:review_pk>/codes/",
+        CodeListCreateView.as_view(),
+        name="review_codes",
+    ),
+    path("codes/<int:pk>/", CodeRetrieveUpdateDestroyView.as_view(), name="code"),
+    path(
+        "reviews/<int:review_pk>/themes/", ThemeListCreateView.as_view(), name="themes"
     ),
 ]

@@ -24,6 +24,7 @@ from api.models import (
     ReferenceOpinion,
     Review,
     ReviewInvitation,
+    Theme,
     User,
 )
 from api.serializers import (
@@ -37,6 +38,7 @@ from api.serializers import (
     ReviewInvitationSerializer,
     ReviewListSerializer,
     ReviewSerializer,
+    ThemeSerializer,
 )
 
 
@@ -497,8 +499,34 @@ class CodeListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
+        if self.kwargs.get("reference_pk"):
+            return Code.objects.filter(user=user, reference=self.kwargs["reference_pk"])
+        elif self.kwargs.get("review_pk"):
+            references = Reference.objects.filter(review=self.kwargs["review_pk"])
+            return Code.objects.filter(reference__in=references, theme=None, user=user)
+        else:
+            return Code.objects.filter(user=user)
 
-        return Code.objects.filter(user=user, reference=self.kwargs["reference_pk"])
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class CodeRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = CodeSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        return Code.objects.filter(user=user)
+
+
+class ThemeListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ThemeSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        return Theme.objects.filter(user=user, review=self.kwargs["review_pk"])
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)

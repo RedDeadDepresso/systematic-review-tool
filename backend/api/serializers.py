@@ -12,6 +12,7 @@ from api.models import (
     ReferenceOpinion,
     Review,
     ReviewInvitation,
+    Theme,
     User,
 )
 
@@ -182,5 +183,15 @@ class CodeSerializer(serializers.ModelSerializer):
             "content",
             "comment",
             "color",
+            "theme",
         ]
         read_only_fields = ["id", "user"]
+
+
+class ThemeSerializer(serializers.ModelSerializer):
+    codes = CodeSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Theme
+        fields = ["id", "review", "name", "description", "codes"]
+        read_only_fields = ["id", "codes"]
