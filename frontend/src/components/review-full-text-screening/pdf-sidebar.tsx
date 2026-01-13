@@ -1,7 +1,9 @@
+import { useMemo, useState } from 'react';
 import type { IHighlight } from 'react-pdf-highlighter';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 interface Props {
   highlights: Array<IHighlight>;
@@ -12,25 +14,51 @@ const updateHash = (highlight: IHighlight) => {
 };
 
 export function Sidebar({ highlights }: Props) {
+  const [query, setQuery] = useState('');
+
+  const filteredHighlights = useMemo(() => {
+    if (!query.trim()) return highlights;
+
+    const q = query.toLowerCase();
+
+    return highlights.filter((h) => {
+      return (
+        h.comment?.text?.toLowerCase().includes(q) ||
+        h.comment?.emoji?.includes(q) ||
+        h.content?.text?.toLowerCase().includes(q) ||
+        String(h.position.pageNumber).includes(q)
+      );
+    });
+  }, [highlights, query]);
+
   return (
     <aside className="w-[25vw] min-w-[280px] border-r bg-background">
       <Card className="rounded-none border-0 border-b">
         <CardHeader>
           <CardTitle className="text-base">Codes</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          <p>
+
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
             Select text to highlight.
             <br />
             Hold <kbd className="px-1 rounded border text-xs">Alt</kbd> for area
             selection.
           </p>
+
+          {/* 🔍 Search */}
+          <Input
+            placeholder="Search codes…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="h-9"
+          />
         </CardContent>
       </Card>
 
-      <ScrollArea className="h-[calc(100vh-120px)]">
+      <ScrollArea className="h-[calc(100vh-160px)]">
         <ul className="flex flex-col gap-2 p-3">
-          {highlights.map((highlight) => (
+          {filteredHighlights.map((highlight) => (
             <li key={highlight.id}>
               <button
                 onClick={() => updateHash(highlight)}
@@ -74,9 +102,9 @@ export function Sidebar({ highlights }: Props) {
             </li>
           ))}
 
-          {highlights.length === 0 && (
+          {filteredHighlights.length === 0 && (
             <p className="p-4 text-sm text-muted-foreground text-center">
-              No Codes yet
+              No matching codes
             </p>
           )}
         </ul>

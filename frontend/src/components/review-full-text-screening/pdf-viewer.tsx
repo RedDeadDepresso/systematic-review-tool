@@ -19,6 +19,7 @@ import 'react-pdf-highlighter/dist/style.css';
 import { Sidebar } from './pdf-sidebar';
 import type { Code } from '@/types/code';
 import { useCreateCode } from '@/hooks/use-code';
+import { HighlightTip } from './highlight-tip';
 
 const getNextId = () => String(Math.random()).slice(2);
 
@@ -151,7 +152,7 @@ export function PDFViewer({
                 hideTipAndSelection,
                 transformSelection
               ) => (
-                <Tip
+                <HighlightTip
                   onOpen={transformSelection}
                   onConfirm={(comment) => {
                     addHighlight({ content, position, comment });
