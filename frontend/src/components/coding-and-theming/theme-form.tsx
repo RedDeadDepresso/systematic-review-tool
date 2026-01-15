@@ -12,17 +12,23 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useCreateTheme } from '@/hooks/use-theme';
+import { useCreateMainTheme } from '@/hooks/use-main-theme';
+import { useCreateSubTheme } from '@/hooks/use-sub-theme';
 import { IconPlus } from '@tabler/icons-react';
 import { useState } from 'react';
 
-export function ThemeForm({ reviewId }: { reviewId: number }) {
-  const theme = useCreateTheme();
+export function ThemeForm({
+  reviewId,
+  isMainTheme,
+}: {
+  reviewId: number;
+  isMainTheme: boolean;
+}) {
+  const createTheme = isMainTheme ? useCreateMainTheme() : useCreateSubTheme();
+  const themeType = isMainTheme ? 'Main' : 'Sub';
   const [form, setForm] = useState({
-    review: reviewId,
     name: '',
     description: '',
-    codes: [],
   });
 
   const handleChange = (
@@ -31,15 +37,7 @@ export function ThemeForm({ reviewId }: { reviewId: number }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    theme.mutate({
-      review: reviewId,
-      data: {
-        review: reviewId,
-        name: form.name,
-        description: form.description,
-        codes: [],
-      },
-    });
+    createTheme.mutate({ ...form, review: reviewId });
   };
 
   return (
@@ -47,13 +45,13 @@ export function ThemeForm({ reviewId }: { reviewId: number }) {
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <IconPlus />
-          <span className="hidden lg:inline">Create Theme</span>
+          <span className="hidden lg:inline">Create {themeType} Theme</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="w-full sm:max-w-2xl">
         <form onSubmit={handleSubmit}>
           <DialogHeader className="mb-4">
-            <DialogTitle>Create Theme</DialogTitle>
+            <DialogTitle>Create {themeType} Theme</DialogTitle>
             <DialogDescription>
               Create a theme here. Click save when you&apos;re done.
             </DialogDescription>
@@ -64,9 +62,9 @@ export function ThemeForm({ reviewId }: { reviewId: number }) {
               <Input
                 id="name"
                 name="name"
-                placeholder="Theme name"
+                placeholder={`${themeType} Theme Name`}
                 onChange={handleChange}
-                disabled={theme.isPending}
+                disabled={createTheme.isPending}
               />
             </div>
             <div className="grid gap-3">
@@ -74,10 +72,10 @@ export function ThemeForm({ reviewId }: { reviewId: number }) {
               <Textarea
                 id="description"
                 name="description"
-                placeholder="Describe your theme!"
+                placeholder={`Describe your ${themeType} Theme!`}
                 rows={8}
                 onChange={handleChange}
-                disabled={theme.isPending}
+                disabled={createTheme.isPending}
               />
             </div>
           </div>
@@ -85,7 +83,7 @@ export function ThemeForm({ reviewId }: { reviewId: number }) {
             <DialogClose asChild>
               <Button variant="outline">Cancel</Button>
             </DialogClose>
-            <Button type="submit" disabled={theme.isPending}>
+            <Button type="submit" disabled={createTheme.isPending}>
               Save
             </Button>
           </DialogFooter>

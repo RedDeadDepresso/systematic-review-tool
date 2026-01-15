@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { ThemeCard } from '@/components/coding-and-theming/theme-card';
+import { SubThemeCard } from '@/components/coding-and-theming/sub-theme-card';
 import { useContext, useEffect, useState } from 'react';
-import type { Theme } from '@/types/theme';
-import { useFetchThemes } from '@/hooks/use-theme';
+import type { SubTheme } from '@/types/sub-theme';
+import { useFetchSubThemes } from '@/hooks/use-sub-theme';
 import { Spinner } from '@/components/ui/spinner';
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { ThemeForm } from '@/components/coding-and-theming/theme-form';
@@ -20,15 +20,15 @@ function RouteComponent() {
   setIsAuthenticated(true);
   const reviewId = Number(Route.useParams()['reviewId']);
   const fetchReviewCodes = useFetchReviewCodes({ reviewId });
-  const fetchThemes = useFetchThemes({ reviewId: reviewId });
-  const [themes, setThemes] = useState<Theme[]>([]);
+  const fetchSubThemes = useFetchSubThemes(reviewId);
+  const [themes, setThemes] = useState<SubTheme[]>([]);
   const [codes, setCodes] = useState<Code[]>([]);
   const editCode = useEditCode();
   useEffect(() => {
-    if (fetchThemes.data) {
-      setThemes(fetchThemes.data);
+    if (fetchSubThemes.data) {
+      setThemes(fetchSubThemes.data);
     }
-  }, [fetchThemes.data]);
+  }, [fetchSubThemes.data]);
 
   useEffect(() => {
     if (fetchReviewCodes.data) {
@@ -36,7 +36,7 @@ function RouteComponent() {
     }
   }, [fetchReviewCodes.data]);
 
-  if (fetchThemes.isLoading || fetchReviewCodes.isLoading) {
+  if (fetchSubThemes.isLoading || fetchReviewCodes.isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Spinner className="animate-spin" />
@@ -44,7 +44,7 @@ function RouteComponent() {
     );
   }
 
-  if (fetchReviewCodes.error || fetchThemes.error) {
+  if (fetchReviewCodes.error || fetchSubThemes.error) {
     return <p className="text-red-500">error</p>;
   }
 
@@ -115,17 +115,20 @@ function RouteComponent() {
     <>
       <div className="flex items-center justify-between mb-6">
         <ReviewNavigationMenu reviewId={reviewId} />
-        <ThemeForm reviewId={reviewId} />
+        <div className="flex gap-2">
+          <ThemeForm reviewId={reviewId} isMainTheme={false} />
+          <ThemeForm reviewId={reviewId} isMainTheme={true} />
+        </div>
       </div>
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {themes.map((theme) => (
-          <ThemeCard
+          <SubThemeCard
             key={theme.id}
-            theme={theme}
+            subTheme={theme}
             allCodes={codes}
             onAddCode={addCode}
             onRemoveCode={removeCode}
-          ></ThemeCard>
+          ></SubThemeCard>
         ))}
       </div>
     </>

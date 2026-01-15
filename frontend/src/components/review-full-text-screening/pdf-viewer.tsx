@@ -5,7 +5,6 @@ import {
   Highlight,
   AreaHighlight,
   Popup,
-  Tip,
 } from 'react-pdf-highlighter';
 import type {
   IHighlight,
@@ -16,10 +15,10 @@ import type {
 
 import { Spinner } from '../ui/spinner';
 import 'react-pdf-highlighter/dist/style.css';
-import { Sidebar } from './pdf-sidebar';
+import { CodingThemingSidebar } from '@/components/shared/coding-theming-sidebar';
 import type { Code } from '@/types/code';
 import { useCreateCode } from '@/hooks/use-code';
-import { HighlightTip } from './highlight-tip';
+import { HighlightTip } from '@/components/review-full-text-screening/highlight-tip';
 
 const getNextId = () => String(Math.random()).slice(2);
 
@@ -127,7 +126,6 @@ export function PDFViewer({
 
   return (
     <div className="flex h-screen w-full relative">
-      <Sidebar highlights={highlights} />
       <div className="h-screen w-full relative">
         <PdfLoader
           url={fileUrl}
@@ -158,6 +156,7 @@ export function PDFViewer({
                     addHighlight({ content, position, comment });
                     hideTipAndSelection();
                   }}
+                  onCancel={hideTipAndSelection}
                 />
               )}
               highlightTransform={(
@@ -209,6 +208,7 @@ export function PDFViewer({
           )}
         </PdfLoader>
       </div>
+      <CodingThemingSidebar codes={codes} />
     </div>
   );
 }

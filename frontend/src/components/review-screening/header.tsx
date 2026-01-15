@@ -1,7 +1,7 @@
 import { useEditReview, useFetchReview } from '@/hooks/use-review';
 import { ReviewNavigationMenu } from '../review-index/review-navigation-menu';
 import { Button } from '../ui/button';
-import { Eye, Filter } from 'lucide-react';
+import { Eye, Filter, Highlighter } from 'lucide-react';
 import { Spinner } from '../ui/spinner';
 import { UploadReferenceFileDialog } from './upload-reference-file-dialog';
 
@@ -56,6 +56,15 @@ export function Header({
             reviewId={reviewId}
             referenceId={referenceId}
           />
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1 bg-transparent"
+            onClick={() => {}}
+          >
+            <Highlighter className="h-4 w-4" />
+            Coding
+          </Button>
           <Button
             variant="outline"
             size="sm"

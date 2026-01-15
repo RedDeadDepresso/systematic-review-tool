@@ -3,28 +3,28 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronRight, Plus, Minus } from 'lucide-react';
-import type { Theme } from '@/types/theme';
+import type { SubTheme } from '@/types/sub-theme';
 import type { Code } from '@/types/code';
 
-interface ThemeCardProps {
-  theme: Theme;
+interface SubThemeCardProps {
+  subTheme: SubTheme;
   allCodes: Code[]; // all available codes
   onAddCode: (themeId: number, codeId: string) => void;
   onRemoveCode: (themeId: number, codeId: string) => void;
 }
 
-export function ThemeCard({
-  theme,
+export function SubThemeCard({
+  subTheme,
   allCodes,
   onAddCode,
   onRemoveCode,
-}: ThemeCardProps) {
+}: SubThemeCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [search, setSearch] = useState('');
 
   const filteredCodes = allCodes.filter(
     (code) =>
-      !theme.codes.some((c) => c.id === code.id) &&
+      !subTheme.codes.some((c) => c.id === code.id) &&
       (search === '' ||
         code.comment.text.toLowerCase().includes(search.toLowerCase()))
   );
@@ -35,7 +35,7 @@ export function ThemeCard({
         className="flex flex-row items-center justify-between cursor-pointer"
         onClick={() => setExpanded((prev) => !prev)}
       >
-        <h3 className="text-base font-semibold">{theme.name}</h3>
+        <h3 className="text-base font-semibold">{subTheme.name}</h3>
         {expanded ? <ChevronDown /> : <ChevronRight />}
       </CardHeader>
 
@@ -43,10 +43,10 @@ export function ThemeCard({
         <CardContent className="space-y-4">
           {/* Existing codes */}
           <div className="space-y-2">
-            {theme.codes.length === 0 && (
+            {subTheme.codes.length === 0 && (
               <p className="text-sm text-muted-foreground">No codes yet</p>
             )}
-            {theme.codes.map((code) => (
+            {subTheme.codes.map((code) => (
               <div
                 key={code.id}
                 className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm"
@@ -56,7 +56,7 @@ export function ThemeCard({
                   size="icon"
                   variant="ghost"
                   onClick={() => {
-                    onRemoveCode(theme.id, code.id);
+                    onRemoveCode(subTheme.id, code.id);
                     setSearch('');
                   }}
                 >
@@ -89,7 +89,7 @@ export function ThemeCard({
                     size="icon"
                     variant="ghost"
                     onClick={() => {
-                      onAddCode(theme.id, code.id);
+                      onAddCode(subTheme.id, code.id);
                       setSearch('');
                     }}
                   >

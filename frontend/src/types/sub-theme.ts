@@ -1,6 +1,6 @@
 import type { Code } from './code';
 
-export type Theme = {
+export type SubTheme = {
   id: number;
   name: string;
   description?: string;
