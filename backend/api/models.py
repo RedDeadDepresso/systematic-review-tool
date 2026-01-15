@@ -232,7 +232,7 @@ class Notification(models.Model):
         return f"Notification for {self.user.email} at {self.created_at.strftime('%Y-%m-%d %H:%M')}"
 
 
-class Theme(models.Model):
+class MainTheme(models.Model):
     review = models.ForeignKey(Review, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=150)
@@ -242,18 +242,35 @@ class Theme(models.Model):
         return self.name
 
 
+class SubTheme(models.Model):
+    review = models.ForeignKey(Review, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=150)
+    description = models.TextField(blank=True)
+    main_theme = models.ForeignKey(
+        MainTheme,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sub_themes",
+    )
+
+    def __str__(self):
+        return self.name
+
+
 class Code(models.Model):
     reference = models.ForeignKey(Reference, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
+    name = models.CharField(max_length=150)
 
     # react-pdf-highlighter payloads
     position = models.JSONField()
     content = models.JSONField()
     comment = models.JSONField(null=True, blank=True)
     color = models.CharField(max_length=20, default="#fff59d")
-    theme = models.ForeignKey(
-        Theme, on_delete=models.SET_NULL, null=True, blank=True, related_name="codes"
+    sub_theme = models.ForeignKey(
+        SubTheme, on_delete=models.SET_NULL, null=True, blank=True, related_name="codes"
     )
 
     def __str__(self):

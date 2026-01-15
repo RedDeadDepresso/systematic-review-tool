@@ -1,10 +1,12 @@
-from django.urls import path
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from api.views import (
     CodeListCreateView,
     CodeRetrieveUpdateDestroyView,
     KeywordListCreateView,
+    MainThemeViewSet,
     NoteListCreateView,
     NoteRetrieveUpdateDestroyView,
     ReferenceDuplicatePairCreateView,
@@ -21,12 +23,15 @@ from api.views import (
     ReviewListCreateView,
     ReviewRetrieveUpdateDestroyView,
     ReviewUploadReferencesView,
-    ThemeListCreateView,
+    SubThemeViewSet,
 )
 
 
 app_name = "api"
 
+router = DefaultRouter()
+router.register(r"sub-themes", SubThemeViewSet, basename="sub_theme")
+router.register(r"main-themes", MainThemeViewSet, basename="main_theme")
 
 urlpatterns = [
     path("auth/register/", RegisterView.as_view(), name="register"),
@@ -105,7 +110,5 @@ urlpatterns = [
         name="review_codes",
     ),
     path("codes/<int:pk>/", CodeRetrieveUpdateDestroyView.as_view(), name="code"),
-    path(
-        "reviews/<int:review_pk>/themes/", ThemeListCreateView.as_view(), name="themes"
-    ),
+    path("", include(router.urls)),
 ]

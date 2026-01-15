@@ -4,7 +4,7 @@ import bibtexparser
 from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404
 from django_filters import rest_framework as filters
-from rest_framework import generics, status, views
+from rest_framework import generics, status, views, viewsets
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import (
     SAFE_METHODS,
@@ -24,12 +24,13 @@ from api.models import (
     ReferenceOpinion,
     Review,
     ReviewInvitation,
-    Theme,
+    SubTheme,
     User,
 )
 from api.serializers import (
     CodeSerializer,
     KeywordSerializer,
+    MainThemeSerializer,
     NoteSerializer,
     ReferenceDuplicatePairSerializer,
     ReferenceOpinionSerializer,
@@ -38,7 +39,7 @@ from api.serializers import (
     ReviewInvitationSerializer,
     ReviewListSerializer,
     ReviewSerializer,
-    ThemeSerializer,
+    SubThemeSerializer,
 )
 
 
@@ -503,7 +504,9 @@ class CodeListCreateView(generics.ListCreateAPIView):
             return Code.objects.filter(user=user, reference=self.kwargs["reference_pk"])
         elif self.kwargs.get("review_pk"):
             references = Reference.objects.filter(review=self.kwargs["review_pk"])
-            return Code.objects.filter(reference__in=references, theme=None, user=user)
+            return Code.objects.filter(
+                reference__in=references, sub_theme=None, user=user
+            )
         else:
             return Code.objects.filter(user=user)
 
@@ -520,13 +523,27 @@ class CodeRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         return Code.objects.filter(user=user)
 
 
-class ThemeListCreateView(generics.ListCreateAPIView):
+class SubThemeViewSet(viewsets.ModelViewSet):
+    serializer_class = SubThemeSerializer
     permission_classes = [IsAuthenticated]
-    serializer_class = ThemeSerializer
+    filter_backends = [filters.DjangoFilterBackend]
+    filterset_fields = ["review"]
 
     def get_queryset(self):
-        user = self.request.user
-        return Theme.objects.filter(user=user, review=self.kwargs["review_pk"])
+        return SubTheme.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class MainThemeViewSet(viewsets.ModelViewSet):
+    serializer_class = MainThemeSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.DjangoFilterBackend]
+    filterset_fields = ["review"]
+
+    def get_queryset(self):
+        return SubTheme.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)

@@ -12,7 +12,7 @@ from api.models import (
     ReferenceOpinion,
     Review,
     ReviewInvitation,
-    Theme,
+    SubTheme,
     User,
 )
 
@@ -183,15 +183,24 @@ class CodeSerializer(serializers.ModelSerializer):
             "content",
             "comment",
             "color",
-            "theme",
+            "sub_theme",
         ]
         read_only_fields = ["id", "user"]
 
 
-class ThemeSerializer(serializers.ModelSerializer):
+class SubThemeSerializer(serializers.ModelSerializer):
     codes = CodeSerializer(many=True, read_only=True)
 
     class Meta:
-        model = Theme
+        model = SubTheme
         fields = ["id", "review", "name", "description", "codes"]
         read_only_fields = ["id", "codes"]
+
+
+class MainThemeSerializer(serializers.ModelSerializer):
+    sub_themes = SubThemeSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = SubTheme
+        fields = ["id", "review", "name", "description", "sub_themes"]
+        read_only_fields = ["id", "sub_themes"]
