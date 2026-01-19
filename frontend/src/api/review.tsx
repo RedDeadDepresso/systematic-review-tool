@@ -8,8 +8,13 @@ export const createReview = async (data: {
   return res.data;
 };
 
-export const fetchReviews = async (params: { is_active: boolean }) => {
-  const res = await api.get('/reviews/', { params });
+export const fetchReviews = async ({ isActive }: { isActive: boolean }) => {
+  const res = await api.get('/reviews/', {
+    params: {
+      is_active: isActive,
+    },
+  });
+
   return res.data;
 };
 
@@ -26,8 +31,8 @@ export const editReview = async ({
   data: {
     title?: string;
     description?: string;
-    is_active?: boolean;
-    is_blinded?: boolean;
+    isActive?: boolean;
+    isBlinded?: boolean;
   };
 }) => {
   const res = await api.patch(`/reviews/${id}/`, data);

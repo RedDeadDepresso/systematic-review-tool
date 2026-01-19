@@ -3,7 +3,7 @@ import type { SubTheme } from './sub-theme';
 export type MainTheme = {
   id: number;
   name: string;
-  description?: string;
+  description: string;
   review: number;
-  sub_themes: SubTheme[];
+  subThemes: SubTheme[];
 };

@@ -1,15 +1,15 @@
 export type Review = {
   title: string;
   description: string;
-  is_active: boolean;
-  reference_count: number;
-  reference_duplicates_count: number;
+  isActive: boolean;
+  referenceCount: number;
+  referenceDuplicatesCount: number;
 };
 
 export type ReviewRow = {
   title: string;
-  date_created: string;
+  dateCreated: string;
   owner: string;
-  reference_count: number;
+  referenceCount: number;
   id: number;
 };

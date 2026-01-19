@@ -59,9 +59,9 @@ import { useRouter } from '@tanstack/react-router';
 
 export const schema = z.object({
   title: z.string(),
-  date_created: z.string(),
+  dateCreated: z.string(),
   owner: z.string(),
-  reference_count: z.number(),
+  referenceCount: z.number(),
   id: z.number(),
 });
 
@@ -87,7 +87,7 @@ export function createColumns(
       enableHiding: false,
     },
     {
-      accessorKey: 'date_created',
+      accessorKey: 'dateCreated',
       header: ({ column }) => {
         return (
           <Button
@@ -115,7 +115,7 @@ export function createColumns(
       },
     },
     {
-      accessorKey: 'reference_count',
+      accessorKey: 'referenceCount',
       header: ({ column }) => {
         return (
           <Button
@@ -197,14 +197,14 @@ export function ReviewTable({
   const onToggleArchive = async (rowData: ReviewRow) => {
     editReview.mutate({
       id: rowData.id,
-      data: { is_active: !isActive },
+      data: { isActive: !isActive },
     });
     queryClient.setQueryData(
-      ['reviews', { is_active: isActive }],
+      ['reviews', { isActive: isActive }],
       (old: any = []) => old.filter((r: any) => r.id !== rowData.id)
     );
     queryClient.setQueryData(
-      ['reviews', { is_active: !isActive }],
+      ['reviews', { isActive: !isActive }],
       (oldData: any = []) => [...oldData, rowData]
     );
   };
@@ -214,7 +214,7 @@ export function ReviewTable({
       id: rowData.id,
     });
     queryClient.setQueryData(
-      ['reviews', { is_active: isActive }],
+      ['reviews', { isActive: isActive }],
       (old: any = []) => old.filter((r: any) => r.id !== rowData.id)
     );
   };

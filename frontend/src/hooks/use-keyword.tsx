@@ -4,12 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export const useFetchKeywords = (params: {
   id: number | string;
-  is_inclusive: boolean;
+  isInclusive: boolean;
 }) => {
   return useQuery({
-    queryKey: ['keywords', params.id, params.is_inclusive],
+    queryKey: ['keywords', params.id, params.isInclusive],
     queryFn: () =>
-      fetchKeywords({ reviewId: params.id, is_inclusive: params.is_inclusive }),
+      fetchKeywords({ reviewId: params.id, isInclusive: params.isInclusive }),
   });
 };
 
@@ -19,7 +19,7 @@ export const useCreateKeyword = () => {
     mutationFn: createKeyword,
     onSuccess: (data, variables) => {
       queryClient.setQueryData(
-        ['keywords', Number(variables.review_id), variables.is_inclusive],
+        ['keywords', Number(variables.review_id), variables.isInclusive],
         (oldData: Keyword[] = []) => {
           if (!oldData) return [data];
           return [...oldData, data];

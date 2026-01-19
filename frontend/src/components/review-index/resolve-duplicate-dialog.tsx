@@ -87,7 +87,7 @@ export function ReferenceDetails({
             <StickyNote className="w-4 h-4" />
             <span className="font-medium">Publication Types:</span>
           </div>
-          <div>{data.publication_types}</div>
+          <div>{data.publicationTypes}</div>
         </div>
 
         <div>
@@ -95,7 +95,7 @@ export function ReferenceDetails({
             <Truck className="w-4 h-4" />
             <span className="font-medium">Search Methods:</span>
           </div>
-          <div>{data.search_methods}</div>
+          <div>{data.searchMethods}</div>
         </div>
       </div>
 
@@ -198,7 +198,7 @@ export function ResolveDuplicatesDialog({
                   isPending={isPending}
                   data={data.reference1}
                   position="Left"
-                  similarityScore={data.similarity_score}
+                  similarityScore={data.similarityScore}
                   highlightDifference={highlightDifference}
                 />
                 <ReferenceDetails
@@ -208,7 +208,7 @@ export function ResolveDuplicatesDialog({
                   isPending={isPending}
                   data={data.reference2}
                   position="Right"
-                  similarityScore={data.similarity_score}
+                  similarityScore={data.similarityScore}
                   highlightDifference={highlightDifference}
                 />
               </>

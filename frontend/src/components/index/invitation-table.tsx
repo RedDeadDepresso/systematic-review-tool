@@ -59,7 +59,7 @@ function createColumns(
       },
     },
     {
-      accessorKey: 'invited_by',
+      accessorKey: 'invitedBy',
       header: ({ column }: { column: any }) => {
         return (
           <Button
@@ -73,7 +73,7 @@ function createColumns(
       },
     },
     {
-      accessorKey: 'created_at',
+      accessorKey: 'createdAt',
       header: ({ column }: { column: any }) => {
         return (
           <Button

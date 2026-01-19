@@ -6,11 +6,11 @@ export type Opinion = {
 export type Reference = {
   id: number;
   title: string;
-  publication_types: string;
+  publicationTypes: string;
   authors: string;
   journal: string;
-  search_methods: string;
-  article_customizations: string;
+  searchMethods: string;
+  articleCustomizations: string;
   abstract: string;
   opinions?: Opinion[];
   file?: string;
@@ -25,5 +25,5 @@ export type ReferenceRow = {
 export type DuplicateReferencePair = {
   reference1: Reference;
   reference2: Reference;
-  similarity_score: number;
+  similarityScore: number;
 };

@@ -76,7 +76,7 @@ export function ReferenceDrawer({
                     <div>
                       <Label className="text-sm">Publication Types</Label>
                       <p className="text-sm">
-                        {referenceData.publication_types || '—'}
+                        {referenceData.publicationTypes || '—'}
                       </p>
                     </div>
                     <Separator />
@@ -93,14 +93,14 @@ export function ReferenceDrawer({
                     <div>
                       <Label className="text-sm">Search Methods</Label>
                       <p className="text-sm">
-                        {referenceData.search_methods || '—'}
+                        {referenceData.searchMethods || '—'}
                       </p>
                     </div>
                     <Separator />
                     <div>
                       <Label className="text-sm">Article Customizations</Label>
                       <p className="text-sm">
-                        {referenceData.article_customizations || '—'}
+                        {referenceData.articleCustomizations || '—'}
                       </p>
                     </div>
                     <Separator />

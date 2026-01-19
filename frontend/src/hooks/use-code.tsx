@@ -1,31 +1,25 @@
-import { createCode, editCode, fetchCodes, fetchReviewCodes } from '@/api/code';
+import { createCode, deleteCode, fetchCodes, updateCode } from '@/api/code';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { Code } from '@/types/code';
 
-export const useFetchCodes = ({ referenceId }: { referenceId: number }) => {
+export function useFetchCodes(reviewId: number) {
   return useQuery({
-    queryKey: ['references', referenceId, 'codes'],
-    queryFn: () => fetchCodes(referenceId),
+    queryKey: ['codes', reviewId],
+    queryFn: () => fetchCodes(reviewId),
+    enabled: !!reviewId,
   });
-};
+}
 
-export const useFetchReviewCodes = ({ reviewId }: { reviewId: number }) => {
-  return useQuery({
-    queryKey: ['reviews', reviewId, 'codes'],
-    queryFn: () => fetchReviewCodes(reviewId),
-  });
-};
-
-export const useCreateCode = () => {
+export function useCreateCode() {
   const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: ({ reference, data }: { reference: number; data: any }) =>
-      createCode(reference, data),
+    mutationFn: createCode,
     onSuccess: (data, variables) => {
       toast.success('Code has been created.');
       queryClient.setQueryData(
-        ['references', variables.reference, 'codes'],
+        ['codes', variables.review],
         (oldData: Code[] = []) => {
           if (!oldData) return [data];
           return [...oldData, data];
@@ -33,10 +27,39 @@ export const useCreateCode = () => {
       );
     },
   });
-};
+}
 
-export const useEditCode = () => {
+export function useUpdateCode() {
+  const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: editCode,
+    mutationFn: updateCode,
+    onSuccess: (data) => {
+      toast.success('Code has been updated.');
+      queryClient.setQueryData(
+        ['codes', data.review],
+        (oldData: Code[] = []) => {
+          if (!oldData) return [data];
+          return [...oldData, data];
+        }
+      );
+    },
   });
-};
+}
+
+// Hook for deleting a code
+export function useDeleteCode() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, reviewId }: { id: string; reviewId: number }) =>
+      deleteCode(id),
+    onSuccess: (_data, variables) => {
+      toast.success('Code has been deleted.');
+      queryClient.setQueryData<Code[]>(
+        ['codes', variables.reviewId],
+        (old = []) => old.filter((code) => code.id !== variables.id)
+      );
+    },
+  });
+}

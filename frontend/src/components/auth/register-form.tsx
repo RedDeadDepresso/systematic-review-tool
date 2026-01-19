@@ -21,8 +21,8 @@ import { errorMessage } from '../shared/error-message';
 export function RegisterForm() {
   const register = useRegister();
   const [form, setForm] = useState({
-    first_name: '',
-    last_name: '',
+    firstName: '',
+    lastName: '',
     email: '',
     password: '',
     confirm_password: '',
@@ -48,10 +48,10 @@ export function RegisterForm() {
         <form onSubmit={handleSubmit}>
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="first_name">First Name</FieldLabel>
+              <FieldLabel htmlFor="firstName">First Name</FieldLabel>
               <Input
-                id="last_name"
-                name="first_name"
+                id="lastName"
+                name="firstName"
                 type="text"
                 placeholder="John"
                 required
@@ -60,10 +60,10 @@ export function RegisterForm() {
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="last_name">Last Name</FieldLabel>
+              <FieldLabel htmlFor="lastName">Last Name</FieldLabel>
               <Input
-                id="last_name"
-                name="last_name"
+                id="lastName"
+                name="lastName"
                 type="text"
                 placeholder="Doe"
                 required

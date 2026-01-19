@@ -1,34 +1,41 @@
+import type { Code } from '@/types/code';
 import api from './axios';
+import type { Content, ScaledPosition } from 'react-pdf-highlighter-plus';
 
-export const fetchCodes = async (referenceId: number) => {
-  const res = await api.get(`references/${referenceId}/codes/`);
-  return res.data;
-};
+export async function fetchCodes(reviewId: number): Promise<Code[]> {
+  const response = await api.get<Code[]>('/codes/', {
+    params: { review: reviewId },
+  });
+  return response.data;
+}
 
-export const fetchReviewCodes = async (reviewId: number) => {
-  const res = await api.get(`reviews/${reviewId}/codes/`);
-  return res.data;
-};
+export async function createCode(payload: {
+  name: string;
+  review: number;
+  reference: number;
+  content: Content;
+  comment: string;
+  position: ScaledPosition;
+  type: string;
+  highlightColor: string;
+  highlightStyle: string;
+}): Promise<Code> {
+  const response = await api.post<Code>('/codes/', payload);
+  return response.data;
+}
 
-export const createCode = async (
-  referenceId: number,
-  data: {
-    content: string;
-  }
-) => {
-  const res = await api.post(`references/${referenceId}/codes/`, data);
-  return res.data;
-};
-
-export const editCode = async ({
+export const updateCode = async ({
   id,
-  data,
+  payload,
 }: {
   id: string;
-  data: {
-    theme?: number | null;
-  };
+  payload: Partial<Code>;
 }) => {
-  const res = await api.patch(`/codes/${id}/`, data);
+  const res = await api.patch(`/codes/${id}/`, payload);
   return res.data;
 };
+
+// Delete a code
+export async function deleteCode(id: string): Promise<void> {
+  await api.delete(`/codes/${id}/`);
+}

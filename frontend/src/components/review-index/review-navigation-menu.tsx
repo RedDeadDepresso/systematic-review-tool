@@ -27,12 +27,12 @@ export function ReviewNavigationMenu({
     },
     {
       label: 'Coding & Theming',
-      path: `/reviews/${reviewId}/coding-and-theming`,
+      path: `/reviews/${reviewId}/coding-theming`,
     },
   ];
 
   return (
-    <div className="w-full">
+    <div className="w-full mb-6">
       <NavigationMenu viewport={isMobile} className="w-full">
         <NavigationMenuList className="flex w-full">
           {tabs.map((tab) => {

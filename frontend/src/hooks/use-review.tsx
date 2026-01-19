@@ -10,7 +10,7 @@ import type { Review } from '@/types/review';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-export const useFetchReviews = (params: { is_active: boolean }) => {
+export const useFetchReviews = (params: { isActive: boolean }) => {
   return useQuery({
     queryKey: ['reviews', params],
     queryFn: () => fetchReviews(params),
@@ -31,7 +31,7 @@ export const useCreateReview = () => {
     onSuccess: (data) => {
       toast.success('Review has been created.');
       queryClient.setQueryData(
-        ['reviews', { is_active: true }],
+        ['reviews', { isActive: true }],
         (oldData: Review[] = []) => {
           if (!oldData) return [data];
           return [...oldData, data];
@@ -50,7 +50,7 @@ export const useEditReview = () => {
       queryClient.setQueryData(['reviews', variables.id], data);
 
       // Invalidate references if needed
-      if (variables.data?.is_blinded !== undefined) {
+      if (variables.data?.isBlinded !== undefined) {
         queryClient.invalidateQueries({
           queryKey: ['reviews', variables.id, 'references'],
         });
@@ -65,17 +65,15 @@ export const useUploadReviewReferences = () => {
   return useMutation({
     mutationFn: UploadReviewReferences,
     onSuccess: (
-      { uploaded_reference_count }: { uploaded_reference_count: number },
+      { uploadedReferenceCount }: { uploadedReferenceCount: number },
       { reviewId }: { reviewId: number; formData: FormData }
     ) => {
-      toast.success(
-        `${uploaded_reference_count} References have been uploaded.`
-      );
+      toast.success(`${uploadedReferenceCount} References have been uploaded.`);
       queryClient.setQueryData(['reviews', reviewId], (oldData: Review) => {
         if (!oldData) return oldData;
         return {
           ...oldData,
-          reference_count: oldData.reference_count + uploaded_reference_count,
+          referenceCount: oldData.referenceCount + uploadedReferenceCount,
         };
       });
     },

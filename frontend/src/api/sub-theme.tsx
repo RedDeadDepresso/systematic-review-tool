@@ -17,3 +17,18 @@ export async function createSubTheme(payload: {
   const response = await api.post<SubTheme>('/sub-themes/', payload);
   return response.data;
 }
+
+export async function updateSubTheme(
+  id: number,
+  payload: {
+    name?: string;
+    description?: string;
+  }
+): Promise<SubTheme> {
+  const response = await api.patch<SubTheme>(`/sub-themes/${id}/`, payload);
+  return response.data;
+}
+
+export async function deleteSubTheme(id: number): Promise<void> {
+  await api.delete(`/sub-themes/${id}/`);
+}

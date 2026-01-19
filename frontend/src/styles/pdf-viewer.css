@@ -1,0 +1,5 @@
+/* PDF.js viewer styles (required) */
+@import 'pdfjs-dist/web/pdf_viewer.css';
+
+/* react-pdf-highlighter-plus styles */
+@import 'react-pdf-highlighter-plus/style/style.css';

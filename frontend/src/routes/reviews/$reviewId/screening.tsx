@@ -24,13 +24,13 @@ function RouteComponent() {
   const { data: inclusiveKeywords, isLoading: inclusiveLoading } =
     useFetchKeywords({
       id: reviewIdNum,
-      is_inclusive: true,
+      isInclusive: true,
     });
 
   const { data: exclusiveKeywords, isLoading: exclusiveLoading } =
     useFetchKeywords({
       id: reviewIdNum,
-      is_inclusive: false,
+      isInclusive: false,
     });
 
   const isLoading = refsLoading || inclusiveLoading || exclusiveLoading;

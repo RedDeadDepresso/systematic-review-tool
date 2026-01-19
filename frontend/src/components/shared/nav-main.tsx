@@ -34,10 +34,10 @@ export type NavMainItem = {
 
 export function NavMain() {
   const { data: activeReviews } = useFetchReviews({
-    is_active: true,
+    isActive: true,
   });
   const { data: inactiveReviews } = useFetchReviews({
-    is_active: false,
+    isActive: false,
   });
   const router = useRouter();
   const items: NavMainItem[] = [

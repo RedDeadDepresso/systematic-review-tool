@@ -24,7 +24,7 @@ import type { Opinion, Reference } from '@/types/reference';
 import { Checkbox } from '../ui/checkbox';
 import { Badge } from '../ui/badge';
 import { highlightText } from '@/components/review-screening/highlight-text';
-import { ReferenceDialog } from './pdf-dialog';
+import { PDFDialog } from './pdf-dialog';
 import { DecisionButtons } from '../review-screening/decision-buttons';
 
 const columns: ColumnDef<Reference>[] = [
@@ -203,7 +203,8 @@ export function ReferenceTable({
         {openPdfDialog &&
           selectedReference !== null &&
           data[selectedReference].file && (
-            <ReferenceDialog
+            <PDFDialog
+              reviewId={reviewId}
               referenceId={data[selectedReference].id}
               open={!!openPdfDialog}
               onOpenChange={(open) => !open && setOpenPdfDialog(false)}

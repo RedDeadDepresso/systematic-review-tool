@@ -40,16 +40,16 @@ function ReviewPage() {
 
   return (
     <>
-      {!isUserLoading && !isLoading && user.display_name === data.owner && (
+      {!isUserLoading && !isLoading && user.displayName === data.owner && (
         <ResolveDuplicatesDialog
           reviewId={reviewId}
           isOpen={isOpen}
           onClose={() => setIsOpen(false)}
         />
       )}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between">
         <ReviewNavigationMenu reviewId={reviewId} />
-        {!isUserLoading && !isLoading && user.display_name === data.owner && (
+        {!isUserLoading && !isLoading && user.displayName === data.owner && (
           <InvitationDialog reviewId={reviewId} />
         )}
       </div>
@@ -103,11 +103,11 @@ function ReviewPage() {
                   Imported References
                 </h3>
                 <p className="text-center text-4xl font-semibold text-foreground">
-                  {isLoading ? '0' : data.reference_count}
+                  {isLoading ? '0' : data.referenceCount}
                 </p>
                 {!isUserLoading &&
                   !isLoading &&
-                  user.display_name === data.owner && (
+                  user.displayName === data.owner && (
                     <UploadReferencesForm reviewId={reviewId} />
                   )}
               </div>
@@ -120,11 +120,11 @@ function ReviewPage() {
                   Total Duplicates
                 </h3>
                 <p className="text-center text-4xl font-semibold text-foreground">
-                  {isLoading ? '0' : data.reference_duplicates_count}
+                  {isLoading ? '0' : data.referenceDuplicatesCount}
                 </p>
                 {!isUserLoading &&
                   !isLoading &&
-                  user.display_name === data.owner && (
+                  user.displayName === data.owner && (
                     <Button
                       className="w-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
                       onClick={handleDetectDuplicates}
@@ -144,15 +144,15 @@ function ReviewPage() {
                   Unresolved
                 </h3>
                 <p className="text-center text-4xl font-semibold text-foreground">
-                  {isLoading ? '0' : data.reference_duplicates_count}
+                  {isLoading ? '0' : data.referenceDuplicatesCount}
                 </p>
                 {!isUserLoading &&
                   !isLoading &&
-                  user.display_name === data.owner && (
+                  user.displayName === data.owner && (
                     <Button
                       className="w-full bg-gray-200 text-gray-600 hover:bg-gray-300"
                       disabled={
-                        isLoading || data.reference_duplicates_count === 0
+                        isLoading || data.referenceDuplicatesCount === 0
                       }
                       onClick={() => setIsOpen(true)}
                     >

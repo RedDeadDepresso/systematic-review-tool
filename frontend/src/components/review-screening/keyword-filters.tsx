@@ -48,7 +48,7 @@ export function KeywordFilters({
     mutate({
       review_id: reviewId,
       name,
-      is_inclusive: isInclusive,
+      isInclusive: isInclusive,
     });
 
     // clear the corresponding input (you can also close the input panel if desired)

@@ -1,8 +1,8 @@
-import type { SubTheme } from '@/types/sub-theme';
 import api from './axios';
+import type { MainTheme } from '@/types/main-theme';
 
-export async function fetchMainThemes(reviewId: number): Promise<SubTheme[]> {
-  const response = await api.get<SubTheme[]>('/main-themes/', {
+export async function fetchMainThemes(reviewId: number): Promise<MainTheme[]> {
+  const response = await api.get<MainTheme[]>('/main-themes/', {
     params: { review: reviewId },
   });
 
@@ -13,7 +13,18 @@ export async function createMainTheme(payload: {
   review: number;
   name: string;
   description?: string;
-}): Promise<SubTheme> {
-  const response = await api.post<SubTheme>('/main-themes/', payload);
+}): Promise<MainTheme> {
+  const response = await api.post<MainTheme>('/main-themes/', payload);
   return response.data;
+}
+
+export function updateMainTheme(
+  id: number,
+  payload: Partial<MainTheme>
+): Promise<MainTheme> {
+  return api.patch(`/main-themes/${id}/`, payload);
+}
+
+export function deleteMainTheme(id: number): Promise<void> {
+  return api.delete(`/main-themes/${id}/`);
 }

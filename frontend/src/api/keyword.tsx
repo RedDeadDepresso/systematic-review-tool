@@ -2,7 +2,7 @@ import api from './axios';
 
 export const fetchKeywords = async (params: {
   reviewId: string | number;
-  is_inclusive: boolean;
+  isInclusive: boolean;
 }) => {
   const res = await api.get(`reviews/${params.reviewId}/keywords/`, { params });
   return res.data;
@@ -11,7 +11,7 @@ export const fetchKeywords = async (params: {
 export const createKeyword = async (data: {
   review_id: string | number;
   name: string;
-  is_inclusive: boolean;
+  isInclusive: boolean;
 }) => {
   const res = await api.post(`reviews/${data.review_id}/keywords/`, data);
   return res.data;

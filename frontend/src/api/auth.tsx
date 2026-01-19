@@ -1,8 +1,8 @@
 import api from './axios';
 
 export const registerUser = async (data: {
-  first_name: string;
-  last_name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   password: string;
   confirm_password: string;

@@ -44,7 +44,7 @@ export function NoteList({
                       {note.author.name}
                     </span>
                   )}
-                  <span>{new Date(note.date_created).toLocaleString()}</span>
+                  <span>{new Date(note.dateCreated).toLocaleString()}</span>
                 </div>
               </div>
             ))

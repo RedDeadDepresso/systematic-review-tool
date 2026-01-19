@@ -16,11 +16,11 @@ export const Route = createFileRoute('/')({
 
 function IndexPage() {
   const { data: activeReviews, isLoading: isLoadingActive } = useFetchReviews({
-    is_active: true,
+    isActive: true,
   });
   const { data: inactiveReviews, isLoading: isLoadingInactive } =
     useFetchReviews({
-      is_active: false,
+      isActive: false,
     });
   const { data: invitations, isLoading: isLoadingInvitations } =
     useFetchInvitations();

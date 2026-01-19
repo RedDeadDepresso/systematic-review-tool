@@ -1,7 +1,7 @@
 import { useEditReview, useFetchReview } from '@/hooks/use-review';
 import { ReviewNavigationMenu } from '../review-index/review-navigation-menu';
 import { Button } from '../ui/button';
-import { Eye, Filter, Highlighter } from 'lucide-react';
+import { Eye, Filter } from 'lucide-react';
 import { Spinner } from '../ui/spinner';
 import { UploadReferenceFileDialog } from './upload-reference-file-dialog';
 
@@ -24,7 +24,7 @@ export function Header({
   return (
     <>
       <ReviewNavigationMenu reviewId={reviewId} />
-      <div className="flex items-center justify-between w-full mt-6">
+      <div className="flex items-center justify-between w-full">
         <h3 className="text-sm font-semibold ">
           Showing {statusFilter} references
         </h3>
@@ -37,7 +37,7 @@ export function Header({
               editReview.mutate({
                 id: Number(reviewId),
                 data: {
-                  is_blinded: fetchReview.data?.is_blinded ? false : true,
+                  isBlinded: fetchReview.data?.isBlinded ? false : true,
                 },
               })
             }
@@ -46,7 +46,7 @@ export function Header({
             <Eye className="h-3 w-3" />
             {fetchReview.isLoading ? (
               <Spinner />
-            ) : fetchReview.data?.is_blinded ? (
+            ) : fetchReview.data?.isBlinded ? (
               'Blind On'
             ) : (
               'Blind Off'
@@ -56,15 +56,6 @@ export function Header({
             reviewId={reviewId}
             referenceId={referenceId}
           />
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1 bg-transparent"
-            onClick={() => {}}
-          >
-            <Highlighter className="h-4 w-4" />
-            Coding
-          </Button>
           <Button
             variant="outline"
             size="sm"

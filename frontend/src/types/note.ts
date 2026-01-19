@@ -1,8 +1,8 @@
 export interface Note {
   id: number;
   content: string;
-  date_created: string;
-  date_edited?: string;
+  dateCreated: string;
+  dateEdited?: string;
   author?: {
     id: number;
     name: string;

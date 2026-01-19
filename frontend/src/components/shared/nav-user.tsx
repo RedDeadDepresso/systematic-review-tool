@@ -24,8 +24,8 @@ import { logoutUser } from '@/api/auth';
 
 export function NavUser({ user }: any) {
   const { isMobile } = useSidebar();
-  const full_name = user?.first_name + ' ' + user?.last_name;
-  const initials = user?.first_name?.[0] + user?.last_name?.[0];
+  const full_name = user?.firstName + ' ' + user?.lastName;
+  const initials = user?.firstName?.[0] + user?.lastName?.[0];
 
   return (
     <SidebarMenu>

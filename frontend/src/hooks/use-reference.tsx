@@ -62,18 +62,18 @@ export const useDetectDuplicateReferences = () => {
     mutationFn: ({ reviewId }: { reviewId: number | string }) =>
       detectDuplicateReferences(reviewId),
     onSuccess: (
-      { duplicates_found_count }: { duplicates_found_count: number },
+      { duplicatesFoundCount }: { duplicatesFoundCount: number },
       { reviewId }: { reviewId: number | string }
     ) => {
       toast.success(
-        `${duplicates_found_count} Duplicate references have been found.`
+        `${duplicatesFoundCount} Duplicate references have been found.`
       );
       queryClient.setQueryData(['reviews', reviewId], (oldData: Review) => {
         if (!oldData) return oldData;
         return {
           ...oldData,
-          reference_duplicates_count:
-            oldData.reference_duplicates_count + duplicates_found_count,
+          referenceDuplicatesCount:
+            oldData.referenceDuplicatesCount + duplicatesFoundCount,
         };
       });
     },
@@ -117,7 +117,7 @@ export const useResolveDuplicateReferences = () => {
         if (!oldData) return oldData;
         return {
           ...oldData,
-          reference_duplicates_count: oldData.reference_duplicates_count - 1,
+          referenceDuplicatesCount: oldData.referenceDuplicatesCount - 1,
         };
       });
     },
