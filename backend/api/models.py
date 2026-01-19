@@ -233,20 +233,20 @@ class Notification(models.Model):
 
 
 class MainTheme(models.Model):
-    review = models.ForeignKey(Review, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=150)
     description = models.TextField(blank=True)
+    review = models.ForeignKey(Review, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     def __str__(self):
         return self.name
 
 
 class SubTheme(models.Model):
-    review = models.ForeignKey(Review, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=150)
     description = models.TextField(blank=True)
+    review = models.ForeignKey(Review, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     main_theme = models.ForeignKey(
         MainTheme,
         on_delete=models.SET_NULL,
@@ -260,19 +260,61 @@ class SubTheme(models.Model):
 
 
 class Code(models.Model):
-    reference = models.ForeignKey(Reference, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    name = models.CharField(max_length=150)
+    # Core identity
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
 
-    # react-pdf-highlighter payloads
-    position = models.JSONField()
-    content = models.JSONField()
-    comment = models.JSONField(null=True, blank=True)
-    color = models.CharField(max_length=20, default="#fff59d")
+    # Highlight type
+    type = models.CharField(
+        max_length=20,
+        choices=[
+            ("text", "Text"),
+            ("area", "Area"),
+            ("freetext", "Free text"),
+            ("image", "Image"),
+            ("drawing", "Drawing"),
+            ("shape", "Shape"),
+        ],
+        null=True,
+        blank=True,
+    )
+
+    name = models.TextField(blank=False)
+    review = models.ForeignKey(Review, on_delete=models.CASCADE)
+    reference = models.ForeignKey(
+        Reference,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="codes",
+    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     sub_theme = models.ForeignKey(
         SubTheme, on_delete=models.SET_NULL, null=True, blank=True, related_name="codes"
     )
 
+    # react-pdf-highlighter payloads
+    content = models.JSONField(null=True, blank=True)
+    position = models.JSONField(null=True, blank=True)
+
+    # Comment
+    comment = models.TextField(null=True, blank=True)
+
+    # Text / Area highlight styles
+    highlight_color = models.CharField(max_length=50, null=True, blank=True)
+    highlight_style = models.CharField(
+        max_length=20,
+        choices=[
+            ("highlight", "Highlight"),
+            ("underline", "Underline"),
+            ("strikethrough", "Strikethrough"),
+        ],
+        null=True,
+        blank=True,
+    )
+
     def __str__(self):
-        page = self.position.get("pageNumber", "?")
-        return f"Highlight {self.id} (page {page})"
+        return self.name

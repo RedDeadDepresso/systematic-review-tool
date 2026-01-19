@@ -6,6 +6,7 @@ from rest_framework.serializers import ModelSerializer
 from api.models import (
     Code,
     Keyword,
+    MainTheme,
     Note,
     Reference,
     ReferenceDuplicatePair,
@@ -173,19 +174,21 @@ class ReviewInvitationSerializer(ModelSerializer):
 
 
 class CodeSerializer(serializers.ModelSerializer):
+    reference_file_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Code
-        fields = [
-            "id",
-            "user",
-            "reference",
-            "position",
-            "content",
-            "comment",
-            "color",
-            "sub_theme",
-        ]
+        fields = "__all__"
         read_only_fields = ["id", "user"]
+
+    def get_reference_file_url(self, obj):
+        request = self.context.get("request")
+
+        if obj.reference and obj.reference.file:
+            url = obj.reference.file.url
+            return request.build_absolute_uri(url) if request else url
+
+        return None
 
 
 class SubThemeSerializer(serializers.ModelSerializer):
@@ -201,6 +204,6 @@ class MainThemeSerializer(serializers.ModelSerializer):
     sub_themes = SubThemeSerializer(many=True, read_only=True)
 
     class Meta:
-        model = SubTheme
+        model = MainTheme
         fields = ["id", "review", "name", "description", "sub_themes"]
         read_only_fields = ["id", "sub_themes"]

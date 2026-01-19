@@ -3,8 +3,7 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from api.views import (
-    CodeListCreateView,
-    CodeRetrieveUpdateDestroyView,
+    CodeViewSet,
     KeywordListCreateView,
     MainThemeViewSet,
     NoteListCreateView,
@@ -30,8 +29,9 @@ from api.views import (
 app_name = "api"
 
 router = DefaultRouter()
-router.register(r"sub-themes", SubThemeViewSet, basename="sub_theme")
 router.register(r"main-themes", MainThemeViewSet, basename="main_theme")
+router.register(r"sub-themes", SubThemeViewSet, basename="sub_theme")
+router.register(r"codes", CodeViewSet, basename="code")
 
 urlpatterns = [
     path("auth/register/", RegisterView.as_view(), name="register"),
@@ -99,16 +99,5 @@ urlpatterns = [
         ReferenceOpinionUpdateView.as_view(),
         name="opinions",
     ),
-    path(
-        "references/<int:reference_pk>/codes/",
-        CodeListCreateView.as_view(),
-        name="codes",
-    ),
-    path(
-        "reviews/<int:review_pk>/codes/",
-        CodeListCreateView.as_view(),
-        name="review_codes",
-    ),
-    path("codes/<int:pk>/", CodeRetrieveUpdateDestroyView.as_view(), name="code"),
     path("", include(router.urls)),
 ]

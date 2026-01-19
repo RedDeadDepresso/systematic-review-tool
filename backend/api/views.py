@@ -18,6 +18,7 @@ from api.filters import KeywordFilter, ReviewFilter
 from api.models import (
     Code,
     Keyword,
+    MainTheme,
     Note,
     Reference,
     ReferenceDuplicatePair,
@@ -494,33 +495,17 @@ class ReviewInvitationUpdateView(views.APIView):
             )
 
 
-class CodeListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+class CodeViewSet(viewsets.ModelViewSet):
     serializer_class = CodeSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.DjangoFilterBackend]
+    filterset_fields = ["review"]
 
     def get_queryset(self):
-        user = self.request.user
-        if self.kwargs.get("reference_pk"):
-            return Code.objects.filter(user=user, reference=self.kwargs["reference_pk"])
-        elif self.kwargs.get("review_pk"):
-            references = Reference.objects.filter(review=self.kwargs["review_pk"])
-            return Code.objects.filter(
-                reference__in=references, sub_theme=None, user=user
-            )
-        else:
-            return Code.objects.filter(user=user)
+        return Code.objects.select_related("reference").filter(user=self.request.user)
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
-
-
-class CodeRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = CodeSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-        return Code.objects.filter(user=user)
 
 
 class SubThemeViewSet(viewsets.ModelViewSet):
@@ -543,7 +528,7 @@ class MainThemeViewSet(viewsets.ModelViewSet):
     filterset_fields = ["review"]
 
     def get_queryset(self):
-        return SubTheme.objects.filter(user=self.request.user)
+        return MainTheme.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
