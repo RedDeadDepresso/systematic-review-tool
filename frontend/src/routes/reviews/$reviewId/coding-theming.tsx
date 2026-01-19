@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { SubThemeCard } from '@/components/coding-theming/sub-theme-card';
-import { useContext, useState, useMemo, useCallback } from 'react';
+import { useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { ReviewNavigationMenu } from '@/components/review-index/review-navigation-menu';
 import { MainThemeCard } from '@/components/coding-theming/main-theme-card';
@@ -25,8 +25,6 @@ export const Route = createFileRoute('/reviews/$reviewId/coding-theming')({
 
 function RouteComponent() {
   const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
-  setPageTitle('Coding & Theming');
-  setIsAuthenticated(true);
   const reviewId = Number(Route.useParams()['reviewId']);
   const {
     codes,
@@ -69,6 +67,11 @@ function RouteComponent() {
   );
   const [openPdfDialog, setOpenPdfDialog] = React.useState(false);
   const [selectedCode, setSelectedCode] = useState<Code | null>(null);
+
+  useEffect(() => {
+    setPageTitle('Coding & Theming');
+    setIsAuthenticated(true);
+  }, []);
 
   const handleJumpToCode = (code: Code) => {
     if (code.reference && code.referenceFileUrl) {

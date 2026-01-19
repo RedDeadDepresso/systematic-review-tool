@@ -11,8 +11,6 @@ export const Route = createFileRoute('/reviews/$reviewId/full-text-screening')({
 
 function RouteComponent() {
   const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
-  setPageTitle('Screening');
-  setIsAuthenticated(true);
 
   const { reviewId } = Route.useParams();
   const reviewIdNum = Number(reviewId);
@@ -35,7 +33,10 @@ function RouteComponent() {
 
   const isLoading = refsLoading || inclusiveLoading || exclusiveLoading;
 
-  useEffect(() => {}, []);
+  useEffect(() => {
+    setPageTitle('Full Text Screening');
+    setIsAuthenticated(true);
+  }, []);
 
   if (isLoading) return <div>Loading...</div>;
   if (!isLoading)
