@@ -19,9 +19,7 @@ from api.views import (
     ReviewInvitationCreateView,
     ReviewInvitationListView,
     ReviewInvitationUpdateView,
-    ReviewListCreateView,
-    ReviewRetrieveUpdateDestroyView,
-    ReviewUploadReferencesView,
+    ReviewViewSet,
     SubThemeViewSet,
 )
 
@@ -29,6 +27,7 @@ from api.views import (
 app_name = "api"
 
 router = DefaultRouter()
+router.register(r"reviews", ReviewViewSet, basename="review")
 router.register(r"main-themes", MainThemeViewSet, basename="main_theme")
 router.register(r"sub-themes", SubThemeViewSet, basename="sub_theme")
 router.register(r"codes", CodeViewSet, basename="code")
@@ -38,17 +37,10 @@ urlpatterns = [
     path("auth/login/", TokenObtainPairView.as_view(), name="login"),
     path("auth/refresh/", TokenRefreshView.as_view(), name="refresh"),
     path("auth/user/", RetrieveUserView.as_view(), name="user"),
-    path("reviews/", ReviewListCreateView.as_view(), name="reviews"),
-    path("reviews/<int:pk>/", ReviewRetrieveUpdateDestroyView.as_view(), name="review"),
     path(
         "reviews/<int:pk>/invites/",
         ReviewInvitationCreateView.as_view(),
         name="review_invites",
-    ),
-    path(
-        "reviews/<int:pk>/references/upload/",
-        ReviewUploadReferencesView.as_view(),
-        name="upload_references",
     ),
     path(
         "reviews/<int:pk>/references/",

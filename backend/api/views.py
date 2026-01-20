@@ -1,10 +1,14 @@
+import json
 import os
 
 import bibtexparser
 from django.db.models import Count, Prefetch, Q
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django_filters import rest_framework as filters
 from rest_framework import generics, status, views, viewsets
+from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import (
     SAFE_METHODS,
@@ -65,30 +69,6 @@ class RetrieveUserView(generics.RetrieveAPIView):
         return Response(user_data, status=status.HTTP_200_OK)
 
 
-class ReviewListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
-    serializer_class = ReviewListSerializer
-    filter_backends = (filters.DjangoFilterBackend,)
-    filterset_class = ReviewFilter
-
-    def get_queryset(self):
-        user = self.request.user
-
-        return (
-            Review.objects.filter(Q(owner=user) | Q(collaborators=user))
-            .distinct()
-            .annotate(reference_count=Count("reference"))
-        )
-
-    def get_serializer_class(self):
-        if self.request.method == "POST":
-            return ReviewSerializer
-        return ReviewListSerializer
-
-    def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
-
-
 class IsOwnerOrCollaboratorReadOnly(BasePermission):
     """
     Owners can do anything.
@@ -107,17 +87,240 @@ class IsOwnerOrCollaboratorReadOnly(BasePermission):
         return user == obj.owner
 
 
-class ReviewRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated, IsOwnerOrCollaboratorReadOnly]
-    serializer_class = ReviewSerializer
-    queryset = Review.objects.all()
+class ReviewViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing reviews and related operations.
 
+    Provides standard CRUD operations plus custom actions:
+    - upload_references: Upload BibTeX file
+    - export_latex: Export themes table as LaTeX
+    """
 
-class ReviewUploadReferencesView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
-    queryset = Review.objects.all()
+    filter_backends = (filters.DjangoFilterBackend,)
+    filterset_class = ReviewFilter
 
-    def extract_fields(self, review_id, search_methods, entry):
+    def get_queryset(self):
+        """Filter reviews to those owned by or shared with the user"""
+        user = self.request.user
+        queryset = Review.objects.filter(
+            Q(owner=user) | Q(collaborators=user)
+        ).distinct()
+
+        # Only annotate for list view to optimize performance
+        if self.action == "list":
+            queryset = queryset.annotate(reference_count=Count("reference"))
+
+        return queryset
+
+    def get_serializer_class(self):
+        """Use different serializers for list vs detail views"""
+        if self.action == "list":
+            return ReviewListSerializer
+        return ReviewSerializer
+
+    def get_permissions(self):
+        """Apply stricter permissions for update/delete"""
+        if self.action in ["update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsOwnerOrCollaboratorReadOnly()]
+        return [IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        """Set the owner to the current user when creating"""
+        serializer.save(owner=self.request.user)
+
+    # === Custom Actions ===
+
+    @action(detail=True, methods=["post"], url_path="upload-references")
+    def upload_references(self, request, pk=None):
+        """
+        Upload BibTeX file to add references to review.
+
+        Expected multipart/form-data with 'file' field containing .bib file.
+        """
+        review = self.get_object()
+
+        # Check ownership
+        if review.owner != request.user:
+            return Response(
+                {"error": "Only the review owner can upload references"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        uploaded_file = request.FILES.get("file")
+        if not uploaded_file:
+            return Response(
+                {"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate file extension
+        _, ext = os.path.splitext(uploaded_file.name)
+        if ext.lower() != ".bib":
+            return Response(
+                {"error": "Invalid file type. Please upload a .bib file."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            bib_database = bibtexparser.load(uploaded_file)
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to parse BibTeX file: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        search_methods = f"Uploaded References [{uploaded_file.name}]"
+        references = [
+            self._extract_reference_fields(review.id, search_methods, entry)
+            for entry in bib_database.entries
+        ]
+
+        Reference.objects.bulk_create(references)
+
+        review.reference_duplicate_detected = False
+        review.save()
+
+        return Response(
+            {
+                "message": "References uploaded successfully",
+                "uploaded_reference_count": len(bib_database.entries),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=["get"], url_path="export-json")
+    def export_json(self, request, pk=None):
+        """
+        Export themes, subthemes, and codes as structured JSON.
+
+        Query parameters:
+        - download: 'true' to download as .json file
+        - pretty: 'true' for formatted JSON (default: true)
+        """
+        review = self.get_object()
+
+        # Build structured data
+        themes_data = []
+        main_themes = MainTheme.objects.filter(
+            review=review, user=request.user
+        ).prefetch_related("sub_themes__codes")
+
+        for theme in main_themes:
+            subthemes_data = []
+
+            for subtheme in theme.sub_themes.all():
+                codes_data = [
+                    {
+                        "id": str(code.id),
+                        "name": code.name,
+                        "comment": code.comment,
+                        "type": code.type,
+                        "highlightColor": code.highlight_color,
+                        "referenceId": code.reference_id,
+                    }
+                    for code in subtheme.codes.all()
+                ]
+
+                subthemes_data.append(
+                    {
+                        "id": subtheme.id,
+                        "name": subtheme.name,
+                        "description": subtheme.description,
+                        "codeCount": len(codes_data),
+                        "codes": codes_data,
+                    }
+                )
+
+            themes_data.append(
+                {
+                    "id": theme.id,
+                    "name": theme.name,
+                    "description": theme.description,
+                    "subthemeCount": len(subthemes_data),
+                    "subthemes": subthemes_data,
+                }
+            )
+
+        export_data = {
+            "reviewId": review.id,
+            "reviewTitle": review.title,
+            "exportedAt": timezone.now().isoformat(),
+            "themeCount": len(themes_data),
+            "themes": themes_data,
+        }
+
+        # Return as file download
+        if request.query_params.get("download") == "true":
+            pretty = request.query_params.get("pretty", "true") == "true"
+            json_str = json.dumps(
+                export_data, indent=2 if pretty else None, ensure_ascii=False
+            )
+
+            response = HttpResponse(
+                json_str, content_type="application/json; charset=utf-8"
+            )
+            filename = f"themes_review_{review.id}.json"
+            response["Content-Disposition"] = f'attachment; filename="{filename}"'
+            return response
+
+        # Return as JSON response
+        return Response(export_data)
+
+    # Also update the export_latex action to support both formats
+    @action(detail=True, methods=["get", "post"], url_path="export-latex")
+    def export_latex(self, request, pk=None):
+        """
+        Export themes table as LaTeX code.
+
+        Query parameters (GET):
+        - download: 'true' to download as .tex file
+        - format: 'table_only' or 'full_document' (default: 'full_document' for downloads, 'table_only' for JSON)
+        """
+        review = self.get_object()
+
+        is_download = request.query_params.get("download") == "true"
+
+        # Get format preference
+        if request.method == "POST":
+            export_format = request.data.get("format", "table_only")
+            theme_ids = request.data.get("theme_ids")
+        else:
+            # Default to full_document for downloads, table_only for JSON preview
+            default_format = "full_document" if is_download else "table_only"
+            export_format = request.query_params.get("format", default_format)
+            theme_ids = None
+
+        # Generate LaTeX code
+        latex_code = self._generate_theme_table_latex(
+            review.id, request.user.id, export_format=export_format, theme_ids=theme_ids
+        )
+
+        # Return as file download
+        if is_download:
+            response = HttpResponse(
+                latex_code, content_type="text/plain; charset=utf-8"
+            )
+            filename = f"themes_review_{review.id}.tex"
+            response["Content-Disposition"] = f'attachment; filename="{filename}"'
+            return response
+
+        # Return as JSON (for preview or copying)
+        return Response(
+            {
+                "latex_code": latex_code,
+                "review_id": review.id,
+                "review_title": review.title,
+                "theme_count": MainTheme.objects.filter(
+                    review=review, user=request.user
+                ).count(),
+                "format": export_format,
+            }
+        )
+
+    # === Helper Methods ===
+
+    def _extract_reference_fields(self, review_id, search_methods, entry):
+        """Extract reference fields from BibTeX entry"""
         publication_types = {
             "article": "Journal Article",
             "book": "Book",
@@ -128,12 +331,16 @@ class ReviewUploadReferencesView(generics.GenericAPIView):
             "misc": "Miscellaneous",
         }
 
-        publication_type = publication_types.get(entry.get("ENTRYTYPE", ""), "Other")
+        publication_type = publication_types.get(
+            entry.get("ENTRYTYPE", "").lower(), "Other"
+        )
+
         authors = (
             ", ".join(a.strip() for a in entry.get("author", "").split(" and "))
             if "author" in entry
             else ""
         )
+
         journal = entry.get("journal") or entry.get("booktitle") or ""
         article_customizations = entry.get("note") or entry.get("howpublished")
 
@@ -148,41 +355,102 @@ class ReviewUploadReferencesView(generics.GenericAPIView):
             abstract=entry.get("abstract", ""),
         )
 
-    def post(self, request, *args, **kwargs):
-        review_id = kwargs["pk"]
-        review = get_object_or_404(Review, pk=review_id, owner=request.user)
-        uploaded_file = request.FILES.get("file")
+    def _generate_theme_table_latex(
+        self, review_id, user_id, export_format="table_only", theme_ids=None
+    ):
+        """Generate LaTeX code for themes table"""
+        queryset = MainTheme.objects.filter(
+            review_id=review_id, user_id=user_id
+        ).prefetch_related("sub_themes__codes")
 
-        if not uploaded_file:
-            return Response(
-                {"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST
-            )
+        if theme_ids:
+            queryset = queryset.filter(id__in=theme_ids)
 
-        if uploaded_file.file:
-            _, ext = os.path.splitext(uploaded_file.name)
-            if ext != ".bib":
-                return Response(
-                    {"error": "Invalid file. Please upload a bib file."},
-                    status=status.HTTP_400_BAD_REQUEST,
+        main_themes = queryset.order_by("id")
+
+        # Build LaTeX table with tabularx - description and example get more space
+        latex = r"""\begin{table}[h]
+    \centering
+    \caption{Themes and subthemes identified from Challenge Wall cards}
+    \begin{tabularx}{\textwidth}{|p{0.4cm}|>{\hsize=0.7\hsize}X|>{\hsize=0.8\hsize}X|>{\hsize=1.2\hsize}X|>{\hsize=1.3\hsize}X|}
+    \hline
+    & \textbf{Main themes} & \textbf{Subthemes} & \textbf{Description of subthemes} & \textbf{Example challenge} \\
+    \hline
+    """
+
+        for idx, theme in enumerate(main_themes, 1):
+            subtheme_data = []
+
+            for subtheme in theme.sub_themes.all():
+                count = subtheme.codes.count()
+                name = self._escape_latex(f"{subtheme.name} ({count})")
+                description = self._escape_latex(subtheme.description or "")
+
+                code = subtheme.codes.first()
+                example = self._escape_latex(code.name if code else "")
+
+                subtheme_data.append(
+                    {"name": name, "description": description, "example": example}
                 )
 
-        bib_database = bibtexparser.load(uploaded_file)
-        search_methods = f"Uploaded References [{uploaded_file.name}]"
-        references = [
-            self.extract_fields(review_id, search_methods, entry)
-            for entry in bib_database.entries
-        ]
-        Reference.objects.bulk_create(references)
+            theme_name = self._escape_latex(theme.name)
+            theme_count = theme.sub_themes.count()
 
-        review.reference_duplicate_detected = False
-        review.save()
+            latex += f"{idx} & {theme_name} ({theme_count}) & "
+            latex += r" \newline ".join(s["name"] for s in subtheme_data) + " & "
+            latex += (
+                r" \newline\newline ".join(s["description"] for s in subtheme_data)
+                + " & "
+            )
+            latex += (
+                r" \newline\newline ".join(s["example"] for s in subtheme_data) + r" \\"
+            )
+            latex += "\n\\hline\n"
 
-        return Response(
-            {
-                "uploaded_reference_count": len(bib_database.entries),
-            },
-            status=status.HTTP_200_OK,
-        )
+        latex += r"""\end{tabularx}
+    \label{tab:themes}
+    \end{table}"""
+
+        if export_format == "full_document":
+            latex = (
+                r"""\documentclass{article}
+    \usepackage[utf8]{inputenc}
+    \usepackage{tabularx}
+    \usepackage{array}
+
+    \begin{document}
+
+    """
+                + latex
+                + r"""
+
+    \end{document}"""
+            )
+
+        return latex
+
+    def _escape_latex(self, text):
+        """Escape special LaTeX characters"""
+        if not text:
+            return ""
+
+        replacements = {
+            "&": r"\&",
+            "%": r"\%",
+            "$": r"\$",
+            "#": r"\#",
+            "_": r"\_",
+            "{": r"\{",
+            "}": r"\}",
+            "~": r"\textasciitilde{}",
+            "^": r"\^{}",
+            "\\": r"\textbackslash{}",
+        }
+
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+
+        return text
 
 
 class ReferenceListView(generics.ListAPIView):
