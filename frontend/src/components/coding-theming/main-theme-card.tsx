@@ -9,9 +9,12 @@ import { EditItemDialog } from './edit-item-dialog';
 import { DeleteConfirmationDialog } from './delete-confirmation-dialog';
 import type { MainTheme } from '@/types/main-theme';
 import type { Code } from '@/types/code';
+import type { SubTheme } from '@/types/sub-theme';
 
 interface MainThemeCardProps {
   mainTheme: MainTheme;
+  codesMap: Record<string, Code>;
+  subThemesMap: Record<number, SubTheme>;
   onEdit: (id: number, name: string, description: string) => void;
   onDelete: (
     id: number,
@@ -22,9 +25,9 @@ interface MainThemeCardProps {
   onEditSubTheme: (id: number, name: string, description: string) => void;
   onDeleteSubTheme: (id: number, options?: { deleteCodes?: boolean }) => void;
   onDropCode: (subThemeId: number) => void;
-  onRemoveCode: (codeId: number) => void;
-  onEditCode: (id: number, name: string, description: string) => void;
-  onDeleteCode: (id: number) => void;
+  onRemoveCode: (codeId: string) => void;
+  onEditCode: (id: string, name: string, description: string) => void;
+  onDeleteCode: (id: string) => void;
   isDraggingSubTheme?: boolean;
   isDraggingCode?: boolean;
   compact?: boolean;
@@ -33,12 +36,14 @@ interface MainThemeCardProps {
   onJumpCode?: (code: Code) => void;
   expandedSubThemes?: Set<number>;
   onToggleSubTheme?: (id: number) => void;
-  expandedCodes?: Set<number>;
-  onToggleCode?: (id: number) => void;
+  expandedCodes?: Set<string>;
+  onToggleCode?: (id: string) => void;
 }
 
 export function MainThemeCard({
   mainTheme,
+  codesMap,
+  subThemesMap,
   onEdit,
   onDelete,
   onDropSubTheme,
@@ -170,34 +175,39 @@ export function MainThemeCard({
                 isDragOver ? 'border-primary bg-primary/10' : 'border-border'
               }`}
             >
-              {mainTheme.subThemes.length === 0 ? (
+              {mainTheme.subThemeIds.length === 0 ? (
                 <p
                   className={`text-xs text-muted-foreground text-center ${compact ? 'py-2' : 'py-4'}`}
                 >
                   Drop sub themes here
                 </p>
               ) : (
-                mainTheme.subThemes.map((subTheme) => (
-                  <SubThemeCard
-                    key={subTheme.id}
-                    subTheme={subTheme}
-                    onEdit={onEditSubTheme}
-                    onDelete={onDeleteSubTheme}
-                    onDropCode={() => onDropCode(subTheme.id)}
-                    onRemoveCode={onRemoveCode}
-                    onEditCode={onEditCode}
-                    onDeleteCode={onDeleteCode}
-                    onRemove={() => onRemoveSubTheme(subTheme.id)}
-                    isDraggingCode={isDraggingCode}
-                    compact
-                    nested
-                    onJumpCode={onJumpCode}
-                    isExpanded={expandedSubThemes?.has(subTheme.id) ?? true}
-                    onToggleExpand={onToggleSubTheme}
-                    expandedCodes={expandedCodes}
-                    onToggleCode={onToggleCode}
-                  />
-                ))
+                mainTheme.subThemeIds.map((subThemeId) => {
+                  const subTheme = subThemesMap[subThemeId];
+                  if (!subTheme) return null; // safety check
+                  return (
+                    <SubThemeCard
+                      key={subTheme.id}
+                      subTheme={subTheme}
+                      codesMap={codesMap}
+                      onEdit={onEditSubTheme}
+                      onDelete={onDeleteSubTheme}
+                      onDropCode={() => onDropCode(subTheme.id)}
+                      onRemoveCode={onRemoveCode}
+                      onEditCode={onEditCode}
+                      onDeleteCode={onDeleteCode}
+                      onRemove={() => onRemoveSubTheme(subTheme.id)}
+                      isDraggingCode={isDraggingCode}
+                      compact
+                      nested
+                      onJumpCode={onJumpCode}
+                      isExpanded={expandedSubThemes?.has(subTheme.id) ?? true}
+                      onToggleExpand={onToggleSubTheme}
+                      expandedCodes={expandedCodes}
+                      onToggleCode={onToggleCode}
+                    />
+                  );
+                })
               )}
             </div>
           </CardContent>

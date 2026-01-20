@@ -14,7 +14,7 @@ function RouteComponent() {
   const reviewIdNum = Number(reviewId);
   const { data, isLoading } = useFetchReferences({ reviewId: reviewId });
   const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
-  
+
   useEffect(() => {
     setPageTitle('Review Data');
     setIsAuthenticated(true);

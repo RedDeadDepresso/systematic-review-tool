@@ -56,7 +56,7 @@ function RouteComponent() {
   const [subThemesSearch, setSubThemesSearch] = useState('');
   const [mainThemesSearch, setMainThemesSearch] = useState('');
 
-  const [expandedCodes, setExpandedCodes] = useState<Set<number>>(
+  const [expandedCodes, setExpandedCodes] = useState<Set<string>>(
     new Set(codes.map((c) => c.id))
   );
   const [expandedSubThemes, setExpandedSubThemes] = useState<Set<number>>(
@@ -81,7 +81,7 @@ function RouteComponent() {
     }
   };
 
-  const handleToggleCode = useCallback((id: number) => {
+  const handleToggleCode = useCallback((id: string) => {
     setExpandedCodes((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -108,20 +108,19 @@ function RouteComponent() {
     });
   }, []);
 
-  const allCodeIds = useMemo(() => {
-    const ids = new Set(codes.map((c) => c.id));
-    subThemes.forEach((st) => st.codes.forEach((c) => ids.add(c.id)));
-    mainThemes.forEach((mt) =>
-      mt.subThemes.forEach((st) => st.codes.forEach((c) => ids.add(c.id)))
-    );
-    return ids;
-  }, [codes, subThemes, mainThemes]);
+  const allCodeIds = useMemo(() => new Set(codes.map((c) => c.id)), [codes]);
+  const codesMap = useMemo(() => {
+    return Object.fromEntries(codes.map((code) => [code.id, code]));
+  }, [codes]);
 
-  const allSubThemeIds = useMemo(() => {
-    const ids = new Set(subThemes.map((st) => st.id));
-    mainThemes.forEach((mt) => mt.subThemes.forEach((st) => ids.add(st.id)));
-    return ids;
-  }, [subThemes, mainThemes]);
+  const allSubThemeIds = useMemo(
+    () => new Set(subThemes.map((st) => st.id)),
+    [subThemes]
+  );
+  const subThemesMap = useMemo(
+    () => Object.fromEntries(subThemes.map((st) => [st.id, st])),
+    [subThemes]
+  );
 
   const handleExpandAllCodes = () => setExpandedCodes(new Set(allCodeIds));
   const handleCollapseAllCodes = () => setExpandedCodes(new Set());
@@ -133,22 +132,26 @@ function RouteComponent() {
   const handleCollapseAllMainThemes = () => setExpandedMainThemes(new Set());
 
   const filteredCodes = useMemo(() => {
-    if (!codesSearch.trim()) return codes;
+    if (!codesSearch.trim())
+      return codes.filter((code) => code.subTheme === null);
     const search = codesSearch.toLowerCase();
     return codes.filter(
       (code) =>
-        code.name.toLowerCase().includes(search) ||
-        code?.comment.includes(search)
+        code.subTheme === null &&
+        (code.name.toLowerCase().includes(search) ||
+          code?.comment?.includes(search))
     );
   }, [codes, codesSearch]);
 
   const filteredSubThemes = useMemo(() => {
-    if (!subThemesSearch.trim()) return subThemes;
+    if (!subThemesSearch.trim())
+      return subThemes.filter((st) => st.mainTheme === null);
     const search = subThemesSearch.toLowerCase();
     return subThemes.filter(
       (st) =>
-        st.name.toLowerCase().includes(search) ||
-        st.description.toLowerCase().includes(search)
+        st.mainTheme === null &&
+        (st.name.toLowerCase().includes(search) ||
+          st.description.toLowerCase().includes(search))
     );
   }, [subThemes, subThemesSearch]);
 
@@ -202,11 +205,7 @@ function RouteComponent() {
                   </span>
                 </Button>
               </CollapsibleTrigger>
-              <CreateItemDialog
-                reviewId={reviewId}
-                type="code"
-                onCreate={handleCreateCode}
-              >
+              <CreateItemDialog type="code" onCreate={handleCreateCode}>
                 <Button size="sm" variant="outline">
                   <Plus className="h-4 w-4 mr-1" />
                   Add Code
@@ -271,11 +270,7 @@ function RouteComponent() {
                   </span>
                 </Button>
               </CollapsibleTrigger>
-              <CreateItemDialog
-                reviewId={reviewId}
-                type="subTheme"
-                onCreate={handleCreateSubTheme}
-              >
+              <CreateItemDialog type="subTheme" onCreate={handleCreateSubTheme}>
                 <Button size="sm" variant="outline">
                   <Plus className="h-4 w-4 mr-1" />
                   Add Sub Theme
@@ -302,6 +297,7 @@ function RouteComponent() {
                     <SubThemeCard
                       key={subTheme.id}
                       subTheme={subTheme}
+                      codesMap={codesMap}
                       onEdit={handleEditSubTheme}
                       onDelete={handleDeleteSubTheme}
                       onDragStart={() =>
@@ -350,7 +346,6 @@ function RouteComponent() {
                 </Button>
               </CollapsibleTrigger>
               <CreateItemDialog
-                reviewId={reviewId}
                 type="mainTheme"
                 onCreate={handleCreateMainTheme}
               >
@@ -380,6 +375,8 @@ function RouteComponent() {
                     <MainThemeCard
                       key={mainTheme.id}
                       mainTheme={mainTheme}
+                      codesMap={codesMap}
+                      subThemesMap={subThemesMap}
                       onEdit={handleEditMainTheme}
                       onDelete={handleDeleteMainTheme}
                       onDropSubTheme={() =>

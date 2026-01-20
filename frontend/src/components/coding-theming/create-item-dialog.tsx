@@ -14,17 +14,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useCreateCode } from '@/hooks/use-code';
-import { useCreateSubTheme } from '@/hooks/use-sub-theme';
-import { useCreateMainTheme } from '@/hooks/use-main-theme';
-import type { MainTheme } from '@/types/main-theme';
-import type { SubTheme } from '@/types/sub-theme';
-import type { Code } from '@/types/code';
 
 interface CreateItemDialogProps {
-  reviewId: number;
   type: 'code' | 'subTheme' | 'mainTheme';
-  onCreate: (data: Code | SubTheme | MainTheme) => void;
+  onCreate: (name: string, description: string) => Promise<boolean>;
   children: React.ReactNode;
 }
 
@@ -34,25 +27,7 @@ const typeLabels = {
   mainTheme: 'Main Theme',
 };
 
-function useCreateItem(type: 'code' | 'subTheme' | 'mainTheme') {
-  const code = useCreateCode();
-  const subTheme = useCreateSubTheme();
-  const mainTheme = useCreateMainTheme();
-
-  switch (type) {
-    case 'code':
-      return code;
-    case 'subTheme':
-      return subTheme;
-    case 'mainTheme':
-      return mainTheme;
-    default:
-      throw new Error('Unknown type');
-  }
-}
-
 export function CreateItemDialog({
-  reviewId,
   type,
   onCreate,
   children,
@@ -60,34 +35,18 @@ export function CreateItemDialog({
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const createMutation = useCreateItem(type);
+  const [isPending, setIsPending] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (name.trim()) {
-      const submit = (data) =>
-        createMutation.mutate(data, {
-          onSuccess: (data) => {
-            onCreate(data);
-            setName('');
-            setDescription('');
-            setOpen(false);
-          },
-        });
-      if (type === 'code') {
-        submit({
-          review: reviewId,
-          name: name.trim(),
-          comment: description.trim(),
-        });
-      } else {
-        submit({
-          review: reviewId,
-          name: name.trim(),
-          description: description.trim(),
-        });
-      }
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+    setIsPending(true);
+    if (await onCreate(trimmedName, description.trim())) {
+      setName('');
+      setDescription('');
     }
+    setIsPending(false);
   };
 
   return (
@@ -131,14 +90,11 @@ export function CreateItemDialog({
               type="button"
               variant="outline"
               onClick={() => setOpen(false)}
-              disabled={createMutation.isPending}
+              disabled={isPending}
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={!name.trim() || createMutation.isPending}
-            >
+            <Button type="submit" disabled={!name?.trim() || isPending}>
               Create
             </Button>
           </DialogFooter>

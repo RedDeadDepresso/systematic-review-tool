@@ -98,7 +98,7 @@ export function EditItemDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={!name.trim()}>
+            <Button type="submit" disabled={name !== undefined && !name.trim()}>
               Save Changes
             </Button>
           </DialogFooter>

@@ -103,20 +103,19 @@ export function CodingThemingSidebar({
     });
   }, []);
 
-  const allCodeIds = useMemo(() => {
-    const ids = new Set(codes.map((c) => c.id));
-    subThemes.forEach((st) => st.codes.forEach((c) => ids.add(c.id)));
-    mainThemes.forEach((mt) =>
-      mt.subThemes.forEach((st) => st.codes.forEach((c) => ids.add(c.id)))
-    );
-    return ids;
-  }, [codes, subThemes, mainThemes]);
+  const allCodeIds = useMemo(() => new Set(codes.map((c) => c.id)), [codes]);
+  const codesMap = useMemo(() => {
+    return Object.fromEntries(codes.map((code) => [code.id, code]));
+  }, [codes]);
 
-  const allSubThemeIds = useMemo(() => {
-    const ids = new Set(subThemes.map((st) => st.id));
-    mainThemes.forEach((mt) => mt.subThemes.forEach((st) => ids.add(st.id)));
-    return ids;
-  }, [subThemes, mainThemes]);
+  const allSubThemeIds = useMemo(
+    () => new Set(subThemes.map((st) => st.id)),
+    [subThemes]
+  );
+  const subThemesMap = useMemo(
+    () => Object.fromEntries(subThemes.map((st) => [st.id, st])),
+    [subThemes]
+  );
 
   const handleExpandAllCodes = () => setExpandedCodes(new Set(allCodeIds));
   const handleCollapseAllCodes = () => setExpandedCodes(new Set());
@@ -213,11 +212,7 @@ export function CodingThemingSidebar({
                   </span>
                 </Button>
               </CollapsibleTrigger>
-              <CreateItemDialog
-                reviewId={reviewId}
-                type="code"
-                onCreate={handleCreateCode}
-              >
+              <CreateItemDialog type="code" onCreate={handleCreateCode}>
                 <Button size="icon" variant="ghost" className="h-6 w-6">
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
@@ -292,11 +287,7 @@ export function CodingThemingSidebar({
                   </span>
                 </Button>
               </CollapsibleTrigger>
-              <CreateItemDialog
-                reviewId={reviewId}
-                type="subTheme"
-                onCreate={handleCreateSubTheme}
-              >
+              <CreateItemDialog type="subTheme" onCreate={handleCreateSubTheme}>
                 <Button size="icon" variant="ghost" className="h-6 w-6">
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
@@ -323,6 +314,7 @@ export function CodingThemingSidebar({
                     <SubThemeCard
                       key={subTheme.id}
                       subTheme={subTheme}
+                      codesMap={codesMap}
                       onEdit={handleEditSubTheme}
                       onDelete={handleDeleteSubTheme}
                       onDragStart={() =>
@@ -368,7 +360,6 @@ export function CodingThemingSidebar({
                 </Button>
               </CollapsibleTrigger>
               <CreateItemDialog
-                reviewId={reviewId}
                 type="mainTheme"
                 onCreate={handleCreateMainTheme}
               >
@@ -398,6 +389,8 @@ export function CodingThemingSidebar({
                     <MainThemeCard
                       key={mainTheme.id}
                       mainTheme={mainTheme}
+                      codesMap={codesMap}
+                      subThemesMap={subThemesMap}
                       onEdit={handleEditMainTheme}
                       onDelete={handleDeleteMainTheme}
                       onDropSubTheme={() =>

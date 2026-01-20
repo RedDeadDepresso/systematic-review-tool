@@ -13,18 +13,19 @@ export async function createSubTheme(payload: {
   review: number;
   name: string;
   description?: string;
+  mainTheme?: number;
 }): Promise<SubTheme> {
   const response = await api.post<SubTheme>('/sub-themes/', payload);
   return response.data;
 }
 
-export async function updateSubTheme(
-  id: number,
-  payload: {
-    name?: string;
-    description?: string;
-  }
-): Promise<SubTheme> {
+export async function updateSubTheme({
+  id,
+  payload,
+}: {
+  id: number;
+  payload: Partial<SubTheme>;
+}): Promise<SubTheme> {
   const response = await api.patch<SubTheme>(`/sub-themes/${id}/`, payload);
   return response.data;
 }

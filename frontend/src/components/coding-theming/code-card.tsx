@@ -19,15 +19,15 @@ import type { Code } from '@/types/code';
 
 interface CodeCardProps {
   code: Code;
-  onEdit: (id: number, name: string, description: string) => void;
-  onDelete: (id: number) => void;
+  onEdit: (id: string, name: string, description: string) => void;
+  onDelete: (id: string) => void;
   onDragStart?: () => void;
   onDragEnd?: () => void;
   onRemove?: () => void;
   onJump?: (code: Code) => void;
   compact?: boolean;
   isExpanded?: boolean;
-  onToggleExpand?: (id: number) => void;
+  onToggleExpand?: (id: string) => void;
   nested?: boolean;
 }
 
@@ -117,7 +117,7 @@ export function CodeCard({
                       onEdit(code.id, name, description)
                     }
                     onDelete={handleDeleteClick}
-                    onJump={onJump ? () => onJump(code.id) : undefined}
+                    onJump={onJump ? () => onJump(code) : undefined}
                     compact={compact}
                   />
                   {onRemove && (

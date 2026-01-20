@@ -12,13 +12,13 @@ export async function fetchCodes(reviewId: number): Promise<Code[]> {
 export async function createCode(payload: {
   name: string;
   review: number;
-  reference: number;
-  content: Content;
-  comment: string;
-  position: ScaledPosition;
-  type: string;
-  highlightColor: string;
-  highlightStyle: string;
+  reference?: number;
+  content?: Content;
+  comment?: string;
+  position?: ScaledPosition;
+  type?: string;
+  highlightColor?: string;
+  highlightStyle?: string;
 }): Promise<Code> {
   const response = await api.post<Code>('/codes/', payload);
   return response.data;

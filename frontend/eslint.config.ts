@@ -31,6 +31,7 @@ export default [
     },
     rules: {
       ...configPrettier.rules,
+      'no-undef': 'off',
       'react/react-in-jsx-scope': 'off',
       'no-unused-vars': 'off',
       'prettier/prettier': [

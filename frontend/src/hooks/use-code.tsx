@@ -2,6 +2,7 @@ import { createCode, deleteCode, fetchCodes, updateCode } from '@/api/code';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { Code } from '@/types/code';
+import type { SubTheme } from '@/types/sub-theme';
 
 export function useFetchCodes(reviewId: number) {
   return useQuery({
@@ -34,14 +35,29 @@ export function useUpdateCode() {
 
   return useMutation({
     mutationFn: updateCode,
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       toast.success('Code has been updated.');
-      queryClient.setQueryData(
-        ['codes', data.review],
-        (oldData: Code[] = []) => {
-          if (!oldData) return [data];
-          return [...oldData, data];
-        }
+      if (variables.payload.subTheme !== undefined) {
+        queryClient.setQueryData(
+          ['sub-themes', data.review],
+          (oldData: SubTheme[] = []) =>
+            oldData.map((st) => ({
+              ...st,
+              codeIds: st.codeIds.filter((cid) => cid !== data.id),
+            }))
+        );
+        queryClient.setQueryData(
+          ['sub-themes', data.review],
+          (oldData: SubTheme[] = []) =>
+            oldData.map((st) =>
+              st.id === variables.payload.subTheme
+                ? { ...st, codeIds: [...st.codeIds, data.id] }
+                : st
+            )
+        );
+      }
+      queryClient.setQueryData(['codes', data.review], (oldData: Code[] = []) =>
+        oldData.map((code) => (code.id === data.id ? data : code))
       );
     },
   });
@@ -56,6 +72,14 @@ export function useDeleteCode() {
       deleteCode(id),
     onSuccess: (_data, variables) => {
       toast.success('Code has been deleted.');
+      queryClient.setQueryData(
+        ['sub-themes', variables.reviewId],
+        (oldData: SubTheme[] = []) =>
+          oldData.map((st) => ({
+            ...st,
+            codeIds: st.codeIds.filter((cid) => cid !== variables.id),
+          }))
+      );
       queryClient.setQueryData<Code[]>(
         ['codes', variables.reviewId],
         (old = []) => old.filter((code) => code.id !== variables.id)

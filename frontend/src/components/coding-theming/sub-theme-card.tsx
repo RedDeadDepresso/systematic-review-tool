@@ -22,14 +22,15 @@ import type { Code } from '@/types/code';
 
 interface SubThemeCardProps {
   subTheme: SubTheme;
+  codesMap: Record<string, Code>;
   onEdit: (id: number, name: string, description: string) => void;
   onDelete: (id: number, options?: { deleteCodes?: boolean }) => void;
   onDragStart?: () => void;
   onDragEnd?: () => void;
   onDropCode: () => void;
-  onRemoveCode: (codeId: number) => void;
-  onEditCode: (id: number, name: string, description: string) => void;
-  onDeleteCode: (id: number) => void;
+  onRemoveCode: (codeId: string) => void;
+  onEditCode: (id: string, name: string, description: string) => void;
+  onDeleteCode: (id: string) => void;
   onRemove?: () => void;
   isDraggingCode?: boolean;
   compact?: boolean;
@@ -37,12 +38,13 @@ interface SubThemeCardProps {
   onToggleExpand?: (id: number) => void;
   nested?: boolean;
   onJumpCode?: (code: Code) => void;
-  expandedCodes?: Set<number>;
-  onToggleCode?: (id: number) => void;
+  expandedCodes?: Set<string>;
+  onToggleCode?: (id: string) => void;
 }
 
 export function SubThemeCard({
   subTheme,
+  codesMap,
   onEdit,
   onDelete,
   onDragStart,
@@ -227,25 +229,29 @@ export function SubThemeCard({
                 isDragOver ? 'border-primary bg-primary/10' : 'border-border'
               }`}
             >
-              {subTheme.codes.length === 0 ? (
+              {subTheme.codeIds.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-2">
                   Drop codes here
                 </p>
               ) : (
-                subTheme.codes.map((code) => (
-                  <CodeCard
-                    key={code.id}
-                    code={code}
-                    onEdit={onEditCode}
-                    onDelete={onDeleteCode}
-                    onRemove={() => onRemoveCode(code.id)}
-                    onJump={onJumpCode}
-                    compact
-                    nested
-                    isExpanded={expandedCodes?.has(code.id) ?? true}
-                    onToggleExpand={onToggleCode}
-                  />
-                ))
+                subTheme.codeIds.map((codeId) => {
+                  const code = codesMap[codeId];
+                  if (!code) return null;
+                  return (
+                    <CodeCard
+                      key={code.id}
+                      code={code}
+                      onEdit={onEditCode}
+                      onDelete={onDeleteCode}
+                      onRemove={() => onRemoveCode(code.id)}
+                      onJump={onJumpCode}
+                      compact
+                      nested
+                      isExpanded={expandedCodes?.has(code.id) ?? true}
+                      onToggleExpand={onToggleCode}
+                    />
+                  );
+                })
               )}
             </div>
           </CardContent>

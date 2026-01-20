@@ -18,11 +18,15 @@ export async function createMainTheme(payload: {
   return response.data;
 }
 
-export function updateMainTheme(
-  id: number,
-  payload: Partial<MainTheme>
-): Promise<MainTheme> {
-  return api.patch(`/main-themes/${id}/`, payload);
+export async function updateMainTheme({
+  id,
+  payload,
+}: {
+  id: number;
+  payload: Partial<MainTheme>;
+}): Promise<MainTheme> {
+  const response = await api.patch<MainTheme>(`/main-themes/${id}/`, payload);
+  return response.data;
 }
 
 export function deleteMainTheme(id: number): Promise<void> {

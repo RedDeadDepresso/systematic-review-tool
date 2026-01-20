@@ -4,7 +4,7 @@ export interface Code extends Highlight {
   name: string;
   review: number;
   reference?: number;
-  subTheme?: number;
+  subTheme?: number | null;
   referenceFileUrl?: string;
   content: Content;
   comment?: string;
