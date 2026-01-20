@@ -192,18 +192,22 @@ class CodeSerializer(serializers.ModelSerializer):
 
 
 class SubThemeSerializer(serializers.ModelSerializer):
-    codes = CodeSerializer(many=True, read_only=True)
+    code_ids = serializers.PrimaryKeyRelatedField(
+        many=True, read_only=True, source="codes"
+    )
 
     class Meta:
         model = SubTheme
-        fields = ["id", "review", "name", "description", "codes"]
-        read_only_fields = ["id", "codes"]
+        fields = ["id", "review", "name", "description", "code_ids", "main_theme"]
+        read_only_fields = ["id", "code_ids"]
 
 
 class MainThemeSerializer(serializers.ModelSerializer):
-    sub_themes = SubThemeSerializer(many=True, read_only=True)
+    sub_theme_ids = serializers.PrimaryKeyRelatedField(
+        many=True, read_only=True, source="sub_themes"
+    )
 
     class Meta:
         model = MainTheme
-        fields = ["id", "review", "name", "description", "sub_themes"]
-        read_only_fields = ["id", "sub_themes"]
+        fields = ["id", "review", "name", "description", "sub_theme_ids"]
+        read_only_fields = ["id", "sub_theme_ids"]
