@@ -18,6 +18,7 @@ import { useCodingTheming } from '@/hooks/use-coding-theming';
 import type { Code } from '@/types/code';
 import { PDFDialog } from '@/components/review-full-text-screening/pdf-dialog';
 import React from 'react';
+import { ExportDropdown } from '@/components/coding-theming/export-dropdown';
 
 export const Route = createFileRoute('/reviews/$reviewId/coding-theming')({
   component: RouteComponent,
@@ -180,7 +181,10 @@ function RouteComponent() {
             fileUrl={selectedCode.referenceFileUrl}
           />
         )}
-      <ReviewNavigationMenu reviewId={reviewId} />
+      <div className="flex items-center justify-between">
+        <ReviewNavigationMenu reviewId={reviewId} />
+        <ExportDropdown reviewId={reviewId} />
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Codes Column */}
         <div className="space-y-4">
