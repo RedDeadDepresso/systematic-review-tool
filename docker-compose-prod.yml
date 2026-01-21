@@ -1,0 +1,60 @@
+services:
+  postgres:
+    image: postgres:18.0-alpine3.22
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    env_file:
+      - ./.env
+
+  django:
+    build: ./backend
+    command: sh -c "python manage.py makemigrations &&
+      python manage.py migrate &&
+      python manage.py collectstatic --noinput &&
+      daphne -b 0.0.0.0 -p 8000 backend.asgi:application"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/backend
+    depends_on:
+      - postgres
+    env_file:
+      - ./.env
+
+  react:
+    build: ./frontend
+    command: sh -c "pnpm build"
+    volumes:
+      - frontend-dist:/frontend/dist # <-- mount the volume inside build container
+
+  nginx:
+    build: ./nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./nginx/certbot/www:/var/www/certbot
+      - frontend-dist:/usr/share/nginx/html
+    env_file:
+      - ./.env
+    depends_on:
+      - django
+
+  certbot:
+    image: certbot/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    volumes:
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./nginx/certbot/www:/var/www/certbot
+    env_file:
+      - ./.env
+    depends_on:
+      - nginx
+
+volumes:
+  frontend-dist:
+  postgres-data:

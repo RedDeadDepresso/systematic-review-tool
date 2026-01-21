@@ -1,0 +1,82 @@
+# Define the Django upstream
+upstream django {
+    server django:8000;
+}
+
+# HTTP to HTTPS redirect server block
+server {
+    listen 80;
+    server_name ${SITE_DOMAIN};
+
+    # Allow ACME challenge to be served over HTTP
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    # Redirect HTTP to HTTPS for all other requests
+    return 301 https://$host$request_uri;
+}
+
+# HTTPS server block
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${SITE_DOMAIN};
+
+    # SSL configuration
+    ssl_certificate /etc/letsencrypt/live/${SITE_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${SITE_DOMAIN}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers 'TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384';
+    ssl_prefer_server_ciphers on;
+    
+    # Add SSL headers
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+    
+    # Enable OCSP Stapling
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    resolver 8.8.8.8 8.8.4.4 valid=300s;
+
+    location = / {
+        return 302 /login/;   # redirect / to /login
+    }
+
+    # Serve React frontend (static files)
+    location / {
+        root /usr/share/nginx/html;      # <-- frontend-dist volume
+        index index.html index.htm;
+        try_files $uri /index.html;      # required for SPA routing
+    }
+    
+    # Proxy settings
+    location / {
+        proxy_pass http://django:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Serve Django static files
+    location /static/ {
+        alias /django/staticfiles/;
+    }
+
+    # Increase max upload size if needed
+    client_max_body_size 50M;
+
+    # Let Django handle Websockets
+    location /ws/ {
+        proxy_pass http://django:8000/ws/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
