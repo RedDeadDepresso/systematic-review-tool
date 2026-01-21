@@ -12,19 +12,28 @@ before_script:
 
 build-images:
   stage: build
-  image: docker:24
-  services:
-    - name: docker:24-dind
-      alias: docker
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
   variables:
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_TLS_CERTDIR: ""
-  before_script:
-    - echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+    IMAGE: ghcr.io/$GHCR_USERNAME/$CI_PROJECT_NAME-django
   script:
-    - docker info
-    - docker build -t ghcr.io/$GHCR_USERNAME/$CI_PROJECT_NAME-django:latest ./backend
-    - docker push ghcr.io/$GHCR_USERNAME/$CI_PROJECT_NAME-django:latest
+    - mkdir -p /kaniko/.docker
+    - |
+      cat > /kaniko/.docker/config.json <<EOF
+      {
+        "auths": {
+          "ghcr.io": {
+            "username": "$GHCR_USERNAME",
+            "password": "$GHCR_TOKEN"
+          }
+        }
+      }
+      EOF
+    - /kaniko/executor
+        --context ./backend
+        --dockerfile ./backend/Dockerfile
+        --destination $IMAGE:latest
 
 deploy-prod:
   stage: deploy
