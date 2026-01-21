@@ -35,7 +35,7 @@ export function useUpdateInvitationStatus() {
   >({
     mutationFn: ({ inviteId, action }) =>
       updateInvitationStatus(inviteId, action),
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, variables) => {
       toast.success('Invitation status updated.');
       queryClient.setQueryData<Invitation[]>(['invitations'], (oldData) => {
         if (!oldData) return [];

@@ -14,11 +14,7 @@ import { Label } from '@/components/ui/label';
 import { useUploadReviewReferences } from '@/hooks/use-review';
 import { useState, type ChangeEvent } from 'react';
 
-export function UploadReferencesForm({
-  reviewId,
-}: {
-  reviewId: number | string;
-}) {
+export function UploadReferencesForm({ reviewId }: { reviewId: number }) {
   const UploadReviewReferences = useUploadReviewReferences();
   const [file, setFile] = useState<File | null>(null);
 

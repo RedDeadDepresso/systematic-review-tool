@@ -81,7 +81,7 @@ export function NavMain() {
                       <SidebarMenuSubButton asChild>
                         <Link
                           to="/reviews/$reviewId"
-                          params={{ reviewId: subItem.id }}
+                          params={{ reviewId: subItem.id.toString() }}
                         >
                           <span>{subItem.title}</span>
                         </Link>

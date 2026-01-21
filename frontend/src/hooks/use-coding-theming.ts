@@ -136,7 +136,7 @@ export function useCodingTheming(reviewId: number) {
 
   const handleDeleteSubTheme = (
     id: number,
-    options?: { deleteCodes?: boolean }
+    _options?: { deleteCodes?: boolean }
   ) => {
     deleteSubTheme.mutate(
       { id, reviewId }
@@ -157,7 +157,7 @@ export function useCodingTheming(reviewId: number) {
 
   const handleDeleteMainTheme = (
     id: number,
-    options?: { deleteSubThemes?: boolean; deleteCodes?: boolean }
+    _options?: { deleteSubThemes?: boolean; deleteCodes?: boolean }
   ) => {
     deleteMainTheme.mutate(
       { id, reviewId }

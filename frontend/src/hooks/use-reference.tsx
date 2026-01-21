@@ -77,8 +77,14 @@ export const useDetectDuplicateReferences = () => {
         };
       });
     },
-    onError: (error: AxiosError) => {
-      const message = error?.response?.data?.error;
+    onError: (error: unknown) => {
+      const axiosError = error as AxiosError;
+      const message =
+        axiosError?.response?.data &&
+        typeof axiosError.response.data === 'object' &&
+        'error' in axiosError.response.data
+          ? (axiosError.response.data as { error?: string }).error
+          : undefined;
       if (message) toast.error(message);
     },
   });
@@ -101,8 +107,8 @@ export const useResolveDuplicateReferences = () => {
     { detail: string },
     unknown,
     {
-      reviewId: number | string;
-      referenceDuplicateId: number | string;
+      reviewId: number;
+      referenceDuplicateId: number;
       selection: 1 | 2;
     }
   >({
@@ -121,8 +127,14 @@ export const useResolveDuplicateReferences = () => {
         };
       });
     },
-    onError: (error: AxiosError) => {
-      const message = error?.response?.data?.error;
+    onError: (error: unknown) => {
+      const axiosError = error as AxiosError;
+      const message =
+        axiosError?.response?.data &&
+        typeof axiosError.response.data === 'object' &&
+        'error' in axiosError.response.data
+          ? (axiosError.response.data as { error?: string }).error
+          : undefined;
       if (message) toast.error(message);
     },
   });
@@ -163,7 +175,12 @@ export const useUploadReferenceFile = () => {
       );
     },
     onError: (error: AxiosError) => {
-      const message = error?.response?.data?.error;
+      const message =
+        error?.response?.data &&
+        typeof error.response.data === 'object' &&
+        'error' in error.response.data
+          ? (error.response.data as { error?: string }).error
+          : undefined;
       if (message) toast.error(message);
     },
   });

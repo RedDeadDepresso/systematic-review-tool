@@ -22,7 +22,7 @@ export const Route = createFileRoute('/reviews/$reviewId/')({
 });
 
 function ReviewPage() {
-  const { reviewId } = Route.useParams();
+  const reviewId = Number(Route.useParams()['reviewId']);
   const { data, isLoading } = useFetchReview(reviewId);
   const { mutate, isPending } = useDetectDuplicateReferences();
   const [isOpen, setIsOpen] = useState<boolean>(false);

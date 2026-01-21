@@ -36,3 +36,6 @@ public/
 *.d.mts
 *.gen.ts
 vite.config.ts
+
+# Ignore shadcn UI generated files
+src/components/ui/

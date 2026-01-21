@@ -26,8 +26,8 @@ export const fetchDuplicateReference = async (reviewId: number | string) => {
 };
 
 export const resolveDuplicateReferences = async (
-  reviewId: number | string,
-  referenceDuplicateId: number | string,
+  reviewId: number,
+  referenceDuplicateId: number,
   selection: 1 | 2
 ) => {
   const res = await api.post(

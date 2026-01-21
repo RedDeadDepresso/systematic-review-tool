@@ -23,7 +23,7 @@ export function KeywordFilters({
   selectedExcludeKeywords: string[];
   setSelectedExcludeKeywords: (keywords: string[]) => void;
 }) {
-  const [expandedFilters, setExpandedFilters] = useState({
+  const [expandedFilters] = useState({
     include: true,
     exclude: true,
   });

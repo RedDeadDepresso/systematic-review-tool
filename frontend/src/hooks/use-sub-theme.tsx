@@ -77,7 +77,7 @@ export function useDeleteSubTheme() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, reviewId }: { id: number; reviewId: number }) =>
+    mutationFn: ({ id }: { id: number; reviewId: number }) =>
       deleteSubTheme(id),
     onSuccess: (_data, variables) => {
       toast.success('SubTheme has been deleted.');

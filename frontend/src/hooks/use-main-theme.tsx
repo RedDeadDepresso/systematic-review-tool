@@ -54,7 +54,7 @@ export function useDeleteMainTheme() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, reviewId }: { id: number; reviewId: number }) =>
+    mutationFn: ({ id }: { id: number; reviewId: number }) =>
       deleteMainTheme(id),
     onSuccess: (_data, variables) => {
       toast.success('MainTheme has been deleted.');

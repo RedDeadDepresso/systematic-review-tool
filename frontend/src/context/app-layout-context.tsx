@@ -3,9 +3,9 @@ import { createContext, useState, type ReactNode } from 'react';
 
 export const AppLayoutContext = createContext({
   pageTitle: '',
-  setPageTitle: (title: string) => {},
+  setPageTitle: (_title: string) => {},
   isAuthenticated: false,
-  setIsAuthenticated: (auth: boolean) => {},
+  setIsAuthenticated: (_auth: boolean) => {},
 });
 
 export function AppLayoutProvider({ children }: { children: ReactNode }) {

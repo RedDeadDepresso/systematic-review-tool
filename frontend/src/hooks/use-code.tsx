@@ -68,8 +68,7 @@ export function useDeleteCode() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, reviewId }: { id: string; reviewId: number }) =>
-      deleteCode(id),
+    mutationFn: ({ id }: { id: string; reviewId: number }) => deleteCode(id),
     onSuccess: (_data, variables) => {
       toast.success('Code has been deleted.');
       queryClient.setQueryData(

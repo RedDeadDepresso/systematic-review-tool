@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   ChevronLeft,
-  ChevronRight,
   UserPen,
   BookCheck,
   StickyNote,
@@ -23,11 +22,11 @@ import {
 } from '@/hooks/use-reference';
 
 type ReferenceDetailsProps = {
-  reviewId: string | number;
-  referenceDuplicateId: string | number;
+  reviewId: number;
+  referenceDuplicateId: number;
   mutate: (data: {
-    reviewId: string | number;
-    referenceDuplicateId: string | number;
+    reviewId: number;
+    referenceDuplicateId: number;
     selection: 1 | 2;
   }) => void;
   isPending: boolean;
@@ -126,7 +125,7 @@ export function ReferenceDetails({
 }
 
 interface ResolveDuplicatesModalProps {
-  reviewId: string | number;
+  reviewId: number;
   isOpen: boolean;
   onClose: () => void;
 }

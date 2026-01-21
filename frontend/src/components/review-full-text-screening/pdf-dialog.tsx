@@ -153,7 +153,8 @@ export const PDFDialog = ({
     setContextMenu({
       xPos: event.clientX,
       yPos: event.clientY,
-      deleteHighlight: () => deleteHighlight(highlight),
+      deleteHighlight: () =>
+        deleteHighlight(highlight as unknown as CommentedHighlight),
       editComment: () => editComment(highlight),
     });
   };
