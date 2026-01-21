@@ -182,3 +182,29 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 # Allow Nginx to forward requests
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+
+ASGI_APPLICATION = "backend.asgi.application"
+
+
+# Celery
+# https://medium.com/@ksarthak4ever/django-handling-periodic-tasks-with-celery-daaa2a146f14
+
+BROKER_URL = os.getenv("BROKER_URL")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = "UTC"
+CELERY_TASK_TIME_LIMIT = 30 * 60
+CACHE_NAVBARS = os.getenv("CACHE_NAVBARS", "False") == "True"
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": BROKER_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    },
+}

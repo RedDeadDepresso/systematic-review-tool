@@ -14,3 +14,6 @@ sqlparse==0.5.3
 tzdata==2025.2
 djangorestframework-camel-case==1.4.2
 daphne==4.1.2
+redis==7.1.0
+django-redis==6.0.0
+celery==5.6.2
