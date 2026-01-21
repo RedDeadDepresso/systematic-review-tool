@@ -14,17 +14,17 @@ build-images:
   stage: build
   image: docker:24
   services:
-    - docker:24-dind
+    - name: docker:24-dind
+      alias: docker
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  before_script:
+    - echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
   script:
-    - docker build -t $IMAGE_PREFIX-django:latest ./backend
-    - docker build -t $IMAGE_PREFIX-celery:latest ./backend
-    - docker build -t $IMAGE_PREFIX-react:latest ./frontend
-    - docker build -t $IMAGE_PREFIX-nginx:latest ./nginx
-
-    - docker push $IMAGE_PREFIX-django:latest
-    - docker push $IMAGE_PREFIX-celery:latest
-    - docker push $IMAGE_PREFIX-react:latest
-    - docker push $IMAGE_PREFIX-nginx:latest
+    - docker info
+    - docker build -t ghcr.io/$GHCR_USERNAME/$CI_PROJECT_NAME-django:latest ./backend
+    - docker push ghcr.io/$GHCR_USERNAME/$CI_PROJECT_NAME-django:latest
 
 deploy-prod:
   stage: deploy
