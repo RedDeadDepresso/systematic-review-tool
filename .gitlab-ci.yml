@@ -1,0 +1,48 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+  GHCR_REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/$GHCR_USERNAME/$CI_PROJECT_NAME
+
+before_script:
+  - echo "$GHCR_TOKEN" | docker login ghcr.io -u $GHCR_USERNAME --password-stdin
+
+build-images:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  script:
+    - docker build -t $IMAGE_PREFIX-django:latest ./backend
+    - docker build -t $IMAGE_PREFIX-celery:latest ./backend
+    - docker build -t $IMAGE_PREFIX-react:latest ./frontend
+    - docker build -t $IMAGE_PREFIX-nginx:latest ./nginx
+
+    - docker push $IMAGE_PREFIX-django:latest
+    - docker push $IMAGE_PREFIX-celery:latest
+    - docker push $IMAGE_PREFIX-react:latest
+    - docker push $IMAGE_PREFIX-nginx:latest
+
+deploy-prod:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh docker-cli
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan $EC2_HOST >> ~/.ssh/known_hosts
+  script:
+    - |
+      ssh ubuntu@$EC2_HOST "
+        echo '$GHCR_TOKEN' | docker login ghcr.io -u $GHCR_USERNAME --password-stdin &&
+        cd /srv/app &&
+        docker compose pull &&
+        docker compose up -d
+      "
+  only:
+    - main

@@ -14,7 +14,7 @@ services:
       - ./.env
 
   django:
-    build: ./backend
+    image: ghcr.io/2739548r/slrt-django:latest
     command: sh -c "python manage.py makemigrations &&
       python manage.py migrate &&
       python manage.py collectstatic --noinput &&
@@ -29,7 +29,7 @@ services:
       - ./.env
 
   celery:
-    build: ./backend
+    image: ghcr.io/2739548r/slrt-django:latest
     command: sh -c "celery -A backend worker --loglevel=info"
     ports:
       - "5555:5555"
@@ -44,7 +44,7 @@ services:
       - C_FORCE_ROOT="true"
 
   react:
-    build: ./frontend
+    image: ghcr.io/2739548r/slrt-react:latest
     command: sh -c "pnpm build"
     volumes:
       - frontend-dist:/frontend/dist # <-- mount the volume inside build container
