@@ -33,10 +33,10 @@ build-django:
       }
       EOF
     - /kaniko/executor
-        --context ./backend
-        --dockerfile ./backend/Dockerfile
-        --destination $DJANGO_IMAGE:$CI_COMMIT_SHORT_SHA
-        --destination $DJANGO_IMAGE:latest
+      --context ./backend
+      --dockerfile ./backend/Dockerfile
+      --destination $DJANGO_IMAGE:$CI_COMMIT_SHORT_SHA
+      --destination $DJANGO_IMAGE:latest
 
 # -------------------------
 # Build React Docker image
@@ -60,10 +60,10 @@ build-react:
       }
       EOF
     - /kaniko/executor
-        --context ./frontend
-        --dockerfile ./frontend/Dockerfile
-        --destination $REACT_IMAGE:$CI_COMMIT_SHORT_SHA
-        --destination $REACT_IMAGE:latest
+      --context ./frontend
+      --dockerfile ./frontend/Dockerfile
+      --destination $REACT_IMAGE:$CI_COMMIT_SHORT_SHA
+      --destination $REACT_IMAGE:latest
 
 # -------------------------
 # Deploy to production (EC2)
@@ -86,8 +86,8 @@ deploy-prod:
         # Log in to GHCR on EC2
         echo '$GHCR_TOKEN' | docker login ghcr.io -u $GHCR_USERNAME --password-stdin &&
         cd $DEPLOY_PATH &&
-        docker compose pull &&
-        docker compose up -d
+        docker compose -f docker-compose-prod.yml pull &&
+        docker compose -f docker-compose-prod.yml up -d
       "
   only:
     - main
