@@ -1,7 +1,7 @@
 import {
   createReview,
   deleteReview,
-  editReview,
+  updateReview,
   fetchReview,
   fetchReviews,
   UploadReviewReferences,
@@ -17,7 +17,7 @@ export const useFetchReviews = (params: { isActive: boolean }) => {
   });
 };
 
-export const useFetchReview = (id: number | string) => {
+export const useFetchReview = (id: number) => {
   return useQuery({
     queryKey: ['reviews', id],
     queryFn: () => fetchReview(id),
@@ -41,16 +41,16 @@ export const useCreateReview = () => {
   });
 };
 
-export const useEditReview = () => {
+export const useUpdateReview = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: editReview,
+    mutationFn: updateReview,
     onSuccess: (data, variables) => {
       // Update the review object
       queryClient.setQueryData(['reviews', variables.id], data);
 
       // Invalidate references if needed
-      if (variables.data?.isBlinded !== undefined) {
+      if (variables.payload?.isBlinded !== undefined) {
         queryClient.invalidateQueries({
           queryKey: ['reviews', variables.id, 'references'],
         });

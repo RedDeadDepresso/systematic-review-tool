@@ -17,9 +17,9 @@ import {
 } from '@/components/ui/dialog';
 import type { Reference } from '@/types/reference';
 import {
-  useFetchDuplicateReference,
+  useFetchDuplicateReferences,
   useResolveDuplicateReferences,
-} from '@/hooks/use-reference';
+} from '@/hooks/use-reference-duplicate';
 
 type ReferenceDetailsProps = {
   reviewId: number;
@@ -136,7 +136,7 @@ export function ResolveDuplicatesDialog({
   onClose,
 }: ResolveDuplicatesModalProps) {
   const [highlightDifference, setHighlightDifference] = useState(true);
-  const { data, isLoading } = useFetchDuplicateReference({ reviewId });
+  const { data, isLoading } = useFetchDuplicateReferences({ reviewId });
   const { mutate, isPending } = useResolveDuplicateReferences();
 
   return (

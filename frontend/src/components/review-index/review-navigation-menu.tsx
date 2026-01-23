@@ -6,11 +6,7 @@ import {
 import { Link, useRouterState } from '@tanstack/react-router';
 import { useIsMobile } from '@/hooks/use-mobile';
 
-export function ReviewNavigationMenu({
-  reviewId,
-}: {
-  reviewId: string | number;
-}) {
+export function ReviewNavigationMenu({ reviewId }: { reviewId: number }) {
   const isMobile = useIsMobile();
 
   // detect the current route to highlight the active tab

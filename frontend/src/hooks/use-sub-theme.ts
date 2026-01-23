@@ -11,7 +11,7 @@ import type { MainTheme } from '@/types/main-theme';
 
 export function useFetchSubThemes(reviewId: number) {
   return useQuery({
-    queryKey: ['sub-themes', reviewId],
+    queryKey: ['reviews', reviewId, 'sub-themes'],
     queryFn: () => fetchSubThemes(reviewId),
     enabled: !!reviewId,
   });
@@ -25,7 +25,7 @@ export function useCreateSubTheme() {
     onSuccess: (data, variables) => {
       toast.success('SubTheme has been created.');
       queryClient.setQueryData(
-        ['sub-themes', variables.review],
+        ['reviews', variables.review, 'sub-themes'],
         (oldData: SubTheme[] = []) => {
           if (!oldData) return [data];
           return [...oldData, data];
@@ -44,7 +44,7 @@ export function useUpdateSubTheme() {
       toast.success('SubTheme has been updated.');
       if (variables.payload?.mainTheme !== undefined) {
         queryClient.setQueryData(
-          ['main-themes', data.review],
+          ['reviews', data.review, 'main-themes'],
           (oldData: MainTheme[] = []) =>
             oldData.map((mt) => ({
               ...mt,
@@ -52,7 +52,7 @@ export function useUpdateSubTheme() {
             }))
         );
         queryClient.setQueryData(
-          ['main-themes', data.review],
+          ['reviews', data.review, 'main-themes'],
           (oldData: MainTheme[] = []) =>
             oldData.map((mt) =>
               mt.id === variables.payload.mainTheme
@@ -65,7 +65,7 @@ export function useUpdateSubTheme() {
         );
       }
       queryClient.setQueryData(
-        ['sub-themes', data.review],
+        ['reviews', data.review, 'sub-themes'],
         (oldData: SubTheme[] = []) =>
           oldData.map((theme) => (theme.id === data.id ? data : theme))
       );
@@ -82,7 +82,7 @@ export function useDeleteSubTheme() {
     onSuccess: (_data, variables) => {
       toast.success('SubTheme has been deleted.');
       queryClient.setQueryData(
-        ['main-themes', variables.reviewId],
+        ['reviews', variables.reviewId, 'main-themes'],
         (oldData: MainTheme[] = []) =>
           oldData.map((mt) => ({
             ...mt,
@@ -90,7 +90,7 @@ export function useDeleteSubTheme() {
           }))
       );
       queryClient.setQueryData<SubTheme[]>(
-        ['sub-themes', variables.reviewId],
+        ['reviews', variables.reviewId, 'sub-themes'],
         (oldData = []) => oldData.filter((theme) => theme.id !== variables.id)
       );
     },

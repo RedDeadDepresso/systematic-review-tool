@@ -10,9 +10,8 @@ export const Route = createFileRoute('/reviews/$reviewId/review-data')({
 });
 
 function RouteComponent() {
-  const { reviewId } = Route.useParams();
-  const reviewIdNum = Number(reviewId);
-  const { data, isLoading } = useFetchReferences({ reviewId: reviewId });
+  const reviewId = Number(Route.useParams()['reviewId']);
+  const { data, isLoading } = useFetchReferences(reviewId);
   const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
 
   useEffect(() => {
@@ -23,7 +22,7 @@ function RouteComponent() {
   return (
     <>
       <ReviewNavigationMenu reviewId={reviewId} />
-      <>{!isLoading && <ReferenceTable reviewId={reviewIdNum} data={data} />}</>
+      <>{!isLoading && <ReferenceTable reviewId={reviewId} data={data} />}</>
     </>
   );
 }

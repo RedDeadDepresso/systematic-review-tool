@@ -5,13 +5,13 @@ import { useFetchReview } from '@/hooks/use-review';
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { FileCheck, FileText } from 'lucide-react';
 import { ReviewNavigationMenu } from '@/components/review-index/review-navigation-menu';
-import { useDetectDuplicateReferences } from '@/hooks/use-reference';
+import { useDetectDuplicateReferences } from '@/hooks/use-reference-duplicate';
 import { Spinner } from '@/components/ui/spinner';
 import { useContext, useEffect, useState } from 'react';
 import { ResolveDuplicatesDialog } from '@/components/review-index/resolve-duplicate-dialog';
 import { AppLayoutContext } from '@/context/app-layout-context';
 import InvitationDialog from '@/components/review-index/invitation-dialog';
-import { useCurrentUser } from '@/hooks/use-auth';
+import { useFetchUser } from '@/hooks/use-auth';
 
 export const Route = createFileRoute('/reviews/$reviewId/')({
   component: ReviewPage,
@@ -27,7 +27,7 @@ function ReviewPage() {
   const { mutate, isPending } = useDetectDuplicateReferences();
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
-  const { data: user, isLoading: isUserLoading } = useCurrentUser();
+  const { data: user, isLoading: isUserLoading } = useFetchUser();
 
   useEffect(() => {
     setPageTitle('Overview');

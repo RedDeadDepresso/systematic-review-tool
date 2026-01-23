@@ -1,4 +1,4 @@
-import { useUpdateReferenceOpinion } from '@/hooks/use-opinion';
+import { useUpdateReferenceOpinion } from '@/hooks/use-reference-opinion';
 import { Button } from '../ui/button';
 import type { Reference } from '@/types/reference';
 
@@ -20,7 +20,7 @@ export function DecisionButtons({
           updateReferenceOpinion.mutate({
             reviewId: reviewId,
             referenceId: reference.id,
-            data: { status: 'Included' },
+            payload: { status: 'Included' },
           })
         }
         disabled={reference === null || updateReferenceOpinion.isPending}
@@ -35,7 +35,7 @@ export function DecisionButtons({
           updateReferenceOpinion.mutate({
             reviewId: reviewId,
             referenceId: reference.id,
-            data: { status: 'Maybe' },
+            payload: { status: 'Maybe' },
           })
         }
         disabled={reference === null || updateReferenceOpinion.isPending}
@@ -50,7 +50,7 @@ export function DecisionButtons({
           updateReferenceOpinion.mutate({
             reviewId: reviewId,
             referenceId: reference.id,
-            data: { status: 'Excluded' },
+            payload: { status: 'Excluded' },
           })
         }
         disabled={reference === null || updateReferenceOpinion.isPending}

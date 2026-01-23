@@ -1,16 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  sendInvites,
-  fetchInvites,
+  sendInvitations,
+  fetchInvitations,
   updateInvitationStatus,
-} from '@/api/invitation';
+} from '@/api/review-invitation';
 import { toast } from 'sonner';
 import type { Invitation } from '@/types/invitation';
 
 // Send Invite Hook
-export function useSendInvitations(reviewId: number | string) {
+export function useSendInvitations(reviewId: number) {
   return useMutation<Invitation, Error, string[]>({
-    mutationFn: (emails) => sendInvites(reviewId, emails),
+    mutationFn: (emails) => sendInvitations(reviewId, emails),
     onSuccess: () => toast.success('Invitations have been sent.'),
     onError: (error) =>
       toast.error(`Failed to send invitations: ${error.message}`),
@@ -21,7 +21,7 @@ export function useSendInvitations(reviewId: number | string) {
 export function useFetchInvitations() {
   return useQuery<Invitation[], Error>({
     queryKey: ['invitations'],
-    queryFn: fetchInvites,
+    queryFn: () => fetchInvitations(),
   });
 }
 
@@ -31,7 +31,7 @@ export function useUpdateInvitationStatus() {
   return useMutation<
     Invitation,
     Error,
-    { inviteId: number | string; action: 'accept' | 'decline' }
+    { inviteId: number; action: 'accept' | 'decline' }
   >({
     mutationFn: ({ inviteId, action }) =>
       updateInvitationStatus(inviteId, action),

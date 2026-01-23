@@ -1,10 +1,10 @@
 import api from './axios';
 
-export const createReview = async (data: {
+export const createReview = async (payload: {
   title: string;
   description: string;
 }) => {
-  const res = await api.post('/reviews/', data);
+  const res = await api.post('/reviews/', payload);
   return res.data;
 };
 
@@ -18,24 +18,24 @@ export const fetchReviews = async ({ isActive }: { isActive: boolean }) => {
   return res.data;
 };
 
-export const fetchReview = async (id: number | string) => {
+export const fetchReview = async (id: number) => {
   const res = await api.get(`/reviews/${id}/`);
   return res.data;
 };
 
-export const editReview = async ({
+export const updateReview = async ({
   id,
-  data,
+  payload,
 }: {
   id: number;
-  data: {
+  payload: {
     title?: string;
     description?: string;
     isActive?: boolean;
     isBlinded?: boolean;
   };
 }) => {
-  const res = await api.patch(`/reviews/${id}/`, data);
+  const res = await api.patch(`/reviews/${id}/`, payload);
   return res.data;
 };
 
@@ -44,13 +44,13 @@ export const deleteReview = async ({ id }: { id: number }) => {
   return res.data;
 };
 
-export const UploadReviewReferences = async (data: {
-  reviewId: number | string;
+export const UploadReviewReferences = async (payload: {
+  reviewId: number;
   formData: FormData;
 }) => {
   const res = await api.post(
-    `/reviews/${data.reviewId}/upload-references/`,
-    data.formData,
+    `/reviews/${payload.reviewId}/upload-references/`,
+    payload.formData,
     {
       headers: { 'Content-Type': 'multipart/form-data' },
     }

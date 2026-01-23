@@ -28,7 +28,7 @@ import { useUpdateInvitationStatus } from '@/hooks/use-invitation';
 interface CreateColumnsProps {
   updateInvitationStatus: {
     mutate: (params: {
-      inviteId: string | number;
+      inviteId: number;
       action: 'accept' | 'decline';
     }) => void;
   };

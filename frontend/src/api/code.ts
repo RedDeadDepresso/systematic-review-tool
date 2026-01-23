@@ -30,7 +30,7 @@ export const updateCode = async ({
 }: {
   id: string;
   payload: Partial<Code>;
-}) => {
+}): Promise<Code> => {
   const res = await api.patch(`/codes/${id}/`, payload);
   return res.data;
 };

@@ -12,7 +12,7 @@ export const useFetchNotes = ({
 }) => {
   return useQuery({
     queryKey: ['references', referenceId, 'notes'],
-    queryFn: () => fetchNotes(reviewId, referenceId),
+    queryFn: () => fetchNotes({ reviewId, referenceId }),
   });
 };
 
@@ -22,12 +22,12 @@ export const useCreateNote = () => {
     mutationFn: ({
       reviewId,
       referenceId,
-      data,
+      payload,
     }: {
-      reviewId: number | string;
+      reviewId: number;
       referenceId: number;
-      data: { content: string };
-    }) => createNote(Number(reviewId), referenceId, data),
+      payload: { content: string };
+    }) => createNote({ review: reviewId, reference: referenceId, ...payload }),
     onSuccess: (data, variables) => {
       toast.success('Note has been created.');
       queryClient.setQueryData(

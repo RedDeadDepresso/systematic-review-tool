@@ -46,7 +46,7 @@ export function KeywordFilters({
 
     // call your mutation with the correct payload
     mutate({
-      review_id: reviewId,
+      review: reviewId,
       name,
       isInclusive: isInclusive,
     });

@@ -75,7 +75,6 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
 ];
 
 export function ReferenceTable({
-  reviewId,
   data,
 }: {
   reviewId: number;
@@ -89,13 +88,9 @@ export function ReferenceTable({
   );
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [openDrawer, setOpenDrawer] = React.useState(false);
-  const [fetchRequest, setFetchRquest] = React.useState<
-    | {
-        reviewId: number;
-        referenceId: number;
-      }
-    | undefined
-  >(undefined);
+  const [selectedReferenceId, setSelectedReferenceId] = React.useState<
+    number | null
+  >(null);
 
   const table = useReactTable({
     data,
@@ -119,12 +114,14 @@ export function ReferenceTable({
 
   return (
     <>
-      <ReferenceDrawer
-        open={openDrawer}
-        onOpenChange={setOpenDrawer}
-        direction="right"
-        fetchRequest={fetchRequest}
-      />
+      {selectedReferenceId !== null && (
+        <ReferenceDrawer
+          open={openDrawer}
+          onOpenChange={setOpenDrawer}
+          direction="right"
+          referenceId={selectedReferenceId}
+        />
+      )}
       <Tabs
         defaultValue="outline"
         className="w-full flex-col justify-start gap-6"
@@ -208,11 +205,8 @@ export function ReferenceTable({
                       className="cursor-pointer h-16"
                       key={row.id}
                       onClick={() => {
-                        setFetchRquest({
-                          reviewId: reviewId,
-                          referenceId: row.original.id,
-                        });
-                        if (!openDrawer) setOpenDrawer(true);
+                        setSelectedReferenceId(row.original.id);
+                        setOpenDrawer(true);
                       }}
                     >
                       {row.getVisibleCells().map((cell) => (

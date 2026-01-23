@@ -25,7 +25,7 @@ export function RegisterForm() {
     lastName: '',
     email: '',
     password: '',
-    confirm_password: '',
+    confirmPassword: '',
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) =>

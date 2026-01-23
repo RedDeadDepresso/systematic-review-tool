@@ -3,7 +3,7 @@ import type { Keyword } from '@/types/keyword';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export const useFetchKeywords = (params: {
-  id: number | string;
+  id: number;
   isInclusive: boolean;
 }) => {
   return useQuery({
@@ -19,7 +19,7 @@ export const useCreateKeyword = () => {
     mutationFn: createKeyword,
     onSuccess: (data, variables) => {
       queryClient.setQueryData(
-        ['keywords', Number(variables.review_id), variables.isInclusive],
+        ['keywords', variables.review, variables.isInclusive],
         (oldData: Keyword[] = []) => {
           if (!oldData) return [data];
           return [...oldData, data];

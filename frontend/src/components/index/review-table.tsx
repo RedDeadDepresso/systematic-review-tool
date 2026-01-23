@@ -52,7 +52,7 @@ import {
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { ArrowUpDown } from 'lucide-react';
 import { ReviewForm } from './review-form';
-import { useDeleteReview, useEditReview } from '@/hooks/use-review';
+import { useDeleteReview, useUpdateReview } from '@/hooks/use-review';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ReviewRow } from '@/types/review';
 import { useRouter } from '@tanstack/react-router';
@@ -188,16 +188,16 @@ export function ReviewTable({
     pageSize: 10,
   });
 
-  const editReview = useEditReview();
+  const updateReview = useUpdateReview();
   const deleteReview = useDeleteReview();
   const queryClient = useQueryClient();
 
   const router = useRouter();
 
   const onToggleArchive = async (rowData: ReviewRow) => {
-    editReview.mutate({
+    updateReview.mutate({
       id: rowData.id,
-      data: { isActive: !isActive },
+      payload: { isActive: !isActive },
     });
     queryClient.setQueryData(
       ['reviews', { isActive: isActive }],

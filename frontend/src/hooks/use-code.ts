@@ -6,7 +6,7 @@ import type { SubTheme } from '@/types/sub-theme';
 
 export function useFetchCodes(reviewId: number) {
   return useQuery({
-    queryKey: ['codes', reviewId],
+    queryKey: ['reviews', reviewId, 'codes'],
     queryFn: () => fetchCodes(reviewId),
     enabled: !!reviewId,
   });
@@ -20,7 +20,7 @@ export function useCreateCode() {
     onSuccess: (data, variables) => {
       toast.success('Code has been created.');
       queryClient.setQueryData(
-        ['codes', variables.review],
+        ['reviews', variables.review, 'codes'],
         (oldData: Code[] = []) => {
           if (!oldData) return [data];
           return [...oldData, data];
@@ -39,7 +39,7 @@ export function useUpdateCode() {
       toast.success('Code has been updated.');
       if (variables.payload.subTheme !== undefined) {
         queryClient.setQueryData(
-          ['sub-themes', data.review],
+          ['reviews', data.review, 'sub-themes'],
           (oldData: SubTheme[] = []) =>
             oldData.map((st) => ({
               ...st,
@@ -47,7 +47,7 @@ export function useUpdateCode() {
             }))
         );
         queryClient.setQueryData(
-          ['sub-themes', data.review],
+          ['reviews', data.review, 'sub-themes'],
           (oldData: SubTheme[] = []) =>
             oldData.map((st) =>
               st.id === variables.payload.subTheme
@@ -56,8 +56,10 @@ export function useUpdateCode() {
             )
         );
       }
-      queryClient.setQueryData(['codes', data.review], (oldData: Code[] = []) =>
-        oldData.map((code) => (code.id === data.id ? data : code))
+      queryClient.setQueryData(
+        ['reviews', data.review, 'codes'],
+        (oldData: Code[] = []) =>
+          oldData.map((code) => (code.id === data.id ? data : code))
       );
     },
   });
@@ -72,7 +74,7 @@ export function useDeleteCode() {
     onSuccess: (_data, variables) => {
       toast.success('Code has been deleted.');
       queryClient.setQueryData(
-        ['sub-themes', variables.reviewId],
+        ['reviews', variables.reviewId, 'sub-themes'],
         (oldData: SubTheme[] = []) =>
           oldData.map((st) => ({
             ...st,
@@ -80,7 +82,7 @@ export function useDeleteCode() {
           }))
       );
       queryClient.setQueryData<Code[]>(
-        ['codes', variables.reviewId],
+        ['reviews', variables.reviewId, 'codes'],
         (old = []) => old.filter((code) => code.id !== variables.id)
       );
     },

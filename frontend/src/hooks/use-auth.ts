@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
-  getCurrentUser,
+  fetchUser,
   loginUser,
   refreshAccessToken,
   registerUser,
@@ -30,16 +30,16 @@ export const useRegister = () => {
   });
 };
 
-export function useCurrentUser() {
+export function useFetchUser() {
   return useQuery({
-    queryKey: ['currentUser'],
+    queryKey: ['user'],
     queryFn: async () => {
       try {
-        return await getCurrentUser();
+        return await fetchUser();
       } catch (error: any) {
         if (error.response?.status === 401) {
           await refreshAccessToken();
-          return await getCurrentUser();
+          return await fetchUser();
         }
         throw error;
       }

@@ -10,7 +10,7 @@ import type { MainTheme } from '@/types/main-theme';
 
 export function useFetchMainThemes(reviewId: number) {
   return useQuery({
-    queryKey: ['main-themes', reviewId],
+    queryKey: ['reviews', reviewId, 'main-themes'],
     queryFn: () => fetchMainThemes(reviewId),
     enabled: !!reviewId,
   });
@@ -24,7 +24,7 @@ export function useCreateMainTheme() {
     onSuccess: (data, variables) => {
       toast.success('Main Theme has been created.');
       queryClient.setQueryData(
-        ['main-themes', variables.review],
+        ['reviews', variables.review, 'main-themes'],
         (oldData: MainTheme[] = []) => {
           if (!oldData) return [data];
           return [...oldData, data];
@@ -42,7 +42,7 @@ export function useUpdateMainTheme() {
     onSuccess: (data) => {
       toast.success('MainTheme has been updated.');
       queryClient.setQueryData(
-        ['main-themes', data.review],
+        ['reviews', data.review, 'main-themes'],
         (oldData: MainTheme[] = []) =>
           oldData.map((theme) => (theme.id === data.id ? data : theme))
       );
@@ -59,7 +59,7 @@ export function useDeleteMainTheme() {
     onSuccess: (_data, variables) => {
       toast.success('MainTheme has been deleted.');
       queryClient.setQueryData<MainTheme[]>(
-        ['main-themes', variables.reviewId],
+        ['reviews', variables.reviewId, 'main-themes'],
         (oldData = []) => oldData.filter((theme) => theme.id !== variables.id)
       );
     },

@@ -1,4 +1,4 @@
-import { useEditReview, useFetchReview } from '@/hooks/use-review';
+import { useUpdateReview, useFetchReview } from '@/hooks/use-review';
 import { ReviewNavigationMenu } from '../review-index/review-navigation-menu';
 import { Button } from '../ui/button';
 import { Eye, Filter } from 'lucide-react';
@@ -19,7 +19,7 @@ export function Header({
   setHideKeywordFilters: (value: boolean) => void;
 }) {
   const fetchReview = useFetchReview(reviewId);
-  const editReview = useEditReview();
+  const updateReview = useUpdateReview();
 
   return (
     <>
@@ -34,14 +34,14 @@ export function Header({
             className="gap-1"
             size="sm"
             onClick={() =>
-              editReview.mutate({
+              updateReview.mutate({
                 id: Number(reviewId),
-                data: {
+                payload: {
                   isBlinded: fetchReview.data?.isBlinded ? false : true,
                 },
               })
             }
-            disabled={editReview.isPending || fetchReview.isLoading}
+            disabled={updateReview.isPending || fetchReview.isLoading}
           >
             <Eye className="h-3 w-3" />
             {fetchReview.isLoading ? (

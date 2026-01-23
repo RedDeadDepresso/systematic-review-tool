@@ -13,28 +13,18 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useFetchReference } from '@/hooks/use-reference';
 
-interface FetchRequest {
-  reviewId?: number;
-  referenceId?: number;
-}
-
-interface ReferenceDrawerProps {
-  fetchRequest?: FetchRequest;
-  [key: string]: any;
-}
-
 export function ReferenceDrawer({
-  fetchRequest,
+  referenceId,
   ...props
-}: ReferenceDrawerProps) {
-  const shouldFetch = !!fetchRequest?.reviewId && !!fetchRequest?.referenceId;
-
+}: {
+  referenceId: number;
+} & React.ComponentProps<typeof Drawer>) {
   const {
     data: referenceData,
     isLoading,
     isError,
     error,
-  } = useFetchReference(fetchRequest ?? {}, { enabled: shouldFetch });
+  } = useFetchReference(referenceId);
 
   return (
     <Drawer {...props}>
