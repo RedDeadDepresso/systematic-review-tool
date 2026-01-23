@@ -4,92 +4,49 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from api.views import (
     CodeViewSet,
-    KeywordListCreateView,
+    KeywordViewSet,
     MainThemeViewSet,
-    NoteListCreateView,
-    NoteRetrieveUpdateDestroyView,
-    ReferenceDuplicatePairCreateView,
-    ReferenceDuplicatePairResolveView,
-    ReferenceDuplicatePairRetrieveView,
-    ReferenceListView,
-    ReferenceOpinionUpdateView,
-    ReferenceRetrieveUpdateView,
-    RegisterView,
-    RetrieveUserView,
-    ReviewInvitationCreateView,
-    ReviewInvitationListView,
-    ReviewInvitationUpdateView,
+    NoteViewSet,
+    ReferenceDuplicatePairViewSet,
+    ReferenceOpinionViewSet,
+    ReferenceViewSet,
+    ReviewInvitationViewSet,
     ReviewViewSet,
     SubThemeViewSet,
+    UserViewSet,
 )
 
 
 app_name = "api"
 
 router = DefaultRouter()
+router.register(r"users", UserViewSet, basename="user")
+
 router.register(r"reviews", ReviewViewSet, basename="review")
+router.register(
+    r"reference-duplicates",
+    ReferenceDuplicatePairViewSet,
+    basename="reference-duplicates",
+)
+router.register(
+    r"review-invitations", ReviewInvitationViewSet, basename="review-invitation"
+)
+
+router.register(r"references", ReferenceViewSet, basename="reference")
+router.register(
+    r"reference-opinions", ReferenceOpinionViewSet, basename="reference-opinions"
+)
+
+router.register(r"keywords", KeywordViewSet, basename="keyword")
+router.register(r"notes", NoteViewSet, basename="note")
+
 router.register(r"main-themes", MainThemeViewSet, basename="main_theme")
 router.register(r"sub-themes", SubThemeViewSet, basename="sub_theme")
 router.register(r"codes", CodeViewSet, basename="code")
 
+
 urlpatterns = [
-    path("auth/register/", RegisterView.as_view(), name="register"),
     path("auth/login/", TokenObtainPairView.as_view(), name="login"),
     path("auth/refresh/", TokenRefreshView.as_view(), name="refresh"),
-    path("auth/user/", RetrieveUserView.as_view(), name="user"),
-    path(
-        "reviews/<int:pk>/invites/",
-        ReviewInvitationCreateView.as_view(),
-        name="review_invites",
-    ),
-    path(
-        "reviews/<int:pk>/references/",
-        ReferenceListView.as_view(),
-        name="references",
-    ),
-    path(
-        "reviews/<int:review_pk>/references/<int:pk>/",
-        ReferenceRetrieveUpdateView.as_view(),
-        name="reference",
-    ),
-    path(
-        "reviews/<int:review_pk>/reference-duplicate-pairs/",
-        ReferenceDuplicatePairCreateView.as_view(),
-        name="reference_duplicate_pairs",
-    ),
-    path(
-        "reviews/<int:review_pk>/reference-duplicate-pairs/retrieve/",
-        ReferenceDuplicatePairRetrieveView.as_view(),
-        name="reference_duplicate_pairs",
-    ),
-    path(
-        "reviews/<int:review_pk>/reference-duplicate-pairs/<int:pk>/resolve/",
-        ReferenceDuplicatePairResolveView.as_view(),
-        name="reference_duplicate_pairs_resolve",
-    ),
-    path(
-        "reviews/<int:review_pk>/keywords/",
-        KeywordListCreateView.as_view(),
-        name="keywords",
-    ),
-    path(
-        "reviews/<int:review_pk>/references/<int:reference_pk>/notes/",
-        NoteListCreateView.as_view(),
-        name="notes",
-    ),
-    path(
-        "reviews/<int:review_pk>/references/<int:reference_pk>/notes/<int:note_pk>/",
-        NoteRetrieveUpdateDestroyView.as_view(),
-        name="note",
-    ),
-    path("invites/", ReviewInvitationListView.as_view(), name="invites"),
-    path(
-        "invites/<int:pk>/", ReviewInvitationUpdateView.as_view(), name="invite_update"
-    ),
-    path(
-        "reviews/<int:review_pk>/references/<int:reference_pk>/opinions/",
-        ReferenceOpinionUpdateView.as_view(),
-        name="opinions",
-    ),
     path("", include(router.urls)),
 ]

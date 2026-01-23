@@ -1,6 +1,6 @@
 from django_filters import rest_framework as filters
 
-from api.models import Keyword, Review
+from api.models import Review
 
 
 class ReviewFilter(filters.FilterSet):
@@ -9,11 +9,3 @@ class ReviewFilter(filters.FilterSet):
     class Meta:
         model = Review
         fields = ["title", "is_active"]
-
-
-class KeywordFilter(filters.FilterSet):
-    is_inclusive = filters.BooleanFilter(field_name="is_inclusive")
-
-    class Meta:
-        model = Keyword
-        fields = ["is_inclusive"]

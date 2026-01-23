@@ -18,34 +18,91 @@ from api.models import (
 )
 
 
-class RegisterSerializer(ModelSerializer):
-    email = serializers.EmailField(validators=[])
-    confirm_password = serializers.CharField(write_only=True)
+class UserSerializer(serializers.ModelSerializer):
+    # Only for registration / write operations
+    confirm_password = serializers.CharField(write_only=True, required=False)
+    password = serializers.CharField(write_only=True, required=False)
+    display_name = serializers.SerializerMethodField()
+
+    def get_display_name(self, obj):
+        return str(obj)
 
     class Meta:
         model = User
-        fields = ["first_name", "last_name", "email", "password", "confirm_password"]
-        extra_kwargs = {"password": {"write_only": True}}
+        # Fields for retrieve & update
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "email",
+            "display_name",
+            "password",
+            "confirm_password",
+        ]
+        extra_kwargs = {
+            "password": {"write_only": True, "required": False},
+        }
 
     def validate(self, data):
         """
-        Check that the two password entries match.
+        Validate password only if provided.
+        Also validate confirm_password if password is set.
         """
         detail = defaultdict(list)
-        if User.objects.filter(email=data["email"]).exists():
-            detail["Email"].append("A user with this email already exists.")
-        if len(data["password"]) < 8:
-            detail["Password"].append("Password must be at least 8 characters long.")
-        if data["password"] != data["confirm_password"]:
-            detail["Password"].append("Passwords do not match.")
+
+        # Registration: check if password is provided
+        password = data.get("password")
+        confirm_password = data.get("confirm_password")
+        email = data.get("email")
+
+        # Email uniqueness check (only for registration)
+        if (
+            self.instance is None
+            and email
+            and User.objects.filter(email=email).exists()
+        ):
+            detail["email"].append("A user with this email already exists.")
+
+        if password:
+            if len(password) < 8:
+                detail["password"].append(
+                    "Password must be at least 8 characters long."
+                )
+            if password != confirm_password:
+                detail["password"].append("Passwords do not match.")
+
         if detail:
             raise serializers.ValidationError(detail)
+
         return data
 
     def create(self, validated_data):
-        validated_data.pop("confirm_password")
-        user = User.objects.create_user(**validated_data)
+        """
+        Create user with password
+        """
+        validated_data.pop("confirm_password", None)
+        password = validated_data.pop("password", None)
+        user = User.objects.create(**validated_data)
+        if password:
+            user.set_password(password)
+            user.save()
         return user
+
+    def update(self, instance, validated_data):
+        """
+        Update user fields. Handle password separately.
+        """
+        password = validated_data.pop("password", None)
+        validated_data.pop("confirm_password", None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        if password:
+            instance.set_password(password)
+
+        instance.save()
+        return instance
 
 
 class ReviewSerializer(ModelSerializer):
@@ -163,6 +220,11 @@ class NoteSerializer(serializers.ModelSerializer):
         read_only_fields = ["author", "date_created", "date_edited"]
 
 
+class ReviewInvitationCreateSerializer(serializers.Serializer):
+    review = serializers.IntegerField()
+    emails = serializers.ListField(child=serializers.EmailField(), allow_empty=False)
+
+
 class ReviewInvitationSerializer(ModelSerializer):
     review = serializers.StringRelatedField()
     invited_by = serializers.StringRelatedField()
@@ -171,6 +233,7 @@ class ReviewInvitationSerializer(ModelSerializer):
     class Meta:
         model = ReviewInvitation
         fields = "__all__"
+        read_only_fields = ["created_at"]
 
 
 class CodeSerializer(serializers.ModelSerializer):
