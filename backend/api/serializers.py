@@ -1,3 +1,4 @@
+import os
 from collections import defaultdict
 
 from rest_framework import serializers
@@ -14,6 +15,7 @@ from api.models import (
     Review,
     ReviewInvitation,
     SubTheme,
+    UploadedPDF,
     User,
 )
 
@@ -145,6 +147,32 @@ class ReviewListSerializer(ModelSerializer):
     class Meta:
         model = Review
         fields = ["title", "date_created", "owner", "reference_count", "id"]
+
+
+class UploadedPDFSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+
+    def get_name(self, obj):
+        return os.path.basename(obj.file.name)
+
+    class Meta:
+        model = UploadedPDF
+        fields = ["id", "name", "file", "review"]
+        read_only_fields = ["id"]
+
+    def validate_file(self, value):
+        if not value.name.lower().endswith(".pdf"):
+            raise serializers.ValidationError("Only PDF files are allowed.")
+        return value
+
+
+class AttachPDFMappingSerializer(serializers.Serializer):
+    reference_id = serializers.IntegerField()
+    uploaded_pdf_id = serializers.IntegerField()
+
+
+class AttachPDFsSerializer(serializers.Serializer):
+    mappings = AttachPDFMappingSerializer(many=True)
 
 
 class ReferenceSerializer(serializers.ModelSerializer):

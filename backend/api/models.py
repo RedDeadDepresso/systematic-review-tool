@@ -91,6 +91,11 @@ class Reference(models.Model):
         return f"{self.review.id} {self.id}"
 
 
+class UploadedPDF(models.Model):
+    file = models.FileField(upload_to=reference_upload_path)
+    review = models.ForeignKey(Review, on_delete=models.CASCADE)
+
+
 class ReferenceDuplicatePair(models.Model):
     review = models.ForeignKey(Review, on_delete=models.CASCADE)
     reference1 = models.ForeignKey(
