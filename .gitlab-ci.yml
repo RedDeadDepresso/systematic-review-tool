@@ -1,21 +1,128 @@
 stages:
+  - lint
+  - test
   - build
   - deploy
 
 variables:
+  # -------------------------
+  # Docker / Registry
+  # -------------------------
   GHCR_REGISTRY: ghcr.io
   DJANGO_IMAGE: ghcr.io/$GHCR_USERNAME/slrt-django
   REACT_IMAGE: ghcr.io/$GHCR_USERNAME/slrt-react
   DOCKER_CONFIG: /kaniko/.docker
+
+  # -------------------------
+  # Deployment
+  # -------------------------
   DEPLOY_USER: ubuntu
   DEPLOY_HOST: $EC2_HOST
   DEPLOY_PATH: /srv/app
 
+  # -------------------------
+  # Python / pnpm caching
+  # -------------------------
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  PNPM_STORE_PATH: "$CI_PROJECT_DIR/.pnpm-store"
+
 # -------------------------
-# Build Django Docker image
+# Global cache
 # -------------------------
+cache:
+  key:
+    files:
+      - backend/requirements.txt
+      - frontend/pnpm-lock.yaml
+    prefix: $CI_COMMIT_REF_SLUG
+  paths:
+    - .cache/pip
+    - .pnpm-store
+
+# =====================================================
+# LINT
+# =====================================================
+
+lint-backend:
+  stage: lint
+  image: python:3.14-alpine
+  before_script:
+    - apk add --no-cache build-base
+    - pip install ruff
+  script:
+    - cd backend
+    - ruff check .
+    - ruff format --check .
+
+lint-frontend:
+  stage: lint
+  image: node:24-alpine
+  before_script:
+    - corepack enable
+    - corepack prepare pnpm@latest --activate
+    - cd frontend
+    - pnpm install --frozen-lockfile
+  script:
+    - pnpm lint
+    - pnpm format
+
+# =====================================================
+# TEST + COVERAGE
+# =====================================================
+
+test-backend:
+  stage: test
+  image: python:3.14-alpine
+  services:
+    - name: postgres:18.0-alpine3.22
+      alias: db
+  variables:
+    POSTGRES_DB: test_db
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+    POSTGRES_HOST: db
+    POSTGRES_PORT: 5432
+    DATABASE_URL: postgres://postgres:postgres@db:5432/test_db
+    DJANGO_SETTINGS_MODULE: backend.test
+  before_script:
+    - apk add --no-cache build-base
+    - pip install -r backend/requirements.txt
+    - pip install pytest pytest-django psycopg2-binary pytest-cov
+  script:
+    - cd backend
+    - pytest --cov=. --cov-report=term --cov-report=xml
+  artifacts:
+    when: always
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: backend/coverage.xml
+
+test-frontend:
+  stage: test
+  image: node:24-alpine
+  coverage: '/All files[^|]*\|\s+(\d+(\.\d+)?)/'
+  before_script:
+    - corepack enable
+    - corepack prepare pnpm@latest --activate
+    - cd frontend
+    - pnpm install --frozen-lockfile
+  script:
+    - pnpm test --coverage
+  artifacts:
+    when: always
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura-coverage.xml
+
+# =====================================================
+# BUILD (only if lint + test pass)
+# =====================================================
+
 build-django:
   stage: build
+  needs: ["lint-backend", "test-backend"]
   image:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
@@ -37,12 +144,12 @@ build-django:
       --dockerfile ./backend/Dockerfile
       --destination $DJANGO_IMAGE:$CI_COMMIT_SHORT_SHA
       --destination $DJANGO_IMAGE:latest
+  only:
+    - main
 
-# -------------------------
-# Build React Docker image
-# -------------------------
 build-react:
   stage: build
+  needs: ["lint-frontend", "test-frontend"]
   image:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
@@ -64,17 +171,19 @@ build-react:
       --dockerfile ./frontend/Dockerfile
       --destination $REACT_IMAGE:$CI_COMMIT_SHORT_SHA
       --destination $REACT_IMAGE:latest
+  only:
+    - main
 
-# -------------------------
-# Deploy to production (EC2)
-# -------------------------
+# =====================================================
+# DEPLOY
+# =====================================================
+
 deploy-prod:
   stage: deploy
   image: alpine:latest
+  needs: ["build-django", "build-react"]
   before_script:
-    # Install SSH client only
     - apk add --no-cache openssh
-    # Start SSH agent and add private key
     - eval $(ssh-agent -s)
     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
     - mkdir -p ~/.ssh
@@ -83,7 +192,6 @@ deploy-prod:
   script:
     - |
       ssh $DEPLOY_USER@$DEPLOY_HOST "
-        # Log in to GHCR on EC2
         echo '$GHCR_TOKEN' | docker login ghcr.io -u $GHCR_USERNAME --password-stdin &&
         cd $DEPLOY_PATH &&
         docker compose -f docker-compose-prod.yml pull &&
