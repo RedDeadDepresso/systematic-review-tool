@@ -1,3 +1,4 @@
+import type { ReferencePDFMapping } from '@/types/reference';
 import api from './axios';
 
 /* ------------------ FETCH REFERENCES (LIST) ------------------ */
@@ -44,3 +45,14 @@ export const uploadReferenceFile = async (payload: {
   );
   return res.data;
 };
+
+/* ------------------ ATTACH PDFS TO REFERENCES ------------------ */
+export async function attachPDFsToReferences(payload: {
+  reviewId: number;
+  mappings: ReferencePDFMapping[];
+}) {
+  const res = await api.post('/references/attach-pdfs/', {
+    mappings: payload.mappings,
+  });
+  return res.data;
+}

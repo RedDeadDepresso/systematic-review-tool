@@ -2,11 +2,14 @@ import json
 import os
 
 import bibtexparser
+from django.core.files.storage import default_storage
+from django.db import transaction
 from django.db.models import Count, Prefetch, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django_filters import rest_framework as filters
+from djangorestframework_camel_case.parser import CamelCaseJSONParser
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -31,9 +34,11 @@ from api.models import (
     Review,
     ReviewInvitation,
     SubTheme,
+    UploadedPDF,
     User,
 )
 from api.serializers import (
+    AttachPDFsSerializer,
     CodeSerializer,
     KeywordSerializer,
     MainThemeSerializer,
@@ -46,6 +51,7 @@ from api.serializers import (
     ReviewListSerializer,
     ReviewSerializer,
     SubThemeSerializer,
+    UploadedPDFSerializer,
     UserSerializer,
 )
 
@@ -564,6 +570,66 @@ class ReferenceViewSet(viewsets.ModelViewSet):
 
         serializer.save()
 
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="attach-pdfs",
+        parser_classes=[CamelCaseJSONParser],
+    )
+    def attach_pdfs(self, request):
+        print(request.data)
+        serializer = AttachPDFsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        updated = []
+
+        with transaction.atomic():
+            for item in serializer.validated_data["mappings"]:
+                reference = Reference.objects.select_for_update().get(
+                    id=item["reference_id"]
+                )
+                uploaded_pdf = UploadedPDF.objects.select_for_update().get(
+                    id=item["uploaded_pdf_id"]
+                )
+
+                # Permission check
+                if not (
+                    reference.review.owner == user
+                    or reference.review.collaborators.filter(id=user.id).exists()
+                ):
+                    raise PermissionDenied("You do not have access to this review.")
+
+                if uploaded_pdf.review_id != reference.review_id:
+                    raise serializers.ValidationError(
+                        "Uploaded PDF and reference must belong to the same review."
+                    )
+
+                # Delete existing reference file (if any)
+                if reference.file and default_storage.exists(reference.file.name):
+                    default_storage.delete(reference.file.name)
+
+                # Delete all codes associated with this reference
+                Code.objects.filter(reference=reference).delete()
+
+                # Move file
+                reference.file = uploaded_pdf.file
+                reference.save(update_fields=["file"])
+
+                # Keep the PDF ID for frontend cache removal
+                updated.append(
+                    {
+                        "id": reference.id,
+                        "file": reference.file.url if reference.file else None,
+                        "uploaded_pdf_id": uploaded_pdf.id,
+                    }
+                )
+
+                # Delete uploaded PDF
+                uploaded_pdf.delete()
+
+        return Response({"updated_references": updated}, status=status.HTTP_200_OK)
+
 
 class ReferenceOpinionViewSet(viewsets.GenericViewSet):
     """
@@ -941,3 +1007,25 @@ class MainThemeViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+
+class UploadedPDFViewSet(viewsets.ModelViewSet):
+    serializer_class = UploadedPDFSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        return UploadedPDF.objects.filter(
+            Q(review__owner=user) | Q(review__collaborators=user)
+        ).distinct()
+
+    def perform_create(self, serializer):
+        review = serializer.validated_data["review"]
+        user = self.request.user
+
+        if not (
+            review.owner == user or review.collaborators.filter(id=user.id).exists()
+        ):
+            raise PermissionDenied("You do not have access to this review.")
+
+        serializer.save()

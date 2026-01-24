@@ -13,6 +13,7 @@ from api.views import (
     ReviewInvitationViewSet,
     ReviewViewSet,
     SubThemeViewSet,
+    UploadedPDFViewSet,
     UserViewSet,
 )
 
@@ -36,6 +37,7 @@ router.register(r"references", ReferenceViewSet, basename="reference")
 router.register(
     r"reference-opinions", ReferenceOpinionViewSet, basename="reference-opinions"
 )
+router.register(r"uploaded-pdfs", UploadedPDFViewSet, basename="uploaded-pdf")
 
 router.register(r"keywords", KeywordViewSet, basename="keyword")
 router.register(r"notes", NoteViewSet, basename="note")

@@ -1,7 +1,6 @@
-import { UploadReferencesForm } from '@/components/review-index/upload-references-form';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { useFetchReview } from '@/hooks/use-review';
+import { useFetchReview, useUploadReviewReferences } from '@/hooks/use-review';
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { FileCheck, FileText } from 'lucide-react';
 import { ReviewNavigationMenu } from '@/components/review-index/review-navigation-menu';
@@ -12,6 +11,7 @@ import { ResolveDuplicatesDialog } from '@/components/review-index/resolve-dupli
 import { AppLayoutContext } from '@/context/app-layout-context';
 import InvitationDialog from '@/components/review-index/invitation-dialog';
 import { useFetchUser } from '@/hooks/use-auth';
+import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
 
 export const Route = createFileRoute('/reviews/$reviewId/')({
   component: ReviewPage,
@@ -28,6 +28,8 @@ function ReviewPage() {
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
   const { data: user, isLoading: isUserLoading } = useFetchUser();
+  const UploadReviewReferences = useUploadReviewReferences();
+  const [openUploadDialog, setOpenUploadDialog] = useState(false);
 
   useEffect(() => {
     setPageTitle('Overview');
@@ -36,6 +38,22 @@ function ReviewPage() {
 
   const handleDetectDuplicates = () => {
     mutate({ reviewId });
+  };
+
+  const handleUploadReferences = async (file: File): Promise<boolean> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      await UploadReviewReferences.mutateAsync({
+        reviewId,
+        formData,
+      });
+
+      return true;
+    } catch (error) {
+      return false;
+    }
   };
 
   return (
@@ -108,7 +126,24 @@ function ReviewPage() {
                 {!isUserLoading &&
                   !isLoading &&
                   user.displayName === data.owner && (
-                    <UploadReferencesForm reviewId={reviewId} />
+                    <>
+                      <FileUploadDialog
+                        open={openUploadDialog}
+                        onOpenChange={setOpenUploadDialog}
+                        title="Upload References"
+                        description="Add references to the review"
+                        acceptedFormats=".bib,application/x-bibtex"
+                        acceptedMimeTypes={['application/x-bibtex']}
+                        fileTypeLabel="BibTeX"
+                        onUpload={handleUploadReferences}
+                      />
+                      <Button
+                        className="w-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                        onClick={() => setOpenUploadDialog(true)}
+                      >
+                        Add References
+                      </Button>
+                    </>
                   )}
               </div>
             </Card>

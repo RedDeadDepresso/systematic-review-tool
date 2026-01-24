@@ -12,22 +12,20 @@ export const Route = createFileRoute('/reviews/$reviewId/full-text-screening')({
 function RouteComponent() {
   const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
 
-  const { reviewId } = Route.useParams();
-  const reviewIdNum = Number(reviewId);
+  const reviewId = Number(Route.useParams().reviewId);
 
-  const { data: references, isLoading: refsLoading } = useFetchReferences({
-    reviewId: reviewIdNum,
-  });
+  const { data: references, isLoading: refsLoading } =
+    useFetchReferences(reviewId);
 
   const { data: inclusiveKeywords, isLoading: inclusiveLoading } =
     useFetchKeywords({
-      id: reviewIdNum,
+      id: reviewId,
       isInclusive: true,
     });
 
   const { data: exclusiveKeywords, isLoading: exclusiveLoading } =
     useFetchKeywords({
-      id: reviewIdNum,
+      id: reviewId,
       isInclusive: false,
     });
 
