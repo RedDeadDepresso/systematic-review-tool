@@ -27,3 +27,8 @@ export type DuplicateReferencePair = {
   reference2: Reference;
   similarityScore: number;
 };
+
+export type ReferencePDFMapping = {
+  referenceId: number;
+  uploadedPdfId: number;
+};

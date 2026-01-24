@@ -1,28 +1,84 @@
 import { useUpdateReview, useFetchReview } from '@/hooks/use-review';
 import { ReviewNavigationMenu } from '../review-index/review-navigation-menu';
 import { Button } from '../ui/button';
-import { Eye, Filter } from 'lucide-react';
+import { Eye, FileSymlink, FileText, Filter, Upload } from 'lucide-react';
 import { Spinner } from '../ui/spinner';
-import { UploadReferenceFileDialog } from './upload-reference-file-dialog';
+import { FileUploadDialog } from '../shared/file-upload-dialog';
+import { useState } from 'react';
+import { useFetchUploadedPDFs, useUploadPDF } from '@/hooks/use-uploaded-pdf';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
+import { MatchPDFDialog } from '../shared/match-pdf-dialog';
+import type { Reference, ReferencePDFMapping } from '@/types/reference';
+import { useAttachPDFsToReferences } from '@/hooks/use-reference';
 
 export function Header({
   reviewId,
-  referenceId,
+  references,
   statusFilter,
   hideKeywordFilters,
   setHideKeywordFilters,
 }: {
   reviewId: number;
-  referenceId: number | null;
+  references: Reference[];
   statusFilter: string;
   hideKeywordFilters: boolean;
   setHideKeywordFilters: (value: boolean) => void;
 }) {
   const fetchReview = useFetchReview(reviewId);
   const updateReview = useUpdateReview();
+  const [openUploadDialog, setOpenUploadDialog] = useState(false);
+  const [openMatchDialog, setOpenMatchDialog] = useState(false);
+  const usefetchUploadedPDFs = useFetchUploadedPDFs(reviewId);
+  const uploadPDF = useUploadPDF();
+  const attachPDFsToReferences = useAttachPDFsToReferences();
+
+  const handleUploadPDF = async (file: File): Promise<boolean> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      await uploadPDF.mutateAsync({
+        file,
+        review: reviewId,
+      });
+
+      return true;
+    } catch (error) {
+      return false;
+    }
+  };
+
+  const handleMatch = async (
+    mappings: ReferencePDFMapping[]
+  ): Promise<boolean> => {
+    try {
+      // Call API to attach PDFs to references
+      await attachPDFsToReferences.mutateAsync({ reviewId, mappings });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  };
 
   return (
     <>
+      <FileUploadDialog
+        open={openUploadDialog}
+        onOpenChange={setOpenUploadDialog}
+        onUpload={handleUploadPDF}
+      />
+      <MatchPDFDialog
+        open={openMatchDialog}
+        onOpenChange={setOpenMatchDialog}
+        references={references}
+        uploadedPDFs={usefetchUploadedPDFs.data || []}
+        onImport={handleMatch}
+      />
       <ReviewNavigationMenu reviewId={reviewId} />
       <div className="flex items-center justify-between w-full">
         <h3 className="text-sm font-semibold ">
@@ -52,10 +108,24 @@ export function Header({
               'Blind Off'
             )}
           </Button>
-          <UploadReferenceFileDialog
-            reviewId={reviewId}
-            referenceId={referenceId}
-          />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="gap-1" size="sm">
+                <FileText className="h-3 w-3" />
+                PDF
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="start">
+              <DropdownMenuItem onClick={() => setOpenUploadDialog(true)}>
+                <Upload className="h-3 w-3" />
+                Upload
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setOpenMatchDialog(true)}>
+                <FileSymlink className="h-3 w-3" />
+                Match
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             variant="outline"
             size="sm"

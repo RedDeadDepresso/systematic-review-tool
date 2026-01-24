@@ -3,8 +3,10 @@ import {
   fetchReference,
   fetchReferences,
   uploadReferenceFile,
+  attachPDFsToReferences,
 } from '@/api/reference';
 import type { Reference } from '@/types/reference';
+import type { UploadedPDF } from '@/types/uploaded-pdf';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AxiosError } from 'axios';
 import { toast } from 'sonner';
@@ -65,6 +67,54 @@ export const useUploadReferenceFile = () => {
           ? (error.response.data as { error?: string }).error
           : undefined;
       if (message) toast.error(message);
+    },
+  });
+};
+
+export const useAttachPDFsToReferences = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: attachPDFsToReferences,
+
+    onSuccess: ({ updatedReferences }, { reviewId }) => {
+      toast.success('PDFs have been successfully attached to references.');
+      // Update references cache
+      queryClient.setQueryData(
+        ['reviews', reviewId, 'references'],
+        (oldData: Reference[] | undefined) => {
+          if (!oldData) return oldData;
+
+          return oldData.map((ref) => {
+            const updated = updatedReferences.find(
+              (u: { id: number }) => u.id === ref.id
+            );
+            return updated ? { ...ref, file: updated.file } : ref;
+          });
+        }
+      );
+
+      // Remove deleted uploaded PDFs from cache
+      queryClient.setQueryData(
+        ['reviews', reviewId, 'uploaded-pdfs'],
+        (oldData: UploadedPDF[] | undefined) => {
+          if (!oldData) return oldData;
+
+          // Remove PDFs that were attached
+          const deletedIds = updatedReferences.map(
+            (u: { uploadedPdfId: number }) => u.uploadedPdfId
+          );
+          return oldData.filter((pdf) => !deletedIds.includes(pdf.id));
+        }
+      );
+
+      queryClient.invalidateQueries({
+        queryKey: ['reviews', reviewId, 'codes'],
+      });
+    },
+
+    onError: (_error: AxiosError) => {
+      toast.error('Failed to attach PDFs to references.');
     },
   });
 };
