@@ -184,12 +184,15 @@ class ReferenceSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "id",
             "title",
-            "publication_types",
+            "publication_type",
             "authors",
             "journal",
-            "search_methods",
+            "search_method",
             "article_customizations",
             "abstract",
+            "doi",
+            "publication_date",
+            "duplicate_status",
         ]
 
     def get_opinions(self, obj):

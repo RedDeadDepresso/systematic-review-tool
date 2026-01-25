@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import date
 
 import bibtexparser
 from django.core.files.storage import default_storage
@@ -33,6 +34,7 @@ from api.models import (
     ReferenceOpinion,
     Review,
     ReviewInvitation,
+    SearchMethod,
     SubTheme,
     UploadedPDF,
     User,
@@ -153,6 +155,20 @@ class ReviewViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = (filters.DjangoFilterBackend,)
     filterset_class = ReviewFilter
+    BIBTEX_MONTHS = {
+        "jan": 1,
+        "feb": 2,
+        "mar": 3,
+        "apr": 4,
+        "may": 5,
+        "jun": 6,
+        "jul": 7,
+        "aug": 8,
+        "sep": 9,
+        "oct": 10,
+        "nov": 11,
+        "dec": 12,
+    }
 
     def get_queryset(self):
         """Filter reviews to those owned by or shared with the user"""
@@ -223,9 +239,15 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        search_methods = f"Uploaded References [{uploaded_file.name}]"
+        add_id = SearchMethod.objects.filter(name=uploaded_file.name).exists()
+        search_method = SearchMethod.objects.create(
+            name=uploaded_file.name, review=review.id
+        )
+        if add_id:
+            search_method.name = f"{search_method.name}_{search_method.id}"
+            search_method.save()
         references = [
-            self._extract_reference_fields(review.id, search_methods, entry)
+            self._extract_reference_fields(review.id, search_method, entry)
             for entry in bib_database.entries
         ]
 
@@ -373,7 +395,36 @@ class ReviewViewSet(viewsets.ModelViewSet):
 
     # === Helper Methods ===
 
-    def _extract_reference_fields(self, review_id, search_methods, entry):
+    def parse_bibtex_date(self, entry):
+        # Full ISO date: 2022-03-15
+        raw_date = entry.get("date")
+        if raw_date:
+            try:
+                parts = [int(p) for p in raw_date.split("-")]
+                return date(*parts)
+            except Exception:
+                pass
+
+        # Year + month
+        year = entry.get("year")
+        if not year:
+            return None
+
+        try:
+            year = int(year)
+        except ValueError:
+            return None
+
+        month = entry.get("month")
+        if month:
+            month = month.lower()[:3]
+            month = self.BIBTEX_MONTHS.get(month, 1)
+        else:
+            month = 1
+
+        return date(year, month, 1)
+
+    def _extract_reference_fields(self, review_id, search_method, entry):
         """Extract reference fields from BibTeX entry"""
         publication_types = {
             "article": "Journal Article",
@@ -388,6 +439,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
         publication_type = publication_types.get(
             entry.get("ENTRYTYPE", "").lower(), "Other"
         )
+        publication_date = self.parse_bibtex_date(entry)
 
         authors = (
             ", ".join(a.strip() for a in entry.get("author", "").split(" and "))
@@ -398,15 +450,27 @@ class ReviewViewSet(viewsets.ModelViewSet):
         journal = entry.get("journal") or entry.get("booktitle") or ""
         article_customizations = entry.get("note") or entry.get("howpublished")
 
+        doi = entry.get("doi") or entry.get("DOI", "")
+
+        if doi:
+            doi = (
+                doi.lower().replace("doi:", "").replace("https://doi.org/", "").strip()
+            )
+
+        url = entry.get("url") or entry.get("URL", "")
+
         return Reference(
             review_id=review_id,
             title=entry.get("title", "No Title"),
-            publication_types=publication_type,
+            publication_type=publication_type,
             authors=authors,
             journal=journal,
-            search_methods=search_methods,
+            search_method=search_method,
             article_customizations=article_customizations or "",
             abstract=entry.get("abstract", ""),
+            doi=doi,
+            url=url,
+            publication_date=publication_date,
         )
 
     def _generate_theme_table_latex(

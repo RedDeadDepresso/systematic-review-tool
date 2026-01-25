@@ -58,27 +58,53 @@ class Review(models.Model):
         return self.title
 
 
+class SearchMethod(models.Model):
+    review = models.ForeignKey(Review, on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+
+
+class Label(models.Model):
+    review = models.ForeignKey(Review, on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["review", "name"],
+                name="unique_label_per_review",
+            )
+        ]
+
+
 def reference_upload_path(instance, filename):
     return f"references/{uuid.uuid4()}/{filename}"
 
 
 class Reference(models.Model):
-    STATUS_CHOICES = [
-        ("Undecided", "Undecided"),
-        ("Excluded", "Excluded"),
-        ("Maybe", "Maybe"),
-        ("Included", "Included"),
-    ]
-
     review = models.ForeignKey(Review, on_delete=models.CASCADE)
     title = models.CharField(max_length=255)
-    publication_types = models.CharField(max_length=255)
+    publication_type = models.CharField(max_length=255)
+    publication_date = models.DateField(null=True, blank=True)
     authors = models.CharField(max_length=255)
     journal = models.CharField(max_length=255)
-    search_methods = models.CharField(max_length=255)
+    search_method = models.ForeignKey(SearchMethod, on_delete=models.CASCADE)
     article_customizations = models.CharField(max_length=255)
     abstract = models.TextField(blank=True)
+    doi = models.CharField(max_length=255, blank=True)
+    url = models.URLField(max_length=500, blank=True)
     file = models.FileField(upload_to=reference_upload_path, blank=True, null=True)
+    labels = models.ManyToManyField(Label, related_name="references")
+    duplicate_status = models.CharField(
+        max_length=20,
+        choices=[
+            ("Unresolved", "Unresolved"),
+            ("Deleted", "Deleted"),
+            ("Not Duplicate", "Not Duplicate"),
+            ("Resolved", "Resolved"),
+            ("Unique", "Unique"),
+        ],
+        default="Unique",
+    )
 
     class Meta:
         indexes = [
