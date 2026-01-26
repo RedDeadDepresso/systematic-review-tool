@@ -10,6 +10,7 @@ from api.views import (
     ReferenceDuplicatePairViewSet,
     ReferenceOpinionViewSet,
     ReferenceViewSet,
+    ReviewDataView,
     ReviewInvitationViewSet,
     ReviewViewSet,
     SubThemeViewSet,
@@ -50,5 +51,6 @@ router.register(r"codes", CodeViewSet, basename="code")
 urlpatterns = [
     path("auth/login/", TokenObtainPairView.as_view(), name="login"),
     path("auth/refresh/", TokenRefreshView.as_view(), name="refresh"),
+    path("review-data/", ReviewDataView.as_view(), name="review-data"),
     path("", include(router.urls)),
 ]

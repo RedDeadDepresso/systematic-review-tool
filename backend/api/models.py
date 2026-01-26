@@ -62,6 +62,9 @@ class SearchMethod(models.Model):
     review = models.ForeignKey(Review, on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
 
+    def __str__(self):
+        return self.name
+
 
 class Label(models.Model):
     review = models.ForeignKey(Review, on_delete=models.CASCADE)
@@ -147,7 +150,6 @@ class ReferenceDuplicatePair(models.Model):
         ids = list(queryset.values_list("id", flat=True))
         if not ids:
             return []
-
         with connection.cursor() as cursor:
             cursor.execute(
                 f"""
@@ -170,8 +172,13 @@ class ReferenceDuplicatePair(models.Model):
     @classmethod
     @transaction.atomic
     def _create_pairs(cls, review, raw_pairs):
-        """Create DuplicatePair objects from detected pairs."""
+        """
+        Create DuplicatePair objects from detected pairs.
+        Also sets duplicate_status to 'Unresolved' for both references in each pair.
+        """
         to_create = []
+        reference_ids_to_update = set()
+
         for r in raw_pairs:
             to_create.append(
                 ReferenceDuplicatePair(
@@ -181,14 +188,15 @@ class ReferenceDuplicatePair(models.Model):
                     similarity_score=r[2],
                 )
             )
+            reference_ids_to_update.update([r[0], r[1]])
 
-        created = 0
-        for obj in to_create:
-            try:
-                obj.save()
-                created += 1
-            except Exception:
-                continue
+        created = len(cls.objects.bulk_create(to_create, ignore_conflicts=True))
+
+        if reference_ids_to_update:
+            Reference.objects.filter(id__in=reference_ids_to_update).update(
+                duplicate_status="Unresolved"
+            )
+
         return created
 
     @classmethod

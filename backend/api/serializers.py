@@ -7,6 +7,7 @@ from rest_framework.serializers import ModelSerializer
 from api.models import (
     Code,
     Keyword,
+    Label,
     MainTheme,
     Note,
     Reference,
@@ -175,8 +176,16 @@ class AttachPDFsSerializer(serializers.Serializer):
     mappings = AttachPDFMappingSerializer(many=True)
 
 
+class LabelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Label
+        fields = ["id", "name"]
+
+
 class ReferenceSerializer(serializers.ModelSerializer):
+    labels = LabelSerializer(many=True, read_only=True)
     opinions = serializers.SerializerMethodField()
+    publication_date = serializers.DateField(format="%d/%m/%Y")
 
     class Meta:
         model = Reference
@@ -240,8 +249,8 @@ class ReferenceDuplicatePairSerializer(ModelSerializer):
 class KeywordSerializer(ModelSerializer):
     class Meta:
         model = Keyword
-        fields = ["review", "name", "is_inclusive"]
-        read_only_fields = ["review"]
+        fields = ["id", "review", "name", "is_inclusive"]
+        read_only_fields = ["id", "review"]
 
 
 class NoteSerializer(serializers.ModelSerializer):
