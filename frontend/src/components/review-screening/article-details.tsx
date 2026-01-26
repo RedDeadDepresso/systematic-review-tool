@@ -79,7 +79,7 @@ export function ArticleDetails({
                 <FileText className="w-5 h-5" />
                 Publication Types:
               </h3>
-              <p className="text-sm">{reference.publicationTypes}</p>
+              <p className="text-sm">{reference.publicationType}</p>
             </div>
 
             <div>
@@ -103,7 +103,7 @@ export function ArticleDetails({
                 <Search className="w-5 h-5" />
                 Search Methods:
               </h3>
-              <p className="text-sm">{reference.searchMethods}</p>
+              <p className="text-sm">{reference.searchMethod}</p>
             </div>
 
             <div>

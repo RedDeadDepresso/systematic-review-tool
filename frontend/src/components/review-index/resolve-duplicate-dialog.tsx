@@ -86,7 +86,7 @@ export function ReferenceDetails({
             <StickyNote className="w-4 h-4" />
             <span className="font-medium">Publication Types:</span>
           </div>
-          <div>{data.publicationTypes}</div>
+          <div>{data.publicationType}</div>
         </div>
 
         <div>
@@ -94,7 +94,7 @@ export function ReferenceDetails({
             <Truck className="w-4 h-4" />
             <span className="font-medium">Search Methods:</span>
           </div>
-          <div>{data.searchMethods}</div>
+          <div>{data.searchMethod}</div>
         </div>
       </div>
 

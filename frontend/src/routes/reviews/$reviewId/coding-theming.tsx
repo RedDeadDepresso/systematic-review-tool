@@ -2,7 +2,6 @@ import { createFileRoute } from '@tanstack/react-router';
 import { SubThemeCard } from '@/components/coding-theming/sub-theme-card';
 import { useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { AppLayoutContext } from '@/context/app-layout-context';
-import { ReviewNavigationMenu } from '@/components/review-index/review-navigation-menu';
 import { MainThemeCard } from '@/components/coding-theming/main-theme-card';
 import { CodeCard } from '@/components/coding-theming/code-card';
 import { CreateItemDialog } from '@/components/coding-theming/create-item-dialog';
@@ -19,6 +18,7 @@ import type { Code } from '@/types/code';
 import { PDFDialog } from '@/components/review-full-text-screening/pdf-dialog';
 import React from 'react';
 import { ExportDropdown } from '@/components/coding-theming/export-dropdown';
+import { ReviewHeader } from '@/components/shared/review-header';
 
 export const Route = createFileRoute('/reviews/$reviewId/coding-theming')({
   component: RouteComponent,
@@ -181,8 +181,8 @@ function RouteComponent() {
             fileUrl={selectedCode.referenceFileUrl}
           />
         )}
-      <div className="flex items-center justify-between">
-        <ReviewNavigationMenu reviewId={reviewId} />
+      <ReviewHeader reviewId={reviewId} />
+      <div className="flex w-full justify-end my-4">
         <ExportDropdown reviewId={reviewId} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

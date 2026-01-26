@@ -1,11 +1,63 @@
-import type { ReferencePDFMapping } from '@/types/reference';
+import type { Label, Reference, ReferencePDFMapping } from '@/types/reference';
 import api from './axios';
+import type { Keyword } from '@/types/keyword';
 
 /* ------------------ FETCH REFERENCES (LIST) ------------------ */
 export const fetchReferences = async (reviewId: number) => {
   const res = await api.get('/references/', {
     params: { review: reviewId },
   });
+  return res.data;
+};
+
+export type FetchReviewDataParams = {
+  review: number;
+  searchMethodIds?: number[];
+  includeKeywordIds?: string[];
+  excludeKeywordIds?: string[];
+  labelIds?: number[];
+  duplicateStatuses?: string[];
+  searchQuery?: string;
+};
+
+export type SearchMethod = {
+  id: number;
+  name: string;
+  count: number;
+};
+
+export type DuplicateStatusCounts = {
+  Unresolved: number;
+  Deleted: number;
+  'Not Duplicate': number;
+  Resolved: number;
+};
+
+type FetchReviewDataParamsResponse = {
+  references: Reference[];
+  totalCount: number;
+  filteredCount: number;
+  searchMethods: SearchMethod[];
+  keywords: Keyword[];
+  duplicateStatusCounts: DuplicateStatusCounts;
+  labels: Label[];
+};
+
+export const fetchReviewData = async (
+  params: FetchReviewDataParams
+): Promise<FetchReviewDataParamsResponse> => {
+  const res = await api.get('/review-data/', {
+    params: {
+      review: params.review,
+      search_method_ids: params.searchMethodIds,
+      include_keyword_ids: params.includeKeywordIds,
+      exclude_keyword_ids: params.excludeKeywordIds,
+      label_ids: params.labelIds,
+      duplicate_statuses: params.duplicateStatuses,
+      search: params.searchQuery,
+    },
+  });
+
   return res.data;
 };
 

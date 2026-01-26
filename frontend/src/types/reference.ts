@@ -6,10 +6,11 @@ export type Opinion = {
 export type Reference = {
   id: number;
   title: string;
-  publicationTypes: string;
+  publicationType: string;
+  publicationDate: string;
   authors: string;
   journal: string;
-  searchMethods: string;
+  searchMethod: string;
   articleCustomizations: string;
   abstract: string;
   opinions?: Opinion[];
@@ -31,4 +32,11 @@ export type DuplicateReferencePair = {
 export type ReferencePDFMapping = {
   referenceId: number;
   uploadedPdfId: number;
+};
+
+export type Label = {
+  id: number;
+  name: string;
+  color?: string;
+  hotkey?: string;
 };

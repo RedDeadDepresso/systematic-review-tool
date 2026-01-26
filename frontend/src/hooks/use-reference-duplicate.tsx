@@ -66,7 +66,7 @@ export const useResolveDuplicateReferences = () => {
     }
   >({
     mutationFn: ({ reviewId, referenceDuplicateId, selection }) =>
-      resolveDuplicateReferences(reviewId, referenceDuplicateId, selection),
+      resolveDuplicateReferences(referenceDuplicateId, reviewId, selection),
     onSuccess: ({ detail }: { detail: string }, { reviewId }) => {
       toast.success(`${detail}`);
       queryClient.invalidateQueries({

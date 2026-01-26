@@ -1,9 +1,11 @@
 import {
   updateReference,
   fetchReference,
-  fetchReferences,
+  fetchReviewData,
   uploadReferenceFile,
   attachPDFsToReferences,
+  type FetchReviewDataParams,
+  fetchReferences,
 } from '@/api/reference';
 import type { Reference } from '@/types/reference';
 import type { UploadedPDF } from '@/types/uploaded-pdf';
@@ -15,6 +17,23 @@ export const useFetchReferences = (reviewId: number) => {
   return useQuery({
     queryKey: ['reviews', reviewId, 'references'],
     queryFn: () => fetchReferences(reviewId),
+  });
+};
+
+export const useFetchReviewData = (params: FetchReviewDataParams) => {
+  return useQuery({
+    queryKey: [
+      'reviews',
+      params.review,
+      'review-data',
+      params.searchMethodIds,
+      params.includeKeywordIds,
+      params.excludeKeywordIds,
+      params.labelIds,
+      params.duplicateStatuses,
+      params.searchQuery,
+    ],
+    queryFn: () => fetchReviewData(params),
   });
 };
 
@@ -113,7 +132,8 @@ export const useAttachPDFsToReferences = () => {
       });
     },
 
-    onError: (_error: AxiosError) => {
+    onError: (error: AxiosError) => {
+      console.log(error);
       toast.error('Failed to attach PDFs to references.');
     },
   });
