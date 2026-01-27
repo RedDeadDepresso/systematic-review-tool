@@ -3,12 +3,22 @@
 import React from 'react';
 
 import { useState, useRef, useEffect } from 'react';
-import { Search, Plus, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Plus, X, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { Keyword } from '@/types/keyword';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface FiltersSidebarProps {
   keywords: Keyword[];
@@ -25,6 +35,7 @@ interface FiltersSidebarProps {
   onToggleIncludeHighlight: () => void;
   onToggleExcludeHighlight: () => void;
   onCreateKeyword: (name: string, isInclusive: boolean) => void;
+  onDeleteKeyword?: (keyword: Keyword) => void;
 }
 
 export function FiltersSidebar({
@@ -41,6 +52,7 @@ export function FiltersSidebar({
   onToggleIncludeHighlight,
   onToggleExcludeHighlight,
   onCreateKeyword,
+  onDeleteKeyword,
 }: FiltersSidebarProps) {
   const [searchFilter, setSearchFilter] = useState('');
   const [showMoreInclude, setShowMoreInclude] = useState(false);
@@ -56,6 +68,8 @@ export function FiltersSidebar({
 
   const includeKeywords = keywords.filter((k) => k.isInclusive);
   const excludeKeywords = keywords.filter((k) => !k.isInclusive);
+  const [deleteConfirmKeyword, setDeleteConfirmKeyword] =
+    useState<Keyword | null>(null);
 
   const filteredIncludeKeywords = includeKeywords.filter((k) =>
     k.name.toLowerCase().includes(searchFilter.toLowerCase())
@@ -135,6 +149,13 @@ export function FiltersSidebar({
       setNewExcludeKeyword('');
       setShowAddExcludeInput(false);
     }
+  };
+
+  const handleDeleteKeyword = (keyword: Keyword) => {
+    if (onDeleteKeyword) {
+      onDeleteKeyword(keyword);
+    }
+    setDeleteConfirmKeyword(null);
   };
 
   return (
@@ -270,19 +291,27 @@ export function FiltersSidebar({
             </label>
 
             {visibleIncludeKeywords.map((keyword) => (
-              <label
+              <div
                 key={keyword.name}
-                className="flex items-center justify-between py-1.5 cursor-pointer hover:bg-muted/50 rounded px-2 -mx-2"
+                className="flex items-center justify-between py-1.5 hover:bg-muted/50 rounded px-2 -mx-2"
               >
-                <div className="flex items-center gap-3">
+                <label className="flex items-center gap-3 flex-1 cursor-pointer">
                   <Checkbox
                     checked={selectedIncludeKeywords.includes(keyword.name)}
                     onCheckedChange={() => onIncludeKeywordToggle(keyword.name)}
                   />
                   <span className="text-sm">{keyword.name}</span>
-                </div>
-                <span className="text-sm text-muted-foreground">0</span>
-              </label>
+                </label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 hover:bg-destructive/10"
+                  onClick={() => setDeleteConfirmKeyword(keyword)}
+                  title="Delete keyword"
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                </Button>
+              </div>
             ))}
           </div>
 
@@ -379,19 +408,27 @@ export function FiltersSidebar({
             </label>
 
             {visibleExcludeKeywords.map((keyword) => (
-              <label
+              <div
                 key={keyword.name}
-                className="flex items-center justify-between py-1.5 cursor-pointer hover:bg-muted/50 rounded px-2 -mx-2"
+                className="flex items-center justify-between py-1.5 hover:bg-muted/50 rounded px-2 -mx-2"
               >
-                <div className="flex items-center gap-3">
+                <label className="flex items-center gap-3 flex-1 cursor-pointer">
                   <Checkbox
                     checked={selectedExcludeKeywords.includes(keyword.name)}
                     onCheckedChange={() => onExcludeKeywordToggle(keyword.name)}
                   />
                   <span className="text-sm">{keyword.name}</span>
-                </div>
-                <span className="text-sm text-muted-foreground">0</span>
-              </label>
+                </label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 hover:bg-destructive/10"
+                  onClick={() => setDeleteConfirmKeyword(keyword)}
+                  title="Delete keyword"
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                </Button>
+              </div>
             ))}
           </div>
 
@@ -428,6 +465,37 @@ export function FiltersSidebar({
             <span className="text-sm text-muted-foreground">Select All</span>
           </label>
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog
+          open={deleteConfirmKeyword !== null}
+          onOpenChange={(open) => {
+            if (!open) setDeleteConfirmKeyword(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Keyword</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete the keyword "
+                {deleteConfirmKeyword?.name}"? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (deleteConfirmKeyword) {
+                    handleDeleteKeyword(deleteConfirmKeyword);
+                  }
+                }}
+                className="bg-destructive text-white hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </aside>
   );

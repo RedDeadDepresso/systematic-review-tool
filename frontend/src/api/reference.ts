@@ -13,8 +13,8 @@ export const fetchReferences = async (reviewId: number) => {
 export type FetchReviewDataParams = {
   review: number;
   searchMethodIds?: number[];
-  includeKeywordIds?: string[];
-  excludeKeywordIds?: string[];
+  includeKeywords?: string[];
+  excludeKeywords?: string[];
   labelIds?: number[];
   duplicateStatuses?: string[];
   searchQuery?: string;
@@ -50,8 +50,8 @@ export const fetchReviewData = async (
     params: {
       review: params.review,
       search_method_ids: params.searchMethodIds,
-      include_keyword_ids: params.includeKeywordIds,
-      exclude_keyword_ids: params.excludeKeywordIds,
+      include_keywords: params.includeKeywords,
+      exclude_keywords: params.excludeKeywords,
       label_ids: params.labelIds,
       duplicate_statuses: params.duplicateStatuses,
       search: params.searchQuery,

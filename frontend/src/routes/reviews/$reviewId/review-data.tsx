@@ -20,6 +20,7 @@ import { useFetchUploadedPDFs, useUploadPDF } from '@/hooks/use-uploaded-pdf';
 import { MatchPDFDialog } from '@/components/shared/match-pdf-dialog';
 import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
 import type { Keyword } from '@/types/keyword';
+import { useCreateKeyword, useDeleteKeyword } from '@/hooks/use-keyword';
 
 export const Route = createFileRoute('/reviews/$reviewId/review-data')({
   component: RouteComponent,
@@ -31,8 +32,8 @@ type SortDirection = 'asc' | 'desc';
 function buildQueryParams(params: {
   review: number;
   searchMethodIds: number[];
-  includeKeywordIds: string[];
-  excludeKeywordIds: string[];
+  includeKeywords: string[];
+  excludeKeywords: string[];
   labelIds: number[];
   duplicateStatuses: string[];
   searchQuery: string;
@@ -44,11 +45,11 @@ function buildQueryParams(params: {
   if (params.searchMethodIds.length > 0) {
     queryParams.searchMethodIds = params.searchMethodIds;
   }
-  if (params.includeKeywordIds.length > 0) {
-    queryParams.includeKeywordIds = params.includeKeywordIds;
+  if (params.includeKeywords.length > 0) {
+    queryParams.includeKeywords = params.includeKeywords;
   }
-  if (params.excludeKeywordIds.length > 0) {
-    queryParams.excludeKeywordIds = params.excludeKeywordIds;
+  if (params.excludeKeywords.length > 0) {
+    queryParams.excludeKeywords = params.excludeKeywords;
   }
   if (params.labelIds.length > 0) {
     queryParams.labelIds = params.labelIds;
@@ -129,6 +130,8 @@ function RouteComponent() {
 
   // Local keywords state (for newly created keywords)
   const [localKeywords, setLocalKeywords] = useState<Keyword[]>([]);
+  const createKeyword = useCreateKeyword();
+  const deleteKeyword = useDeleteKeyword();
 
   // Screening criteria state
   const [screeningCriteria, setScreeningCriteria] = useState<Criteria[]>([]);
@@ -145,8 +148,8 @@ function RouteComponent() {
   const queryParams = buildQueryParams({
     review: reviewId,
     searchMethodIds: selectedSearchMethods,
-    includeKeywordIds: selectedIncludeKeywords,
-    excludeKeywordIds: selectedExcludeKeywords,
+    includeKeywords: selectedIncludeKeywords,
+    excludeKeywords: selectedExcludeKeywords,
     duplicateStatuses: selectedDuplicateStatuses,
     labelIds: selectedLabels,
     searchQuery,
@@ -362,16 +365,59 @@ function RouteComponent() {
   }, []);
 
   const handleCreateKeyword = useCallback(
-    (name: string, isInclusive: boolean) => {
-      setLocalKeywords((prev) => {
-        // Check if keyword already exists
-        if (prev.some((k) => k.name.toLowerCase() === name.toLowerCase())) {
-          return prev;
-        }
-        return [...prev, { name, isInclusive }];
-      });
+    async (name: string, isInclusive: boolean) => {
+      try {
+        const newKeword = await createKeyword.mutateAsync({
+          review: reviewId,
+          name: name,
+          isInclusive: isInclusive,
+        });
+
+        setLocalKeywords((prev) => {
+          // Prevent duplicates (case-insensitive)
+          if (prev.some((k) => k.name.toLowerCase() === name.toLowerCase())) {
+            return prev;
+          }
+          return [...prev, newKeword];
+        });
+
+        return true;
+      } catch (error) {
+        console.error(error);
+        return false;
+      }
     },
-    []
+    [createKeyword, reviewId]
+  );
+
+  const handleDeleteKeyword = useCallback(
+    async (keyword: Keyword) => {
+      try {
+        await deleteKeyword.mutateAsync(keyword.id);
+
+        setLocalKeywords((prev) => prev.filter((k) => k.id !== keyword.id));
+
+        if (keyword.isInclusive) {
+          setSelectedIncludeKeywords((prev) =>
+            prev.filter((k) => k !== keyword.name)
+          );
+        } else {
+          setSelectedExcludeKeywords((prev) =>
+            prev.filter((k) => k !== keyword.name)
+          );
+        }
+
+        queryClient.invalidateQueries({
+          queryKey: ['reviews', reviewId, 'review-data'],
+        });
+
+        return true;
+      } catch (error) {
+        console.error(error);
+        return false;
+      }
+    },
+    [deleteKeyword, reviewId, queryClient]
   );
 
   const handleNavigateDetail = useCallback(
@@ -541,6 +587,7 @@ function RouteComponent() {
             setExcludeHighlightEnabled(!excludeHighlightEnabled)
           }
           onCreateKeyword={handleCreateKeyword}
+          onDeleteKeyword={handleDeleteKeyword}
         />
       </div>
       {openDetailId && (
@@ -553,6 +600,8 @@ function RouteComponent() {
             currentDetailIndex < sortedReferences.length - 1 &&
             currentDetailIndex !== -1
           }
+          highlightIncludeKeywords={highlightIncludeKeywords}
+          highlightExcludeKeywords={highlightExcludeKeywords}
         />
       )}
     </div>

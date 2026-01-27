@@ -1,6 +1,7 @@
-import { createKeyword, fetchKeywords } from '@/api/keyword';
+import { createKeyword, deleteKeyword, fetchKeywords } from '@/api/keyword';
 import type { Keyword } from '@/types/keyword';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 export const useFetchKeywords = (params: {
   id: number;
@@ -25,6 +26,18 @@ export const useCreateKeyword = () => {
           return [...oldData, data];
         }
       );
+    },
+  });
+};
+
+export const useDeleteKeyword = () => {
+  return useMutation({
+    mutationFn: deleteKeyword,
+    onSuccess: () => {
+      toast.success('Keyword deleted successfully.');
+    },
+    onError: () => {
+      toast.error('Delete failed.');
     },
   });
 };

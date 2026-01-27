@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useFetchReference } from '@/hooks/use-reference';
+import { highlightText } from '@/lib/reference';
 
 interface ReferenceDrawerProps {
   referenceId: number;
@@ -27,6 +28,8 @@ interface ReferenceDrawerProps {
   onNavigate: (direction: 'prev' | 'next') => void;
   hasPrev: boolean;
   hasNext: boolean;
+  highlightIncludeKeywords?: string[];
+  highlightExcludeKeywords?: string[];
 }
 
 function DetailSection({
@@ -59,6 +62,8 @@ export function ReferenceDrawer({
   onNavigate,
   hasPrev,
   hasNext,
+  highlightIncludeKeywords = [],
+  highlightExcludeKeywords = [],
 }: ReferenceDrawerProps) {
   const [noteText, setNoteText] = useState('');
   const [isVisible, setIsVisible] = useState(false);
@@ -119,7 +124,13 @@ export function ReferenceDrawer({
             {isLoading ? (
               <div className="h-5 w-3/4 bg-muted animate-pulse rounded" />
             ) : (
-              <p className="text-sm font-medium truncate">{reference?.title}</p>
+              <p className="text-sm font-medium truncate">
+                {highlightText(
+                  reference.title,
+                  highlightIncludeKeywords,
+                  highlightExcludeKeywords
+                )}
+              </p>
             )}
           </div>
           <Button
@@ -147,11 +158,19 @@ export function ReferenceDrawer({
           ) : reference ? (
             <div className="space-y-0">
               <DetailSection icon={FileText} label="Abstract">
-                {reference.abstract}
+                {highlightText(
+                  reference.abstract,
+                  highlightIncludeKeywords,
+                  highlightExcludeKeywords
+                )}
               </DetailSection>
 
               <DetailSection icon={BookOpen} label="Publication Types">
-                {reference.publicationType}
+                {highlightText(
+                  reference.publicationType,
+                  highlightIncludeKeywords,
+                  highlightExcludeKeywords
+                )}
               </DetailSection>
 
               {reference.topics && reference.topics.length > 0 && (
@@ -161,11 +180,19 @@ export function ReferenceDrawer({
               )}
 
               <DetailSection icon={Users} label="Authors">
-                {reference.authors}
+                {highlightText(
+                  reference.authors,
+                  highlightIncludeKeywords,
+                  highlightExcludeKeywords
+                )}
               </DetailSection>
 
               <DetailSection icon={Building} label="Journal">
-                {reference.journal}
+                {highlightText(
+                  reference.journal,
+                  highlightIncludeKeywords,
+                  highlightExcludeKeywords
+                )}
                 {reference.publicationDate &&
                   ` - published ${reference.publicationDate}`}
               </DetailSection>
