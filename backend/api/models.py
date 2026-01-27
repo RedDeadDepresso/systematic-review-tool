@@ -6,6 +6,7 @@ from django.contrib.auth.models import (
     PermissionsMixin,
 )
 from django.contrib.postgres.indexes import GinIndex, OpClass
+from django.contrib.postgres.search import SearchVectorField
 from django.db import connection, models, transaction
 from django.db.models.functions import Lower
 
@@ -108,9 +109,11 @@ class Reference(models.Model):
         ],
         default="Unique",
     )
+    search_vector = SearchVectorField(null=True, blank=True)
 
     class Meta:
         indexes = [
+            GinIndex(fields=["search_vector"], name="reference_search_vector_idx"),
             GinIndex(
                 OpClass(Lower("title"), "gin_trgm_ops"), name="reference_title_trgm_idx"
             ),

@@ -1,3 +1,4 @@
+from django.contrib.postgres.search import SearchQuery
 from django_filters import rest_framework as filters
 
 from api.models import Reference, Review
@@ -22,20 +23,45 @@ class CharInFilter(filters.BaseInFilter, filters.CharFilter):
 
 
 class ReferenceFilter(filters.FilterSet):
-    # Filters
-    search_method_ids = NumberInFilter(field_name="search_method_id", lookup_expr="in")
-    # include_keyword_ids = NumberInFilter(method="filter_include_keywords")
-    # exclude_keyword_ids = NumberInFilter(method="filter_exclude_keywords")
-    label_ids = NumberInFilter(field_name="labels__id", lookup_expr="in")
+    search_method_ids = filters.BaseInFilter(
+        field_name="search_method_id", lookup_expr="in"
+    )
+    label_ids = filters.BaseInFilter(field_name="labels__id", lookup_expr="in")
+    include_keywords = CharInFilter(method="filter_include_keywords")
+    exclude_keywords = CharInFilter(method="filter_exclude_keywords")
+    search = filters.CharFilter(method="filter_free_text")
     duplicate_statuses = CharInFilter(field_name="duplicate_status", lookup_expr="in")
-    search = filters.CharFilter(method="filter_search")
 
     class Meta:
         model = Reference
         fields = []
 
-    # Text search in title
-    def filter_search(self, queryset, name, value):
-        if value:
-            return queryset.filter(title__icontains=value)
+    def filter_include_keywords(self, queryset, name, value):
+        if not value:
+            return queryset
+
+        query = SearchQuery(
+            " | ".join(value),
+            search_type="raw",
+        )
+
+        return queryset.filter(search_vector=query)
+
+    def filter_exclude_keywords(self, queryset, name, value):
+        if not value:
+            return queryset
+
+        query = SearchQuery(
+            " | ".join(value),
+            search_type="raw",
+        )
+        queryset = queryset.exclude(search_vector=query)
+        print(queryset.query)
         return queryset
+
+    def filter_free_text(self, queryset, name, value):
+        if not value:
+            return queryset
+
+        query = SearchQuery(value, search_type="websearch")
+        return queryset.filter(search_vector=query)
