@@ -492,10 +492,10 @@ function RouteComponent() {
   }, [data?.keywords, localKeywords]);
 
   const highlightIncludeKeywords = includeHighlightEnabled
-    ? selectedIncludeKeywords
+    ? allKeywords.filter((k) => k.isInclusive).map((k) => k.name)
     : [];
   const highlightExcludeKeywords = excludeHighlightEnabled
-    ? selectedExcludeKeywords
+    ? allKeywords.filter((k) => !k.isInclusive).map((k) => k.name)
     : [];
 
   if (isLoading) {

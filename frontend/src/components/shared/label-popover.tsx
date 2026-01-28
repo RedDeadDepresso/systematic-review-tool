@@ -1,9 +1,7 @@
 'use client';
 
-import React from 'react';
-
-import { useState, useMemo } from 'react';
-import { X, Crown } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -12,12 +10,21 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  useFetchLabels,
+  useCreateLabel,
+  useAssignLabelsToReferences,
+} from '@/hooks/use-label';
+import type { Label } from '@/types/label';
+import { toast } from 'sonner';
 
 interface LabelPopoverProps {
   trigger: React.ReactNode;
   selectedReferenceIds: number[];
   onLabelsApplied?: () => void;
 }
+
+type LabelState = 'checked' | 'unchecked' | 'indeterminate';
 
 export function LabelPopover({
   trigger,
@@ -26,13 +33,17 @@ export function LabelPopover({
 }: LabelPopoverProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLabelIds, setSelectedLabelIds] = useState<number[]>([]);
+  const [labelStates, setLabelStates] = useState<Record<number, LabelState>>(
+    {}
+  );
   const [isApplying, setIsApplying] = useState(false);
 
-  const data = { labels: [] };
+  // Fetch labels using hook
+  const { data: labels = [], refetch } = useFetchLabels();
+  const createLabelMutation = useCreateLabel();
+  const assignLabelsMutation = useAssignLabelsToReferences();
 
-  const labels = data?.labels || [];
-
+  // Filter labels based on search
   const filteredLabels = useMemo(() => {
     if (!searchQuery.trim()) return labels;
     return labels.filter((label) =>
@@ -40,6 +51,7 @@ export function LabelPopover({
     );
   }, [labels, searchQuery]);
 
+  // Show "create" option if search query doesn't match existing labels
   const showCreateOption = useMemo(() => {
     if (!searchQuery.trim()) return false;
     const exactMatch = labels.some(
@@ -48,50 +60,78 @@ export function LabelPopover({
     return !exactMatch;
   }, [labels, searchQuery]);
 
+  // Toggle tri-state checkbox
   const handleLabelToggle = (labelId: number) => {
-    setSelectedLabelIds((prev) =>
-      prev.includes(labelId)
-        ? prev.filter((id) => id !== labelId)
-        : [...prev, labelId]
-    );
+    setLabelStates((prev) => {
+      const current = prev[labelId] ?? 'unchecked';
+      const next: LabelState =
+        current === 'unchecked'
+          ? 'checked'
+          : current === 'checked'
+            ? 'indeterminate'
+            : 'unchecked';
+      return { ...prev, [labelId]: next };
+    });
   };
 
+  // Create new label
   const handleCreateLabel = async () => {
-    if (!searchQuery.trim()) return;
+    const name = searchQuery.trim();
+    if (!name) return;
 
-    // try {
-
-    //   }
-    // } catch (error) {
-    //   console.error('Failed to create label:', error);
-    // }
+    try {
+      const newLabel: Label = await createLabelMutation.mutateAsync({ name });
+      toast.success(`Label "${newLabel.name}" created`);
+      setLabelStates((prev) => ({ ...prev, [newLabel.id]: 'checked' }));
+      setSearchQuery('');
+      refetch();
+    } catch (error) {
+      console.error('Failed to create label:', error);
+      toast.error('Failed to create label');
+    }
   };
 
+  // Apply labels
   const handleApply = async () => {
-    if (selectedReferenceIds.length === 0 || selectedLabelIds.length === 0)
+    const checkedIds = Object.entries(labelStates)
+      .filter(([_, state]) => state === 'checked')
+      .map(([id]) => Number(id));
+
+    const indeterminateIds = Object.entries(labelStates)
+      .filter(([_, state]) => state === 'indeterminate')
+      .map(([id]) => Number(id));
+
+    if (
+      selectedReferenceIds.length === 0 ||
+      Object.keys(labelStates).length === 0
+    )
       return;
 
     setIsApplying(true);
-    // try {
-    //   }
-    // } catch (error) {
-    //   console.error('Failed to apply labels:', error);
-    // } finally {
-    //   setIsApplying(false);
-    // }
+    try {
+      await assignLabelsMutation.mutateAsync({
+        referenceIds: selectedReferenceIds,
+        checkedLabelIds: checkedIds,
+        indeterminateLabelIds: indeterminateIds,
+      });
+      onLabelsApplied?.();
+      setOpen(false);
+    } finally {
+      setIsApplying(false);
+    }
   };
 
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (!isOpen) {
-      setSelectedLabelIds([]);
+      setLabelStates({});
       setSearchQuery('');
     }
   };
 
   const isApplyDisabled =
-    selectedLabelIds.length === 0 ||
     selectedReferenceIds.length === 0 ||
+    Object.keys(labelStates).length === 0 ||
     isApplying;
 
   return (
@@ -119,7 +159,13 @@ export function LabelPopover({
               >
                 <div className="flex items-center gap-3">
                   <Checkbox
-                    checked={selectedLabelIds.includes(label.id)}
+                    checked={
+                      labelStates[label.id] === 'checked'
+                        ? true
+                        : labelStates[label.id] === 'indeterminate'
+                          ? 'indeterminate'
+                          : false
+                    }
                     onCheckedChange={() => handleLabelToggle(label.id)}
                   />
                   <span className="text-sm text-foreground">{label.name}</span>
@@ -150,7 +196,7 @@ export function LabelPopover({
             )}
           </div>
 
-          {/* Search input */}
+          {/* Search input & Apply button */}
           <div className="p-4 border-t border-border">
             <Input
               value={searchQuery}
