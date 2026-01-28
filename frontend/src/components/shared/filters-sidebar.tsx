@@ -3,7 +3,15 @@
 import React from 'react';
 
 import { useState, useRef, useEffect } from 'react';
-import { Search, Plus, X, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
+import {
+  Search,
+  Plus,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Trash2,
+  LayoutList,
+} from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -19,6 +27,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { useIsMobile } from '@/hooks/use-mobile';
+import type { ArticleViewLayout } from '@/types/reference';
 
 interface FiltersSidebarProps {
   keywords: Keyword[];
@@ -36,6 +46,8 @@ interface FiltersSidebarProps {
   onToggleExcludeHighlight: () => void;
   onCreateKeyword: (name: string, isInclusive: boolean) => void;
   onDeleteKeyword?: (keyword: Keyword) => void;
+  articleViewLayout: ArticleViewLayout;
+  onArticleViewLayoutChange: (layout: ArticleViewLayout) => void;
 }
 
 export function FiltersSidebar({
@@ -53,7 +65,10 @@ export function FiltersSidebar({
   onToggleExcludeHighlight,
   onCreateKeyword,
   onDeleteKeyword,
+  articleViewLayout,
+  onArticleViewLayoutChange,
 }: FiltersSidebarProps) {
+  const isMobile = useIsMobile();
   const [searchFilter, setSearchFilter] = useState('');
   const [showMoreInclude, setShowMoreInclude] = useState(false);
   const [showMoreExclude, setShowMoreExclude] = useState(false);
@@ -93,6 +108,10 @@ export function FiltersSidebar({
   const allExcludeSelected =
     excludeKeywords.length > 0 &&
     excludeKeywords.every((k) => selectedExcludeKeywords.includes(k.name));
+
+  useEffect(() => {
+    if (isMobile) onArticleViewLayoutChange('title-only');
+  }, [isMobile]);
 
   useEffect(() => {
     if (isSearchOpen && searchInputRef.current) {
@@ -464,6 +483,63 @@ export function FiltersSidebar({
             <Checkbox />
             <span className="text-sm text-muted-foreground">Select All</span>
           </label>
+        </div>
+
+        {/* Articles Layout Section */}
+        <div className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <LayoutList className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Articles Layout</span>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label
+              aria-disabled={isMobile}
+              className={cn(
+                'flex items-center gap-3 py-1.5 rounded px-2 -mx-2',
+                isMobile
+                  ? 'opacity-50 cursor-not-allowed pointer-events-none'
+                  : 'cursor-pointer hover:bg-muted/50'
+              )}
+              onClick={() => {
+                if (isMobile) return;
+                onArticleViewLayoutChange('title-abstract');
+              }}
+            >
+              <div
+                className={cn(
+                  'w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors',
+                  articleViewLayout === 'title-abstract'
+                    ? 'border-primary'
+                    : 'border-muted-foreground'
+                )}
+              >
+                {articleViewLayout === 'title-abstract' && (
+                  <div className="w-2 h-2 rounded-full bg-primary" />
+                )}
+              </div>
+              <span className="text-sm">Title & Abstract view</span>
+            </label>
+            <label
+              className="flex items-center gap-3 py-1.5 cursor-pointer hover:bg-muted/50 rounded px-2 -mx-2"
+              onClick={() => onArticleViewLayoutChange('title-only')}
+            >
+              <div
+                className={cn(
+                  'w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors',
+                  articleViewLayout === 'title-only'
+                    ? 'border-primary'
+                    : 'border-muted-foreground'
+                )}
+              >
+                {articleViewLayout === 'title-only' && (
+                  <div className="w-2 h-2 rounded-full bg-primary" />
+                )}
+              </div>
+              <span className="text-sm">Title only view</span>
+            </label>
+          </div>
         </div>
 
         {/* Delete Confirmation Dialog */}

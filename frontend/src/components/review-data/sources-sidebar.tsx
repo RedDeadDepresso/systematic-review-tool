@@ -18,7 +18,7 @@ import type { DuplicateStatusCounts, SearchMethod } from '@/api/reference';
 
 interface SourcesSidebarProps {
   searchMethods: SearchMethod[];
-  selectedSearchMethods: number[];
+  selectedSearchMethodIds: number[];
   onSearchMethodToggle: (id: number) => void;
   onSelectAllReferences: () => void;
   duplicateStatusCounts: DuplicateStatusCounts;
@@ -32,7 +32,7 @@ interface SourcesSidebarProps {
 
 export function SourcesSidebar({
   searchMethods,
-  selectedSearchMethods,
+  selectedSearchMethodIds,
   onSearchMethodToggle,
   onSelectAllReferences,
   duplicateStatusCounts,
@@ -80,7 +80,7 @@ export function SourcesSidebar({
                 onClick={onSelectAllReferences}
                 className={cn(
                   'flex items-center justify-between w-full px-4 py-2 text-sm hover:bg-sidebar-accent transition-colors',
-                  selectedSearchMethods.length === 0 &&
+                  selectedSearchMethodIds.length === 0 &&
                     'bg-sidebar-accent text-sidebar-accent-foreground'
                 )}
               >
@@ -98,7 +98,7 @@ export function SourcesSidebar({
                   onClick={() => onSearchMethodToggle(method.id)}
                   className={cn(
                     'flex items-center justify-between w-full px-4 py-2 text-sm hover:bg-sidebar-accent transition-colors group',
-                    selectedSearchMethods.includes(method.id) &&
+                    selectedSearchMethodIds.includes(method.id) &&
                       'bg-sidebar-accent text-sidebar-accent-foreground'
                   )}
                 >

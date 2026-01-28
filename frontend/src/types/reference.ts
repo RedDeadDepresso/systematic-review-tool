@@ -3,6 +3,13 @@ export type Opinion = {
   status: 'Included' | 'Excluded' | 'Maybe';
 };
 
+export type Label = {
+  id: number;
+  name: string;
+  color?: string;
+  hotkey?: string;
+};
+
 export type Reference = {
   id: number;
   title: string;
@@ -13,15 +20,17 @@ export type Reference = {
   searchMethod: string;
   articleCustomizations: string;
   abstract: string;
-  opinions?: Opinion[];
+  opinions: Opinion[];
+  labels: Label[];
   file?: string;
+  doi?: string;
+  url?: string;
 };
 
-export type ReferenceRow = {
-  id: number;
-  title: string;
-  authors: string;
-};
+// Reference Table
+export type SortField = 'title' | 'date' | 'author';
+export type SortDirection = 'asc' | 'desc';
+export type ArticleViewLayout = 'title-only' | 'title-abstract';
 
 export type DuplicateReferencePair = {
   reference1: Reference;
@@ -32,11 +41,4 @@ export type DuplicateReferencePair = {
 export type ReferencePDFMapping = {
   referenceId: number;
   uploadedPdfId: number;
-};
-
-export type Label = {
-  id: number;
-  name: string;
-  color?: string;
-  hotkey?: string;
 };

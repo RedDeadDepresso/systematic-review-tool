@@ -7,10 +7,16 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useContext, useState, useCallback, useMemo, useEffect } from 'react';
 import { ReviewHeader } from '@/components/shared/review-header';
 import { SourcesSidebar } from '@/components/review-data/sources-sidebar';
-import { ReferencesTable } from '@/components/review-data/references-table';
+import { ReferencesTable } from '@/components/shared/references-table';
 import { FiltersSidebar } from '@/components/shared/filters-sidebar';
-import { ReferenceDrawer } from '@/components/review-data/reference-drawer';
-import type { ReferencePDFMapping } from '@/types/reference';
+import { ReferenceDrawer } from '@/components/shared/reference-drawer';
+import type {
+  ArticleViewLayout,
+  Reference,
+  ReferencePDFMapping,
+  SortDirection,
+  SortField,
+} from '@/types/reference';
 import type { Criteria } from '@/components/shared/screening-criteria-popover';
 import type { FetchReviewDataParams } from '@/api/reference';
 import { useQueryClient } from '@tanstack/react-query';
@@ -21,13 +27,12 @@ import { MatchPDFDialog } from '@/components/shared/match-pdf-dialog';
 import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
 import type { Keyword } from '@/types/keyword';
 import { useCreateKeyword, useDeleteKeyword } from '@/hooks/use-keyword';
+import { ReferenceDetailPanel } from '../../../components/shared/reference-panel';
+import { TableTopHeader } from '@/components/shared/references-table-top-header';
 
 export const Route = createFileRoute('/reviews/$reviewId/review-data')({
   component: RouteComponent,
 });
-
-type SortField = 'title' | 'date' | 'author';
-type SortDirection = 'asc' | 'desc';
 
 function buildQueryParams(params: {
   review: number;
@@ -73,23 +78,27 @@ function RouteComponent() {
     setIsAuthenticated(true);
   }, []);
 
-  const [selectedSearchMethods, setSelectedSearchMethods] = useState<number[]>(
-    []
-  );
+  const [selectedSearchMethodIds, setSelectedSearchMethods] = useState<
+    number[]
+  >([]);
   const [selectedIncludeKeywords, setSelectedIncludeKeywords] = useState<
     string[]
   >([]);
   const [selectedExcludeKeywords, setSelectedExcludeKeywords] = useState<
     string[]
   >([]);
-  const [selectedLabels, setSelectedLabels] = useState<number[]>([]);
+  const [selectedLabelIds, setSelectedLabelIds] = useState<number[]>([]);
   const [selectedDuplicateStatuses, setSelectedDuplicateStatuses] = useState<
     string[]
   >([]);
-  const [selectedReferences, setSelectedReferences] = useState<number[]>([]);
-  const [highlightedReference, setHighlightedReference] = useState<
+  const [selectedReferenceIds, setSelectedReferenceIds] = useState<number[]>(
+    []
+  );
+  const [highlightedReferenceId, setHighlightedReferenceId] = useState<
     number | null
   >(null);
+  const [highlightedReference, setHighlightedReference] =
+    useState<Reference | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Sidebar collapse states - collapsed by default on mobile
@@ -136,6 +145,10 @@ function RouteComponent() {
   // Screening criteria state
   const [screeningCriteria, setScreeningCriteria] = useState<Criteria[]>([]);
 
+  // Article view layout state
+  const [articleViewLayout, setArticleViewLayout] =
+    useState<ArticleViewLayout>('title-only');
+
   // File Upload
   const [openUploadBibDialog, setOpenUploadBibDialog] = useState(false);
   const [openUploadPDFDialog, setOpenUploadPDFDialog] = useState(false);
@@ -147,11 +160,11 @@ function RouteComponent() {
   const uploadReviewReferences = useUploadReviewReferences();
   const queryParams = buildQueryParams({
     review: reviewId,
-    searchMethodIds: selectedSearchMethods,
+    searchMethodIds: selectedSearchMethodIds,
     includeKeywords: selectedIncludeKeywords,
     excludeKeywords: selectedExcludeKeywords,
     duplicateStatuses: selectedDuplicateStatuses,
-    labelIds: selectedLabels,
+    labelIds: selectedLabelIds,
     searchQuery,
   });
 
@@ -310,26 +323,39 @@ function RouteComponent() {
   }, [data, selectedExcludeKeywords]);
 
   const handleReferenceSelect = useCallback((id: number) => {
-    setSelectedReferences((prev) =>
+    setSelectedReferenceIds((prev) =>
       prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
     );
   }, []);
 
   const handleHighlightReference = useCallback((id: number | null) => {
-    setHighlightedReference(id);
+    setHighlightedReferenceId(id);
   }, []);
+
+  useEffect(() => {
+    if (!highlightedReferenceId && articleViewLayout !== 'title-abstract') {
+      setHighlightedReference(null);
+      return;
+    }
+
+    const reference = data?.references.find(
+      (r) => r.id === highlightedReferenceId
+    );
+
+    setHighlightedReference(reference ?? null);
+  }, [highlightedReferenceId, data?.references, articleViewLayout]);
 
   const handleSelectAllTableReferences = useCallback(() => {
     if (!data) return;
     const allSelected = data.references.every((r) =>
-      selectedReferences.includes(r.id)
+      selectedReferenceIds.includes(r.id)
     );
     if (allSelected) {
-      setSelectedReferences([]);
+      setSelectedReferenceIds([]);
     } else {
-      setSelectedReferences(data.references.map((r) => r.id));
+      setSelectedReferenceIds(data.references.map((r) => r.id));
     }
-  }, [data, selectedReferences]);
+  }, [data, selectedReferenceIds]);
 
   const combinedReferences = useMemo(() => {
     if (!openMatchDialog) return [];
@@ -339,14 +365,15 @@ function RouteComponent() {
     return data.references
       .filter(
         (ref) =>
-          selectedReferences.includes(ref.id) || ref.id === highlightedReference
+          selectedReferenceIds.includes(ref.id) ||
+          ref.id === highlightedReferenceId
       )
       .map((ref) => ({
         ...ref,
-        isSelected: selectedReferences.includes(ref.id),
-        isHighlighted: ref.id === highlightedReference,
+        isSelected: selectedReferenceIds.includes(ref.id),
+        isHighlighted: ref.id === highlightedReferenceId,
       }));
-  }, [openMatchDialog, data, selectedReferences, highlightedReference]);
+  }, [openMatchDialog, data, selectedReferenceIds, highlightedReferenceId]);
 
   const handleSortChange = useCallback(
     (field: SortField, direction: SortDirection) => {
@@ -363,6 +390,12 @@ function RouteComponent() {
   const handleCloseDetail = useCallback(() => {
     setOpenDetailId(null);
   }, []);
+
+  const openDetail = useMemo(() => {
+    if (!openDetailId) return null;
+
+    return data?.references.find((r) => r.id === openDetailId) ?? null;
+  }, [openDetailId, data?.references]);
 
   const handleCreateKeyword = useCallback(
     async (name: string, isInclusive: boolean) => {
@@ -515,7 +548,7 @@ function RouteComponent() {
       <div className="flex flex-1 overflow-hidden">
         <SourcesSidebar
           searchMethods={data?.searchMethods || []}
-          selectedSearchMethods={selectedSearchMethods}
+          selectedSearchMethodIds={selectedSearchMethodIds}
           onSearchMethodToggle={handleSearchMethodToggle}
           onSelectAllReferences={handleSelectAllReferences}
           duplicateStatusCounts={
@@ -536,63 +569,82 @@ function RouteComponent() {
           }
         />
 
-        <ReferencesTable
-          references={sortedReferences}
-          filteredCount={data?.filteredCount || 0}
-          totalCount={data?.totalCount || 0}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          selectedReferences={selectedReferences}
-          highlightedReference={highlightedReference}
-          onSelectReference={handleReferenceSelect}
-          onHighlightReference={handleHighlightReference}
-          onSelectAll={handleSelectAllTableReferences}
-          highlightIncludeKeywords={highlightIncludeKeywords}
-          highlightExcludeKeywords={highlightExcludeKeywords}
-          sortField={sortField}
-          sortDirection={sortDirection}
-          onSortChange={handleSortChange}
-          onOpenDetail={handleOpenDetail}
-          labels={data?.labels || []}
-          onLabelsApplied={handleLabelsApplied}
-          isLeftCollapsed={isSourcesSidebarCollapsed}
-          onToggleLeftCollapse={() =>
-            setIsSourcesSidebarCollapsed(!isSourcesSidebarCollapsed)
-          }
-          isRightCollapsed={isFiltersSidebarCollapsed}
-          onToggleRightCollapse={() =>
-            setIsFiltersSidebarCollapsed(!isFiltersSidebarCollapsed)
-          }
-          onAttachPDF={() => setOpenUploadPDFDialog(true)}
-        />
+        <div className="flex flex-col flex-1">
+          <TableTopHeader
+            filteredCount={data?.filteredCount || 0}
+            totalCount={data?.totalCount || 0}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onSortChange={handleSortChange}
+            isLeftCollapsed={isSourcesSidebarCollapsed}
+            onToggleLeftCollapse={() =>
+              setIsSourcesSidebarCollapsed(!isSourcesSidebarCollapsed)
+            }
+            isRightCollapsed={isFiltersSidebarCollapsed}
+            onToggleRightCollapse={() =>
+              setIsFiltersSidebarCollapsed(!isFiltersSidebarCollapsed)
+            }
+          />
+          <div className="flex flex-1 overflow-hidden">
+            <ReferencesTable
+              references={sortedReferences}
+              selectedReferenceIds={selectedReferenceIds}
+              highlightedReferenceId={highlightedReferenceId}
+              onSelectReference={handleReferenceSelect}
+              onHighlightReference={handleHighlightReference}
+              onSelectAll={handleSelectAllTableReferences}
+              highlightIncludeKeywords={highlightIncludeKeywords}
+              highlightExcludeKeywords={highlightExcludeKeywords}
+              sortField={sortField}
+              sortDirection={sortDirection}
+              onSortChange={handleSortChange}
+              onOpenDetail={handleOpenDetail}
+              onLabelsApplied={handleLabelsApplied}
+              onAttachPDF={() => setOpenUploadPDFDialog(true)}
+              viewLayout={articleViewLayout}
+            />
 
-        <FiltersSidebar
-          keywords={allKeywords}
-          selectedIncludeKeywords={selectedIncludeKeywords}
-          selectedExcludeKeywords={selectedExcludeKeywords}
-          onIncludeKeywordToggle={handleIncludeKeywordToggle}
-          onExcludeKeywordToggle={handleExcludeKeywordToggle}
-          onSelectAllInclude={handleSelectAllInclude}
-          onSelectAllExclude={handleSelectAllExclude}
-          isCollapsed={isFiltersSidebarCollapsed}
-          onToggleCollapse={() =>
-            setIsFiltersSidebarCollapsed(!isFiltersSidebarCollapsed)
-          }
-          includeHighlightEnabled={includeHighlightEnabled}
-          excludeHighlightEnabled={excludeHighlightEnabled}
-          onToggleIncludeHighlight={() =>
-            setIncludeHighlightEnabled(!includeHighlightEnabled)
-          }
-          onToggleExcludeHighlight={() =>
-            setExcludeHighlightEnabled(!excludeHighlightEnabled)
-          }
-          onCreateKeyword={handleCreateKeyword}
-          onDeleteKeyword={handleDeleteKeyword}
-        />
+            {articleViewLayout === 'title-abstract' && (
+              <ReferenceDetailPanel
+                reference={highlightedReference}
+                onClose={() => handleHighlightReference(null)}
+                highlightIncludeKeywords={highlightIncludeKeywords}
+                highlightExcludeKeywords={highlightExcludeKeywords}
+                onAttachPDF={() => setOpenUploadPDFDialog(true)}
+              />
+            )}
+
+            <FiltersSidebar
+              keywords={allKeywords}
+              selectedIncludeKeywords={selectedIncludeKeywords}
+              selectedExcludeKeywords={selectedExcludeKeywords}
+              onIncludeKeywordToggle={handleIncludeKeywordToggle}
+              onExcludeKeywordToggle={handleExcludeKeywordToggle}
+              onSelectAllInclude={handleSelectAllInclude}
+              onSelectAllExclude={handleSelectAllExclude}
+              isCollapsed={isFiltersSidebarCollapsed}
+              onToggleCollapse={() =>
+                setIsFiltersSidebarCollapsed(!isFiltersSidebarCollapsed)
+              }
+              includeHighlightEnabled={includeHighlightEnabled}
+              excludeHighlightEnabled={excludeHighlightEnabled}
+              onToggleIncludeHighlight={() =>
+                setIncludeHighlightEnabled(!includeHighlightEnabled)
+              }
+              onToggleExcludeHighlight={() =>
+                setExcludeHighlightEnabled(!excludeHighlightEnabled)
+              }
+              onCreateKeyword={handleCreateKeyword}
+              onDeleteKeyword={handleDeleteKeyword}
+              articleViewLayout={articleViewLayout}
+              onArticleViewLayoutChange={setArticleViewLayout}
+            />
+          </div>
+        </div>
       </div>
-      {openDetailId && (
+      {openDetail && (
         <ReferenceDrawer
-          referenceId={openDetailId}
+          reference={openDetail}
           onClose={handleCloseDetail}
           onNavigate={handleNavigateDetail}
           hasPrev={currentDetailIndex > 0}
