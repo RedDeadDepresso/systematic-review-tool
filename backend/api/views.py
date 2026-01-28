@@ -42,6 +42,7 @@ from api.models import (
     User,
 )
 from api.serializers import (
+    AssignReferencesSerializer,
     AttachPDFsSerializer,
     CodeSerializer,
     KeywordSerializer,
@@ -696,6 +697,71 @@ class ReferenceViewSet(viewsets.ModelViewSet):
 
         return Response({"updated_references": updated}, status=status.HTTP_200_OK)
 
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="assign",
+        parser_classes=[CamelCaseJSONParser],
+    )
+    def assign(self, request):
+        serializer = AssignReferencesSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        review_id = serializer.validated_data["review"]
+        reference_ids = serializer.validated_data["reference_ids"]
+        mode = serializer.validated_data["mode"]
+        assignee_id = serializer.validated_data.get("assignee_id")
+
+        review = get_object_or_404(Review, pk=review_id)
+
+        # Only owner can assign
+        if review.owner != user:
+            return Response(
+                {"detail": "Only the review owner can assign references"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        references = Reference.objects.filter(
+            id__in=reference_ids,
+            review=review,
+        )
+
+        assignable_users = User.objects.filter(
+            id__in=[review.owner_id, *review.collaborators.values_list("id", flat=True)]
+        )
+
+        if mode == "assign":
+            if not assignee_id:
+                return Response(
+                    {"detail": "assignee_id is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            assignee = get_object_or_404(assignable_users, pk=assignee_id)
+            references.update(assignee=assignee)
+
+        elif mode == "remove":
+            references.update(assignee=None)
+
+        elif mode == "split_equally":
+            assignees = list(assignable_users)
+
+            if not assignees:
+                return Response(
+                    {"detail": "No users to split references"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            for index, reference in enumerate(references):
+                reference.assignee = assignees[index % len(assignees)]
+                reference.save(update_fields=["assignee"])
+
+        return Response(
+            {"detail": "References updated successfully"},
+            status=status.HTTP_200_OK,
+        )
+
 
 class ReviewDataView(generics.ListAPIView):
     serializer_class = ReferenceSerializer
@@ -707,7 +773,11 @@ class ReviewDataView(generics.ListAPIView):
         user = self.request.user
         review_id = self.request.query_params.get("review")
 
-        queryset = Reference.objects.all()
+        queryset = Reference.objects.select_related(
+            "assignee",
+            "search_method",
+            "review",
+        )
 
         if review_id:
             review = get_object_or_404(Review, pk=review_id)

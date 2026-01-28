@@ -113,7 +113,8 @@ class ReviewSerializer(ModelSerializer):
     reference_count = serializers.SerializerMethodField()
     reference_duplicates_count = serializers.SerializerMethodField()
     date_created = serializers.DateTimeField(format="%d %b %Y", read_only=True)
-    owner = serializers.CharField(read_only=True)
+    owner = UserSerializer(read_only=True)
+    collaborators = UserSerializer(read_only=True, many=True)
 
     def get_reference_count(self, obj):
         return obj.reference_set.count()
@@ -132,12 +133,14 @@ class ReviewSerializer(ModelSerializer):
             "date_created",
             "owner",
             "is_blinded",
+            "collaborators",
         ]
         read_only_fields = [
             "owner",
             "date_created",
             "reference_count",
             "reference_duplicates_count",
+            "collaborators",
         ]
 
 
@@ -181,6 +184,7 @@ class ReferenceSerializer(serializers.ModelSerializer):
     opinions = serializers.SerializerMethodField()
     publication_date = serializers.DateField(format="%d/%m/%Y")
     labels = serializers.SerializerMethodField()
+    assignee = serializers.SerializerMethodField()
 
     class Meta:
         model = Reference
@@ -239,6 +243,14 @@ class ReferenceSerializer(serializers.ModelSerializer):
             {"id": rl.label.id, "name": rl.label.name, "color": rl.label.color}
             for rl in reference_labels
         ]
+
+    def get_assignee(self, obj):
+        if not obj.assignee:
+            return None
+        return {
+            "id": obj.assignee.id,
+            "display_name": str(obj.assignee) or obj.assignee.username,
+        }
 
 
 class ReferenceOpinionSerializer(ModelSerializer):
@@ -345,3 +357,12 @@ class LabelSerializer(serializers.ModelSerializer):
                 "You already have a label with this name."
             )
         return value
+
+
+class AssignReferencesSerializer(serializers.Serializer):
+    review = serializers.IntegerField()
+    reference_ids = serializers.ListField(
+        child=serializers.IntegerField(), allow_empty=False
+    )
+    mode = serializers.ChoiceField(choices=["assign", "remove", "split_equally"])
+    assignee_id = serializers.IntegerField(required=False)

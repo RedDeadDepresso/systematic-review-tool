@@ -110,6 +110,7 @@ class Reference(models.Model):
         default="Unique",
     )
     search_vector = SearchVectorField(null=True, blank=True)
+    assignee = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
 
     class Meta:
         indexes = [
