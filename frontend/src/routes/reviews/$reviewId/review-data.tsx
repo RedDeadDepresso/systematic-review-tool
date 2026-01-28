@@ -623,6 +623,7 @@ function RouteComponent() {
           />
           <div className="flex flex-1 overflow-hidden">
             <ReferencesTable
+              reviewId={reviewId}
               references={sortedReferences}
               selectedReferenceIds={selectedReferenceIds}
               highlightedReferenceId={highlightedReferenceId}

@@ -1,3 +1,5 @@
+import type { User } from './auth';
+
 export type Opinion = {
   reviewer: string;
   status: 'Included' | 'Excluded' | 'Maybe';
@@ -25,6 +27,7 @@ export type Reference = {
   file?: string;
   doi?: string;
   url?: string;
+  assignee: User | null;
 };
 
 // Reference Table

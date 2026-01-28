@@ -108,3 +108,16 @@ export async function attachPDFsToReferences(payload: {
   });
   return res.data;
 }
+
+/* ------------------ ASSIGN REFERENCES TO USER ------------------- */
+export interface AssignReferencesPayload {
+  review: number;
+  referenceIds: number[];
+  mode: 'assign' | 'remove' | 'split_equally';
+  assigneeId?: number;
+}
+
+export const assignReferences = async (payload: AssignReferencesPayload) => {
+  const response = await api.post('/references/assign/', payload);
+  return response.data;
+};

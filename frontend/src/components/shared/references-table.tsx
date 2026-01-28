@@ -7,6 +7,7 @@ import {
   Tag,
   Send,
   ChevronDown,
+  CircleUser,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
@@ -22,11 +23,13 @@ import { cn } from '@/lib/utils';
 import type { Reference, Label, ArticleViewLayout } from '@/types/reference';
 import { LabelPopover } from '@/components/shared/label-popover';
 import { highlightText } from '@/lib/reference';
+import { AssigneePopover } from './assignee-popover';
 
 type SortField = 'title' | 'date' | 'author';
 type SortDirection = 'asc' | 'desc';
 
 interface ReferencesTableProps {
+  reviewId: number;
   references: Reference[];
   selectedReferenceIds: number[];
   highlightedReferenceId: number | null;
@@ -120,6 +123,7 @@ const renderOpinionBadge = (
 );
 
 export function ReferencesTable({
+  reviewId,
   references,
   selectedReferenceIds,
   highlightedReferenceId,
@@ -278,6 +282,12 @@ export function ReferencesTable({
                               PDF
                             </Badge>
                           )}
+                          {ref.assignee && (
+                            <Badge variant="secondary" className="text-xs">
+                              <CircleUser />
+                              {ref.assignee.displayName}
+                            </Badge>
+                          )}
 
                           {ref.labels.map((label: Label) => (
                             <Badge
@@ -350,6 +360,13 @@ export function ReferencesTable({
                       </Badge>
                     )}
 
+                    {ref.assignee && (
+                      <Badge variant="secondary" className="text-xs">
+                        <CircleUser />
+                        {ref.assignee.displayName}
+                      </Badge>
+                    )}
+
                     {ref.labels.map((label: Label) => (
                       <Badge
                         key={label.id}
@@ -409,6 +426,21 @@ export function ReferencesTable({
             }
             selectedReferenceIds={selectedRefsForLabels}
             onLabelsApplied={onLabelsApplied}
+          />
+          <AssigneePopover
+            reviewId={reviewId}
+            trigger={
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 text-primary border-primary bg-transparent"
+              >
+                <CircleUser className="h-4 w-4" />
+                <span className="hidden sm:inline">Assign</span>
+              </Button>
+            }
+            selectedReferenceIds={selectedRefsForLabels}
+            onAssigneeApplied={onLabelsApplied}
           />
           <div className="flex items-center gap-2 w-full">
             <Input

@@ -6,6 +6,8 @@ import {
   attachPDFsToReferences,
   type FetchReviewDataParams,
   fetchReferences,
+  assignReferences,
+  type AssignReferencesPayload,
 } from '@/api/reference';
 import type { Reference } from '@/types/reference';
 import type { UploadedPDF } from '@/types/uploaded-pdf';
@@ -135,6 +137,18 @@ export const useAttachPDFsToReferences = () => {
     onError: (error: AxiosError) => {
       console.log(error);
       toast.error('Failed to attach PDFs to references.');
+    },
+  });
+};
+
+export const useAssignReferences = () => {
+  return useMutation({
+    mutationFn: (params: AssignReferencesPayload) => assignReferences(params),
+    onSuccess: () => {
+      toast.success('References updated successfully.');
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Failed to assign references.');
     },
   });
 };
