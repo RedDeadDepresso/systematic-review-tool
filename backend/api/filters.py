@@ -26,7 +26,7 @@ class ReferenceFilter(filters.FilterSet):
     search_method_ids = filters.BaseInFilter(
         field_name="search_method_id", lookup_expr="in"
     )
-    label_ids = filters.BaseInFilter(field_name="labels__id", lookup_expr="in")
+    label_ids = filters.BaseInFilter(method="filter_label_ids")
     include_keywords = CharInFilter(method="filter_include_keywords")
     exclude_keywords = CharInFilter(method="filter_exclude_keywords")
     search = filters.CharFilter(method="filter_free_text")
@@ -58,6 +58,18 @@ class ReferenceFilter(filters.FilterSet):
         queryset = queryset.exclude(search_vector=query)
         print(queryset.query)
         return queryset
+
+    def filter_label_ids(self, queryset, name, value):
+        print(value)
+        if not value:
+            return queryset
+
+        user = self.request.user
+
+        return queryset.filter(
+            labels__label__id__in=value,
+            labels__label__user=user,
+        ).distinct()
 
     def filter_free_text(self, queryset, name, value):
         if not value:
