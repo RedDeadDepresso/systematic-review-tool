@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from api.models import (
     Code,
+    Keyword,
     MainTheme,
     Reference,
     ReferenceDuplicatePair,
@@ -18,3 +19,4 @@ admin.site.register(ReferenceDuplicatePair)
 admin.site.register(MainTheme)
 admin.site.register(SubTheme)
 admin.site.register(Code)
+admin.site.register(Keyword)

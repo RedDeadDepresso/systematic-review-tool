@@ -12,6 +12,7 @@ from api.models import (
     Note,
     Reference,
     ReferenceDuplicatePair,
+    ReferenceLabel,
     ReferenceOpinion,
     Review,
     ReviewInvitation,
@@ -176,16 +177,10 @@ class AttachPDFsSerializer(serializers.Serializer):
     mappings = AttachPDFMappingSerializer(many=True)
 
 
-class LabelSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Label
-        fields = ["id", "name"]
-
-
 class ReferenceSerializer(serializers.ModelSerializer):
-    labels = LabelSerializer(many=True, read_only=True)
     opinions = serializers.SerializerMethodField()
     publication_date = serializers.DateField(format="%d/%m/%Y")
+    labels = serializers.SerializerMethodField()
 
     class Meta:
         model = Reference
@@ -226,6 +221,24 @@ class ReferenceSerializer(serializers.ModelSerializer):
             ]
 
         return None
+
+    def get_labels(self, obj):
+        """
+        Return labels applied to this reference for the current user only.
+        Expects that `obj` has a `user_labels` prefetched attribute.
+        """
+        user = self.context["request"].user
+        # Fallback if prefetch not done
+        reference_labels = getattr(obj, "user_labels", None)
+        if reference_labels is None:
+            reference_labels = ReferenceLabel.objects.filter(
+                reference=obj, label__user=user
+            ).select_related("label")
+
+        return [
+            {"id": rl.label.id, "name": rl.label.name, "color": rl.label.color}
+            for rl in reference_labels
+        ]
 
 
 class ReferenceOpinionSerializer(ModelSerializer):
@@ -314,3 +327,21 @@ class MainThemeSerializer(serializers.ModelSerializer):
         model = MainTheme
         fields = ["id", "review", "name", "description", "sub_theme_ids"]
         read_only_fields = ["id", "sub_theme_ids"]
+
+
+class LabelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Label
+        fields = ["id", "user", "name"]
+        read_only_fields = ["user"]
+
+    def validate_name(self, value):
+        """
+        Ensure the user doesn't already have a label with this name.
+        """
+        user = self.context["request"].user
+        if Label.objects.filter(user=user, name=value).exists():
+            raise serializers.ValidationError(
+                "You already have a label with this name."
+            )
+        return value

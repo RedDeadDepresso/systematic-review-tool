@@ -32,6 +32,7 @@ from api.models import (
     Note,
     Reference,
     ReferenceDuplicatePair,
+    ReferenceLabel,
     ReferenceOpinion,
     Review,
     ReviewInvitation,
@@ -44,6 +45,7 @@ from api.serializers import (
     AttachPDFsSerializer,
     CodeSerializer,
     KeywordSerializer,
+    LabelSerializer,
     MainThemeSerializer,
     NoteSerializer,
     ReferenceDuplicatePairSerializer,
@@ -717,22 +719,30 @@ class ReviewDataView(generics.ListAPIView):
                 Q(review__owner=user) | Q(review__collaborators=user)
             )
 
-        return queryset.prefetch_related("labels")
+        # Prefetch ReferenceLabels for the current user only
+        queryset = queryset.prefetch_related(
+            Prefetch(
+                "labels",
+                queryset=ReferenceLabel.objects.filter(label__user=user).select_related(
+                    "label"
+                ),
+                to_attr="user_labels",  # store them in a custom attribute
+            )
+        )
+
+        return queryset
 
     def list(self, request, *args, **kwargs):
         """
-        return aggregated data along with references.
-        Returns: references, counts, search methods, keywords, labels, duplicate status counts
+        Return aggregated data along with references, including user labels.
         """
         review_id = request.query_params.get("review")
-
         if not review_id:
             return Response(
                 {"error": "review parameter is required for list view"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Check permissions
         review = get_object_or_404(Review, pk=review_id)
         if not is_owner_or_collaborator(request.user, review):
             return Response(
@@ -740,55 +750,36 @@ class ReviewDataView(generics.ListAPIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Get total count (before filtering)
         total_count = Reference.objects.filter(review_id=review_id).count()
-
-        # Apply filters
         queryset = self.filter_queryset(self.get_queryset())
         filtered_count = queryset.count()
 
-        # Paginate if needed
         page = self.paginate_queryset(queryset)
-        if page is not None:
-            references = page
-        else:
-            references = queryset
+        references = page if page is not None else queryset
 
         # Serialize references
-        reference_serializer = ReferenceSerializer(references, many=True)
+        serializer = ReferenceSerializer(
+            references, many=True, context={"request": request}
+        )
 
-        # Get search methods with counts - convert to list of dicts
+        # Search methods with counts
         search_methods = list(
             SearchMethod.objects.filter(review_id=review_id)
             .annotate(count=Count("reference"))
             .values("id", "name", "count")
         )
 
-        # Get keywords with counts
-        keywords_data = []
-        for keyword in Keyword.objects.filter(review_id=review_id):
-            count = (
-                Reference.objects.filter(review_id=review_id, labels__name=keyword.name)
-                .distinct()
-                .count()
-            )
+        # Keywords
+        keywords = KeywordSerializer(
+            Keyword.objects.filter(review_id=review_id), many=True
+        )
 
-            keywords_data.append(
-                {
-                    "id": keyword.id,
-                    "name": keyword.name,
-                    "is_inclusive": keyword.is_inclusive,
-                    "count": count,
-                }
-            )
-
-        # Get duplicate status counts
+        # Duplicate status counts
         duplicate_status_counts = (
             Reference.objects.filter(review_id=review_id)
             .values("duplicate_status")
             .annotate(count=Count("id"))
         )
-
         status_counts_dict = {
             "Unresolved": 0,
             "Deleted": 0,
@@ -800,21 +791,22 @@ class ReviewDataView(generics.ListAPIView):
             if status_value in status_counts_dict:
                 status_counts_dict[status_value] = item["count"]
 
-        # Get all labels with counts - convert to list of dicts
-        labels = list(
-            Label.objects.filter(review_id=review_id)
-            .annotate(count=Count("references"))
-            .values("id", "name", "count")
+        # Labels with counts (only user labels)
+        labels_qs = Label.objects.filter(
+            user=request.user, reference_labels__reference__review_id=review_id
+        )
+        labels = labels_qs.annotate(count=Count("reference_labels__reference")).values(
+            "id", "name", "count"
         )
 
         response_data = {
-            "references": reference_serializer.data,
+            "references": serializer.data,
             "total_count": total_count,
             "filtered_count": filtered_count,
             "search_methods": search_methods,
-            "keywords": keywords_data,
+            "keywords": keywords.data,
             "duplicate_status_counts": status_counts_dict,
-            "labels": labels,
+            "labels": list(labels),
         }
 
         return Response(response_data)
@@ -1233,3 +1225,78 @@ class UploadedPDFViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You do not have access to this review.")
 
         serializer.save()
+
+
+class LabelViewSet(viewsets.ModelViewSet):
+    serializer_class = LabelSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Label.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=["post"], url_path="assign-to-references")
+    def assign_to_references(self, request):
+        """
+        Custom action to assign/unassign labels to multiple references.
+        Expects payload:
+        {
+            "reference_ids": [1, 2, 3],
+            "checked_label_ids": [1, 2],
+            "indeterminate_label_ids": [3]
+        }
+        """
+        user = request.user
+        reference_ids = request.data.get("reference_ids", [])
+        checked_label_ids = request.data.get("checked_label_ids", [])
+        indeterminate_label_ids = request.data.get("indeterminate_label_ids", [])
+
+        if not reference_ids:
+            return Response(
+                {"detail": "reference_ids is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Fetch labels belonging to the user
+        labels = Label.objects.filter(
+            user=user, id__in=set(checked_label_ids + indeterminate_label_ids)
+        )
+        labels_map = {label.id: label for label in labels}
+
+        # Fetch references
+        references = Reference.objects.filter(id__in=reference_ids)
+
+        created_count = 0
+        deleted_count = 0
+
+        with transaction.atomic():
+            # Create ReferenceLabels for checked_label_ids
+            for ref in references:
+                for label_id in checked_label_ids:
+                    label = labels_map.get(label_id)
+                    if label:
+                        obj, created = ReferenceLabel.objects.get_or_create(
+                            reference=ref,
+                            label=label,
+                        )
+                        if created:
+                            created_count += 1
+
+            # Delete ReferenceLabels for indeterminate_label_ids
+            to_delete = ReferenceLabel.objects.filter(
+                reference_id__in=reference_ids,
+                label_id__in=indeterminate_label_ids,
+            )
+            deleted_count = to_delete.count()
+            to_delete.delete()
+
+        return Response(
+            {
+                "detail": "Labels updated for references.",
+                "created": created_count,
+                "deleted": deleted_count,
+            },
+            status=status.HTTP_200_OK,
+        )

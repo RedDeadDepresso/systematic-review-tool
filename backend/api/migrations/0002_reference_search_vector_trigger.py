@@ -37,7 +37,7 @@ DROP FUNCTION IF EXISTS reference_search_vector_update();
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("api", "0004_reference_search_vector_and_more"),
+        ("api", "0001_initial"),
     ]
 
     operations = [

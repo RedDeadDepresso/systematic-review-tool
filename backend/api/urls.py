@@ -5,6 +5,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from api.views import (
     CodeViewSet,
     KeywordViewSet,
+    LabelViewSet,
     MainThemeViewSet,
     NoteViewSet,
     ReferenceDuplicatePairViewSet,
@@ -46,6 +47,7 @@ router.register(r"notes", NoteViewSet, basename="note")
 router.register(r"main-themes", MainThemeViewSet, basename="main_theme")
 router.register(r"sub-themes", SubThemeViewSet, basename="sub_theme")
 router.register(r"codes", CodeViewSet, basename="code")
+router.register(r"labels", LabelViewSet, basename="label")
 
 
 urlpatterns = [

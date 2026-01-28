@@ -68,14 +68,15 @@ class SearchMethod(models.Model):
 
 
 class Label(models.Model):
-    review = models.ForeignKey(Review, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
+    color = models.CharField(max_length=50, default="#3b82f6")
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["review", "name"],
-                name="unique_label_per_review",
+                fields=["user", "name"],
+                name="unique_label_per_user",
             )
         ]
 
@@ -86,10 +87,10 @@ def reference_upload_path(instance, filename):
 
 class Reference(models.Model):
     review = models.ForeignKey(Review, on_delete=models.CASCADE)
-    title = models.CharField(max_length=255)
+    title = models.TextField()
     publication_type = models.CharField(max_length=255)
     publication_date = models.DateField(null=True, blank=True)
-    authors = models.CharField(max_length=255)
+    authors = models.TextField()
     journal = models.CharField(max_length=255)
     search_method = models.ForeignKey(SearchMethod, on_delete=models.CASCADE)
     article_customizations = models.CharField(max_length=255)
@@ -97,7 +98,6 @@ class Reference(models.Model):
     doi = models.CharField(max_length=255, blank=True)
     url = models.URLField(max_length=500, blank=True)
     file = models.FileField(upload_to=reference_upload_path, blank=True, null=True)
-    labels = models.ManyToManyField(Label, related_name="references")
     duplicate_status = models.CharField(
         max_length=20,
         choices=[
@@ -121,6 +121,27 @@ class Reference(models.Model):
 
     def __str__(self):
         return f"{self.review.id} {self.id}"
+
+
+class ReferenceLabel(models.Model):
+    reference = models.ForeignKey(
+        Reference,
+        on_delete=models.CASCADE,
+        related_name="labels",
+    )
+    label = models.ForeignKey(
+        Label,
+        on_delete=models.CASCADE,
+        related_name="reference_labels",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reference", "label"],
+                name="unique_label_assignment",
+            )
+        ]
 
 
 class UploadedPDF(models.Model):
