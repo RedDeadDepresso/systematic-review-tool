@@ -12,6 +12,7 @@ import { FiltersSidebar } from '@/components/shared/filters-sidebar';
 import { ReferenceDrawer } from '@/components/shared/reference-drawer';
 import type {
   ArticleViewLayout,
+  Label,
   Reference,
   ReferencePDFMapping,
   SortDirection,
@@ -29,6 +30,7 @@ import type { Keyword } from '@/types/keyword';
 import { useCreateKeyword, useDeleteKeyword } from '@/hooks/use-keyword';
 import { ReferenceDetailPanel } from '../../../components/shared/reference-panel';
 import { TableTopHeader } from '@/components/shared/references-table-top-header';
+import { useDeleteLabel } from '@/hooks/use-label';
 
 export const Route = createFileRoute('/reviews/$reviewId/review-data')({
   component: RouteComponent,
@@ -141,6 +143,9 @@ function RouteComponent() {
   const [localKeywords, setLocalKeywords] = useState<Keyword[]>([]);
   const createKeyword = useCreateKeyword();
   const deleteKeyword = useDeleteKeyword();
+
+  // Label state
+  const deleteLabel = useDeleteLabel();
 
   // Screening criteria state
   const [screeningCriteria, setScreeningCriteria] = useState<Criteria[]>([]);
@@ -322,6 +327,23 @@ function RouteComponent() {
     }
   }, [data, selectedExcludeKeywords]);
 
+  const handleLabelToggle = useCallback((labelId: number) => {
+    setSelectedLabelIds((prev) =>
+      prev.includes(labelId)
+        ? prev.filter((id) => id !== labelId)
+        : [...prev, labelId]
+    );
+  }, []);
+
+  const handleSelectAllLabels = useCallback(() => {
+    if (!data) return;
+    setSelectedLabelIds(
+      selectedLabelIds.length === data.labels.length
+        ? []
+        : data.labels.map((l) => l.id)
+    );
+  }, [data, selectedLabelIds]);
+
   const handleReferenceSelect = useCallback((id: number) => {
     setSelectedReferenceIds((prev) =>
       prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
@@ -451,6 +473,20 @@ function RouteComponent() {
       }
     },
     [deleteKeyword, reviewId, queryClient]
+  );
+
+  const handleDeleteLabel = useCallback(
+    async (label: Label) => {
+      try {
+        await deleteLabel.mutateAsync({ id: label.id });
+        invalidateQuery();
+        return true;
+      } catch (error) {
+        console.error(error);
+        return false;
+      }
+    },
+    [deleteKeyword, queryClient]
   );
 
   const handleNavigateDetail = useCallback(
@@ -616,12 +652,16 @@ function RouteComponent() {
 
             <FiltersSidebar
               keywords={allKeywords}
+              labels={data?.labels || []}
               selectedIncludeKeywords={selectedIncludeKeywords}
               selectedExcludeKeywords={selectedExcludeKeywords}
+              selectedLabels={selectedLabelIds}
               onIncludeKeywordToggle={handleIncludeKeywordToggle}
               onExcludeKeywordToggle={handleExcludeKeywordToggle}
               onSelectAllInclude={handleSelectAllInclude}
               onSelectAllExclude={handleSelectAllExclude}
+              onLabelToggle={handleLabelToggle}
+              onSelectAllLabels={handleSelectAllLabels}
               isCollapsed={isFiltersSidebarCollapsed}
               onToggleCollapse={() =>
                 setIsFiltersSidebarCollapsed(!isFiltersSidebarCollapsed)
@@ -636,6 +676,7 @@ function RouteComponent() {
               }
               onCreateKeyword={handleCreateKeyword}
               onDeleteKeyword={handleDeleteKeyword}
+              onDeleteLabel={handleDeleteLabel}
               articleViewLayout={articleViewLayout}
               onArticleViewLayoutChange={setArticleViewLayout}
             />

@@ -28,16 +28,20 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useIsMobile } from '@/hooks/use-mobile';
-import type { ArticleViewLayout } from '@/types/reference';
+import type { ArticleViewLayout, Label } from '@/types/reference';
 
 interface FiltersSidebarProps {
   keywords: Keyword[];
+  labels: Label[];
   selectedIncludeKeywords: string[];
   selectedExcludeKeywords: string[];
+  selectedLabels: number[];
   onIncludeKeywordToggle: (keyword: string) => void;
   onExcludeKeywordToggle: (keyword: string) => void;
   onSelectAllInclude: () => void;
   onSelectAllExclude: () => void;
+  onLabelToggle: (labelId: number) => void;
+  onSelectAllLabels: () => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   includeHighlightEnabled: boolean;
@@ -46,6 +50,7 @@ interface FiltersSidebarProps {
   onToggleExcludeHighlight: () => void;
   onCreateKeyword: (name: string, isInclusive: boolean) => void;
   onDeleteKeyword?: (keyword: Keyword) => void;
+  onDeleteLabel?: (label: Label) => void;
   articleViewLayout: ArticleViewLayout;
   onArticleViewLayoutChange: (layout: ArticleViewLayout) => void;
 }
@@ -54,10 +59,14 @@ export function FiltersSidebar({
   keywords,
   selectedIncludeKeywords,
   selectedExcludeKeywords,
+  labels,
+  selectedLabels,
   onIncludeKeywordToggle,
   onExcludeKeywordToggle,
   onSelectAllInclude,
   onSelectAllExclude,
+  onLabelToggle,
+  onSelectAllLabels,
   isCollapsed,
   includeHighlightEnabled,
   excludeHighlightEnabled,
@@ -65,6 +74,7 @@ export function FiltersSidebar({
   onToggleExcludeHighlight,
   onCreateKeyword,
   onDeleteKeyword,
+  onDeleteLabel,
   articleViewLayout,
   onArticleViewLayoutChange,
 }: FiltersSidebarProps) {
@@ -85,6 +95,9 @@ export function FiltersSidebar({
   const excludeKeywords = keywords.filter((k) => !k.isInclusive);
   const [deleteConfirmKeyword, setDeleteConfirmKeyword] =
     useState<Keyword | null>(null);
+  const [deleteConfirmLabel, setDeleteConfirmLabel] = useState<Label | null>(
+    null
+  );
 
   const filteredIncludeKeywords = includeKeywords.filter((k) =>
     k.name.toLowerCase().includes(searchFilter.toLowerCase())
@@ -175,6 +188,13 @@ export function FiltersSidebar({
       onDeleteKeyword(keyword);
     }
     setDeleteConfirmKeyword(null);
+  };
+
+  const handleDeleteLabel = (label: Label) => {
+    if (onDeleteLabel) {
+      onDeleteLabel(label);
+    }
+    setDeleteConfirmLabel(null);
   };
 
   return (
@@ -470,7 +490,7 @@ export function FiltersSidebar({
         </div>
 
         {/* Labels Section */}
-        <div className="p-4">
+        <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded border border-muted-foreground flex items-center justify-center">
@@ -479,10 +499,62 @@ export function FiltersSidebar({
               <span className="text-sm font-medium">Labels</span>
             </div>
           </div>
-          <label className="flex items-center gap-3 py-1.5 cursor-pointer hover:bg-muted/50 rounded px-2 -mx-2">
-            <Checkbox />
-            <span className="text-sm text-muted-foreground">Select All</span>
-          </label>
+
+          <div className="space-y-1">
+            {/* Select all (optional) */}
+            <label className="flex items-center gap-3 py-1.5 cursor-pointer hover:bg-muted/50 rounded px-2 -mx-2">
+              <Checkbox
+                checked={
+                  labels.length > 0 &&
+                  labels.every((l) => selectedLabels.includes(l.id))
+                }
+                onCheckedChange={onSelectAllLabels}
+              />
+              <span className="text-sm text-muted-foreground">Select All</span>
+            </label>
+
+            {labels.map((label) => (
+              <div
+                key={label.id}
+                onClick={() => onLabelToggle(label.id)}
+                className={cn(
+                  'flex items-center justify-between w-full px-2 py-1.5 rounded cursor-pointer hover:bg-muted/50 transition-colors group',
+                  selectedLabels.includes(label.id) && 'bg-muted'
+                )}
+              >
+                <span className="flex items-center gap-3 truncate">
+                  <Checkbox
+                    checked={selectedLabels.includes(label.id)}
+                    onCheckedChange={() => onLabelToggle(label.id)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <span className="text-sm truncate max-w-[120px]">
+                    {label.name}
+                  </span>
+                </span>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {label.count}
+                  </span>
+
+                  {onDeleteLabel && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteConfirmLabel(label);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Delete label"
+                    >
+                      <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Articles Layout Section */}
@@ -542,7 +614,7 @@ export function FiltersSidebar({
           </div>
         </div>
 
-        {/* Delete Confirmation Dialog */}
+        {/* Delete Keyword Confirmation Dialog */}
         <AlertDialog
           open={deleteConfirmKeyword !== null}
           onOpenChange={(open) => {
@@ -563,6 +635,37 @@ export function FiltersSidebar({
                 onClick={() => {
                   if (deleteConfirmKeyword) {
                     handleDeleteKeyword(deleteConfirmKeyword);
+                  }
+                }}
+                className="bg-destructive text-white hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Delete Label Confirmation Dialog */}
+        <AlertDialog
+          open={deleteConfirmLabel !== null}
+          onOpenChange={(open) => {
+            if (!open) setDeleteConfirmLabel(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Label</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete the label "
+                {deleteConfirmLabel?.name}"? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (deleteConfirmLabel) {
+                    handleDeleteLabel(deleteConfirmLabel);
                   }
                 }}
                 className="bg-destructive text-white hover:bg-destructive/90"
