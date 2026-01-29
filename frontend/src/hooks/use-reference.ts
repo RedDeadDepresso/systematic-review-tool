@@ -1,9 +1,13 @@
 import {
   updateReference,
   fetchReference,
-  fetchReferences,
+  fetchReviewData,
   uploadReferenceFile,
   attachPDFsToReferences,
+  type FetchReviewDataParams,
+  fetchReferences,
+  assignReferences,
+  type AssignReferencesPayload,
 } from '@/api/reference';
 import type { Reference } from '@/types/reference';
 import type { UploadedPDF } from '@/types/uploaded-pdf';
@@ -15,6 +19,27 @@ export const useFetchReferences = (reviewId: number) => {
   return useQuery({
     queryKey: ['reviews', reviewId, 'references'],
     queryFn: () => fetchReferences(reviewId),
+  });
+};
+
+export const useFetchReviewData = (params: FetchReviewDataParams) => {
+  return useQuery({
+    queryKey: [
+      'reviews',
+      params.review,
+      'review-data',
+      params.searchMethodIds,
+      params.includeKeywords,
+      params.excludeKeywords,
+      params.labelIds,
+      params.publicationTypes,
+      params.publicationYears,
+      params.hasFile,
+      params.assigneeIds,
+      params.duplicateStatuses,
+      params.searchQuery,
+    ],
+    queryFn: () => fetchReviewData(params),
   });
 };
 
@@ -113,8 +138,21 @@ export const useAttachPDFsToReferences = () => {
       });
     },
 
-    onError: (_error: AxiosError) => {
+    onError: (error: AxiosError) => {
+      console.log(error);
       toast.error('Failed to attach PDFs to references.');
+    },
+  });
+};
+
+export const useAssignReferences = () => {
+  return useMutation({
+    mutationFn: (params: AssignReferencesPayload) => assignReferences(params),
+    onSuccess: () => {
+      toast.success('References updated successfully.');
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Failed to assign references.');
     },
   });
 };

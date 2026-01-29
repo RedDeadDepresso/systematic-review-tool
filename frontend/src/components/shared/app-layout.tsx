@@ -13,7 +13,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="h-screen flex flex-col">
         <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
           <div className="flex items-center gap-2 px-4">
             <SidebarTrigger className="-ml-1" />
@@ -24,7 +24,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             {pageTitle}
           </div>
         </header>
-        <div className="@container/main flex flex-1 flex-col gap-4 md:gap-6 px-4 lg:px-6">
+        <div className="@container/main flex-1 overflow-y-auto px-4 lg:px-6">
           {children}
         </div>
       </SidebarInset>

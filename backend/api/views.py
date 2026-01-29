@@ -1,16 +1,18 @@
 import json
 import os
+from datetime import date
 
 import bibtexparser
 from django.core.files.storage import default_storage
 from django.db import transaction
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Count, F, Prefetch, Q
+from django.db.models.functions import ExtractYear
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django_filters import rest_framework as filters
 from djangorestframework_camel_case.parser import CamelCaseJSONParser
-from rest_framework import serializers, status, viewsets
+from rest_framework import generics, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -22,25 +24,30 @@ from rest_framework.permissions import (
 )
 from rest_framework.response import Response
 
-from api.filters import ReviewFilter
+from api.filters import ReferenceFilter, ReviewFilter
 from api.models import (
     Code,
     Keyword,
+    Label,
     MainTheme,
     Note,
     Reference,
     ReferenceDuplicatePair,
+    ReferenceLabel,
     ReferenceOpinion,
     Review,
     ReviewInvitation,
+    SearchMethod,
     SubTheme,
     UploadedPDF,
     User,
 )
 from api.serializers import (
+    AssignReferencesSerializer,
     AttachPDFsSerializer,
     CodeSerializer,
     KeywordSerializer,
+    LabelSerializer,
     MainThemeSerializer,
     NoteSerializer,
     ReferenceDuplicatePairSerializer,
@@ -153,6 +160,29 @@ class ReviewViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = (filters.DjangoFilterBackend,)
     filterset_class = ReviewFilter
+    BIBTEX_MONTHS = {
+        "jan": 1,
+        "feb": 2,
+        "mar": 3,
+        "apr": 4,
+        "may": 5,
+        "jun": 6,
+        "jul": 7,
+        "aug": 8,
+        "sep": 9,
+        "oct": 10,
+        "nov": 11,
+        "dec": 12,
+    }
+    PUBLICATION_TYPES = {
+        "article": "Journal Article",
+        "book": "Book",
+        "inproceedings": "Conference Paper",
+        "phdthesis": "PhD Thesis",
+        "mastersthesis": "Master's Thesis",
+        "techreport": "Technical Report",
+        "misc": "Miscellaneous",
+    }
 
     def get_queryset(self):
         """Filter reviews to those owned by or shared with the user"""
@@ -223,9 +253,15 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        search_methods = f"Uploaded References [{uploaded_file.name}]"
+        add_id = SearchMethod.objects.filter(name=uploaded_file.name).exists()
+        search_method = SearchMethod.objects.create(
+            name=uploaded_file.name, review=review
+        )
+        if add_id:
+            search_method.name = f"{search_method.name}_{search_method.id}"
+            search_method.save(update_fields=["name"])
         references = [
-            self._extract_reference_fields(review.id, search_methods, entry)
+            self._extract_reference_fields(review.id, search_method, entry)
             for entry in bib_database.entries
         ]
 
@@ -373,21 +409,41 @@ class ReviewViewSet(viewsets.ModelViewSet):
 
     # === Helper Methods ===
 
-    def _extract_reference_fields(self, review_id, search_methods, entry):
-        """Extract reference fields from BibTeX entry"""
-        publication_types = {
-            "article": "Journal Article",
-            "book": "Book",
-            "inproceedings": "Conference Paper",
-            "phdthesis": "PhD Thesis",
-            "mastersthesis": "Master's Thesis",
-            "techreport": "Technical Report",
-            "misc": "Miscellaneous",
-        }
+    def _parse_bibtex_date(self, entry):
+        # Full ISO date: 2022-03-15
+        raw_date = entry.get("date")
+        if raw_date:
+            try:
+                parts = [int(p) for p in raw_date.split("-")]
+                return date(*parts)
+            except Exception:
+                pass
 
-        publication_type = publication_types.get(
+        # Year + month
+        year = entry.get("year")
+        if not year:
+            return None
+
+        try:
+            year = int(year)
+        except ValueError:
+            return None
+
+        month = entry.get("month")
+        if month:
+            month = month.lower()[:3]
+            month = self.BIBTEX_MONTHS.get(month, 1)
+        else:
+            month = 1
+
+        return date(year, month, 1)
+
+    def _extract_reference_fields(self, review_id, search_method, entry):
+        """Extract reference fields from BibTeX entry"""
+        publication_type = self.PUBLICATION_TYPES.get(
             entry.get("ENTRYTYPE", "").lower(), "Other"
         )
+        publication_date = self._parse_bibtex_date(entry)
 
         authors = (
             ", ".join(a.strip() for a in entry.get("author", "").split(" and "))
@@ -398,15 +454,27 @@ class ReviewViewSet(viewsets.ModelViewSet):
         journal = entry.get("journal") or entry.get("booktitle") or ""
         article_customizations = entry.get("note") or entry.get("howpublished")
 
+        doi = entry.get("doi") or entry.get("DOI", "")
+
+        if doi:
+            doi = (
+                doi.lower().replace("doi:", "").replace("https://doi.org/", "").strip()
+            )
+
+        url = entry.get("url") or entry.get("URL", "")
+
         return Reference(
             review_id=review_id,
             title=entry.get("title", "No Title"),
-            publication_types=publication_type,
+            publication_type=publication_type,
             authors=authors,
             journal=journal,
-            search_methods=search_methods,
+            search_method=search_method,
             article_customizations=article_customizations or "",
             abstract=entry.get("abstract", ""),
+            doi=doi,
+            url=url,
+            publication_date=publication_date,
         )
 
     def _generate_theme_table_latex(
@@ -553,7 +621,8 @@ class ReferenceViewSet(viewsets.ModelViewSet):
                     "reviewer__email",
                 ),
                 to_attr="prefetched_opinions",
-            )
+            ),
+            "labels",
         ).distinct()
 
     def perform_update(self, serializer):
@@ -577,7 +646,6 @@ class ReferenceViewSet(viewsets.ModelViewSet):
         parser_classes=[CamelCaseJSONParser],
     )
     def attach_pdfs(self, request):
-        print(request.data)
         serializer = AttachPDFsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -629,6 +697,252 @@ class ReferenceViewSet(viewsets.ModelViewSet):
                 uploaded_pdf.delete()
 
         return Response({"updated_references": updated}, status=status.HTTP_200_OK)
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="assign",
+        parser_classes=[CamelCaseJSONParser],
+    )
+    def assign(self, request):
+        serializer = AssignReferencesSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        review_id = serializer.validated_data["review"]
+        reference_ids = serializer.validated_data["reference_ids"]
+        mode = serializer.validated_data["mode"]
+        assignee_id = serializer.validated_data.get("assignee_id")
+
+        review = get_object_or_404(Review, pk=review_id)
+
+        # Only owner can assign
+        if review.owner != user:
+            return Response(
+                {"detail": "Only the review owner can assign references"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        references = Reference.objects.filter(
+            id__in=reference_ids,
+            review=review,
+        )
+
+        assignable_users = User.objects.filter(
+            id__in=[review.owner_id, *review.collaborators.values_list("id", flat=True)]
+        )
+
+        if mode == "assign":
+            if not assignee_id:
+                return Response(
+                    {"detail": "assignee_id is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            assignee = get_object_or_404(assignable_users, pk=assignee_id)
+            references.update(assignee=assignee)
+
+        elif mode == "remove":
+            references.update(assignee=None)
+
+        elif mode == "split_equally":
+            assignees = list(assignable_users)
+
+            if not assignees:
+                return Response(
+                    {"detail": "No users to split references"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            for index, reference in enumerate(references):
+                reference.assignee = assignees[index % len(assignees)]
+                reference.save(update_fields=["assignee"])
+
+        return Response(
+            {"detail": "References updated successfully"},
+            status=status.HTTP_200_OK,
+        )
+
+
+class ReviewDataView(generics.ListAPIView):
+    serializer_class = ReferenceSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.DjangoFilterBackend]
+    filterset_class = ReferenceFilter
+
+    def get_queryset(self):
+        user = self.request.user
+        review_id = self.request.query_params.get("review")
+
+        queryset = Reference.objects.select_related(
+            "assignee",
+            "search_method",
+            "review",
+        )
+
+        if review_id:
+            review = get_object_or_404(Review, pk=review_id)
+            if not is_owner_or_collaborator(user, review):
+                return Reference.objects.none()
+            queryset = queryset.filter(review=review)
+        else:
+            queryset = queryset.filter(
+                Q(review__owner=user) | Q(review__collaborators=user)
+            )
+
+        # Prefetch ReferenceLabels for the current user only
+        queryset = queryset.prefetch_related(
+            Prefetch(
+                "labels",
+                queryset=ReferenceLabel.objects.filter(label__user=user).select_related(
+                    "label"
+                ),
+                to_attr="user_labels",  # store them in a custom attribute
+            )
+        )
+
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        """
+        Return aggregated data along with references, including user labels.
+        """
+        review_id = request.query_params.get("review")
+        if not review_id:
+            return Response(
+                {"error": "review parameter is required for list view"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        review = get_object_or_404(Review, pk=review_id)
+        if not is_owner_or_collaborator(request.user, review):
+            return Response(
+                {"error": "You do not have permission to access this review"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        total_count = Reference.objects.filter(review_id=review_id).count()
+        queryset = self.filter_queryset(self.get_queryset())
+        filtered_count = queryset.count()
+
+        page = self.paginate_queryset(queryset)
+        references = page if page is not None else queryset
+
+        # Serialize references
+        serializer = ReferenceSerializer(
+            references, many=True, context={"request": request}
+        )
+
+        # Search methods with counts
+        search_methods = list(
+            SearchMethod.objects.filter(review_id=review_id)
+            .annotate(count=Count("reference"))
+            .values("id", "name", "count")
+        )
+
+        # Keywords
+        keywords = KeywordSerializer(
+            Keyword.objects.filter(review_id=review_id), many=True
+        )
+
+        # Duplicate status counts
+        duplicate_status_counts = (
+            Reference.objects.filter(review_id=review_id)
+            .values("duplicate_status")
+            .annotate(count=Count("id"))
+        )
+        status_counts_dict = {
+            "Unresolved": 0,
+            "Deleted": 0,
+            "Not Duplicate": 0,
+            "Resolved": 0,
+        }
+        for item in duplicate_status_counts:
+            status_value = item["duplicate_status"]
+            if status_value in status_counts_dict:
+                status_counts_dict[status_value] = item["count"]
+
+        # Labels with counts (only user labels)
+        labels_qs = Label.objects.filter(
+            user=request.user, reference_labels__reference__review_id=review_id
+        )
+        labels = labels_qs.annotate(count=Count("reference_labels__reference")).values(
+            "id", "name", "count"
+        )
+
+        # Publication type counts
+        publication_types = list(
+            Reference.objects.filter(review_id=review_id)
+            .exclude(publication_type="")
+            .values("publication_type")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+
+        # Publication year counts
+        publication_years = list(
+            Reference.objects.filter(
+                review_id=review_id, publication_date__isnull=False
+            )
+            .annotate(year=ExtractYear("publication_date"))
+            .values("year")
+            .annotate(count=Count("id"))
+            .order_by("-year")
+        )
+
+        # File status counts
+        file_counts = {
+            "with_file": Reference.objects.filter(review_id=review_id)
+            .exclude(file="")
+            .count(),
+            "without_file": Reference.objects.filter(
+                review_id=review_id, file=""
+            ).count(),
+        }
+
+        # Assignee counts
+        assignees = list(
+            Reference.objects.filter(review_id=review_id, assignee__isnull=False)
+            .values(
+                _id=F("assignee__id"),
+                first_name=F("assignee__first_name"),
+                last_name=F("assignee__last_name"),
+                email=F("assignee__email"),
+            )
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+
+        # Add unassigned count
+        unassigned_count = Reference.objects.filter(
+            review_id=review_id, assignee__isnull=True
+        ).count()
+        if unassigned_count > 0:
+            assignees.append(
+                {
+                    "id": None,
+                    "first_name": None,
+                    "last_name": None,
+                    "email": None,
+                    "count": unassigned_count,
+                }
+            )
+
+        response_data = {
+            "references": serializer.data,
+            "total_count": total_count,
+            "filtered_count": filtered_count,
+            "search_methods": search_methods,
+            "keywords": keywords.data,
+            "duplicate_status_counts": status_counts_dict,
+            "labels": list(labels),
+            "publication_types": publication_types,
+            "publication_years": publication_years,
+            "file_counts": file_counts,
+            "assignees": assignees,
+        }
+
+        return Response(response_data)
 
 
 class ReferenceOpinionViewSet(viewsets.GenericViewSet):
@@ -706,7 +1020,6 @@ class ReferenceDuplicatePairViewSet(viewsets.ViewSet):
 
         queryset = Reference.objects.filter(review=review)
         created_count = ReferenceDuplicatePair.create_pairs(review, queryset)
-
         review.reference_duplicate_detected = True
         review.save()
 
@@ -718,25 +1031,43 @@ class ReferenceDuplicatePairViewSet(viewsets.ViewSet):
     def list(self, request):
         review = self._get_review()
 
-        pair = ReferenceDuplicatePair.objects.filter(review=review).first()
+        qs = ReferenceDuplicatePair.objects.filter(review=review)
+        total = qs.count()
+        resolved = qs.filter(resolved=True).count()
+        remaining = total - resolved
+
+        pair = qs.filter(resolved=False).first()
         if not pair:
             return Response(
-                {"detail": "No reference duplicate pair found."},
+                {
+                    "detail": "No reference duplicate pair found.",
+                    "total": total,
+                    "resolved": resolved,
+                    "remaining": 0,
+                    "progress": 100,
+                },
                 status=status.HTTP_200_OK,
             )
 
         serializer = ReferenceDuplicatePairSerializer(pair)
-        return Response(serializer.data)
+
+        return Response(
+            {
+                "pair": serializer.data,
+                "total": total,
+                "resolved": resolved,
+                "remaining": remaining,
+                "current_index": resolved + 1,
+                "progress": round((resolved / total) * 100, 1) if total else 0,
+            }
+        )
 
     @action(detail=True, methods=["post"])
     def resolve(self, request, pk=None):
-        review = self._get_review()
         duplicate_pair = get_object_or_404(
             ReferenceDuplicatePair,
             pk=pk,
-            review=review,
         )
-
         try:
             selection = int(request.data.get("selection"))
         except (TypeError, ValueError):
@@ -745,22 +1076,39 @@ class ReferenceDuplicatePairViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        reference_1 = duplicate_pair.reference1
+        reference_2 = duplicate_pair.reference2
+
         if selection == 1:
-            duplicate_pair.reference2.delete()
+            # Mark reference1 as Resolved, reference2 as Deleted
+            self.set_duplicate_statuses(reference_1, "Resolved", reference_2, "Deleted")
         elif selection == 2:
-            duplicate_pair.reference1.delete()
+            # Mark reference2 as Resolved, reference1 as Deleted
+            self.set_duplicate_statuses(reference_1, "Deleted", reference_2, "Resolved")
+        elif selection == 3:
+            # Mark both references as Not Duplicate
+            self.set_duplicate_statuses(
+                reference_1, "Not Duplicate", reference_2, "Not Duplicate"
+            )
         else:
             return Response(
                 {"detail": "Invalid selection. Must be 1 or 2."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        duplicate_pair.delete()
-
+        duplicate_pair.resolved = True
+        duplicate_pair.save(update_fields=["resolved"])
         return Response(
             {"detail": "Reference duplicate resolved successfully."},
             status=status.HTTP_200_OK,
         )
+
+    def set_duplicate_statuses(self, reference_1, status_1, reference_2, status_2):
+        reference_1.duplicate_status = status_1
+        reference_1.save(update_fields=["duplicate_status"])
+
+        reference_2.duplicate_status = status_2
+        reference_2.save(update_fields=["duplicate_status"])
 
 
 class KeywordViewSet(viewsets.ModelViewSet):
@@ -1029,3 +1377,78 @@ class UploadedPDFViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You do not have access to this review.")
 
         serializer.save()
+
+
+class LabelViewSet(viewsets.ModelViewSet):
+    serializer_class = LabelSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Label.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=["post"], url_path="assign-to-references")
+    def assign_to_references(self, request):
+        """
+        Custom action to assign/unassign labels to multiple references.
+        Expects payload:
+        {
+            "reference_ids": [1, 2, 3],
+            "checked_label_ids": [1, 2],
+            "indeterminate_label_ids": [3]
+        }
+        """
+        user = request.user
+        reference_ids = request.data.get("reference_ids", [])
+        checked_label_ids = request.data.get("checked_label_ids", [])
+        indeterminate_label_ids = request.data.get("indeterminate_label_ids", [])
+
+        if not reference_ids:
+            return Response(
+                {"detail": "reference_ids is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Fetch labels belonging to the user
+        labels = Label.objects.filter(
+            user=user, id__in=set(checked_label_ids + indeterminate_label_ids)
+        )
+        labels_map = {label.id: label for label in labels}
+
+        # Fetch references
+        references = Reference.objects.filter(id__in=reference_ids)
+
+        created_count = 0
+        deleted_count = 0
+
+        with transaction.atomic():
+            # Create ReferenceLabels for checked_label_ids
+            for ref in references:
+                for label_id in checked_label_ids:
+                    label = labels_map.get(label_id)
+                    if label:
+                        obj, created = ReferenceLabel.objects.get_or_create(
+                            reference=ref,
+                            label=label,
+                        )
+                        if created:
+                            created_count += 1
+
+            # Delete ReferenceLabels for indeterminate_label_ids
+            to_delete = ReferenceLabel.objects.filter(
+                reference_id__in=reference_ids,
+                label_id__in=indeterminate_label_ids,
+            )
+            deleted_count = to_delete.count()
+            to_delete.delete()
+
+        return Response(
+            {
+                "detail": "Labels updated for references.",
+                "created": created_count,
+                "deleted": deleted_count,
+            },
+            status=status.HTTP_200_OK,
+        )

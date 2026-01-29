@@ -1,5 +1,4 @@
 import { useUpdateReview, useFetchReview } from '@/hooks/use-review';
-import { ReviewNavigationMenu } from '../review-index/review-navigation-menu';
 import { Button } from '../ui/button';
 import { Eye, FileSymlink, FileText, Filter, Upload } from 'lucide-react';
 import { Spinner } from '../ui/spinner';
@@ -15,6 +14,7 @@ import {
 import { MatchPDFDialog } from '../shared/match-pdf-dialog';
 import type { Reference, ReferencePDFMapping } from '@/types/reference';
 import { useAttachPDFsToReferences } from '@/hooks/use-reference';
+import { ReviewHeader } from '../shared/review-header';
 
 export function Header({
   reviewId,
@@ -79,7 +79,7 @@ export function Header({
         uploadedPDFs={usefetchUploadedPDFs.data || []}
         onImport={handleMatch}
       />
-      <ReviewNavigationMenu reviewId={reviewId} />
+      <ReviewHeader reviewId={reviewId} />
       <div className="flex items-center justify-between w-full">
         <h3 className="text-sm font-semibold ">
           Showing {statusFilter} references

@@ -3,7 +3,6 @@ import { Card } from '@/components/ui/card';
 import { useFetchReview, useUploadReviewReferences } from '@/hooks/use-review';
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { FileCheck, FileText } from 'lucide-react';
-import { ReviewNavigationMenu } from '@/components/review-index/review-navigation-menu';
 import { useDetectDuplicateReferences } from '@/hooks/use-reference-duplicate';
 import { Spinner } from '@/components/ui/spinner';
 import { useContext, useEffect, useState } from 'react';
@@ -12,6 +11,7 @@ import { AppLayoutContext } from '@/context/app-layout-context';
 import InvitationDialog from '@/components/review-index/invitation-dialog';
 import { useFetchUser } from '@/hooks/use-auth';
 import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
+import { ReviewHeader } from '@/components/shared/review-header';
 
 export const Route = createFileRoute('/reviews/$reviewId/')({
   component: ReviewPage,
@@ -66,7 +66,7 @@ function ReviewPage() {
         />
       )}
       <div className="flex items-center justify-between">
-        <ReviewNavigationMenu reviewId={reviewId} />
+        <ReviewHeader reviewId={reviewId} />
         {!isUserLoading && !isLoading && user.displayName === data.owner && (
           <InvitationDialog reviewId={reviewId} />
         )}

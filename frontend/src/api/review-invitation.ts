@@ -27,7 +27,7 @@ export async function updateInvitationStatus(
   inviteId: number,
   action: 'accept' | 'decline'
 ) {
-  const res = await api.patch(`/review-invitations/${inviteId}/`, {
+  const res = await api.put(`/review-invitations/${inviteId}/`, {
     action,
   });
   return res.data;

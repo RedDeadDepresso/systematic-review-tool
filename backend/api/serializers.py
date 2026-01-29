@@ -7,10 +7,12 @@ from rest_framework.serializers import ModelSerializer
 from api.models import (
     Code,
     Keyword,
+    Label,
     MainTheme,
     Note,
     Reference,
     ReferenceDuplicatePair,
+    ReferenceLabel,
     ReferenceOpinion,
     Review,
     ReviewInvitation,
@@ -111,7 +113,8 @@ class ReviewSerializer(ModelSerializer):
     reference_count = serializers.SerializerMethodField()
     reference_duplicates_count = serializers.SerializerMethodField()
     date_created = serializers.DateTimeField(format="%d %b %Y", read_only=True)
-    owner = serializers.CharField(read_only=True)
+    owner = UserSerializer(read_only=True)
+    collaborators = UserSerializer(read_only=True, many=True)
 
     def get_reference_count(self, obj):
         return obj.reference_set.count()
@@ -130,12 +133,14 @@ class ReviewSerializer(ModelSerializer):
             "date_created",
             "owner",
             "is_blinded",
+            "collaborators",
         ]
         read_only_fields = [
             "owner",
             "date_created",
             "reference_count",
             "reference_duplicates_count",
+            "collaborators",
         ]
 
 
@@ -175,22 +180,30 @@ class AttachPDFsSerializer(serializers.Serializer):
     mappings = AttachPDFMappingSerializer(many=True)
 
 
-class ReferenceSerializer(serializers.ModelSerializer):
-    opinions = serializers.SerializerMethodField()
-
+class BaseReferenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Reference
         fields = "__all__"
         read_only_fields = [
             "id",
             "title",
-            "publication_types",
+            "publication_type",
             "authors",
             "journal",
-            "search_methods",
+            "search_method",
             "article_customizations",
             "abstract",
+            "doi",
+            "publication_date",
+            "duplicate_status",
         ]
+
+
+class ReferenceSerializer(BaseReferenceSerializer):
+    opinions = serializers.SerializerMethodField()
+    publication_date = serializers.DateField(format="%d/%m/%Y")
+    labels = serializers.SerializerMethodField()
+    assignee = serializers.SerializerMethodField()
 
     def get_opinions(self, obj):
         # Blinded -> return current user's opinion
@@ -215,6 +228,32 @@ class ReferenceSerializer(serializers.ModelSerializer):
 
         return None
 
+    def get_labels(self, obj):
+        """
+        Return labels applied to this reference for the current user only.
+        Expects that `obj` has a `user_labels` prefetched attribute.
+        """
+        user = self.context["request"].user
+        # Fallback if prefetch not done
+        reference_labels = getattr(obj, "user_labels", None)
+        if reference_labels is None:
+            reference_labels = ReferenceLabel.objects.filter(
+                reference=obj, label__user=user
+            ).select_related("label")
+
+        return [
+            {"id": rl.label.id, "name": rl.label.name, "color": rl.label.color}
+            for rl in reference_labels
+        ]
+
+    def get_assignee(self, obj):
+        if not obj.assignee:
+            return None
+        return {
+            "id": obj.assignee.id,
+            "display_name": str(obj.assignee) or obj.assignee.username,
+        }
+
 
 class ReferenceOpinionSerializer(ModelSerializer):
     reviewer = serializers.StringRelatedField()
@@ -226,8 +265,8 @@ class ReferenceOpinionSerializer(ModelSerializer):
 
 
 class ReferenceDuplicatePairSerializer(ModelSerializer):
-    reference1 = ReferenceSerializer(read_only=True)
-    reference2 = ReferenceSerializer(read_only=True)
+    reference1 = BaseReferenceSerializer(read_only=True)
+    reference2 = BaseReferenceSerializer(read_only=True)
 
     class Meta:
         model = ReferenceDuplicatePair
@@ -237,8 +276,8 @@ class ReferenceDuplicatePairSerializer(ModelSerializer):
 class KeywordSerializer(ModelSerializer):
     class Meta:
         model = Keyword
-        fields = ["review", "name", "is_inclusive"]
-        read_only_fields = ["review"]
+        fields = ["id", "review", "name", "is_inclusive"]
+        read_only_fields = ["id", "review"]
 
 
 class NoteSerializer(serializers.ModelSerializer):
@@ -302,3 +341,30 @@ class MainThemeSerializer(serializers.ModelSerializer):
         model = MainTheme
         fields = ["id", "review", "name", "description", "sub_theme_ids"]
         read_only_fields = ["id", "sub_theme_ids"]
+
+
+class LabelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Label
+        fields = ["id", "user", "name"]
+        read_only_fields = ["user"]
+
+    def validate_name(self, value):
+        """
+        Ensure the user doesn't already have a label with this name.
+        """
+        user = self.context["request"].user
+        if Label.objects.filter(user=user, name=value).exists():
+            raise serializers.ValidationError(
+                "You already have a label with this name."
+            )
+        return value
+
+
+class AssignReferencesSerializer(serializers.Serializer):
+    review = serializers.IntegerField()
+    reference_ids = serializers.ListField(
+        child=serializers.IntegerField(), allow_empty=False
+    )
+    mode = serializers.ChoiceField(choices=["assign", "remove", "split_equally"])
+    assignee_id = serializers.IntegerField(required=False)

@@ -1,3 +1,4 @@
+import type { Keyword } from '@/types/keyword';
 import api from './axios';
 
 /* ------------------ FETCH KEYWORDS ------------------ */
@@ -19,7 +20,7 @@ export const createKeyword = async (payload: {
   review: number;
   name: string;
   isInclusive: boolean;
-}) => {
+}): Promise<Keyword> => {
   const res = await api.post('/keywords/', payload);
   return res.data;
 };

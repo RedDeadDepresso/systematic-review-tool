@@ -5,11 +5,13 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from api.views import (
     CodeViewSet,
     KeywordViewSet,
+    LabelViewSet,
     MainThemeViewSet,
     NoteViewSet,
     ReferenceDuplicatePairViewSet,
     ReferenceOpinionViewSet,
     ReferenceViewSet,
+    ReviewDataView,
     ReviewInvitationViewSet,
     ReviewViewSet,
     SubThemeViewSet,
@@ -45,10 +47,12 @@ router.register(r"notes", NoteViewSet, basename="note")
 router.register(r"main-themes", MainThemeViewSet, basename="main_theme")
 router.register(r"sub-themes", SubThemeViewSet, basename="sub_theme")
 router.register(r"codes", CodeViewSet, basename="code")
+router.register(r"labels", LabelViewSet, basename="label")
 
 
 urlpatterns = [
     path("auth/login/", TokenObtainPairView.as_view(), name="login"),
     path("auth/refresh/", TokenRefreshView.as_view(), name="refresh"),
+    path("review-data/", ReviewDataView.as_view(), name="review-data"),
     path("", include(router.urls)),
 ]
