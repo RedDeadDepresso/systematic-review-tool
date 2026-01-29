@@ -5,7 +5,8 @@ from datetime import date
 import bibtexparser
 from django.core.files.storage import default_storage
 from django.db import transaction
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Count, F, Prefetch, Q
+from django.db.models.functions import ExtractYear
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -869,6 +870,64 @@ class ReviewDataView(generics.ListAPIView):
             "id", "name", "count"
         )
 
+        # Publication type counts
+        publication_types = list(
+            Reference.objects.filter(review_id=review_id)
+            .exclude(publication_type="")
+            .values("publication_type")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+
+        # Publication year counts
+        publication_years = list(
+            Reference.objects.filter(
+                review_id=review_id, publication_date__isnull=False
+            )
+            .annotate(year=ExtractYear("publication_date"))
+            .values("year")
+            .annotate(count=Count("id"))
+            .order_by("-year")
+        )
+
+        # File status counts
+        file_counts = {
+            "with_file": Reference.objects.filter(review_id=review_id)
+            .exclude(file="")
+            .count(),
+            "without_file": Reference.objects.filter(
+                review_id=review_id, file=""
+            ).count(),
+        }
+
+        # Assignee counts
+        assignees = list(
+            Reference.objects.filter(review_id=review_id, assignee__isnull=False)
+            .values(
+                _id=F("assignee__id"),
+                first_name=F("assignee__first_name"),
+                last_name=F("assignee__last_name"),
+                email=F("assignee__email"),
+            )
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+
+        # Add unassigned count
+        unassigned_count = Reference.objects.filter(
+            review_id=review_id, assignee__isnull=True
+        ).count()
+        if unassigned_count > 0:
+            assignees.append(
+                {
+                    "id": None,
+                    "first_name": None,
+                    "last_name": None,
+                    "email": None,
+                    "count": unassigned_count,
+                }
+            )
+
         response_data = {
             "references": serializer.data,
             "total_count": total_count,
@@ -877,6 +936,10 @@ class ReviewDataView(generics.ListAPIView):
             "keywords": keywords.data,
             "duplicate_status_counts": status_counts_dict,
             "labels": list(labels),
+            "publication_types": publication_types,
+            "publication_years": publication_years,
+            "file_counts": file_counts,
+            "assignees": assignees,
         }
 
         return Response(response_data)
@@ -1021,7 +1084,7 @@ class ReferenceDuplicatePairViewSet(viewsets.ViewSet):
             status=status.HTTP_200_OK,
         )
 
-    def set_duplicate_Statuses(self, reference_1, status_1, reference_2, status_2):
+    def set_duplicate_statuses(self, reference_1, status_1, reference_2, status_2):
         reference_1.duplicate_status = status_1
         reference_1.save(update_fields=["duplicate_status"])
 

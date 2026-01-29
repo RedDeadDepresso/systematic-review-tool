@@ -31,6 +31,10 @@ class ReferenceFilter(filters.FilterSet):
     exclude_keywords = CharInFilter(method="filter_exclude_keywords")
     search = filters.CharFilter(method="filter_free_text")
     duplicate_statuses = CharInFilter(field_name="duplicate_status", lookup_expr="in")
+    publication_types = CharInFilter(field_name="publication_type", lookup_expr="in")
+    publication_years = filters.BaseInFilter(method="filter_publication_years")
+    has_file = filters.BooleanFilter(method="filter_has_file")
+    assignee_ids = filters.BaseInFilter(field_name="assignee_id", lookup_expr="in")
 
     class Meta:
         model = Reference
@@ -77,3 +81,16 @@ class ReferenceFilter(filters.FilterSet):
 
         query = SearchQuery(value, search_type="websearch")
         return queryset.filter(search_vector=query)
+
+    def filter_publication_years(self, queryset, name, value):
+        if not value:
+            return queryset
+        return queryset.filter(publication_date__year__in=value)
+
+    def filter_has_file(self, queryset, name, value):
+        if value is None:
+            return queryset
+        if value:
+            return queryset.exclude(file="")
+        else:
+            return queryset.filter(file="")
