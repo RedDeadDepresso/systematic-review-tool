@@ -159,6 +159,7 @@ class ReferenceDuplicatePair(models.Model):
         "Reference", on_delete=models.CASCADE, related_name="duplicate_reference2"
     )
     similarity_score = models.FloatField()
+    resolved = models.BooleanField(default=False)
 
     class Meta:
         constraints = [

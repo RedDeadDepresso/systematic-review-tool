@@ -1031,15 +1031,36 @@ class ReferenceDuplicatePairViewSet(viewsets.ViewSet):
     def list(self, request):
         review = self._get_review()
 
-        pair = ReferenceDuplicatePair.objects.filter(review=review).first()
+        qs = ReferenceDuplicatePair.objects.filter(review=review)
+        total = qs.count()
+        resolved = qs.filter(resolved=True).count()
+        remaining = total - resolved
+
+        pair = qs.filter(resolved=False).first()
         if not pair:
             return Response(
-                {"detail": "No reference duplicate pair found."},
+                {
+                    "detail": "No reference duplicate pair found.",
+                    "total": total,
+                    "resolved": resolved,
+                    "remaining": 0,
+                    "progress": 100,
+                },
                 status=status.HTTP_200_OK,
             )
 
         serializer = ReferenceDuplicatePairSerializer(pair)
-        return Response(serializer.data)
+
+        return Response(
+            {
+                "pair": serializer.data,
+                "total": total,
+                "resolved": resolved,
+                "remaining": remaining,
+                "current_index": resolved + 1,
+                "progress": round((resolved / total) * 100, 1) if total else 0,
+            }
+        )
 
     @action(detail=True, methods=["post"])
     def resolve(self, request, pk=None):
@@ -1060,18 +1081,14 @@ class ReferenceDuplicatePairViewSet(viewsets.ViewSet):
 
         if selection == 1:
             # Mark reference1 as Resolved, reference2 as Deleted
-            self.set_duplicate_statuses(
-                self, reference_1, "Resolved", reference_2, "Deleted"
-            )
+            self.set_duplicate_statuses(reference_1, "Resolved", reference_2, "Deleted")
         elif selection == 2:
             # Mark reference2 as Resolved, reference1 as Deleted
-            self.set_duplicate_statuses(
-                self, reference_1, "Deleted", reference_2, "Resolved"
-            )
+            self.set_duplicate_statuses(reference_1, "Deleted", reference_2, "Resolved")
         elif selection == 3:
             # Mark both references as Not Duplicate
             self.set_duplicate_statuses(
-                self, reference_1, "Not Duplicate", reference_2, "Not Duplicate"
+                reference_1, "Not Duplicate", reference_2, "Not Duplicate"
             )
         else:
             return Response(
@@ -1079,6 +1096,8 @@ class ReferenceDuplicatePairViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        duplicate_pair.resolved = True
+        duplicate_pair.save(update_fields=["resolved"])
         return Response(
             {"detail": "Reference duplicate resolved successfully."},
             status=status.HTTP_200_OK,

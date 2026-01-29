@@ -180,12 +180,7 @@ class AttachPDFsSerializer(serializers.Serializer):
     mappings = AttachPDFMappingSerializer(many=True)
 
 
-class ReferenceSerializer(serializers.ModelSerializer):
-    opinions = serializers.SerializerMethodField()
-    publication_date = serializers.DateField(format="%d/%m/%Y")
-    labels = serializers.SerializerMethodField()
-    assignee = serializers.SerializerMethodField()
-
+class BaseReferenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Reference
         fields = "__all__"
@@ -202,6 +197,13 @@ class ReferenceSerializer(serializers.ModelSerializer):
             "publication_date",
             "duplicate_status",
         ]
+
+
+class ReferenceSerializer(BaseReferenceSerializer):
+    opinions = serializers.SerializerMethodField()
+    publication_date = serializers.DateField(format="%d/%m/%Y")
+    labels = serializers.SerializerMethodField()
+    assignee = serializers.SerializerMethodField()
 
     def get_opinions(self, obj):
         # Blinded -> return current user's opinion
@@ -263,8 +265,8 @@ class ReferenceOpinionSerializer(ModelSerializer):
 
 
 class ReferenceDuplicatePairSerializer(ModelSerializer):
-    reference1 = ReferenceSerializer(read_only=True)
-    reference2 = ReferenceSerializer(read_only=True)
+    reference1 = BaseReferenceSerializer(read_only=True)
+    reference2 = BaseReferenceSerializer(read_only=True)
 
     class Meta:
         model = ReferenceDuplicatePair
