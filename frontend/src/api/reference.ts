@@ -1,4 +1,4 @@
-import type { Label, Reference, ReferencePDFMapping } from '@/types/reference';
+import type { Reference, ReferencePDFMapping } from '@/types/reference';
 import api from './axios';
 import type { Keyword } from '@/types/keyword';
 
@@ -16,8 +16,41 @@ export type FetchReviewDataParams = {
   includeKeywords?: string[];
   excludeKeywords?: string[];
   labelIds?: number[];
+  publicationTypes?: string[];
+  publicationYears?: number[];
+  hasFile?: boolean;
+  assigneeIds?: (number | null)[];
   duplicateStatuses?: string[];
   searchQuery?: string;
+};
+
+export type LabelCount = {
+  id: number;
+  name: string;
+  count: number;
+};
+
+export type PublicationType = {
+  publicationType: string;
+  count: number;
+};
+
+export type PublicationYear = {
+  year: number;
+  count: number;
+};
+
+export type FileCounts = {
+  withFile: number;
+  withoutFile: number;
+};
+
+export type Assignee = {
+  Id: number | null;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  count: number;
 };
 
 export type SearchMethod = {
@@ -26,23 +59,26 @@ export type SearchMethod = {
   count: number;
 };
 
-export type DuplicateStatusCounts = {
-  Unresolved: number;
-  Deleted: number;
-  'Not Duplicate': number;
-  Resolved: number;
-};
-
-type FetchReviewDataParamsResponse = {
+export type FetchReviewDataParamsResponse = {
   references: Reference[];
   totalCount: number;
   filteredCount: number;
   searchMethods: SearchMethod[];
   keywords: Keyword[];
-  duplicateStatusCounts: DuplicateStatusCounts;
-  labels: Label[];
+  duplicateStatusCounts: {
+    Unresolved: number;
+    Deleted: number;
+    'Not Duplicate': number;
+    Resolved: number;
+  };
+  labels: LabelCount[];
+  publicationTypes: PublicationType[];
+  publicationYears: PublicationYear[];
+  fileCounts: FileCounts;
+  assignees: Assignee[];
 };
 
+// Updated API function
 export const fetchReviewData = async (
   params: FetchReviewDataParams
 ): Promise<FetchReviewDataParamsResponse> => {
@@ -53,11 +89,14 @@ export const fetchReviewData = async (
       include_keywords: params.includeKeywords,
       exclude_keywords: params.excludeKeywords,
       label_ids: params.labelIds,
+      publication_types: params.publicationTypes,
+      publication_years: params.publicationYears,
+      has_file: params.hasFile,
+      assignee_ids: params.assigneeIds,
       duplicate_statuses: params.duplicateStatuses,
       search: params.searchQuery,
     },
   });
-
   return res.data;
 };
 

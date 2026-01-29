@@ -42,6 +42,10 @@ function buildQueryParams(params: {
   includeKeywords: string[];
   excludeKeywords: string[];
   labelIds: number[];
+  publicationTypes: string[];
+  publicationYears: number[];
+  fileStatus: 'all' | 'withFile' | 'withoutFile';
+  assigneeIds: (number | null)[];
   duplicateStatuses: string[];
   searchQuery: string;
 }): FetchReviewDataParams {
@@ -61,6 +65,18 @@ function buildQueryParams(params: {
   if (params.labelIds.length > 0) {
     queryParams.labelIds = params.labelIds;
   }
+  if (params.publicationTypes.length > 0) {
+    queryParams.publicationTypes = params.publicationTypes;
+  }
+  if (params.publicationYears.length > 0) {
+    queryParams.publicationYears = params.publicationYears;
+  }
+  if (params.fileStatus !== 'all') {
+    queryParams.hasFile = params.fileStatus === 'withFile';
+  }
+  if (params.assigneeIds.length > 0) {
+    queryParams.assigneeIds = params.assigneeIds;
+  }
   if (params.duplicateStatuses.length > 0) {
     queryParams.duplicateStatuses = params.duplicateStatuses;
   }
@@ -70,7 +86,6 @@ function buildQueryParams(params: {
 
   return queryParams;
 }
-
 function RouteComponent() {
   const reviewId = Number(Route.useParams().reviewId);
   const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
@@ -90,6 +105,18 @@ function RouteComponent() {
     string[]
   >([]);
   const [selectedLabelIds, setSelectedLabelIds] = useState<number[]>([]);
+  const [selectedPublicationTypes, setSelectedPublicationTypes] = useState<
+    string[]
+  >([]);
+  const [selectedPublicationYears, setSelectedPublicationYears] = useState<
+    number[]
+  >([]);
+  const [selectedFileStatus, setSelectedFileStatus] = useState<
+    'all' | 'withFile' | 'withoutFile'
+  >('all');
+  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<
+    (number | null)[]
+  >([]);
   const [selectedDuplicateStatuses, setSelectedDuplicateStatuses] = useState<
     string[]
   >([]);
@@ -170,6 +197,10 @@ function RouteComponent() {
     excludeKeywords: selectedExcludeKeywords,
     duplicateStatuses: selectedDuplicateStatuses,
     labelIds: selectedLabelIds,
+    publicationTypes: selectedPublicationTypes,
+    publicationYears: selectedPublicationYears,
+    fileStatus: selectedFileStatus,
+    assigneeIds: selectedAssigneeIds,
     searchQuery,
   });
 
@@ -273,6 +304,15 @@ function RouteComponent() {
     );
   }, []);
 
+  const handleSelectAllSearchMethods = useCallback(() => {
+    if (!data) return;
+    setSelectedSearchMethods(
+      selectedSearchMethodIds.length === data.searchMethods.length
+        ? []
+        : data.searchMethods.map((sm) => sm.id)
+    );
+  }, [data, selectedSearchMethodIds]);
+
   const handleSelectAllReferences = useCallback(() => {
     setSelectedSearchMethods([]);
   }, []);
@@ -343,6 +383,19 @@ function RouteComponent() {
         : data.labels.map((l) => l.id)
     );
   }, [data, selectedLabelIds]);
+
+  const handleResetAllFilters = useCallback(() => {
+    setSelectedSearchMethods([]);
+    setSelectedIncludeKeywords([]);
+    setSelectedExcludeKeywords([]);
+    setSelectedLabelIds([]);
+    setSelectedPublicationTypes([]);
+    setSelectedPublicationYears([]);
+    setSelectedFileStatus('all');
+    setSelectedAssigneeIds([]);
+    setSelectedDuplicateStatuses([]);
+    setSearchQuery('');
+  }, []);
 
   const handleReferenceSelect = useCallback((id: number) => {
     setSelectedReferenceIds((prev) =>
@@ -488,6 +541,60 @@ function RouteComponent() {
     },
     [deleteKeyword, queryClient]
   );
+
+  const handlePublicationTypeToggle = useCallback((type: string) => {
+    setSelectedPublicationTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+    );
+  }, []);
+
+  const handleSelectAllPublicationTypes = useCallback(() => {
+    if (!data) return;
+    setSelectedPublicationTypes(
+      selectedPublicationTypes.length === data.publicationTypes.length
+        ? []
+        : data.publicationTypes.map((pt) => pt.publicationType)
+    );
+  }, [data, selectedPublicationTypes]);
+
+  const handlePublicationYearToggle = useCallback((year: number) => {
+    setSelectedPublicationYears((prev) =>
+      prev.includes(year) ? prev.filter((y) => y !== year) : [...prev, year]
+    );
+  }, []);
+
+  const handleSelectAllPublicationYears = useCallback(() => {
+    if (!data) return;
+    setSelectedPublicationYears(
+      selectedPublicationYears.length === data.publicationYears.length
+        ? []
+        : data.publicationYears.map((py) => py.year)
+    );
+  }, [data, selectedPublicationYears]);
+
+  const handleFileStatusChange = useCallback(
+    (status: 'all' | 'withFile' | 'withoutFile') => {
+      setSelectedFileStatus(status);
+    },
+    []
+  );
+
+  const handleAssigneeToggle = useCallback((assigneeId: number | null) => {
+    setSelectedAssigneeIds((prev) =>
+      prev.includes(assigneeId)
+        ? prev.filter((id) => id !== assigneeId)
+        : [...prev, assigneeId]
+    );
+  }, []);
+
+  const handleSelectAllAssignees = useCallback(() => {
+    if (!data) return;
+    setSelectedAssigneeIds(
+      selectedAssigneeIds.length === data.assignees.length
+        ? []
+        : data.assignees.map((a) => a.Id)
+    );
+  }, [data, selectedAssigneeIds]);
 
   const handleNavigateDetail = useCallback(
     (direction: 'prev' | 'next') => {
@@ -651,18 +758,39 @@ function RouteComponent() {
               />
             )}
 
+            {/* Filters Sidebar */}
             <FiltersSidebar
               keywords={allKeywords}
               labels={data?.labels || []}
+              publicationTypes={data?.publicationTypes || []}
+              publicationYears={data?.publicationYears || []}
+              fileCounts={data?.fileCounts || { withFile: 0, withoutFile: 0 }}
+              assignees={data?.assignees || []}
+              searchMethods={data?.searchMethods || []}
               selectedIncludeKeywords={selectedIncludeKeywords}
               selectedExcludeKeywords={selectedExcludeKeywords}
               selectedLabels={selectedLabelIds}
+              selectedPublicationTypes={selectedPublicationTypes}
+              selectedPublicationYears={selectedPublicationYears}
+              selectedFileStatus={selectedFileStatus}
+              selectedAssignees={selectedAssigneeIds}
+              selectedSearchMethods={selectedSearchMethodIds}
               onIncludeKeywordToggle={handleIncludeKeywordToggle}
               onExcludeKeywordToggle={handleExcludeKeywordToggle}
               onSelectAllInclude={handleSelectAllInclude}
               onSelectAllExclude={handleSelectAllExclude}
               onLabelToggle={handleLabelToggle}
               onSelectAllLabels={handleSelectAllLabels}
+              onPublicationTypeToggle={handlePublicationTypeToggle}
+              onSelectAllPublicationTypes={handleSelectAllPublicationTypes}
+              onPublicationYearToggle={handlePublicationYearToggle}
+              onSelectAllPublicationYears={handleSelectAllPublicationYears}
+              onFileStatusChange={handleFileStatusChange}
+              onAssigneeToggle={handleAssigneeToggle}
+              onSelectAllAssignees={handleSelectAllAssignees}
+              onSearchMethodToggle={handleSearchMethodToggle}
+              onSelectAllSearchMethods={handleSelectAllSearchMethods}
+              onResetAllFilters={handleResetAllFilters}
               isCollapsed={isFiltersSidebarCollapsed}
               onToggleCollapse={() =>
                 setIsFiltersSidebarCollapsed(!isFiltersSidebarCollapsed)
