@@ -31,6 +31,7 @@ import { useCreateKeyword, useDeleteKeyword } from '@/hooks/use-keyword';
 import { ReferenceDetailPanel } from '../../../components/shared/reference-panel';
 import { TableTopHeader } from '@/components/shared/references-table-top-header';
 import { useDeleteLabel } from '@/hooks/use-label';
+import { ResolveDuplicatesDialog } from '@/components/shared/resolve-duplicates-dialog';
 
 export const Route = createFileRoute('/reviews/$reviewId/review-data')({
   component: RouteComponent,
@@ -180,6 +181,10 @@ function RouteComponent() {
   // Article view layout state
   const [articleViewLayout, setArticleViewLayout] =
     useState<ArticleViewLayout>('title-only');
+
+  // Resolve duplicates dialog
+  const [isResolveDuplicatesOpen, setIsResolveDuplicatesOpen] =
+    useState<boolean>(false);
 
   // File Upload
   const [openUploadBibDialog, setOpenUploadBibDialog] = useState(false);
@@ -659,6 +664,13 @@ function RouteComponent() {
 
   return (
     <div className="h-full flex flex-col bg-background">
+      {isResolveDuplicatesOpen && (
+        <ResolveDuplicatesDialog
+          reviewId={reviewId}
+          isOpen={isResolveDuplicatesOpen}
+          onClose={() => setIsResolveDuplicatesOpen(false)}
+        />
+      )}
       <FileUploadDialog
         open={openUploadBibDialog}
         onOpenChange={setOpenUploadBibDialog}
@@ -710,6 +722,7 @@ function RouteComponent() {
           onDetectDuplicates={() =>
             detectDuplicateReferences.mutate({ reviewId })
           }
+          onResolveDuplicates={() => setIsResolveDuplicatesOpen(true)}
         />
 
         <div className="flex flex-col flex-1">

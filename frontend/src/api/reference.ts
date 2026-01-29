@@ -59,18 +59,20 @@ export type SearchMethod = {
   count: number;
 };
 
+export type DuplicateStatusCounts = {
+  Unresolved: number;
+  Deleted: number;
+  'Not Duplicate': number;
+  Resolved: number;
+};
+
 export type FetchReviewDataParamsResponse = {
   references: Reference[];
   totalCount: number;
   filteredCount: number;
   searchMethods: SearchMethod[];
   keywords: Keyword[];
-  duplicateStatusCounts: {
-    Unresolved: number;
-    Deleted: number;
-    'Not Duplicate': number;
-    Resolved: number;
-  };
+  duplicateStatusCounts: DuplicateStatusCounts;
   labels: LabelCount[];
   publicationTypes: PublicationType[];
   publicationYears: PublicationYear[];

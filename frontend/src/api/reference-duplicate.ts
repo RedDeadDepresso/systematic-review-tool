@@ -20,7 +20,7 @@ export const fetchDuplicateReferences = async (reviewId: number) => {
 export const resolveDuplicateReferences = async (
   referenceDuplicateId: number,
   reviewId: number,
-  selection: 1 | 2
+  selection: 1 | 2 | 3
 ) => {
   const res = await api.post(
     `/reference-duplicates/${referenceDuplicateId}/resolve/`,

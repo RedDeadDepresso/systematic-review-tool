@@ -6,7 +6,7 @@ import { FileCheck, FileText } from 'lucide-react';
 import { useDetectDuplicateReferences } from '@/hooks/use-reference-duplicate';
 import { Spinner } from '@/components/ui/spinner';
 import { useContext, useEffect, useState } from 'react';
-import { ResolveDuplicatesDialog } from '@/components/review-index/resolve-duplicate-dialog';
+import { ResolveDuplicatesDialog } from '@/components/shared/resolve-duplicates-dialog';
 import { AppLayoutContext } from '@/context/app-layout-context';
 import InvitationDialog from '@/components/review-index/invitation-dialog';
 import { useFetchUser } from '@/hooks/use-auth';
@@ -123,28 +123,26 @@ function ReviewPage() {
                 <p className="text-center text-4xl font-semibold text-foreground">
                   {isLoading ? '0' : data.referenceCount}
                 </p>
-                {!isUserLoading &&
-                  !isLoading &&
-                  user.displayName === data.owner && (
-                    <>
-                      <FileUploadDialog
-                        open={openUploadDialog}
-                        onOpenChange={setOpenUploadDialog}
-                        title="Upload References"
-                        description="Add references to the review"
-                        acceptedFormats=".bib,application/x-bibtex"
-                        acceptedMimeTypes={['application/x-bibtex']}
-                        fileTypeLabel="BibTeX"
-                        onUpload={handleUploadReferences}
-                      />
-                      <Button
-                        className="w-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
-                        onClick={() => setOpenUploadDialog(true)}
-                      >
-                        Add References
-                      </Button>
-                    </>
-                  )}
+                {!isUserLoading && !isLoading && user.id === data.owner.id && (
+                  <>
+                    <FileUploadDialog
+                      open={openUploadDialog}
+                      onOpenChange={setOpenUploadDialog}
+                      title="Upload References"
+                      description="Add references to the review"
+                      acceptedFormats=".bib,application/x-bibtex"
+                      acceptedMimeTypes={['application/x-bibtex']}
+                      fileTypeLabel="BibTeX"
+                      onUpload={handleUploadReferences}
+                    />
+                    <Button
+                      className="w-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                      onClick={() => setOpenUploadDialog(true)}
+                    >
+                      Add References
+                    </Button>
+                  </>
+                )}
               </div>
             </Card>
 
@@ -157,18 +155,16 @@ function ReviewPage() {
                 <p className="text-center text-4xl font-semibold text-foreground">
                   {isLoading ? '0' : data.referenceDuplicatesCount}
                 </p>
-                {!isUserLoading &&
-                  !isLoading &&
-                  user.displayName === data.owner && (
-                    <Button
-                      className="w-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
-                      onClick={handleDetectDuplicates}
-                      disabled={isPending}
-                    >
-                      {isPending && <Spinner />}
-                      Detect Duplicates
-                    </Button>
-                  )}
+                {!isUserLoading && !isLoading && user.id === data.owner.id && (
+                  <Button
+                    className="w-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                    onClick={handleDetectDuplicates}
+                    disabled={isPending}
+                  >
+                    {isPending && <Spinner />}
+                    Detect Duplicates
+                  </Button>
+                )}
               </div>
             </Card>
 
@@ -181,19 +177,15 @@ function ReviewPage() {
                 <p className="text-center text-4xl font-semibold text-foreground">
                   {isLoading ? '0' : data.referenceDuplicatesCount}
                 </p>
-                {!isUserLoading &&
-                  !isLoading &&
-                  user.displayName === data.owner && (
-                    <Button
-                      className="w-full bg-gray-200 text-gray-600 hover:bg-gray-300"
-                      disabled={
-                        isLoading || data.referenceDuplicatesCount === 0
-                      }
-                      onClick={() => setIsOpen(true)}
-                    >
-                      Continue Resolving
-                    </Button>
-                  )}
+                {!isUserLoading && !isLoading && user.id === data.owner.id && (
+                  <Button
+                    className="w-full bg-gray-200 text-gray-600 hover:bg-gray-300"
+                    disabled={isLoading || data.referenceDuplicatesCount === 0}
+                    onClick={() => setIsOpen(true)}
+                  >
+                    Continue Resolving
+                  </Button>
+                )}
               </div>
             </Card>
 
