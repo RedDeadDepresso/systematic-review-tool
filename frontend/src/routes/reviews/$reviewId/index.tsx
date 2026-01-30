@@ -58,7 +58,7 @@ function ReviewPage() {
 
   return (
     <>
-      {!isUserLoading && !isLoading && user.displayName === data.owner && (
+      {!isUserLoading && !isLoading && user.id === data.owner.id && (
         <ResolveDuplicatesDialog
           reviewId={reviewId}
           isOpen={isOpen}
