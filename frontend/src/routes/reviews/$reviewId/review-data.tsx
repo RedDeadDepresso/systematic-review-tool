@@ -43,6 +43,7 @@ function RouteComponent() {
     enableFileStatus: true,
     enableAssignees: true,
     enableDuplicates: true,
+    debounceDelay: 1500,
   });
 
   // Highlight toggle states
@@ -232,6 +233,7 @@ function RouteComponent() {
 
             {/* Filters Sidebar */}
             <FiltersSidebar
+              reviewId={reviewId}
               keywords={keywords.allKeywords}
               labels={data?.labels || []}
               publicationTypes={data?.publicationTypes || []}

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 export interface ReviewDataFilters {
   searchMethodIds: number[];
@@ -21,6 +21,7 @@ export interface UseReviewDataFiltersOptions {
   enableFileStatus?: boolean;
   enableAssignees?: boolean;
   enableDuplicates?: boolean;
+  debounceDelay?: number;
 }
 
 export function useReviewDataFilters(
@@ -34,9 +35,10 @@ export function useReviewDataFilters(
     enableFileStatus = true,
     enableAssignees = true,
     enableDuplicates = true,
+    debounceDelay = 500, // Default 500ms debounce
   } = options;
 
-  // Conditional state initialization
+  // Optimistic state (updates immediately for UI)
   const [searchMethodIds, setSearchMethodIds] = useState<number[]>([]);
   const [includeKeywords, setIncludeKeywords] = useState<string[]>([]);
   const [excludeKeywords, setExcludeKeywords] = useState<string[]>([]);
@@ -50,7 +52,75 @@ export function useReviewDataFilters(
   const [duplicateStatuses, setDuplicateStatuses] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Toggle handlers
+  // Debounced state (for API calls)
+  const [debouncedSearchMethodIds, setDebouncedSearchMethodIds] = useState<
+    number[]
+  >([]);
+  const [debouncedIncludeKeywords, setDebouncedIncludeKeywords] = useState<
+    string[]
+  >([]);
+  const [debouncedExcludeKeywords, setDebouncedExcludeKeywords] = useState<
+    string[]
+  >([]);
+  const [debouncedLabelIds, setDebouncedLabelIds] = useState<number[]>([]);
+  const [debouncedPublicationTypes, setDebouncedPublicationTypes] = useState<
+    string[]
+  >([]);
+  const [debouncedPublicationYears, setDebouncedPublicationYears] = useState<
+    number[]
+  >([]);
+  const [debouncedFileStatus, setDebouncedFileStatus] = useState<
+    'all' | 'withFile' | 'withoutFile'
+  >('all');
+  const [debouncedAssigneeIds, setDebouncedAssigneeIds] = useState<
+    (number | null)[]
+  >([]);
+  const [debouncedDuplicateStatuses, setDebouncedDuplicateStatuses] = useState<
+    string[]
+  >([]);
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Debounce logic
+  useEffect(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      setDebouncedSearchMethodIds(searchMethodIds);
+      setDebouncedIncludeKeywords(includeKeywords);
+      setDebouncedExcludeKeywords(excludeKeywords);
+      setDebouncedLabelIds(labelIds);
+      setDebouncedPublicationTypes(publicationTypes);
+      setDebouncedPublicationYears(publicationYears);
+      setDebouncedFileStatus(fileStatus);
+      setDebouncedAssigneeIds(assigneeIds);
+      setDebouncedDuplicateStatuses(duplicateStatuses);
+      setDebouncedSearchQuery(searchQuery);
+    }, debounceDelay);
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [
+    searchMethodIds,
+    includeKeywords,
+    excludeKeywords,
+    labelIds,
+    publicationTypes,
+    publicationYears,
+    fileStatus,
+    assigneeIds,
+    duplicateStatuses,
+    searchQuery,
+    debounceDelay,
+  ]);
+
+  // Toggle handlers (update optimistic state immediately)
   const handleSearchMethodToggle = useCallback(
     (id: number) => {
       if (!enableSearchMethods) return;
@@ -149,7 +219,7 @@ export function useReviewDataFilters(
     [enableDuplicates]
   );
 
-  // Select all handlers - now with proper closure over setters
+  // Select all handlers
   const handleSelectAllIncludeKeywords = useCallback(
     (allKeywords: string[]) => {
       if (!enableKeywords) return;
@@ -246,36 +316,39 @@ export function useReviewDataFilters(
     enableDuplicates,
   ]);
 
-  // Return only enabled filters
+  // Get active filters for API (using debounced values)
   const getActiveFilters = useCallback((): Partial<ReviewDataFilters> => {
-    const filters: Partial<ReviewDataFilters> = { searchQuery };
+    const filters: Partial<ReviewDataFilters> = {
+      searchQuery: debouncedSearchQuery,
+    };
 
-    if (enableSearchMethods) filters.searchMethodIds = searchMethodIds;
+    if (enableSearchMethods) filters.searchMethodIds = debouncedSearchMethodIds;
     if (enableKeywords) {
-      filters.includeKeywords = includeKeywords;
-      filters.excludeKeywords = excludeKeywords;
+      filters.includeKeywords = debouncedIncludeKeywords;
+      filters.excludeKeywords = debouncedExcludeKeywords;
     }
-    if (enableLabels) filters.labelIds = labelIds;
+    if (enableLabels) filters.labelIds = debouncedLabelIds;
     if (enablePublicationFilters) {
-      filters.publicationTypes = publicationTypes;
-      filters.publicationYears = publicationYears;
+      filters.publicationTypes = debouncedPublicationTypes;
+      filters.publicationYears = debouncedPublicationYears;
     }
-    if (enableFileStatus) filters.fileStatus = fileStatus;
-    if (enableAssignees) filters.assigneeIds = assigneeIds;
-    if (enableDuplicates) filters.duplicateStatuses = duplicateStatuses;
+    if (enableFileStatus) filters.fileStatus = debouncedFileStatus;
+    if (enableAssignees) filters.assigneeIds = debouncedAssigneeIds;
+    if (enableDuplicates)
+      filters.duplicateStatuses = debouncedDuplicateStatuses;
 
     return filters;
   }, [
-    searchMethodIds,
-    includeKeywords,
-    excludeKeywords,
-    labelIds,
-    publicationTypes,
-    publicationYears,
-    fileStatus,
-    assigneeIds,
-    duplicateStatuses,
-    searchQuery,
+    debouncedSearchMethodIds,
+    debouncedIncludeKeywords,
+    debouncedExcludeKeywords,
+    debouncedLabelIds,
+    debouncedPublicationTypes,
+    debouncedPublicationYears,
+    debouncedFileStatus,
+    debouncedAssigneeIds,
+    debouncedDuplicateStatuses,
+    debouncedSearchQuery,
     enableSearchMethods,
     enableKeywords,
     enableLabels,
@@ -286,8 +359,7 @@ export function useReviewDataFilters(
   ]);
 
   return {
-    // State
-    filters: getActiveFilters(),
+    // Optimistic state (for UI - checkboxes show immediately)
     searchMethodIds,
     includeKeywords,
     excludeKeywords,
@@ -298,6 +370,9 @@ export function useReviewDataFilters(
     assigneeIds,
     duplicateStatuses,
     searchQuery,
+
+    // Debounced filters (for API calls)
+    filters: getActiveFilters(),
 
     // Setters
     setSearchQuery,
@@ -327,5 +402,8 @@ export function useReviewDataFilters(
 
     // Reset
     handleResetAllFilters,
+
+    // Utility
+    isDebouncing: timeoutRef.current !== undefined,
   };
 }
