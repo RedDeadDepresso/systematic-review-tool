@@ -206,27 +206,21 @@ class ReferenceSerializer(BaseReferenceSerializer):
     assignee = serializers.SerializerMethodField()
 
     def get_opinions(self, obj):
-        # Blinded -> return current user's opinion
-        if hasattr(obj, "opinions_for_user"):
-            if obj.opinions_for_user:
-                op = obj.opinions_for_user[0]
-                return {
-                    "reviewer": str(op.reviewer),
-                    "status": op.status,
-                }
+        opinions = getattr(obj, "prefetched_opinions", None)
+        if opinions is None:
             return None
 
-        # Not blinded -> return all opinions
-        if hasattr(obj, "opinions_all"):
-            return [
-                {
-                    "reviewer": str(op.reviewer),
-                    "status": op.status,
-                }
-                for op in obj.opinions_all
-            ]
-
-        return None
+        return [
+            {
+                "reviewer": {
+                    "first_name": op.reviewer.first_name,
+                    "last_name": op.reviewer.last_name,
+                    "email": op.reviewer.email,
+                },
+                "status": op.status,
+            }
+            for op in opinions
+        ]
 
     def get_labels(self, obj):
         """
@@ -251,7 +245,9 @@ class ReferenceSerializer(BaseReferenceSerializer):
             return None
         return {
             "id": obj.assignee.id,
-            "display_name": str(obj.assignee) or obj.assignee.username,
+            "first_name": obj.assignee.first_name,
+            "last_name": obj.assignee.last_name,
+            "email": obj.assignee.email,
         }
 
 

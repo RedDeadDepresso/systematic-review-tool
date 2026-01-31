@@ -711,6 +711,7 @@ class ReferenceViewSet(viewsets.ModelViewSet):
         user = request.user
         review_id = serializer.validated_data["review"]
         reference_ids = serializer.validated_data["reference_ids"]
+        reference_ids = list(set(reference_ids))
         mode = serializer.validated_data["mode"]
         assignee_id = serializer.validated_data.get("assignee_id")
 
@@ -945,6 +946,29 @@ class ReviewDataView(generics.ListAPIView):
         return Response(response_data)
 
 
+class ScreeningView(ReviewDataView):
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        queryset = (
+            queryset.exclude(duplicate_status__in=["Undecided", "Deleted"])
+            .prefetch_related(
+                Prefetch(
+                    "referenceopinion_set",
+                    queryset=ReferenceOpinion.objects.select_related("reviewer").only(
+                        "id",
+                        "status",
+                        "reviewer__first_name",
+                        "reviewer__last_name",
+                        "reviewer__email",
+                    ),
+                    to_attr="prefetched_opinions",
+                )
+            )
+            .distinct()
+        )
+        return queryset
+
+
 class ReferenceOpinionViewSet(viewsets.GenericViewSet):
     """
     ViewSet to manage a user's opinion on a reference.
@@ -987,8 +1011,75 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
         return Response(serializer.data)
 
     @action(detail=False, methods=["patch"], url_path="upsert")
+    @transaction.atomic
     def upsert(self, request):
-        return self.update(request)
+        reference_ids = request.data.get("reference_ids")
+        reference_ids = request.data.get("reference_ids")
+        reference_ids = list(set(reference_ids))
+        status = request.data.get("status")
+
+        if not reference_ids or not isinstance(reference_ids, list):
+            raise serializers.ValidationError(
+                {"reference_ids": "This field must be a non-empty list."}
+            )
+
+        if not status:
+            raise serializers.ValidationError({"status": "This field is required."})
+
+        user = request.user
+
+        references = Reference.objects.filter(id__in=reference_ids).select_related(
+            "review"
+        )
+
+        if references.count() != len(reference_ids):
+            raise serializers.ValidationError("One or more references do not exist.")
+
+        #  Access control (all references must belong to reviews user can access)
+        reviews = {ref.review for ref in references}
+        for review in reviews:
+            if not is_owner_or_collaborator(user, review):
+                raise PermissionDenied("You do not have access to one or more reviews.")
+
+        existing_opinions = {
+            op.reference_id: op
+            for op in ReferenceOpinion.objects.filter(
+                reference_id__in=reference_ids,
+                reviewer=user,
+            )
+        }
+
+        to_create = []
+        to_update = []
+
+        for ref in references:
+            if ref.id in existing_opinions:
+                opinion = existing_opinions[ref.id]
+                opinion.status = status
+                to_update.append(opinion)
+            else:
+                to_create.append(
+                    ReferenceOpinion(
+                        reference=ref,
+                        reviewer=user,
+                        status=status,
+                    )
+                )
+
+        if to_create:
+            ReferenceOpinion.objects.bulk_create(to_create)
+
+        if to_update:
+            ReferenceOpinion.objects.bulk_update(to_update, ["status"])
+
+        # Return updated opinions
+        opinions = ReferenceOpinion.objects.filter(
+            reference_id__in=reference_ids,
+            reviewer=user,
+        )
+
+        serializer = self.get_serializer(opinions, many=True)
+        return Response(serializer.data)
 
 
 class ReferenceDuplicatePairViewSet(viewsets.ViewSet):
@@ -1402,6 +1493,9 @@ class LabelViewSet(viewsets.ModelViewSet):
         """
         user = request.user
         reference_ids = request.data.get("reference_ids", [])
+        if reference_ids:
+            reference_ids = request.data.get("reference_ids")
+            reference_ids = list(set(reference_ids))
         checked_label_ids = request.data.get("checked_label_ids", [])
         indeterminate_label_ids = request.data.get("indeterminate_label_ids", [])
 
