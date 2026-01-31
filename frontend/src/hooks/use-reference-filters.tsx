@@ -24,9 +24,7 @@ export interface UseReviewDataFiltersOptions {
   debounceDelay?: number;
 }
 
-export function useReviewDataFilters(
-  options: UseReviewDataFiltersOptions = {}
-) {
+export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
   const {
     enableSearchMethods = true,
     enableKeywords = true,

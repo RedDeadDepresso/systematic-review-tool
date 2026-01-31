@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import type { Reference, SortDirection, SortField } from '@/types/reference';
 
-export function useReviewDataUI(references: Reference[]) {
+export function useReferenceUI(references: Reference[]) {
   // Sidebar collapse states
   const [isSourcesSidebarCollapsed, setIsSourcesSidebarCollapsed] =
     useState(true);
@@ -136,6 +136,9 @@ export function useReviewDataUI(references: Reference[]) {
       ? sortedReferences.findIndex((r) => r.id === openDetailId)
       : -1;
 
+  const total = references?.length ?? 0;
+  const allSelected = total > 0 && selectedReferenceIds.length === total;
+
   return {
     // Sidebar state
     isSourcesSidebarCollapsed,
@@ -149,6 +152,7 @@ export function useReviewDataUI(references: Reference[]) {
     handleReferenceSelect,
     handleHighlightReference,
     handleSelectAllReferences,
+    allSelected,
 
     // Sorting state
     sortField,

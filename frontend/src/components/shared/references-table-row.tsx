@@ -1,0 +1,259 @@
+import React from 'react';
+import { CircleUser } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import type { Reference, Label } from '@/types/reference';
+import { highlightText } from '@/lib/reference';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
+import type { User } from '@/types/auth';
+
+interface OpinionBadgeProps {
+  opinion: { reviewer: User; status: string };
+}
+
+function OpinionBadge({ opinion }: OpinionBadgeProps) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge
+          className={cn(
+            'flex items-center gap-1 text-xs',
+            opinion.status === 'Included' &&
+              'bg-green-50 text-green-700 border-green-200',
+            opinion.status === 'Maybe' &&
+              'bg-yellow-50 text-yellow-700 border-yellow-200',
+            opinion.status === 'Excluded' &&
+              'bg-red-50 text-red-700 border-red-200',
+            opinion.status === 'Undecided' &&
+              'bg-gray-50 text-gray-600 border-gray-200'
+          )}
+        >
+          {opinion.status === 'Included' && '✓'}
+          {opinion.status === 'Maybe' && '?'}
+          {opinion.status === 'Excluded' && '✕'}
+          <span>{opinion.reviewer.firstName}</span>
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent>
+        {opinion.status} by {opinion.reviewer.email}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function AssigneeBadge({ assignee }: { assignee: User }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge variant="secondary" className="text-xs gap-1">
+          <CircleUser className="h-3 w-3" />
+          {assignee.firstName}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent>Assigned to {assignee.email}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function LabelBadge({ label }: { label: Label }) {
+  return (
+    <Badge
+      key={label.id}
+      variant="outline"
+      className="text-xs"
+      style={{
+        borderColor: label.color,
+        color: label.color,
+        backgroundColor: `${label.color}10`,
+      }}
+    >
+      {label.name}
+    </Badge>
+  );
+}
+
+interface ReferenceRowProps {
+  reference: Reference;
+  index: number;
+  isSelected: boolean;
+  isHighlighted: boolean;
+  onSelect: () => void;
+  onClick: (e: React.MouseEvent) => void;
+  onDoubleClick: (e: React.MouseEvent) => void;
+  highlightIncludeKeywords: string[];
+  highlightExcludeKeywords: string[];
+}
+
+export function ReferenceRowTitleOnly({
+  reference: ref,
+  index,
+  isSelected,
+  isHighlighted,
+  onSelect,
+  onClick,
+  onDoubleClick,
+  highlightIncludeKeywords,
+  highlightExcludeKeywords,
+}: ReferenceRowProps) {
+  return (
+    <div
+      onClick={onClick}
+      onDoubleClick={onDoubleClick}
+      className={cn(
+        'flex items-start px-3 sm:px-6 py-3 sm:py-4 border-b border-border hover:bg-muted/30 transition-colors cursor-pointer',
+        isSelected && 'bg-primary/5',
+        isHighlighted && 'bg-primary/10 ring-1 ring-primary/30'
+      )}
+    >
+      {/* Checkbox */}
+      <div className="flex items-center gap-3 w-10 pt-1" data-checkbox-area>
+        <Checkbox checked={isSelected} onCheckedChange={onSelect} />
+      </div>
+
+      {/* Index */}
+      <div className="flex items-start gap-3 w-6 sm:w-10 pt-1">
+        <span className="text-xs sm:text-sm text-muted-foreground">
+          {index + 1}
+        </span>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        {/* Title */}
+        <p className="text-xs sm:text-sm leading-relaxed">
+          {highlightText(
+            ref.title,
+            highlightIncludeKeywords,
+            highlightExcludeKeywords
+          )}
+        </p>
+
+        {/* Opinions */}
+        {ref.opinions?.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {ref.opinions.map((opinion, idx) => (
+              <OpinionBadge key={idx} opinion={opinion} />
+            ))}
+          </div>
+        )}
+
+        {/* Labels + PDF + Assignee */}
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          {ref.file && (
+            <Badge variant="secondary" className="text-xs">
+              PDF
+            </Badge>
+          )}
+
+          {ref.assignee && <AssigneeBadge assignee={ref.assignee} />}
+
+          {ref.labels.map((label: Label) => (
+            <LabelBadge label={label} />
+          ))}
+        </div>
+      </div>
+
+      {/* Date (hidden on mobile) */}
+      <div className="hidden sm:block w-28 text-sm text-muted-foreground whitespace-nowrap pt-1">
+        {ref.publicationDate || 'N/A'}
+      </div>
+
+      {/* Author (hidden on tablet) */}
+      <div className="hidden md:block w-32 text-sm text-muted-foreground truncate pt-1">
+        {ref.authors}
+      </div>
+    </div>
+  );
+}
+
+export function ReferenceRowTitleAbstract({
+  reference: ref,
+  index,
+  isSelected,
+  isHighlighted,
+  onSelect,
+  onClick,
+  onDoubleClick,
+  highlightIncludeKeywords,
+  highlightExcludeKeywords,
+}: ReferenceRowProps) {
+  return (
+    <div
+      onClick={onClick}
+      onDoubleClick={onDoubleClick}
+      className={cn(
+        'cursor-pointer border-b border-border p-4 transition-colors',
+        isSelected && 'bg-muted',
+        isHighlighted && 'bg-primary/10 ring-1 ring-primary/30',
+        !isSelected && !isHighlighted && 'hover:bg-accent'
+      )}
+    >
+      <div className="flex items-start gap-3">
+        {/* Checkbox */}
+        <div data-checkbox-area>
+          <Checkbox
+            className="mt-1"
+            checked={isSelected}
+            onCheckedChange={onSelect}
+          />
+        </div>
+
+        {/* Content */}
+        <div className="flex-1">
+          <div className="flex items-start gap-2">
+            {/* Index */}
+            <span className="text-xs font-semibold text-muted-foreground w-5 mt-0.5">
+              {index + 1}
+            </span>
+
+            <div className="flex-1 min-w-0">
+              {/* Title */}
+              <p className="text-sm font-medium leading-snug">
+                {highlightText(
+                  ref.title,
+                  highlightIncludeKeywords,
+                  highlightExcludeKeywords
+                )}
+              </p>
+
+              {/* Date */}
+              <p className="text-xs text-muted-foreground mt-1">
+                {ref.publicationDate || 'N/A'}
+              </p>
+
+              {/* Authors */}
+              <p className="text-xs text-muted-foreground mt-1">
+                {ref.authors}
+              </p>
+
+              {/* Opinions */}
+              {ref.opinions?.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {ref.opinions.map((opinion, idx) => (
+                    <OpinionBadge key={idx} opinion={opinion} />
+                  ))}
+                </div>
+              )}
+
+              {/* Labels + PDF + Assignee */}
+              <div className="flex flex-wrap gap-2 mt-2">
+                {ref.file && (
+                  <Badge variant="secondary" className="text-xs">
+                    PDF
+                  </Badge>
+                )}
+
+                {ref.assignee && <AssigneeBadge assignee={ref.assignee} />}
+
+                {ref.labels.map((label: Label) => (
+                  <LabelBadge label={label} />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

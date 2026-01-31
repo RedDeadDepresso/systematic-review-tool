@@ -57,14 +57,6 @@ export function DecisionButtons({
       >
         ✕ Exclude
       </Button>
-
-      {/* <Button className="flex-1 bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100">
-                ⚠ Reason
-              </Button>
-
-              <Button className="flex-1 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100">
-                🏷 Label
-              </Button> */}
     </div>
   );
 }

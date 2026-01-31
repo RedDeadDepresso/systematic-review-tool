@@ -1,8 +1,10 @@
 import type { User } from './auth';
 
+export type OpinionStatus = 'Undecided' | 'Included' | 'Excluded' | 'Maybe';
+
 export type Opinion = {
-  reviewer: string;
-  status: 'Included' | 'Excluded' | 'Maybe';
+  reviewer: User;
+  status: OpinionStatus;
 };
 
 export type Label = {

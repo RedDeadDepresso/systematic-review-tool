@@ -8,6 +8,7 @@ import {
   fetchReferences,
   assignReferences,
   type AssignReferencesPayload,
+  fetchScreening,
 } from '@/api/reference';
 import type { Reference } from '@/types/reference';
 import type { UploadedPDF } from '@/types/uploaded-pdf';
@@ -24,22 +25,15 @@ export const useFetchReferences = (reviewId: number) => {
 
 export const useFetchReviewData = (params: FetchReviewDataParams) => {
   return useQuery({
-    queryKey: [
-      'reviews',
-      params.review,
-      'review-data',
-      params.searchMethodIds,
-      params.includeKeywords,
-      params.excludeKeywords,
-      params.labelIds,
-      params.publicationTypes,
-      params.publicationYears,
-      params.hasFile,
-      params.assigneeIds,
-      params.duplicateStatuses,
-      params.searchQuery,
-    ],
+    queryKey: ['reviews', 'review-data', params],
     queryFn: () => fetchReviewData(params),
+  });
+};
+
+export const useFetchScreening = (params: FetchReviewDataParams) => {
+  return useQuery({
+    queryKey: ['reviews', 'screening', params],
+    queryFn: () => fetchScreening(params),
   });
 };
 

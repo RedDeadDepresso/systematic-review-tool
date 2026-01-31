@@ -6,19 +6,22 @@ import { ReviewHeader } from '@/components/shared/review-header';
 import { SourcesSidebar } from '@/components/review-data/sources-sidebar';
 import { ReferencesTable } from '@/components/shared/references-table';
 import { FiltersSidebar } from '@/components/shared/filters-sidebar';
-import { ReferenceDrawer } from '@/components/shared/reference-drawer';
-import { ReferenceDetailPanel } from '@/components/shared/reference-panel';
+import { ReviewDataReferenceDrawer } from '@/components/shared/reference-drawer';
+import { ReviewDataReferenceDetailPanel } from '@/components/shared/reference-panel';
 import { TableTopHeader } from '@/components/shared/references-table-top-header';
 import { ResolveDuplicatesDialog } from '@/components/shared/resolve-duplicates-dialog';
 import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
 import { MatchPDFDialog } from '@/components/shared/match-pdf-dialog';
 import type { Criteria } from '@/components/shared/screening-criteria-popover';
 import type { ArticleViewLayout } from '@/types/reference';
-import { useReviewDataFilters } from '@/hooks/use-reference-filters';
-import { useReviewDataUI } from '@/hooks/use-reference-ui';
+import { useReferenceFilters } from '@/hooks/use-reference-filters';
+import { useReferenceUI } from '@/hooks/use-reference-ui';
 import { useKeywordManagement } from '@/hooks/use-keyword-management';
-import { useFileUpload } from '@/hooks/use-file-upload';
+import { useFileUpload } from '@/hooks/use-reference-file-upload';
 import { useQueryClient } from '@tanstack/react-query';
+import { ReferencesTableBody } from '@/components/shared/references-table-body';
+import { ReviewDataFooter } from '@/components/shared/references-table-footer';
+import { TableBottomHeader } from '@/components/shared/references-table-bottom-header';
 
 export const Route = createFileRoute('/reviews/$reviewId/review-data')({
   component: RouteComponent,
@@ -35,7 +38,7 @@ function RouteComponent() {
   }, []);
 
   // Feature flags - all enabled
-  const filters = useReviewDataFilters({
+  const filters = useReferenceFilters({
     enableSearchMethods: true,
     enableKeywords: true,
     enableLabels: true,
@@ -69,7 +72,7 @@ function RouteComponent() {
   const { data, isLoading, error } = useFetchReviewData(queryParams);
 
   // UI state management
-  const ui = useReviewDataUI(data?.references || []);
+  const ui = useReferenceUI(data?.references || []);
 
   // Keyword management
   const keywords = useKeywordManagement(
@@ -86,7 +89,7 @@ function RouteComponent() {
   // File upload management
   const fileUpload = useFileUpload(reviewId, () => {
     queryClient.invalidateQueries({
-      queryKey: ['reviews', reviewId, 'review-data'],
+      queryKey: ['reviews', 'review-data', queryParams],
     });
   });
 
@@ -192,44 +195,62 @@ function RouteComponent() {
 
           <div className="flex flex-1 overflow-hidden">
             {/* References Table */}
-            <ReferencesTable
-              reviewId={reviewId}
-              references={ui.sortedReferences}
-              selectedReferenceIds={ui.selectedReferenceIds}
-              highlightedReferenceId={ui.highlightedReferenceId}
-              onSelectReference={ui.handleReferenceSelect}
-              onHighlightReference={ui.handleHighlightReference}
-              onSelectAll={ui.handleSelectAllReferences}
-              highlightIncludeKeywords={keywords.highlightIncludeKeywords}
-              highlightExcludeKeywords={keywords.highlightExcludeKeywords}
-              sortField={ui.sortField}
-              sortDirection={ui.sortDirection}
-              onSortChange={ui.handleSortChange}
-              onOpenDetail={ui.handleOpenDetail}
-              onLabelsApplied={() =>
-                queryClient.invalidateQueries({
-                  queryKey: ['reviews', reviewId, 'review-data'],
-                })
-              }
-              onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
-              viewLayout={articleViewLayout}
-            />
-
-            {/* Detail Panel */}
-            {articleViewLayout === 'title-abstract' &&
-              ui.highlightedReferenceId && (
-                <ReferenceDetailPanel
-                  reference={
-                    data?.references.find(
-                      (r) => r.id === ui.highlightedReferenceId
-                    ) || null
+            <ReferencesTable>
+              <TableBottomHeader
+                allSelected={ui.allSelected}
+                onSelectAll={ui.handleSelectAllReferences}
+                sortField={ui.sortField}
+                sortDirection={ui.sortDirection}
+                onSortChange={ui.handleSortChange}
+                viewLayout={articleViewLayout}
+              />
+              <ReferencesTableBody
+                references={ui.sortedReferences}
+                selectedReferenceIds={ui.selectedReferenceIds}
+                highlightedReferenceId={ui.highlightedReferenceId}
+                onSelectReference={ui.handleReferenceSelect}
+                onHighlightReference={ui.handleHighlightReference}
+                highlightIncludeKeywords={keywords.highlightIncludeKeywords}
+                highlightExcludeKeywords={keywords.highlightExcludeKeywords}
+                onOpenDetail={ui.handleOpenDetail}
+              />
+              {articleViewLayout === 'title-only' && (
+                <ReviewDataFooter
+                  reviewId={reviewId}
+                  selectedReferenceIds={ui.selectedReferenceIds}
+                  highlightedReferenceId={ui.highlightedReferenceId}
+                  onLabelsApplied={() =>
+                    queryClient.invalidateQueries({
+                      queryKey: ['reviews', 'review-data', queryParams],
+                    })
                   }
-                  onClose={() => ui.handleHighlightReference(null)}
-                  highlightIncludeKeywords={keywords.highlightIncludeKeywords}
-                  highlightExcludeKeywords={keywords.highlightExcludeKeywords}
                   onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
                 />
               )}
+            </ReferencesTable>
+
+            {/* Detail Panel */}
+            {articleViewLayout === 'title-abstract' && (
+              <ReviewDataReferenceDetailPanel
+                reviewId={reviewId}
+                reference={
+                  data?.references.find(
+                    (r) => r.id === ui.highlightedReferenceId
+                  ) || null
+                }
+                onClose={() => ui.handleHighlightReference(null)}
+                selectedReferenceIds={ui.selectedReferenceIds}
+                highlightedReferenceId={ui.highlightedReferenceId}
+                highlightIncludeKeywords={keywords.highlightIncludeKeywords}
+                highlightExcludeKeywords={keywords.highlightExcludeKeywords}
+                onLabelsApplied={() =>
+                  queryClient.invalidateQueries({
+                    queryKey: ['reviews', 'review-data', queryParams],
+                  })
+                }
+                onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
+              />
+            )}
 
             {/* Filters Sidebar */}
             <FiltersSidebar
@@ -330,7 +351,8 @@ function RouteComponent() {
 
       {/* Reference Drawer */}
       {ui.openDetail && (
-        <ReferenceDrawer
+        <ReviewDataReferenceDrawer
+          reviewId={reviewId}
           reference={ui.openDetail}
           onClose={ui.handleCloseDetail}
           onNavigate={ui.handleNavigateDetail}
@@ -338,6 +360,14 @@ function RouteComponent() {
           hasNext={ui.currentDetailIndex < ui.sortedReferences.length - 1}
           highlightIncludeKeywords={keywords.highlightIncludeKeywords}
           highlightExcludeKeywords={keywords.highlightExcludeKeywords}
+          selectedReferenceIds={ui.selectedReferenceIds}
+          highlightedReferenceId={ui.highlightedReferenceId}
+          onLabelsApplied={() =>
+            queryClient.invalidateQueries({
+              queryKey: ['reviews', 'review-data', queryParams],
+            })
+          }
+          onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
         />
       )}
     </div>
