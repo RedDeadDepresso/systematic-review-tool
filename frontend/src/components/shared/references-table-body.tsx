@@ -36,7 +36,7 @@ export function ReferencesTableBody({
   const handleRowDoubleClick = (id: number, e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.closest('[data-checkbox-area]')) return;
-    onHighlightReference(highlightedReferenceId === id ? null : id);
+    onHighlightReference(id);
     onOpenDetail(id);
   };
 

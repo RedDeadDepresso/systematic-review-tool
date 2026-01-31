@@ -116,19 +116,47 @@ export function useReferenceUI(references: Reference[]) {
 
   const handleNavigateDetail = useCallback(
     (direction: 'prev' | 'next') => {
-      if (openDetailId === null) return;
+      if (highlightedReferenceId === null) return;
       const currentIndex = sortedReferences.findIndex(
-        (r) => r.id === openDetailId
+        (r) => r.id === highlightedReferenceId
       );
       if (currentIndex === -1) return;
 
       const newIndex =
         direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
+
       if (newIndex >= 0 && newIndex < sortedReferences.length) {
-        setOpenDetailId(sortedReferences[newIndex].id);
+        const newId = sortedReferences[newIndex].id;
+
+        setHighlightedReferenceId(newId);
+        if (openDetailId !== null) setOpenDetailId(newId);
+
+        // Auto-scroll to the new reference
+        setTimeout(() => {
+          const element = document.querySelector(
+            `[data-reference-id="${newId}"]`
+          );
+
+          if (element) {
+            const rect = element.getBoundingClientRect();
+
+            // Check if the element is NOT visible in the viewport
+            const isVisible =
+              rect.top >= 0 &&
+              rect.bottom <=
+                (window.innerHeight || document.documentElement.clientHeight);
+
+            if (!isVisible) {
+              element.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+              });
+            }
+          }
+        }, 0);
       }
     },
-    [sortedReferences, openDetailId]
+    [sortedReferences, openDetailId, highlightedReferenceId]
   );
 
   const currentDetailIndex =

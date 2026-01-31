@@ -97,18 +97,24 @@ function RouteComponent() {
 
   const handleOpinionApplied = async (status: OpinionStatus) => {
     try {
+      const referenceIds = [
+        ...ui.selectedReferenceIds,
+        ...(ui.highlightedReferenceId ? [ui.highlightedReferenceId] : []),
+      ];
       await updateReferenceOpinion.mutateAsync({
         payload: {
-          referenceIds: [
-            ...ui.selectedReferenceIds,
-            ...(ui.highlightedReferenceId ? [ui.highlightedReferenceId] : []),
-          ],
+          referenceIds: referenceIds,
           status: status,
         },
       });
       queryClient.invalidateQueries({
         queryKey: ['reviews', 'screening', queryParams],
       });
+      if (
+        referenceIds.length === 1 &&
+        referenceIds[0] === ui.highlightedReferenceId
+      )
+        ui.handleNavigateDetail('next');
     } catch {
       console.log('error');
     }

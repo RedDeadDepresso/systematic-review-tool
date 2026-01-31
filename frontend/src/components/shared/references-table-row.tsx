@@ -98,6 +98,7 @@ export function ReferenceRowTitleOnly({
 }: ReferenceRowProps) {
   return (
     <div
+      data-reference-id={ref.id}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       className={cn(
@@ -180,6 +181,7 @@ export function ReferenceRowTitleAbstract({
 }: ReferenceRowProps) {
   return (
     <div
+      data-reference-id={ref.id}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       className={cn(
