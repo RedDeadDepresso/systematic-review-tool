@@ -56,5 +56,6 @@ urlpatterns = [
     path("auth/refresh/", TokenRefreshView.as_view(), name="refresh"),
     path("review-data/", ReviewDataView.as_view(), name="review-data"),
     path("screening/", ScreeningView.as_view(), name="screening"),
+    path("screening-full-text/", ScreeningView.as_view(), name="screening-full-text"),
     path("", include(router.urls)),
 ]

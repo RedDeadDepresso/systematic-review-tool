@@ -969,6 +969,10 @@ class ScreeningView(ReviewDataView):
         return queryset
 
 
+class ScreeningFullTextView(ScreeningView):
+    pass
+
+
 class ReferenceOpinionViewSet(viewsets.GenericViewSet):
     """
     ViewSet to manage a user's opinion on a reference.
