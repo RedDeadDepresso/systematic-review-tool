@@ -59,18 +59,20 @@ export type SearchMethod = {
   count: number;
 };
 
+export type DuplicateStatusCounts = {
+  Unresolved: number;
+  Deleted: number;
+  'Not Duplicate': number;
+  Resolved: number;
+};
+
 export type FetchReviewDataParamsResponse = {
   references: Reference[];
   totalCount: number;
   filteredCount: number;
   searchMethods: SearchMethod[];
   keywords: Keyword[];
-  duplicateStatusCounts: {
-    Unresolved: number;
-    Deleted: number;
-    'Not Duplicate': number;
-    Resolved: number;
-  };
+  duplicateStatusCounts: DuplicateStatusCounts;
   labels: LabelCount[];
   publicationTypes: PublicationType[];
   publicationYears: PublicationYear[];
@@ -78,28 +80,48 @@ export type FetchReviewDataParamsResponse = {
   assignees: Assignee[];
 };
 
-// Updated API function
+const paramsToSnakeCase = (params: FetchReviewDataParams) => {
+  return {
+    review: params.review,
+    search_method_ids: params.searchMethodIds,
+    include_keywords: params.includeKeywords,
+    exclude_keywords: params.excludeKeywords,
+    label_ids: params.labelIds,
+    publication_types: params.publicationTypes,
+    publication_years: params.publicationYears,
+    has_file: params.hasFile,
+    assignee_ids: params.assigneeIds,
+    duplicate_statuses: params.duplicateStatuses,
+    search: params.searchQuery,
+  };
+};
+
 export const fetchReviewData = async (
   params: FetchReviewDataParams
 ): Promise<FetchReviewDataParamsResponse> => {
   const res = await api.get('/review-data/', {
-    params: {
-      review: params.review,
-      search_method_ids: params.searchMethodIds,
-      include_keywords: params.includeKeywords,
-      exclude_keywords: params.excludeKeywords,
-      label_ids: params.labelIds,
-      publication_types: params.publicationTypes,
-      publication_years: params.publicationYears,
-      has_file: params.hasFile,
-      assignee_ids: params.assigneeIds,
-      duplicate_statuses: params.duplicateStatuses,
-      search: params.searchQuery,
-    },
+    params: paramsToSnakeCase(params),
   });
   return res.data;
 };
 
+export const fetchScreening = async (
+  params: FetchReviewDataParams
+): Promise<FetchReviewDataParamsResponse> => {
+  const res = await api.get('/screening/', {
+    params: paramsToSnakeCase(params),
+  });
+  return res.data;
+};
+
+export const fetchScreeningFullText = async (
+  params: FetchReviewDataParams
+): Promise<FetchReviewDataParamsResponse> => {
+  const res = await api.get('/screening-full-text/', {
+    params: paramsToSnakeCase(params),
+  });
+  return res.data;
+};
 /* ------------------ FETCH SINGLE REFERENCE ------------------ */
 export const fetchReference = async (referenceId: number) => {
   const res = await api.get(`/references/${referenceId}/`);

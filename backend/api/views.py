@@ -37,6 +37,7 @@ from api.models import (
     ReferenceOpinion,
     Review,
     ReviewInvitation,
+    ScreeningCriteria,
     SearchMethod,
     SubTheme,
     UploadedPDF,
@@ -45,6 +46,7 @@ from api.models import (
 from api.serializers import (
     AssignReferencesSerializer,
     AttachPDFsSerializer,
+    BulkCreateNoteSerializer,
     CodeSerializer,
     KeywordSerializer,
     LabelSerializer,
@@ -57,6 +59,7 @@ from api.serializers import (
     ReviewInvitationSerializer,
     ReviewListSerializer,
     ReviewSerializer,
+    ScreeningCriteriaSerializer,
     SubThemeSerializer,
     UploadedPDFSerializer,
     UserSerializer,
@@ -711,6 +714,7 @@ class ReferenceViewSet(viewsets.ModelViewSet):
         user = request.user
         review_id = serializer.validated_data["review"]
         reference_ids = serializer.validated_data["reference_ids"]
+        reference_ids = list(set(reference_ids))
         mode = serializer.validated_data["mode"]
         assignee_id = serializer.validated_data.get("assignee_id")
 
@@ -945,6 +949,33 @@ class ReviewDataView(generics.ListAPIView):
         return Response(response_data)
 
 
+class ScreeningView(ReviewDataView):
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        queryset = (
+            queryset.exclude(duplicate_status__in=["Undecided", "Deleted"])
+            .prefetch_related(
+                Prefetch(
+                    "referenceopinion_set",
+                    queryset=ReferenceOpinion.objects.select_related("reviewer").only(
+                        "id",
+                        "status",
+                        "reviewer__first_name",
+                        "reviewer__last_name",
+                        "reviewer__email",
+                    ),
+                    to_attr="prefetched_opinions",
+                )
+            )
+            .distinct()
+        )
+        return queryset
+
+
+class ScreeningFullTextView(ScreeningView):
+    pass
+
+
 class ReferenceOpinionViewSet(viewsets.GenericViewSet):
     """
     ViewSet to manage a user's opinion on a reference.
@@ -987,8 +1018,75 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
         return Response(serializer.data)
 
     @action(detail=False, methods=["patch"], url_path="upsert")
+    @transaction.atomic
     def upsert(self, request):
-        return self.update(request)
+        reference_ids = request.data.get("reference_ids")
+        reference_ids = request.data.get("reference_ids")
+        reference_ids = list(set(reference_ids))
+        status = request.data.get("status")
+
+        if not reference_ids or not isinstance(reference_ids, list):
+            raise serializers.ValidationError(
+                {"reference_ids": "This field must be a non-empty list."}
+            )
+
+        if not status:
+            raise serializers.ValidationError({"status": "This field is required."})
+
+        user = request.user
+
+        references = Reference.objects.filter(id__in=reference_ids).select_related(
+            "review"
+        )
+
+        if references.count() != len(reference_ids):
+            raise serializers.ValidationError("One or more references do not exist.")
+
+        #  Access control (all references must belong to reviews user can access)
+        reviews = {ref.review for ref in references}
+        for review in reviews:
+            if not is_owner_or_collaborator(user, review):
+                raise PermissionDenied("You do not have access to one or more reviews.")
+
+        existing_opinions = {
+            op.reference_id: op
+            for op in ReferenceOpinion.objects.filter(
+                reference_id__in=reference_ids,
+                reviewer=user,
+            )
+        }
+
+        to_create = []
+        to_update = []
+
+        for ref in references:
+            if ref.id in existing_opinions:
+                opinion = existing_opinions[ref.id]
+                opinion.status = status
+                to_update.append(opinion)
+            else:
+                to_create.append(
+                    ReferenceOpinion(
+                        reference=ref,
+                        reviewer=user,
+                        status=status,
+                    )
+                )
+
+        if to_create:
+            ReferenceOpinion.objects.bulk_create(to_create)
+
+        if to_update:
+            ReferenceOpinion.objects.bulk_update(to_update, ["status"])
+
+        # Return updated opinions
+        opinions = ReferenceOpinion.objects.filter(
+            reference_id__in=reference_ids,
+            reviewer=user,
+        )
+
+        serializer = self.get_serializer(opinions, many=True)
+        return Response(serializer.data)
 
 
 class ReferenceDuplicatePairViewSet(viewsets.ViewSet):
@@ -1172,7 +1270,21 @@ class NoteViewSet(viewsets.ModelViewSet):
     serializer_class = NoteSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.DjangoFilterBackend]
-    filterset_fields = ["reference", "reference__review"]
+    filterset_fields = ["reference"]
+
+    def get_object(self):
+        obj = super().get_object()
+        review = obj.reference.review
+        user = self.request.user
+
+        if not is_owner_or_collaborator(user, review):
+            raise PermissionDenied("You do not have access to this note.")
+
+        # Blinded review rule
+        if review.is_blinded and obj.author != user:
+            raise PermissionDenied("You cannot access this note.")
+
+        return obj
 
     def get_queryset(self):
         """
@@ -1183,12 +1295,8 @@ class NoteViewSet(viewsets.ModelViewSet):
 
         # Get filters from query params
         reference_id = self.request.query_params.get("reference")
-        review_id = self.request.query_params.get("review")
-
         if reference_id:
             queryset = queryset.filter(reference_id=reference_id)
-        elif review_id:
-            queryset = queryset.filter(reference__review_id=review_id)
 
         # Only include notes from reviews the user can access
         queryset = queryset.filter(
@@ -1201,7 +1309,7 @@ class NoteViewSet(viewsets.ModelViewSet):
             reference__review__is_blinded=True
         ) | blinded_reviews.filter(author=self.request.user)
 
-        return queryset.distinct()
+        return queryset.distinct().select_related("author")
 
     def perform_create(self, serializer):
         """
@@ -1221,6 +1329,45 @@ class NoteViewSet(viewsets.ModelViewSet):
             )
 
         serializer.save(author=self.request.user, reference=reference)
+
+    @action(detail=False, methods=["post"], url_path="bulk-create")
+    def bulk_create(self, request):
+        serializer = BulkCreateNoteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        reference_ids = serializer.validated_data["reference_ids"]
+        content = serializer.validated_data["content"]
+
+        references = Reference.objects.filter(id__in=reference_ids).select_related(
+            "review"
+        )
+
+        if references.count() != len(reference_ids):
+            raise PermissionDenied("One or more references do not exist.")
+
+        notes = []
+
+        for reference in references:
+            review = reference.review
+
+            if not is_owner_or_collaborator(request.user, review):
+                raise PermissionDenied(f"No permission for review {review.id}")
+
+            notes.append(
+                Note(
+                    author=request.user,
+                    reference=reference,
+                    content=content,
+                )
+            )
+
+        with transaction.atomic():
+            Note.objects.bulk_create(notes)
+
+        return Response(
+            {"created": len(notes)},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class ReviewInvitationViewSet(
@@ -1402,6 +1549,9 @@ class LabelViewSet(viewsets.ModelViewSet):
         """
         user = request.user
         reference_ids = request.data.get("reference_ids", [])
+        if reference_ids:
+            reference_ids = request.data.get("reference_ids")
+            reference_ids = list(set(reference_ids))
         checked_label_ids = request.data.get("checked_label_ids", [])
         indeterminate_label_ids = request.data.get("indeterminate_label_ids", [])
 
@@ -1452,3 +1602,53 @@ class LabelViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class ScreeningCriteriaViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for ScreeningCriteria.
+    Access allowed only to review owner or collaborators.
+    """
+
+    serializer_class = ScreeningCriteriaSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ["review", "kind"]
+
+    def get_queryset(self):
+        """
+        List only criteria belonging to reviews the user can access.
+        Supports filtering by ?review=ID
+        """
+        queryset = ScreeningCriteria.objects.all()
+
+        review_id = self.request.query_params.get("review")
+        if review_id:
+            queryset = queryset.filter(review_id=review_id)
+
+        user = self.request.user
+        return queryset.filter(review__owner=user) | queryset.filter(
+            review__collaborators=user
+        )
+
+    def perform_create(self, serializer):
+        review = serializer.validated_data["review"]
+
+        if not is_owner_or_collaborator(self.request.user, review):
+            raise PermissionDenied(
+                "You do not have permission to add criteria to this review."
+            )
+
+        serializer.save()
+
+    def get_object(self):
+        """
+        Enforce permissions for retrieve / update / delete.
+        """
+        obj = super().get_object()
+
+        if not is_owner_or_collaborator(self.request.user, obj.review):
+            raise PermissionDenied(
+                "You do not have permission to access this screening criteria."
+            )
+
+        return obj

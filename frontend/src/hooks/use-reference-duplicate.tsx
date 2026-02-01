@@ -62,7 +62,7 @@ export const useResolveDuplicateReferences = () => {
     {
       reviewId: number;
       referenceDuplicateId: number;
-      selection: 1 | 2;
+      selection: 1 | 2 | 3;
     }
   >({
     mutationFn: ({ reviewId, referenceDuplicateId, selection }) =>

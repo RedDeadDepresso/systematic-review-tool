@@ -16,6 +16,7 @@ from api.models import (
     ReferenceOpinion,
     Review,
     ReviewInvitation,
+    ScreeningCriteria,
     SubTheme,
     UploadedPDF,
     User,
@@ -206,27 +207,21 @@ class ReferenceSerializer(BaseReferenceSerializer):
     assignee = serializers.SerializerMethodField()
 
     def get_opinions(self, obj):
-        # Blinded -> return current user's opinion
-        if hasattr(obj, "opinions_for_user"):
-            if obj.opinions_for_user:
-                op = obj.opinions_for_user[0]
-                return {
-                    "reviewer": str(op.reviewer),
-                    "status": op.status,
-                }
+        opinions = getattr(obj, "prefetched_opinions", None)
+        if opinions is None:
             return None
 
-        # Not blinded -> return all opinions
-        if hasattr(obj, "opinions_all"):
-            return [
-                {
-                    "reviewer": str(op.reviewer),
-                    "status": op.status,
-                }
-                for op in obj.opinions_all
-            ]
-
-        return None
+        return [
+            {
+                "reviewer": {
+                    "first_name": op.reviewer.first_name,
+                    "last_name": op.reviewer.last_name,
+                    "email": op.reviewer.email,
+                },
+                "status": op.status,
+            }
+            for op in opinions
+        ]
 
     def get_labels(self, obj):
         """
@@ -251,7 +246,9 @@ class ReferenceSerializer(BaseReferenceSerializer):
             return None
         return {
             "id": obj.assignee.id,
-            "display_name": str(obj.assignee) or obj.assignee.username,
+            "first_name": obj.assignee.first_name,
+            "last_name": obj.assignee.last_name,
+            "email": obj.assignee.email,
         }
 
 
@@ -281,10 +278,19 @@ class KeywordSerializer(ModelSerializer):
 
 
 class NoteSerializer(serializers.ModelSerializer):
+    author = UserSerializer(read_only=True)
+
     class Meta:
         model = Note
         fields = ["id", "author", "content", "date_created", "date_edited"]
         read_only_fields = ["author", "date_created", "date_edited"]
+
+
+class BulkCreateNoteSerializer(serializers.Serializer):
+    reference_ids = serializers.ListField(
+        child=serializers.IntegerField(), allow_empty=False
+    )
+    content = serializers.CharField()
 
 
 class ReviewInvitationCreateSerializer(serializers.Serializer):
@@ -368,3 +374,10 @@ class AssignReferencesSerializer(serializers.Serializer):
     )
     mode = serializers.ChoiceField(choices=["assign", "remove", "split_equally"])
     assignee_id = serializers.IntegerField(required=False)
+
+
+class ScreeningCriteriaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ScreeningCriteria
+        fields = ["id", "review", "name", "description", "kind"]
+        read_only_fields = ["id"]

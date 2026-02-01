@@ -1,17 +1,21 @@
-import React from 'react';
-import { X, FileText, Tag, MessageSquare, Send, Paperclip } from 'lucide-react';
+import { type ReactNode } from 'react';
+import { X, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
 import type { Reference } from '@/types/reference';
 import { ReferenceContent } from './reference-content';
+import {
+  ReviewDataFooter,
+  ScreeningFooter,
+  type ReviewDataFooterProps,
+  type ScreeningFooterProps,
+} from './references-table-footer';
 
 interface ReferenceDetailPanelProps {
   reference: Reference | null;
   onClose: () => void;
   highlightIncludeKeywords?: string[];
   highlightExcludeKeywords?: string[];
-  onAttachPDF?: () => void;
+  children?: ReactNode;
 }
 
 export function ReferenceDetailPanel({
@@ -19,10 +23,8 @@ export function ReferenceDetailPanel({
   onClose,
   highlightIncludeKeywords = [],
   highlightExcludeKeywords = [],
-  onAttachPDF,
+  children,
 }: ReferenceDetailPanelProps) {
-  const [noteText, setNoteText] = React.useState('');
-
   if (reference === null) {
     return (
       <div className="flex-1 border-l border-border bg-card flex flex-col shrink-0">
@@ -60,54 +62,41 @@ export function ReferenceDetailPanel({
         reference={reference}
         highlightIncludeKeywords={highlightIncludeKeywords}
         highlightExcludeKeywords={highlightExcludeKeywords}
+        showNotes={true}
       />
 
       {/* Footer */}
-      <div className="px-4 py-3 border-t border-border bg-muted/30 space-y-3">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 gap-2 bg-transparent"
-            onClick={onAttachPDF}
-          >
-            <Paperclip className="h-4 w-4" />
-            Attach PDF
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 gap-2 text-primary border-primary bg-transparent"
-          >
-            <Tag className="h-4 w-4" />
-            Label
-          </Button>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-            <MessageSquare className="h-4 w-4 text-primary" />
-          </div>
-          <Input
-            placeholder="Add note"
-            value={noteText}
-            onChange={(e) => setNoteText(e.target.value)}
-            className="flex-1 h-8 text-sm"
-          />
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-8 w-8 p-0 shrink-0"
-            disabled={!noteText.trim()}
-          >
-            <Send
-              className={cn(
-                'h-4 w-4',
-                noteText.trim() ? 'text-primary' : 'text-muted-foreground'
-              )}
-            />
-          </Button>
-        </div>
-      </div>
+      {children}
     </div>
+  );
+}
+
+interface ReviewDataReferenceDetailPanelProps
+  extends ReferenceDetailPanelProps,
+    ReviewDataFooterProps {}
+
+export function ReviewDataReferenceDetailPanel(
+  props: ReviewDataReferenceDetailPanelProps
+) {
+  return (
+    <ReferenceDetailPanel
+      {...props}
+      children={<ReviewDataFooter {...props} />}
+    />
+  );
+}
+
+interface ScreeningReferenceDetailPanelProps
+  extends ReferenceDetailPanelProps,
+    ScreeningFooterProps {}
+
+export function ScreeningReferenceDetailPanel(
+  props: ScreeningReferenceDetailPanelProps
+) {
+  return (
+    <ReferenceDetailPanel
+      {...props}
+      children={<ScreeningFooter {...props} />}
+    />
   );
 }

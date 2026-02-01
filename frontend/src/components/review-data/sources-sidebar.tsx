@@ -28,6 +28,7 @@ interface SourcesSidebarProps {
   isCollapsed: boolean;
   onAddReferences: () => void;
   onDetectDuplicates: () => void;
+  onResolveDuplicates: () => void;
 }
 
 export function SourcesSidebar({
@@ -42,6 +43,7 @@ export function SourcesSidebar({
   isCollapsed,
   onAddReferences,
   onDetectDuplicates,
+  onResolveDuplicates,
 }: SourcesSidebarProps) {
   const duplicateStatuses = [
     { key: 'Unresolved', icon: Clock, label: 'Unresolved' },
@@ -167,7 +169,7 @@ export function SourcesSidebar({
                 );
               })}
 
-              <div className="px-3 pt-2">
+              <div className="px-3 pt-2 flex flex-col gap-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -175,6 +177,14 @@ export function SourcesSidebar({
                   onClick={onDetectDuplicates}
                 >
                   Detect Duplicates
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-primary border-primary hover:bg-primary/10 bg-transparent"
+                  onClick={onResolveDuplicates}
+                >
+                  Resolve Duplicates
                 </Button>
               </div>
             </div>

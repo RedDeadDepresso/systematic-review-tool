@@ -49,6 +49,7 @@ import type {
 } from '@/api/reference';
 
 interface FiltersSidebarProps {
+  reviewId: number; // ADD THIS - needed for state persistence
   keywords: Keyword[];
   labels: LabelCount[];
   publicationTypes: PublicationType[];
@@ -183,6 +184,7 @@ const CheckboxItem: React.FC<CheckboxItemProps> = ({
 );
 
 export function FiltersSidebar({
+  reviewId,
   keywords,
   selectedIncludeKeywords,
   selectedExcludeKeywords,
@@ -226,25 +228,116 @@ export function FiltersSidebar({
   onArticleViewLayoutChange,
 }: FiltersSidebarProps) {
   const isMobile = useIsMobile();
-  const [searchFilter, setSearchFilter] = useState('');
 
-  // Section open/close states
-  const [sections, setSections] = useState({
-    include: true,
-    exclude: true,
-    labels: true,
-    searchMethods: true,
-    publicationTypes: true,
-    publicationYears: true,
-    fileStatus: true,
-    assignees: true,
-    layout: true,
-  });
+  // PERSISTENT STATE - survives data changes
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const toggleSection = (section: keyof typeof sections) => {
-    setSections((prev) => ({ ...prev, [section]: !prev[section] }));
+  type Section = {
+    include: boolean;
+    exclude: boolean;
+    labels: boolean;
+    searchMethods: boolean;
+    publicationTypes: boolean;
+    publicationYears: boolean;
+    fileStatus: boolean;
+    assignees: boolean;
+    layout: boolean;
   };
 
+  // Initialize section states from localStorage
+  const [sections, setSections] = useState<Section>(() => {
+    if (typeof window === 'undefined') {
+      return {
+        include: true,
+        exclude: true,
+        labels: true,
+        searchMethods: true,
+        publicationTypes: true,
+        publicationYears: true,
+        fileStatus: true,
+        assignees: true,
+        layout: true,
+      };
+    }
+
+    try {
+      const stored = localStorage.getItem(
+        `filtersSidebar_${reviewId}_sections`
+      );
+      return stored
+        ? JSON.parse(stored)
+        : {
+            include: true,
+            exclude: true,
+            labels: true,
+            searchMethods: true,
+            publicationTypes: true,
+            publicationYears: true,
+            fileStatus: true,
+            assignees: true,
+            layout: true,
+          };
+    } catch {
+      return {
+        include: true,
+        exclude: true,
+        labels: true,
+        searchMethods: true,
+        publicationTypes: true,
+        publicationYears: true,
+        fileStatus: true,
+        assignees: true,
+        layout: true,
+      };
+    }
+  });
+
+  // Initialize search filter from localStorage
+  const [searchFilter, setSearchFilter] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    try {
+      return localStorage.getItem(`filtersSidebar_${reviewId}_search`) || '';
+    } catch {
+      return '';
+    }
+  });
+
+  // Save sections to localStorage whenever they change
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(
+      `filtersSidebar_${reviewId}_sections`,
+      JSON.stringify(sections)
+    );
+  }, [sections, reviewId]);
+
+  // Save search filter to localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(`filtersSidebar_${reviewId}_search`, searchFilter);
+  }, [searchFilter, reviewId]);
+
+  // Restore scroll position on mount
+  useEffect(() => {
+    if (typeof window === 'undefined' || !scrollContainerRef.current) return;
+
+    const stored = localStorage.getItem(`filtersSidebar_${reviewId}_scroll`);
+    if (stored) {
+      scrollContainerRef.current.scrollTop = parseInt(stored, 10);
+    }
+  }, [reviewId]);
+
+  // Save scroll position on scroll
+  const handleScroll = () => {
+    if (scrollContainerRef.current) {
+      localStorage.setItem(
+        `filtersSidebar_${reviewId}_scroll`,
+        scrollContainerRef.current.scrollTop.toString()
+      );
+    }
+  };
+
+  // COMPONENT-LOCAL STATE (non-persistent)
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showAddIncludeInput, setShowAddIncludeInput] = useState(false);
   const [showAddExcludeInput, setShowAddExcludeInput] = useState(false);
@@ -261,6 +354,10 @@ export function FiltersSidebar({
   const [deleteConfirmLabel, setDeleteConfirmLabel] = useState<Label | null>(
     null
   );
+
+  const toggleSection = (section: keyof typeof sections) => {
+    setSections((prev) => ({ ...prev, [section]: !prev[section] }));
+  };
 
   // Filter all sections based on search
   const filterBySearch = <
@@ -378,9 +475,9 @@ export function FiltersSidebar({
     searchMethods: filteredSearchMethods.length > 0,
     publicationTypes: filteredPublicationTypes.length > 0,
     publicationYears: filteredPublicationYears.length > 0,
-    fileStatus: true, // Always show file status
+    fileStatus: true,
     assignees: filteredAssignees.length > 0,
-    layout: true, // Always show layout
+    layout: true,
   };
 
   useEffect(() => {
@@ -500,7 +597,11 @@ export function FiltersSidebar({
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div
+        className="flex-1 overflow-y-auto"
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+      >
         {/* Keywords to Include */}
         {hasFilteredContent.include && (
           <CollapsibleSection
@@ -969,6 +1070,33 @@ export function FiltersSidebar({
                   )}
                 </div>
                 <span className="text-sm">Title only view</span>
+              </label>
+              <label
+                aria-disabled={isMobile}
+                className={cn(
+                  'flex items-center gap-3 py-1.5 rounded px-2 -mx-2',
+                  isMobile
+                    ? 'opacity-50 cursor-not-allowed pointer-events-none'
+                    : 'cursor-pointer hover:bg-muted/50'
+                )}
+                onClick={() => {
+                  if (isMobile) return;
+                  onArticleViewLayoutChange('title-file');
+                }}
+              >
+                <div
+                  className={cn(
+                    'w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors',
+                    articleViewLayout === 'title-file'
+                      ? 'border-primary'
+                      : 'border-muted-foreground'
+                  )}
+                >
+                  {articleViewLayout === 'title-file' && (
+                    <div className="w-2 h-2 rounded-full bg-primary" />
+                  )}
+                </div>
+                <span className="text-sm">Title & File view</span>
               </label>
             </div>
           </CollapsibleSection>

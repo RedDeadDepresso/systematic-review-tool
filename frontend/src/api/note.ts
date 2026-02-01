@@ -1,13 +1,9 @@
 import api from './axios';
 
 /* ------------------ FETCH NOTES ------------------ */
-export const fetchNotes = async (params: {
-  reviewId: number;
-  referenceId: number;
-}) => {
+export const fetchNotes = async (params: { referenceId: number }) => {
   const res = await api.get('/notes/', {
     params: {
-      review: params.reviewId,
       reference: params.referenceId,
     },
   });
@@ -16,11 +12,18 @@ export const fetchNotes = async (params: {
 
 /* ------------------ CREATE NOTE ------------------ */
 export const createNote = async (payload: {
-  review: number;
   reference: number;
   content: string;
 }) => {
   const res = await api.post('/notes/', payload);
+  return res.data;
+};
+
+export const bulkCreateNote = async (payload: {
+  referenceIds: number[];
+  content: string;
+}) => {
+  const res = await api.post('/notes/bulk-create/', payload);
   return res.data;
 };
 

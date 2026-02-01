@@ -1,26 +1,18 @@
-import React from 'react';
+import { type ReactNode } from 'react';
 
 import { useEffect, useState } from 'react';
-import {
-  X,
-  ChevronLeft,
-  ChevronRight,
-  FileText,
-  BookOpen,
-  Tag,
-  Users,
-  Building,
-  Hash,
-  Link as LinkIcon,
-  FolderOpen,
-  MessageSquare,
-  Send,
-} from 'lucide-react';
+import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { highlightText } from '@/lib/reference';
 import type { Reference } from '@/types/reference';
+import {
+  ReviewDataFooter,
+  ScreeningFooter,
+  type ReviewDataFooterProps,
+  type ScreeningFooterProps,
+} from './references-table-footer';
+import { ReferenceContent } from './reference-content';
 
 interface ReferenceDrawerProps {
   reference: Reference;
@@ -30,30 +22,7 @@ interface ReferenceDrawerProps {
   hasNext: boolean;
   highlightIncludeKeywords?: string[];
   highlightExcludeKeywords?: string[];
-}
-
-function DetailSection({
-  icon: Icon,
-  label,
-  children,
-}: {
-  icon: React.ElementType;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="py-4 border-b border-border last:border-b-0">
-      <div className="flex items-start gap-3">
-        <Icon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground mb-1">{label}:</p>
-          <div className="text-sm text-muted-foreground leading-relaxed">
-            {children}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  children?: ReactNode;
 }
 
 export function ReferenceDrawer({
@@ -64,8 +33,8 @@ export function ReferenceDrawer({
   hasNext,
   highlightIncludeKeywords = [],
   highlightExcludeKeywords = [],
+  children,
 }: ReferenceDrawerProps) {
-  const [noteText, setNoteText] = useState('');
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -140,114 +109,38 @@ export function ReferenceDrawer({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          <div className="space-y-0">
-            <DetailSection icon={FileText} label="Abstract">
-              {highlightText(
-                reference.abstract,
-                highlightIncludeKeywords,
-                highlightExcludeKeywords
-              )}
-            </DetailSection>
-
-            <DetailSection icon={BookOpen} label="Publication Types">
-              {highlightText(
-                reference.publicationType,
-                highlightIncludeKeywords,
-                highlightExcludeKeywords
-              )}
-            </DetailSection>
-
-            <DetailSection icon={Users} label="Authors">
-              {highlightText(
-                reference.authors,
-                highlightIncludeKeywords,
-                highlightExcludeKeywords
-              )}
-            </DetailSection>
-
-            <DetailSection icon={Building} label="Journal">
-              {highlightText(
-                reference.journal,
-                highlightIncludeKeywords,
-                highlightExcludeKeywords
-              )}
-              {reference.publicationDate &&
-                ` - published ${reference.publicationDate}`}
-            </DetailSection>
-
-            <DetailSection icon={Hash} label="Reference ID">
-              {reference.id}
-            </DetailSection>
-
-            {reference.url && (
-              <DetailSection icon={LinkIcon} label="URL">
-                <a
-                  href={reference.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline break-all"
-                >
-                  {reference.url}
-                </a>
-              </DetailSection>
-            )}
-
-            {reference.doi && (
-              <DetailSection icon={Hash} label="DOI">
-                <a
-                  href={`https://doi.org/${reference.doi}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline"
-                >
-                  {reference.doi}
-                </a>
-              </DetailSection>
-            )}
-
-            <DetailSection icon={FolderOpen} label="Search Methods">
-              Uploaded References [{reference.searchMethod}]
-            </DetailSection>
-          </div>
-        </div>
+        <ReferenceContent
+          reference={reference}
+          highlightIncludeKeywords={highlightIncludeKeywords}
+          highlightExcludeKeywords={highlightExcludeKeywords}
+          showNotes={true}
+        />
 
         {/* Footer */}
-        <div className="flex items-center gap-3 px-4 py-3 border-t border-border bg-muted/30">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 bg-transparent text-primary border-primary"
-          >
-            <Tag className="h-4 w-4" />
-            Label
-          </Button>
-          <div className="flex items-center gap-2 ml-auto">
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-              <MessageSquare className="h-4 w-4 text-primary" />
-            </div>
-            <Input
-              placeholder="Add note"
-              value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
-              className="w-48 h-8 text-sm"
-            />
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-8 w-8 p-0"
-              disabled={!noteText.trim()}
-            >
-              <Send
-                className={cn(
-                  'h-4 w-4',
-                  noteText.trim() ? 'text-primary' : 'text-muted-foreground'
-                )}
-              />
-            </Button>
-          </div>
-        </div>
+        {children}
       </div>
     </>
+  );
+}
+
+export interface ReviewDataReferenceDrawerProps
+  extends ReferenceDrawerProps,
+    ReviewDataFooterProps {}
+
+export function ReviewDataReferenceDrawer(
+  props: ReviewDataReferenceDrawerProps
+) {
+  return (
+    <ReferenceDrawer {...props} children={<ReviewDataFooter {...props} />} />
+  );
+}
+
+export interface ScreeningeferenceDrawerProps
+  extends ReferenceDrawerProps,
+    ScreeningFooterProps {}
+
+export function ScreeningReferenceDrawer(props: ScreeningeferenceDrawerProps) {
+  return (
+    <ReferenceDrawer {...props} children={<ScreeningFooter {...props} />} />
   );
 }

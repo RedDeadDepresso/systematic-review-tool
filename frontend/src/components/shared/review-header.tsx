@@ -1,10 +1,7 @@
 import { Grid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import {
-  ScreeningCriteriaPopover,
-  type Criteria,
-} from '@/components/shared/screening-criteria-popover';
+import { ScreeningCriteriaPopover } from '@/components/shared/screening-criteria-popover';
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -15,15 +12,9 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ReviewHeaderProps {
   reviewId: number;
-  screeningCriteria?: Criteria[];
-  onScreeningCriteriaChange?: (criteria: Criteria[]) => void;
 }
 
-export function ReviewHeader({
-  reviewId,
-  screeningCriteria = [],
-  onScreeningCriteriaChange,
-}: ReviewHeaderProps) {
+export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
   const isMobile = useIsMobile();
 
   // detect the current route to highlight the active tab
@@ -85,6 +76,7 @@ export function ReviewHeader({
             <Switch />
           </div>
           <ScreeningCriteriaPopover
+            reviewId={reviewId}
             trigger={
               <Button
                 variant="outline"
@@ -95,8 +87,6 @@ export function ReviewHeader({
                 Screening criteria
               </Button>
             }
-            criteria={screeningCriteria}
-            onCriteriaChange={onScreeningCriteriaChange || (() => {})}
           />
         </div>
       </div>

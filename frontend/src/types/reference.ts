@@ -1,8 +1,10 @@
 import type { User } from './auth';
 
+export type OpinionStatus = 'Undecided' | 'Included' | 'Excluded' | 'Maybe';
+
 export type Opinion = {
-  reviewer: string;
-  status: 'Included' | 'Excluded' | 'Maybe';
+  reviewer: User;
+  status: OpinionStatus;
 };
 
 export type Label = {
@@ -33,7 +35,7 @@ export type Reference = {
 // Reference Table
 export type SortField = 'title' | 'date' | 'author';
 export type SortDirection = 'asc' | 'desc';
-export type ArticleViewLayout = 'title-only' | 'title-abstract';
+export type ArticleViewLayout = 'title-only' | 'title-abstract' | 'title-file';
 
 export type DuplicateReferencePair = {
   reference1: Reference;
