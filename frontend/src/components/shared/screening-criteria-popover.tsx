@@ -6,6 +6,8 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Pencil, Minus, Send, SquareSlash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
 import {
   Popover,
   PopoverContent,
@@ -22,35 +24,41 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
-
-export interface Criteria {
-  id: string;
-  name: string;
-  description: string;
-  type: 'inclusion' | 'exclusion';
-}
+import {
+  useCreateScreeningCriteria,
+  useDeleteScreeningCriteria,
+  useFetchScreeningCriteria,
+  useUpdateScreeningCriteria,
+} from '@/hooks/use-screening-criteria';
+import type { ScreeningCriteria } from '@/types/screening-criteria';
 
 interface ScreeningCriteriaPopoverProps {
+  reviewId: number;
   trigger: React.ReactNode;
-  criteria: Criteria[];
-  onCriteriaChange: (criteria: Criteria[]) => void;
 }
 
 export function ScreeningCriteriaPopover({
   trigger,
-  criteria,
-  onCriteriaChange,
+  reviewId,
 }: ScreeningCriteriaPopoverProps) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'inclusion' | 'exclusion'>(
     'inclusion'
   );
-  const [newCriteriaText, setNewCriteriaText] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingText, setEditingText] = useState('');
+  const [newCriteriaName, setNewCriteriaName] = useState('');
+  const [newCriteriaDescription, setNewCriteriaDescription] = useState('');
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingName, setEditingName] = useState('');
+  const [editingDescription, setEditingDescription] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [criteriaToDelete, setCriteriaToDelete] = useState<string | null>(null);
-  const editInputRef = useRef<HTMLInputElement>(null);
+  const [criteriaToDelete, setCriteriaToDelete] = useState<number | null>(null);
+  const [popoverShouldStayOpen, setPopoverShouldStayOpen] = useState(false);
+
+  const editNameInputRef = useRef<HTMLInputElement>(null);
+  const fetchCriteria = useFetchScreeningCriteria({ reviewId: reviewId });
+  const createCriteria = useCreateScreeningCriteria();
+  const updateCriteria = useUpdateScreeningCriteria();
+  const deleteCriteria = useDeleteScreeningCriteria();
 
   // Keyboard shortcut to open popover
   useEffect(() => {
@@ -67,77 +75,127 @@ export function ScreeningCriteriaPopover({
 
   // Focus edit input when editing starts
   useEffect(() => {
-    if (editingId && editInputRef.current) {
-      editInputRef.current.focus();
+    if (editingId && editNameInputRef.current) {
+      editNameInputRef.current.focus();
     }
   }, [editingId]);
 
-  const inclusionCriteria = criteria.filter((c) => c.type === 'inclusion');
-  const exclusionCriteria = criteria.filter((c) => c.type === 'exclusion');
+  // Keep popover open when dialog is open
+  useEffect(() => {
+    if (deleteDialogOpen) {
+      setPopoverShouldStayOpen(true);
+    }
+  }, [deleteDialogOpen]);
+
+  // Prevent popover from closing when it should stay open
+  const handleOpenChange = (newOpen: boolean) => {
+    if (popoverShouldStayOpen && !newOpen) {
+      // Don't close if we want it to stay open
+      return;
+    }
+    setOpen(newOpen);
+  };
+
+  const inclusionCriteria = fetchCriteria.data
+    ? fetchCriteria.data.filter(
+        (c: ScreeningCriteria) => c.kind === 'Inclusive'
+      )
+    : [];
+  const exclusionCriteria = fetchCriteria.data
+    ? fetchCriteria.data.filter(
+        (c: ScreeningCriteria) => c.kind === 'Exclusive'
+      )
+    : [];
   const currentCriteria =
     activeTab === 'inclusion' ? inclusionCriteria : exclusionCriteria;
 
-  const handleAddCriteria = () => {
-    if (!newCriteriaText.trim()) return;
-
-    const count =
-      activeTab === 'inclusion'
-        ? inclusionCriteria.length
-        : exclusionCriteria.length;
-    const newCriteria: Criteria = {
-      id: `${activeTab}-${Date.now()}`,
-      name: `${activeTab === 'inclusion' ? 'Inclusion' : 'Exclusion'} Criteria ${count + 1}`,
-      description: newCriteriaText.trim(),
-      type: activeTab,
-    };
-
-    onCriteriaChange([...criteria, newCriteria]);
-    setNewCriteriaText('');
+  const handleAddCriteria = async () => {
+    try {
+      if (!newCriteriaName.trim()) return;
+      await createCriteria.mutateAsync({
+        review: reviewId,
+        name: newCriteriaName.trim(),
+        description: newCriteriaDescription.trim(),
+        kind: activeTab === 'inclusion' ? 'Inclusive' : 'Exclusive',
+      });
+      setNewCriteriaName('');
+      setNewCriteriaDescription('');
+    } catch (error) {
+      console.log(error);
+    }
   };
 
-  const handleEditStart = (c: Criteria) => {
+  const handleEditStart = (c: ScreeningCriteria) => {
     setEditingId(c.id);
-    setEditingText(c.description);
+    setEditingName(c.name);
+    setEditingDescription(c.description);
   };
 
-  const handleEditSave = (id: string) => {
-    if (!editingText.trim()) {
+  const handleEditSave = async (id: number) => {
+    if (!editingName.trim()) {
       setEditingId(null);
       return;
     }
-
-    onCriteriaChange(
-      criteria.map((c) =>
-        c.id === id ? { ...c, description: editingText.trim() } : c
-      )
-    );
-    setEditingId(null);
-    setEditingText('');
+    try {
+      await updateCriteria.mutateAsync({
+        criteriaId: id,
+        reviewId: reviewId,
+        payload: {
+          name: editingName.trim(),
+          description: editingDescription.trim(),
+        },
+      });
+      setEditingId(null);
+      setEditingName('');
+      setEditingDescription('');
+    } catch (error) {
+      console.log(error);
+    }
   };
 
-  const handleDeleteClick = (id: string) => {
+  const handleDeleteClick = (id: number) => {
     setCriteriaToDelete(id);
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
-    if (criteriaToDelete) {
-      onCriteriaChange(criteria.filter((c) => c.id !== criteriaToDelete));
+  const handleDeleteConfirm = async () => {
+    if (!criteriaToDelete) return;
+    try {
+      await deleteCriteria.mutateAsync({
+        criteriaId: criteriaToDelete,
+        reviewId: reviewId,
+      });
+      setDeleteDialogOpen(false);
+      setCriteriaToDelete(null);
+      setPopoverShouldStayOpen(false);
+    } catch (error) {
+      console.log(error);
     }
+  };
+
+  const handleDeleteCancel = () => {
     setDeleteDialogOpen(false);
     setCriteriaToDelete(null);
+    setPopoverShouldStayOpen(false);
   };
 
   return (
     <>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-        <PopoverContent className="w-96 p-0" align="end">
+        <PopoverContent
+          className="w-full sm:w-[500px] p-0 max-h-[90vh] flex flex-col"
+          align="end"
+          side="bottom"
+          sideOffset={5}
+        >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <div className="flex items-center justify-between px-3 sm:px-4 py-3 border-b border-border shrink-0">
             <div className="flex items-center gap-2">
-              <SquareSlash className="h-5 w-5 text-muted-foreground" />
-              <span className="font-semibold">Screening Criteria</span>
+              <SquareSlash className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+              <span className="text-sm sm:text-base font-semibold">
+                Screening Criteria
+              </span>
             </div>
             <Button
               variant="ghost"
@@ -149,130 +207,206 @@ export function ScreeningCriteriaPopover({
             </Button>
           </div>
 
-          {/* Keyboard hint */}
-          <div className="px-4 py-2 text-sm text-primary">
+          {/* Keyboard hint - hidden on mobile */}
+          <div className="hidden sm:block px-4 py-2 text-xs sm:text-sm text-primary shrink-0">
             Or press "c" on the keyboard to view criteria
           </div>
 
           {/* Tabs */}
-          <div className="px-4">
+          <div className="px-3 sm:px-4 shrink-0">
             <div className="flex border border-border rounded-lg overflow-hidden">
               <button
                 onClick={() => setActiveTab('inclusion')}
                 className={cn(
-                  'flex-1 px-4 py-2 text-sm font-medium transition-colors',
+                  'flex-1 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors',
                   activeTab === 'inclusion'
                     ? 'bg-background text-foreground'
                     : 'bg-muted/50 text-muted-foreground hover:text-foreground'
                 )}
               >
-                Inclusion Criteria
+                Inclusion
               </button>
               <button
                 onClick={() => setActiveTab('exclusion')}
                 className={cn(
-                  'flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-border',
+                  'flex-1 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors border-l border-border',
                   activeTab === 'exclusion'
                     ? 'bg-background text-foreground'
                     : 'bg-muted/50 text-muted-foreground hover:text-foreground'
                 )}
               >
-                Exclusion Criteria
+                Exclusion
               </button>
             </div>
           </div>
 
-          {/* Criteria List */}
-          <div className="px-4 py-3 min-h-[150px] max-h-[250px] overflow-y-auto">
+          {/* Criteria List - scrollable */}
+          <div className="px-3 sm:px-4 py-3 min-h-[150px] overflow-y-auto flex-1">
             {currentCriteria.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
+              <p className="text-xs sm:text-sm text-muted-foreground text-center py-8">
                 No {activeTab} criteria yet
               </p>
             ) : (
-              <div className="space-y-3">
-                {currentCriteria.map((c) => (
-                  <div key={c.id} className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-primary">
-                        {c.name}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          onClick={() => handleEditStart(c)}
-                        >
-                          <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          onClick={() => handleDeleteClick(c.id)}
-                        >
-                          <Minus className="h-3.5 w-3.5 text-muted-foreground" />
-                        </Button>
+              <div className="space-y-0">
+                {currentCriteria.map((c: ScreeningCriteria, index: number) => (
+                  <React.Fragment key={c.id}>
+                    <div className="py-2 sm:py-3">
+                      {/* Header with Badge */}
+                      <div className="flex items-start justify-between gap-2 sm:gap-3 mb-2">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              'inline-flex items-center justify-center px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs font-semibold rounded whitespace-nowrap',
+                              activeTab === 'inclusion'
+                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                            )}
+                          >
+                            {activeTab === 'inclusion'
+                              ? 'Inclusion'
+                              : 'Exclusion'}{' '}
+                            {index + 1}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={() => handleEditStart(c)}
+                          >
+                            <Pencil className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={() => handleDeleteClick(c.id)}
+                          >
+                            <Minus className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
+                          </Button>
+                        </div>
                       </div>
+
+                      {/* Editing Mode */}
+                      {editingId === c.id ? (
+                        <div className="space-y-2">
+                          <div>
+                            <label className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 block">
+                              Name
+                            </label>
+                            <Input
+                              ref={editNameInputRef}
+                              value={editingName}
+                              onChange={(e) => setEditingName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleEditSave(c.id);
+                                if (e.key === 'Escape') setEditingId(null);
+                              }}
+                              className="h-7 sm:h-8 text-xs sm:text-sm font-medium"
+                              placeholder="Criteria name..."
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 block">
+                              Description
+                            </label>
+                            <Textarea
+                              value={editingDescription}
+                              onChange={(e) =>
+                                setEditingDescription(e.target.value)
+                              }
+                              className="text-xs sm:text-sm min-h-[50px] sm:min-h-[60px] resize-none"
+                              placeholder="Criteria description..."
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              className="h-7 sm:h-8 px-2 sm:px-3 text-xs"
+                              onClick={() => handleEditSave(c.id)}
+                              disabled={!editingName.trim()}
+                            >
+                              Save
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 sm:h-8 px-2 sm:px-3 text-xs"
+                              onClick={() => setEditingId(null)}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Display Mode */
+                        <div className="space-y-1 sm:space-y-1.5">
+                          <p className="text-xs sm:text-sm font-semibold text-foreground break-words">
+                            {c.name}
+                          </p>
+                          {c.description && (
+                            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed break-words">
+                              {c.description}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    {editingId === c.id ? (
-                      <div className="flex gap-2">
-                        <Input
-                          ref={editInputRef}
-                          value={editingText}
-                          onChange={(e) => setEditingText(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleEditSave(c.id);
-                            if (e.key === 'Escape') setEditingId(null);
-                          }}
-                          className="h-8 text-sm"
-                          placeholder="Enter criteria description..."
-                        />
-                        <Button
-                          size="sm"
-                          className="h-8 px-2"
-                          onClick={() => handleEditSave(c.id)}
-                        >
-                          Save
-                        </Button>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-foreground">{c.description}</p>
-                    )}
-                  </div>
+
+                    {/* Separator between items (not after last item) */}
+                    {index < currentCriteria.length - 1 && <Separator />}
+                  </React.Fragment>
                 ))}
               </div>
             )}
           </div>
 
           {/* Add Criteria Input */}
-          <div className="px-4 py-3 border-t border-border">
-            <div className="flex items-center gap-2">
-              <Input
-                value={newCriteriaText}
-                onChange={(e) => setNewCriteriaText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleAddCriteria();
-                }}
-                placeholder={`Add ${activeTab} Criteria`}
-                className="h-9 text-sm"
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-9 w-9 p-0 shrink-0"
-                onClick={handleAddCriteria}
-                disabled={!newCriteriaText.trim()}
-              >
-                <Send
-                  className={cn(
-                    'h-4 w-4',
-                    newCriteriaText.trim()
-                      ? 'text-primary'
-                      : 'text-muted-foreground'
-                  )}
+          <div className="px-3 sm:px-4 py-3 border-t border-border shrink-0">
+            <div className="space-y-2">
+              <div>
+                <label className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 block">
+                  Name
+                </label>
+                <Input
+                  value={newCriteriaName}
+                  onChange={(e) => setNewCriteriaName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.ctrlKey) handleAddCriteria();
+                  }}
+                  placeholder={`${activeTab === 'inclusion' ? 'Inclusion' : 'Exclusion'} criteria name`}
+                  className="h-8 sm:h-9 text-xs sm:text-sm"
+                  disabled={createCriteria.isPending}
                 />
-              </Button>
+              </div>
+              <div>
+                <label className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 block">
+                  Description
+                </label>
+                <Textarea
+                  value={newCriteriaDescription}
+                  onChange={(e) => setNewCriteriaDescription(e.target.value)}
+                  placeholder="Criteria description (optional)"
+                  className="text-xs sm:text-sm min-h-[50px] sm:min-h-[60px] resize-none"
+                  disabled={createCriteria.isPending}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="hidden sm:inline text-xs text-muted-foreground">
+                  Ctrl+Enter to add
+                </span>
+                <Button
+                  size="sm"
+                  className="h-8 sm:h-9 gap-1 sm:gap-2 text-xs sm:text-sm ml-auto"
+                  onClick={handleAddCriteria}
+                  disabled={!newCriteriaName.trim() || createCriteria.isPending}
+                >
+                  <Send className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Add Criteria</span>
+                  <span className="sm:hidden">Add</span>
+                </Button>
+              </div>
             </div>
           </div>
         </PopoverContent>
@@ -280,21 +414,26 @@ export function ScreeningCriteriaPopover({
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="w-[90vw] sm:w-full max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Criteria</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-base sm:text-lg">
+              Delete Criteria
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs sm:text-sm">
               Are you sure you want to delete this criteria? This action cannot
               be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="bg-transparent">
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel
+              onClick={handleDeleteCancel}
+              className="bg-transparent m-0 w-full sm:w-auto"
+            >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirm}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive text-white hover:bg-destructive/90 m-0 w-full sm:w-auto"
             >
               Delete
             </AlertDialogAction>

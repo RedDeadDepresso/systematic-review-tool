@@ -10,7 +10,6 @@ import { ScreeningReferenceDetailPanel } from '@/components/shared/reference-pan
 import { TableTopHeader } from '@/components/shared/references-table-top-header';
 import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
 import { MatchPDFDialog } from '@/components/shared/match-pdf-dialog';
-import type { Criteria } from '@/components/shared/screening-criteria-popover';
 import type { ArticleViewLayout, OpinionStatus } from '@/types/reference';
 import { useReferenceFilters } from '@/hooks/use-reference-filters';
 import { useReferenceUI } from '@/hooks/use-reference-ui';
@@ -51,9 +50,6 @@ function RouteComponent() {
   // Highlight toggle states
   const [includeHighlightEnabled, setIncludeHighlightEnabled] = useState(true);
   const [excludeHighlightEnabled, setExcludeHighlightEnabled] = useState(true);
-
-  // Screening criteria state
-  const [screeningCriteria, setScreeningCriteria] = useState<Criteria[]>([]);
 
   // Article view layout state
   const [articleViewLayout, setArticleViewLayout] =
@@ -151,11 +147,7 @@ function RouteComponent() {
       )}
 
       {/* Header */}
-      <ReviewHeader
-        reviewId={reviewId}
-        screeningCriteria={screeningCriteria}
-        onScreeningCriteriaChange={setScreeningCriteria}
-      />
+      <ReviewHeader reviewId={reviewId} />
 
       <div className="flex flex-1 overflow-hidden">
         <div className="flex flex-col flex-1">

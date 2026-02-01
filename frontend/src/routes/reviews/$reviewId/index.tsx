@@ -8,7 +8,6 @@ import { Spinner } from '@/components/ui/spinner';
 import { useContext, useEffect, useState } from 'react';
 import { ResolveDuplicatesDialog } from '@/components/shared/resolve-duplicates-dialog';
 import { AppLayoutContext } from '@/context/app-layout-context';
-import InvitationDialog from '@/components/review-index/invitation-dialog';
 import { useFetchUser } from '@/hooks/use-auth';
 import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
 import { ReviewHeader } from '@/components/shared/review-header';
@@ -65,12 +64,7 @@ function ReviewPage() {
           onClose={() => setIsOpen(false)}
         />
       )}
-      <div className="flex items-center justify-between">
-        <ReviewHeader reviewId={reviewId} />
-        {!isUserLoading && !isLoading && user.displayName === data.owner && (
-          <InvitationDialog reviewId={reviewId} />
-        )}
-      </div>
+      <ReviewHeader reviewId={reviewId} />
       <div className="space-y-6">
         {/* Review Info Section */}
         <Card className="p-6">
