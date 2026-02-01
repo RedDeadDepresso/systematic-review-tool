@@ -213,20 +213,25 @@ function RouteComponent() {
                 highlightIncludeKeywords={keywords.highlightIncludeKeywords}
                 highlightExcludeKeywords={keywords.highlightExcludeKeywords}
                 onOpenDetail={ui.handleOpenDetail}
+                onOpenPDF={(id) => {
+                  (ui.handleHighlightReference(id),
+                    fileUpload.setOpenUploadPDFDialog(true));
+                }}
               />
-              {articleViewLayout === 'title-only' && (
-                <ReviewDataFooter
-                  reviewId={reviewId}
-                  selectedReferenceIds={ui.selectedReferenceIds}
-                  highlightedReferenceId={ui.highlightedReferenceId}
-                  onLabelsApplied={() =>
-                    queryClient.invalidateQueries({
-                      queryKey: ['reviews', 'review-data', queryParams],
-                    })
-                  }
-                  onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
-                />
-              )}
+              {articleViewLayout === 'title-only' ||
+                (articleViewLayout === 'title-file' && (
+                  <ReviewDataFooter
+                    reviewId={reviewId}
+                    selectedReferenceIds={ui.selectedReferenceIds}
+                    highlightedReferenceId={ui.highlightedReferenceId}
+                    onLabelsApplied={() =>
+                      queryClient.invalidateQueries({
+                        queryKey: ['reviews', 'review-data', queryParams],
+                      })
+                    }
+                    onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
+                  />
+                ))}
             </ReferencesTable>
 
             {/* Detail Panel */}

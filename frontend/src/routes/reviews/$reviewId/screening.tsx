@@ -8,7 +8,6 @@ import { FiltersSidebar } from '@/components/shared/filters-sidebar';
 import { ScreeningReferenceDrawer } from '@/components/shared/reference-drawer';
 import { ScreeningReferenceDetailPanel } from '@/components/shared/reference-panel';
 import { TableTopHeader } from '@/components/shared/references-table-top-header';
-import { ResolveDuplicatesDialog } from '@/components/shared/resolve-duplicates-dialog';
 import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
 import { MatchPDFDialog } from '@/components/shared/match-pdf-dialog';
 import type { Criteria } from '@/components/shared/screening-criteria-popover';
@@ -60,9 +59,6 @@ function RouteComponent() {
   const [articleViewLayout, setArticleViewLayout] =
     useState<ArticleViewLayout>('title-abstract');
 
-  // Resolve duplicates dialog
-  const [isResolveDuplicatesOpen, setIsResolveDuplicatesOpen] = useState(false);
-
   // Fetch data
   const queryParams = {
     review: reviewId,
@@ -89,7 +85,7 @@ function RouteComponent() {
   // File upload management
   const fileUpload = useFileUpload(reviewId, () => {
     queryClient.invalidateQueries({
-      queryKey: ['reviews', reviewId, 'screening'],
+      queryKey: ['reviews', 'screening', queryParams],
     });
   });
 
@@ -139,21 +135,6 @@ function RouteComponent() {
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Dialogs */}
-      <ResolveDuplicatesDialog
-        reviewId={reviewId}
-        isOpen={isResolveDuplicatesOpen}
-        onClose={() => setIsResolveDuplicatesOpen(false)}
-      />
-      <FileUploadDialog
-        open={fileUpload.openUploadBibDialog}
-        onOpenChange={fileUpload.setOpenUploadBibDialog}
-        title="Upload References"
-        description="Add references to the review"
-        acceptedFormats=".bib,application/x-bibtex"
-        acceptedMimeTypes={['application/x-bibtex']}
-        fileTypeLabel="BibTeX"
-        onUpload={fileUpload.handleUploadReferences}
-      />
       <FileUploadDialog
         open={fileUpload.openUploadPDFDialog}
         onOpenChange={fileUpload.setOpenUploadPDFDialog}
@@ -216,21 +197,26 @@ function RouteComponent() {
                 highlightExcludeKeywords={keywords.highlightExcludeKeywords}
                 onOpenDetail={ui.handleOpenDetail}
                 viewLayout={articleViewLayout}
+                onOpenPDF={(id) => {
+                  (ui.handleHighlightReference(id),
+                    fileUpload.setOpenUploadPDFDialog(true));
+                }}
               />
-              {articleViewLayout === 'title-only' && (
-                <ScreeningFooter
-                  reviewId={reviewId}
-                  selectedReferenceIds={ui.selectedReferenceIds}
-                  highlightedReferenceId={ui.highlightedReferenceId}
-                  onLabelsApplied={() =>
-                    queryClient.invalidateQueries({
-                      queryKey: ['reviews', 'screening', queryParams],
-                    })
-                  }
-                  onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
-                  onOpinionApplied={handleOpinionApplied}
-                />
-              )}
+              {articleViewLayout === 'title-only' ||
+                (articleViewLayout === 'title-file' && (
+                  <ScreeningFooter
+                    reviewId={reviewId}
+                    selectedReferenceIds={ui.selectedReferenceIds}
+                    highlightedReferenceId={ui.highlightedReferenceId}
+                    onLabelsApplied={() =>
+                      queryClient.invalidateQueries({
+                        queryKey: ['reviews', 'screening', queryParams],
+                      })
+                    }
+                    onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
+                    onOpinionApplied={handleOpinionApplied}
+                  />
+                ))}
             </ReferencesTable>
 
             {/* Detail Panel */}

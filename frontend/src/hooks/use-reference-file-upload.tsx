@@ -3,14 +3,14 @@ import { useFetchUploadedPDFs, useUploadPDF } from '@/hooks/use-uploaded-pdf';
 import { useAttachPDFsToReferences } from './use-reference';
 import { useDetectDuplicateReferences } from '@/hooks/use-reference-duplicate';
 import { useUploadReviewReferences } from '@/hooks/use-review';
-import type { ReferencePDFMapping } from '@/types/reference';
+import type { Reference, ReferencePDFMapping } from '@/types/reference';
 
 export function useFileUpload(
   reviewId: number,
   onSuccess: () => void,
   selectedReferenceIds: number[] = [],
   highlightedReferenceId: number | null = null,
-  references: any[] = []
+  references: Reference[] = []
 ) {
   const [openUploadBibDialog, setOpenUploadBibDialog] = useState(false);
   const [openUploadPDFDialog, setOpenUploadPDFDialog] = useState(false);

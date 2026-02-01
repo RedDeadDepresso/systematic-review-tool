@@ -35,7 +35,7 @@ export type Reference = {
 // Reference Table
 export type SortField = 'title' | 'date' | 'author';
 export type SortDirection = 'asc' | 'desc';
-export type ArticleViewLayout = 'title-only' | 'title-abstract';
+export type ArticleViewLayout = 'title-only' | 'title-abstract' | 'title-file';
 
 export type DuplicateReferencePair = {
   reference1: Reference;

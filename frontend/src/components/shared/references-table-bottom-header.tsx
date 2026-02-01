@@ -120,6 +120,18 @@ export function TableBottomHeader({
               onSort={onSortChange}
             />
           </div>
+          {viewLayout === 'title-file' && (
+            <>
+              <div className="hidden sm:block w-28">
+                <button className="flex items-center gap-1 hover:text-foreground transition-colors">
+                  <span>Full Text</span>
+                </button>
+              </div>
+              <div className="w-48 invisible">
+                <span>Buttons</span>
+              </div>
+            </>
+          )}
         </>
       )}
     </div>

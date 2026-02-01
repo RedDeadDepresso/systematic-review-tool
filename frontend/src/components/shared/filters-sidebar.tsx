@@ -1071,6 +1071,33 @@ export function FiltersSidebar({
                 </div>
                 <span className="text-sm">Title only view</span>
               </label>
+              <label
+                aria-disabled={isMobile}
+                className={cn(
+                  'flex items-center gap-3 py-1.5 rounded px-2 -mx-2',
+                  isMobile
+                    ? 'opacity-50 cursor-not-allowed pointer-events-none'
+                    : 'cursor-pointer hover:bg-muted/50'
+                )}
+                onClick={() => {
+                  if (isMobile) return;
+                  onArticleViewLayoutChange('title-file');
+                }}
+              >
+                <div
+                  className={cn(
+                    'w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors',
+                    articleViewLayout === 'title-file'
+                      ? 'border-primary'
+                      : 'border-muted-foreground'
+                  )}
+                >
+                  {articleViewLayout === 'title-file' && (
+                    <div className="w-2 h-2 rounded-full bg-primary" />
+                  )}
+                </div>
+                <span className="text-sm">Title & File view</span>
+              </label>
             </div>
           </CollapsibleSection>
         )}

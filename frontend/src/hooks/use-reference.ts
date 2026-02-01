@@ -37,6 +37,13 @@ export const useFetchScreening = (params: FetchReviewDataParams) => {
   });
 };
 
+export const useFetchScreeningFullText = (params: FetchReviewDataParams) => {
+  return useQuery({
+    queryKey: ['reviews', 'screening-full-text', params],
+    queryFn: () => fetchScreening(params),
+  });
+};
+
 export const useFetchReference = (id: number) => {
   return useQuery({
     queryKey: ['references', id],

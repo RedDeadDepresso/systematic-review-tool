@@ -113,6 +113,15 @@ export const fetchScreening = async (
   });
   return res.data;
 };
+
+export const fetchScreeningFullText = async (
+  params: FetchReviewDataParams
+): Promise<FetchReviewDataParamsResponse> => {
+  const res = await api.get('/screening-full-text/', {
+    params: paramsToSnakeCase(params),
+  });
+  return res.data;
+};
 /* ------------------ FETCH SINGLE REFERENCE ------------------ */
 export const fetchReference = async (referenceId: number) => {
   const res = await api.get(`/references/${referenceId}/`);
