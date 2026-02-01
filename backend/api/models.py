@@ -170,28 +170,48 @@ class ReferenceDuplicatePair(models.Model):
         ]
 
     @classmethod
-    def _find_pairs(cls, queryset, threshold=0.5):
-        """Find similar Reference title pairs within queryset."""
+    def _find_pairs(cls, queryset, threshold=0.5, weights=None):
+        """Find similar Reference pairs using multiple fields."""
+        if weights is None:
+            weights = {"title": 0.5, "abstract": 0.3, "authors": 0.15, "journal": 0.05}
+
         table = Reference._meta.db_table
         ids = list(queryset.values_list("id", flat=True))
         if not ids:
             return []
+
         with connection.cursor() as cursor:
             cursor.execute(
                 f"""
                 SELECT
                     a.id AS id1,
                     b.id AS id2,
-                    similarity(a.title, b.title) AS sim
+                    (
+                        similarity(a.title, b.title) * %(title_weight)s +
+                        similarity(a.abstract, b.abstract) * %(abstract_weight)s +
+                        similarity(a.authors, b.authors) * %(authors_weight)s +
+                        similarity(a.journal, b.journal) * %(journal_weight)s
+                    ) AS sim
                 FROM {table} a
-                JOIN {table} b
-                  ON a.id < b.id
-                WHERE a.id = ANY(%s)
-                  AND b.id = ANY(%s)
-                  AND similarity(a.title, b.title) > %s
+                JOIN {table} b ON a.id < b.id
+                WHERE a.id = ANY(%(ids)s)
+                AND b.id = ANY(%(ids)s)
+                AND (
+                    similarity(a.title, b.title) * %(title_weight)s +
+                    similarity(a.abstract, b.abstract) * %(abstract_weight)s +
+                    similarity(a.authors, b.authors) * %(authors_weight)s +
+                    similarity(a.journal, b.journal) * %(journal_weight)s
+                ) > %(threshold)s
                 ORDER BY sim DESC
                 """,
-                [ids, ids, threshold],
+                {
+                    "ids": ids,
+                    "threshold": threshold,
+                    "title_weight": weights["title"],
+                    "abstract_weight": weights["abstract"],
+                    "authors_weight": weights["authors"],
+                    "journal_weight": weights["journal"],
+                },
             )
             return cursor.fetchall()
 
@@ -200,28 +220,40 @@ class ReferenceDuplicatePair(models.Model):
     def _create_pairs(cls, review, raw_pairs):
         """
         Create DuplicatePair objects from detected pairs.
-        Also sets duplicate_status to 'Unresolved' for both references in each pair.
+        Skip pairs that already exist (resolved or not).
+        Only sets duplicate_status to 'Unresolved' for new pairs.
         """
+        # Get existing pairs to avoid recreating them
+        existing_pairs = set(
+            cls.objects.filter(review=review).values_list(
+                "reference1_id", "reference2_id"
+            )
+        )
+
         to_create = []
-        reference_ids_to_update = set()
+        new_reference_ids = set()
 
         for r in raw_pairs:
-            to_create.append(
-                ReferenceDuplicatePair(
-                    review=review,
-                    reference1_id=r[0],
-                    reference2_id=r[1],
-                    similarity_score=r[2],
+            pair_key = (r[0], r[1])
+            # Skip if this pair already exists
+            if pair_key not in existing_pairs:
+                to_create.append(
+                    ReferenceDuplicatePair(
+                        review=review,
+                        reference1_id=r[0],
+                        reference2_id=r[1],
+                        similarity_score=r[2],
+                    )
                 )
-            )
-            reference_ids_to_update.update([r[0], r[1]])
+                new_reference_ids.update([r[0], r[1]])
 
         created = len(cls.objects.bulk_create(to_create, ignore_conflicts=True))
 
-        if reference_ids_to_update:
-            Reference.objects.filter(id__in=reference_ids_to_update).update(
-                duplicate_status="Unresolved"
-            )
+        # Only update references that are part of NEW pairs AND currently marked as 'Unique'
+        if new_reference_ids:
+            Reference.objects.filter(
+                id__in=new_reference_ids, duplicate_status="Unique"
+            ).update(duplicate_status="Unresolved")
 
         return created
 
