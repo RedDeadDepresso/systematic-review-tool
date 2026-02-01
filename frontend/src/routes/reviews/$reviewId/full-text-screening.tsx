@@ -202,25 +202,20 @@ function RouteComponent() {
                     fileUpload.setOpenUploadPDFDialog(true));
                 }}
               />
-              {articleViewLayout === 'title-only' ||
-                (articleViewLayout === 'title-file' && (
-                  <ScreeningFooter
-                    reviewId={reviewId}
-                    selectedReferenceIds={ui.selectedReferenceIds}
-                    highlightedReferenceId={ui.highlightedReferenceId}
-                    onLabelsApplied={() =>
-                      queryClient.invalidateQueries({
-                        queryKey: [
-                          'reviews',
-                          'screening-full-text',
-                          queryParams,
-                        ],
-                      })
-                    }
-                    onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
-                    onOpinionApplied={handleOpinionApplied}
-                  />
-                ))}
+              {articleViewLayout !== 'title-abstract' && (
+                <ScreeningFooter
+                  reviewId={reviewId}
+                  selectedReferenceIds={ui.selectedReferenceIds}
+                  highlightedReferenceId={ui.highlightedReferenceId}
+                  onLabelsApplied={() =>
+                    queryClient.invalidateQueries({
+                      queryKey: ['reviews', 'screening-full-text', queryParams],
+                    })
+                  }
+                  onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
+                  onOpinionApplied={handleOpinionApplied}
+                />
+              )}
             </ReferencesTable>
 
             {/* Detail Panel */}

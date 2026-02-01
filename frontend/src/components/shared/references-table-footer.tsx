@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { LabelPopover } from '@/components/shared/label-popover';
 import { AssigneePopover } from './assignee-popover';
 import type { OpinionStatus } from '@/types/reference';
+import { useBulkCreateNote } from '@/hooks/use-note';
 
 export interface ReviewDataFooterProps {
   reviewId: number;
@@ -31,8 +32,7 @@ export function ReviewDataFooter({
   onLabelsApplied,
 }: ReviewDataFooterProps) {
   const [noteText, setNoteText] = useState('');
-
-  const hasHighlightedRow = highlightedReferenceId !== null;
+  const bulkCreateNote = useBulkCreateNote();
 
   const selectedRefs =
     selectedReferenceIds.length > 0
@@ -89,22 +89,32 @@ export function ReviewDataFooter({
           placeholder="Add note"
           value={noteText}
           onChange={(e) => setNoteText(e.target.value)}
-          disabled={!hasHighlightedRow}
+          disabled={selectedRefs.length === 0 || bulkCreateNote.isPending}
           className={cn(
             'flex-1 min-w-0 h-8 text-sm',
-            !hasHighlightedRow && 'opacity-50 cursor-not-allowed'
+            selectedRefs.length === 0 && 'opacity-50 cursor-not-allowed'
           )}
         />
         <Button
           size="sm"
           variant="ghost"
           className="h-8 w-8 p-0 shrink-0"
-          disabled={!hasHighlightedRow || !noteText.trim()}
+          disabled={
+            selectedRefs.length === 0 ||
+            !noteText.trim() ||
+            bulkCreateNote.isPending
+          }
+          onClick={() =>
+            bulkCreateNote.mutate({
+              referenceIds: selectedRefs,
+              content: noteText,
+            })
+          }
         >
           <Send
             className={cn(
               'h-4 w-4',
-              hasHighlightedRow && noteText.trim()
+              selectedRefs.length !== 0 && noteText.trim()
                 ? 'text-primary'
                 : 'text-muted-foreground'
             )}
@@ -128,8 +138,7 @@ export function ScreeningFooter({
   onOpinionApplied,
 }: ScreeningFooterProps) {
   const [noteText, setNoteText] = useState('');
-
-  const hasHighlightedRow = highlightedReferenceId !== null;
+  const bulkCreateNote = useBulkCreateNote();
 
   const selectedRefs =
     selectedReferenceIds.length > 0
@@ -223,22 +232,32 @@ export function ScreeningFooter({
           placeholder="Add note"
           value={noteText}
           onChange={(e) => setNoteText(e.target.value)}
-          disabled={!hasHighlightedRow}
+          disabled={selectedRefs.length === 0 || bulkCreateNote.isPending}
           className={cn(
             'flex-1 min-w-0 h-8 text-sm',
-            !hasHighlightedRow && 'opacity-50 cursor-not-allowed'
+            selectedRefs.length === 0 && 'opacity-50 cursor-not-allowed'
           )}
         />
         <Button
           size="sm"
           variant="ghost"
           className="h-8 w-8 p-0 shrink-0"
-          disabled={!hasHighlightedRow || !noteText.trim()}
+          disabled={
+            selectedRefs.length === 0 ||
+            !noteText.trim() ||
+            bulkCreateNote.isPending
+          }
+          onClick={() =>
+            bulkCreateNote.mutate({
+              referenceIds: selectedRefs,
+              content: noteText,
+            })
+          }
         >
           <Send
             className={cn(
               'h-4 w-4',
-              hasHighlightedRow && noteText.trim()
+              selectedRefs.length !== 0 && noteText.trim()
                 ? 'text-primary'
                 : 'text-muted-foreground'
             )}

@@ -1,4 +1,4 @@
-import { createNote, fetchNotes } from '@/api/note';
+import { bulkCreateNote, createNote, fetchNotes } from '@/api/note';
 import type { Note } from '@/types/note';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -38,5 +38,15 @@ export const useCreateNote = () => {
         }
       );
     },
+  });
+};
+
+export const useBulkCreateNote = () => {
+  return useMutation({
+    mutationFn: bulkCreateNote,
+    onSuccess: (data) => {
+      toast.success(`${data.created} notes created successfully.`);
+    },
+    onError: () => toast.error('Failed to create notes.'),
   });
 };

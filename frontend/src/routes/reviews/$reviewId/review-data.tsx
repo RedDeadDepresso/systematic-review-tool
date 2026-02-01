@@ -218,20 +218,19 @@ function RouteComponent() {
                     fileUpload.setOpenUploadPDFDialog(true));
                 }}
               />
-              {articleViewLayout === 'title-only' ||
-                (articleViewLayout === 'title-file' && (
-                  <ReviewDataFooter
-                    reviewId={reviewId}
-                    selectedReferenceIds={ui.selectedReferenceIds}
-                    highlightedReferenceId={ui.highlightedReferenceId}
-                    onLabelsApplied={() =>
-                      queryClient.invalidateQueries({
-                        queryKey: ['reviews', 'review-data', queryParams],
-                      })
-                    }
-                    onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
-                  />
-                ))}
+              {articleViewLayout !== 'title-abstract' && (
+                <ReviewDataFooter
+                  reviewId={reviewId}
+                  selectedReferenceIds={ui.selectedReferenceIds}
+                  highlightedReferenceId={ui.highlightedReferenceId}
+                  onLabelsApplied={() =>
+                    queryClient.invalidateQueries({
+                      queryKey: ['reviews', 'review-data', queryParams],
+                    })
+                  }
+                  onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
+                />
+              )}
             </ReferencesTable>
 
             {/* Detail Panel */}

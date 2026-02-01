@@ -24,6 +24,14 @@ export const createNote = async (payload: {
   return res.data;
 };
 
+export const bulkCreateNote = async (payload: {
+  referenceIds: number[];
+  content: string;
+}) => {
+  const res = await api.post('/notes/bulk-create/', payload);
+  return res.data;
+};
+
 /* ------------------ UPDATE NOTE ------------------ */
 export const updateNote = async (
   noteId: number,
