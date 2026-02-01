@@ -37,6 +37,7 @@ from api.models import (
     ReferenceOpinion,
     Review,
     ReviewInvitation,
+    ScreeningCriteria,
     SearchMethod,
     SubTheme,
     UploadedPDF,
@@ -58,6 +59,7 @@ from api.serializers import (
     ReviewInvitationSerializer,
     ReviewListSerializer,
     ReviewSerializer,
+    ScreeningCriteriaSerializer,
     SubThemeSerializer,
     UploadedPDFSerializer,
     UserSerializer,
@@ -1600,3 +1602,53 @@ class LabelViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class ScreeningCriteriaViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for ScreeningCriteria.
+    Access allowed only to review owner or collaborators.
+    """
+
+    serializer_class = ScreeningCriteriaSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ["review", "kind"]
+
+    def get_queryset(self):
+        """
+        List only criteria belonging to reviews the user can access.
+        Supports filtering by ?review=ID
+        """
+        queryset = ScreeningCriteria.objects.all()
+
+        review_id = self.request.query_params.get("review")
+        if review_id:
+            queryset = queryset.filter(review_id=review_id)
+
+        user = self.request.user
+        return queryset.filter(review__owner=user) | queryset.filter(
+            review__collaborators=user
+        )
+
+    def perform_create(self, serializer):
+        review = serializer.validated_data["review"]
+
+        if not is_owner_or_collaborator(self.request.user, review):
+            raise PermissionDenied(
+                "You do not have permission to add criteria to this review."
+            )
+
+        serializer.save()
+
+    def get_object(self):
+        """
+        Enforce permissions for retrieve / update / delete.
+        """
+        obj = super().get_object()
+
+        if not is_owner_or_collaborator(self.request.user, obj.review):
+            raise PermissionDenied(
+                "You do not have permission to access this screening criteria."
+            )
+
+        return obj

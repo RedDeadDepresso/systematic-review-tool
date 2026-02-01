@@ -14,6 +14,7 @@ from api.views import (
     ReviewDataView,
     ReviewInvitationViewSet,
     ReviewViewSet,
+    ScreeningCriteriaViewSet,
     ScreeningView,
     SubThemeViewSet,
     UploadedPDFViewSet,
@@ -49,6 +50,9 @@ router.register(r"main-themes", MainThemeViewSet, basename="main_theme")
 router.register(r"sub-themes", SubThemeViewSet, basename="sub_theme")
 router.register(r"codes", CodeViewSet, basename="code")
 router.register(r"labels", LabelViewSet, basename="label")
+router.register(
+    r"screening-criteria", ScreeningCriteriaViewSet, basename="screening-criteria"
+)
 
 
 urlpatterns = [

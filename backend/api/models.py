@@ -415,3 +415,22 @@ class Code(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class ScreeningCriteria(models.Model):
+    class Kind(models.TextChoices):
+        INCLUSIVE = "Inclusive"
+        EXCLUSIVE = "Exclusive"
+
+    review = models.ForeignKey(Review, on_delete=models.CASCADE)
+    name = models.CharField(max_length=150)
+    description = models.TextField(blank=True)
+    kind = models.CharField(max_length=20, choices=Kind.choices)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["review", "name"],
+                name="unique_criteria_per_review",
+            )
+        ]

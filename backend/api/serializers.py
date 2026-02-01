@@ -16,6 +16,7 @@ from api.models import (
     ReferenceOpinion,
     Review,
     ReviewInvitation,
+    ScreeningCriteria,
     SubTheme,
     UploadedPDF,
     User,
@@ -373,3 +374,10 @@ class AssignReferencesSerializer(serializers.Serializer):
     )
     mode = serializers.ChoiceField(choices=["assign", "remove", "split_equally"])
     assignee_id = serializers.IntegerField(required=False)
+
+
+class ScreeningCriteriaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ScreeningCriteria
+        fields = ["id", "review", "name", "description", "kind"]
+        read_only_fields = ["id"]
