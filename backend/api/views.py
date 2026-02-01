@@ -45,6 +45,7 @@ from api.models import (
 from api.serializers import (
     AssignReferencesSerializer,
     AttachPDFsSerializer,
+    BulkCreateNoteSerializer,
     CodeSerializer,
     KeywordSerializer,
     LabelSerializer,
@@ -1316,6 +1317,45 @@ class NoteViewSet(viewsets.ModelViewSet):
             )
 
         serializer.save(author=self.request.user, reference=reference)
+
+    @action(detail=False, methods=["post"], url_path="bulk-create")
+    def bulk_create(self, request):
+        serializer = BulkCreateNoteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        reference_ids = serializer.validated_data["reference_ids"]
+        content = serializer.validated_data["content"]
+
+        references = Reference.objects.filter(id__in=reference_ids).select_related(
+            "review"
+        )
+
+        if references.count() != len(reference_ids):
+            raise PermissionDenied("One or more references do not exist.")
+
+        notes = []
+
+        for reference in references:
+            review = reference.review
+
+            if not is_owner_or_collaborator(request.user, review):
+                raise PermissionDenied(f"No permission for review {review.id}")
+
+            notes.append(
+                Note(
+                    author=request.user,
+                    reference=reference,
+                    content=content,
+                )
+            )
+
+        with transaction.atomic():
+            Note.objects.bulk_create(notes)
+
+        return Response(
+            {"created": len(notes)},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class ReviewInvitationViewSet(

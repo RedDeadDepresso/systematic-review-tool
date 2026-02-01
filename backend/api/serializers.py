@@ -283,6 +283,13 @@ class NoteSerializer(serializers.ModelSerializer):
         read_only_fields = ["author", "date_created", "date_edited"]
 
 
+class BulkCreateNoteSerializer(serializers.Serializer):
+    reference_ids = serializers.ListField(
+        child=serializers.IntegerField(), allow_empty=False
+    )
+    content = serializers.CharField()
+
+
 class ReviewInvitationCreateSerializer(serializers.Serializer):
     review = serializers.IntegerField()
     emails = serializers.ListField(child=serializers.EmailField(), allow_empty=False)
