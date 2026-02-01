@@ -15,8 +15,8 @@ export const useUpdateReferenceOpinion = () => {
     }) => {
       return updateReferenceOpinion(payload);
     },
-    onSuccess: () => {
-      toast.success('References updated successfully.');
+    onError: () => {
+      toast.error('Failed to update reference.');
     },
   });
 };

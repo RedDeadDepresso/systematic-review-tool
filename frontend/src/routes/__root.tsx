@@ -7,7 +7,7 @@ import { AppLayout } from '@/components/shared/app-layout';
 export const Route = createRootRoute({
   component: () => (
     <>
-      <Toaster />
+      <Toaster position="top-center" />
       <AppLayout>
         <Outlet />
       </AppLayout>

@@ -8,8 +8,10 @@ import {
   FolderOpen,
   Hash,
   LinkIcon,
+  MessageSquare,
   Users,
 } from 'lucide-react';
+import { NotesList } from './note';
 
 function DetailSection({
   icon: Icon,
@@ -49,6 +51,7 @@ export interface ReferenceContentProps {
   compareWith?: Reference;
   side?: 'left' | 'right';
   highlightDifference?: boolean;
+  showNotes?: boolean;
 }
 
 function diffClass(
@@ -80,6 +83,7 @@ export function ReferenceContent({
   highlightDifference,
   highlightIncludeKeywords = [],
   highlightExcludeKeywords = [],
+  showNotes = false,
 }: ReferenceContentProps) {
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
@@ -214,6 +218,11 @@ export function ReferenceContent({
         >
           Uploaded References [{reference.searchMethod}]
         </DetailSection>
+        {showNotes && (
+          <DetailSection icon={MessageSquare} label="Notes">
+            <NotesList referenceId={reference.id} compact={true} />
+          </DetailSection>
+        )}
       </div>
     </div>
   );

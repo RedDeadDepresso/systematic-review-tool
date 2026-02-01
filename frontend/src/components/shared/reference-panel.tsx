@@ -62,6 +62,7 @@ export function ReferenceDetailPanel({
         reference={reference}
         highlightIncludeKeywords={highlightIncludeKeywords}
         highlightExcludeKeywords={highlightExcludeKeywords}
+        showNotes={true}
       />
 
       {/* Footer */}
