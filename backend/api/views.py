@@ -1268,7 +1268,21 @@ class NoteViewSet(viewsets.ModelViewSet):
     serializer_class = NoteSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.DjangoFilterBackend]
-    filterset_fields = ["reference", "reference__review"]
+    filterset_fields = ["reference"]
+
+    def get_object(self):
+        obj = super().get_object()
+        review = obj.reference.review
+        user = self.request.user
+
+        if not is_owner_or_collaborator(user, review):
+            raise PermissionDenied("You do not have access to this note.")
+
+        # Blinded review rule
+        if review.is_blinded and obj.author != user:
+            raise PermissionDenied("You cannot access this note.")
+
+        return obj
 
     def get_queryset(self):
         """
@@ -1279,12 +1293,8 @@ class NoteViewSet(viewsets.ModelViewSet):
 
         # Get filters from query params
         reference_id = self.request.query_params.get("reference")
-        review_id = self.request.query_params.get("review")
-
         if reference_id:
             queryset = queryset.filter(reference_id=reference_id)
-        elif review_id:
-            queryset = queryset.filter(reference__review_id=review_id)
 
         # Only include notes from reviews the user can access
         queryset = queryset.filter(
@@ -1297,7 +1307,7 @@ class NoteViewSet(viewsets.ModelViewSet):
             reference__review__is_blinded=True
         ) | blinded_reviews.filter(author=self.request.user)
 
-        return queryset.distinct()
+        return queryset.distinct().select_related("author")
 
     def perform_create(self, serializer):
         """

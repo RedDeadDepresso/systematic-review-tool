@@ -277,6 +277,8 @@ class KeywordSerializer(ModelSerializer):
 
 
 class NoteSerializer(serializers.ModelSerializer):
+    author = UserSerializer(read_only=True)
+
     class Meta:
         model = Note
         fields = ["id", "author", "content", "date_created", "date_edited"]
