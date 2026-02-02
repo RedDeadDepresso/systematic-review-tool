@@ -84,6 +84,7 @@ interface ReferenceRowProps {
   onDoubleClick: (e: React.MouseEvent) => void;
   highlightIncludeKeywords: string[];
   highlightExcludeKeywords: string[];
+  onOpenPDF: (referenceId: number) => void;
 }
 
 export function ReferenceRowTitleOnly({
@@ -96,6 +97,7 @@ export function ReferenceRowTitleOnly({
   onDoubleClick,
   highlightIncludeKeywords,
   highlightExcludeKeywords,
+  onOpenPDF,
 }: ReferenceRowProps) {
   return (
     <div
@@ -143,9 +145,18 @@ export function ReferenceRowTitleOnly({
         {/* Labels + PDF + Assignee */}
         <div className="flex items-center gap-2 mt-2 flex-wrap">
           {ref.file && (
-            <Badge variant="secondary" className="text-xs">
-              PDF
-            </Badge>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => onOpenPDF(ref.id)}
+                >
+                  PDF
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Open PDF</TooltipContent>
+            </Tooltip>
           )}
 
           {ref.assignee && <AssigneeBadge assignee={ref.assignee} />}
@@ -179,6 +190,7 @@ export function ReferenceRowTitleAbstract({
   onDoubleClick,
   highlightIncludeKeywords,
   highlightExcludeKeywords,
+  onOpenPDF,
 }: ReferenceRowProps) {
   return (
     <div
@@ -242,9 +254,18 @@ export function ReferenceRowTitleAbstract({
               {/* Labels + PDF + Assignee */}
               <div className="flex flex-wrap gap-2 mt-2">
                 {ref.file && (
-                  <Badge variant="secondary" className="text-xs">
-                    PDF
-                  </Badge>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => onOpenPDF(ref.id)}
+                      >
+                        PDF
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Open PDF</TooltipContent>
+                  </Tooltip>
                 )}
 
                 {ref.assignee && <AssigneeBadge assignee={ref.assignee} />}
@@ -259,20 +280,6 @@ export function ReferenceRowTitleAbstract({
       </div>
     </div>
   );
-}
-
-interface ReferenceRowTitleFileProps {
-  reference: Reference;
-  index: number;
-  isSelected: boolean;
-  isHighlighted: boolean;
-  onSelect: () => void;
-  onClick: (e: React.MouseEvent) => void;
-  onDoubleClick: (e: React.MouseEvent) => void;
-  highlightIncludeKeywords: string[];
-  highlightExcludeKeywords: string[];
-  // PDF button handler
-  onOpenPDF: (referenceId: number) => void;
 }
 
 const handleOpenDOI = (e: React.MouseEvent, ref: Reference) => {
@@ -307,7 +314,7 @@ export function ReferenceRowTitleFile({
   highlightIncludeKeywords,
   highlightExcludeKeywords,
   onOpenPDF,
-}: ReferenceRowTitleFileProps) {
+}: ReferenceRowProps) {
   return (
     <div
       data-reference-id={ref.id}

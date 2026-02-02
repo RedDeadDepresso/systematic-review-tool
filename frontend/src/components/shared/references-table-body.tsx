@@ -62,6 +62,7 @@ export function ReferencesTableBody({
             onDoubleClick={(e) => handleRowDoubleClick(ref.id, e)}
             highlightIncludeKeywords={highlightIncludeKeywords}
             highlightExcludeKeywords={highlightExcludeKeywords}
+            onOpenPDF={onOpenPDF}
           />
         ))
       ) : viewLayout === 'title-file' ? (
@@ -93,6 +94,7 @@ export function ReferencesTableBody({
             onDoubleClick={(e) => handleRowDoubleClick(ref.id, e)}
             highlightIncludeKeywords={highlightIncludeKeywords}
             highlightExcludeKeywords={highlightExcludeKeywords}
+            onOpenPDF={onOpenPDF}
           />
         ))
       )}

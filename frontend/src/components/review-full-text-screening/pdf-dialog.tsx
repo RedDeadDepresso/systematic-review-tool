@@ -59,6 +59,7 @@ type PDFDialogProps = {
   fileUrl: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  viewerMode?: boolean;
 };
 
 export const PDFDialog = ({
@@ -68,6 +69,7 @@ export const PDFDialog = ({
   fileUrl,
   open,
   onOpenChange,
+  viewerMode = true,
 }: PDFDialogProps) => {
   const [referenceId, setReferenceId] = useState<number>(initialReferenceId);
   const [url, setUrl] = useState<string | Uint8Array>(fileUrl);
@@ -335,18 +337,21 @@ export const PDFDialog = ({
             }
             darkMode={darkMode}
             onToggleDarkMode={() => setDarkMode(!darkMode)}
+            viewerMode={viewerMode}
           />
 
           {/* Main content */}
           <div className="flex flex-1 overflow-hidden">
             {/* HighLightSidebar */}
-            <HighLightSidebar
-              highlights={highlights}
-              scrolledToHighlightId={scrolledToHighlightId}
-              onEditHighlight={handleEditFromSidebar}
-              onDeleteHighlight={deleteHighlight}
-              isOpen={highlightSidebarOpen}
-            />
+            {!viewerMode && (
+              <HighLightSidebar
+                highlights={highlights}
+                scrolledToHighlightId={scrolledToHighlightId}
+                onEditHighlight={handleEditFromSidebar}
+                onDeleteHighlight={deleteHighlight}
+                isOpen={highlightSidebarOpen}
+              />
+            )}
 
             {/* PDF Viewer with Left Panel */}
             <div className="relative flex-1 overflow-hidden flex h-full">
@@ -428,20 +433,24 @@ export const PDFDialog = ({
               </PdfLoader>
 
               {/* Floating Actions */}
-              <FloatingActions
-                highlightPen={highlightPen}
-                onToggleHighlightPen={() => setHighlightPen(!highlightPen)}
-                areaMode={areaMode}
-                onToggleAreaMode={() => setAreaMode(!areaMode)}
-              />
+              {!viewerMode && (
+                <FloatingActions
+                  highlightPen={highlightPen}
+                  onToggleHighlightPen={() => setHighlightPen(!highlightPen)}
+                  areaMode={areaMode}
+                  onToggleAreaMode={() => setAreaMode(!areaMode)}
+                />
+              )}
             </div>
-            {/* HighLightSidebar */}
-            <CodingThemingSidebar
-              reviewId={reviewId}
-              referenceId={referenceId}
-              isOpen={codingSidebarOpen}
-              handleJumpToCode={handleJumpToCode}
-            />
+            {/* Coding Theming Sidebar */}
+            {!viewerMode && (
+              <CodingThemingSidebar
+                reviewId={reviewId}
+                referenceId={referenceId}
+                isOpen={codingSidebarOpen}
+                handleJumpToCode={handleJumpToCode}
+              />
+            )}
           </div>
 
           {contextMenu && <ContextMenu {...contextMenu} />}

@@ -179,6 +179,7 @@ function RouteComponent() {
             onOpenChange={(open) => !open && setOpenPdfDialog(false)}
             title=""
             fileUrl={selectedCode.referenceFileUrl}
+            viewerMode={false}
           />
         )}
       <ReviewHeader reviewId={reviewId} />

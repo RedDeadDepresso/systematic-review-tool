@@ -27,6 +27,7 @@ interface HeaderProps {
   onToggleCodingSidebar: () => void;
   darkMode: boolean;
   onToggleDarkMode: () => void;
+  viewerMode?: boolean;
 }
 
 export function Header({
@@ -40,6 +41,7 @@ export function Header({
   onToggleCodingSidebar,
   darkMode,
   onToggleDarkMode,
+  viewerMode = true,
 }: HeaderProps) {
   const displayZoom = pdfScaleValue
     ? `${Math.round(pdfScaleValue * 100)}%`
@@ -50,25 +52,27 @@ export function Header({
       <header className="flex h-14 items-center justify-between border-b bg-background px-4">
         {/* Left section - Logo and sidebar toggle */}
         <div className="flex items-center gap-3">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onToggleHighlightSidebar}
-                className="h-9 w-9"
-              >
-                {highlightSidebarOpen ? (
-                  <PanelLeftClose className="h-5 w-5" />
-                ) : (
-                  <PanelLeft className="h-5 w-5" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {highlightSidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-            </TooltipContent>
-          </Tooltip>
+          {!viewerMode && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onToggleHighlightSidebar}
+                  className="h-9 w-9"
+                >
+                  {highlightSidebarOpen ? (
+                    <PanelLeftClose className="h-5 w-5" />
+                  ) : (
+                    <PanelLeft className="h-5 w-5" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {highlightSidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+              </TooltipContent>
+            </Tooltip>
+          )}
 
           <Separator orientation="vertical" className="h-6" />
         </div>
@@ -149,25 +153,27 @@ export function Header({
 
         {/* Left section - Logo and sidebar toggle */}
         <div className="flex items-center gap-3">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onToggleCodingSidebar}
-                className="h-9 w-9"
-              >
-                {codingSidebarOpen ? (
-                  <PanelLeftClose className="h-5 w-5" />
-                ) : (
-                  <PanelLeft className="h-5 w-5" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {codingSidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-            </TooltipContent>
-          </Tooltip>
+          {!viewerMode && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onToggleCodingSidebar}
+                  className="h-9 w-9"
+                >
+                  {codingSidebarOpen ? (
+                    <PanelLeftClose className="h-5 w-5" />
+                  ) : (
+                    <PanelLeft className="h-5 w-5" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {codingSidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+              </TooltipContent>
+            </Tooltip>
+          )}
 
           <Separator orientation="vertical" className="h-6" />
         </div>

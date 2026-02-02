@@ -20,6 +20,7 @@ import { ReferencesTableBody } from '@/components/shared/references-table-body';
 import { ScreeningFooter } from '@/components/shared/references-table-footer';
 import { TableBottomHeader } from '@/components/shared/references-table-bottom-header';
 import { useUpdateReferenceOpinion } from '@/hooks/use-reference-opinion';
+import { PDFDialog } from '@/components/review-full-text-screening/pdf-dialog';
 
 export const Route = createFileRoute('/reviews/$reviewId/full-text-screening')({
   component: RouteComponent,
@@ -131,6 +132,16 @@ function RouteComponent() {
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Dialogs */}
+      {ui.openPDFId && ui.openPDFReference && ui.openPDFReference.file && (
+        <PDFDialog
+          reviewId={reviewId}
+          referenceId={ui.openPDFId}
+          open={ui.openPDFReference !== null}
+          onOpenChange={ui.handleClosePDF}
+          title={ui.openPDFReference.title}
+          fileUrl={ui.openPDFReference.file}
+        />
+      )}
       <FileUploadDialog
         open={fileUpload.openUploadPDFDialog}
         onOpenChange={fileUpload.setOpenUploadPDFDialog}
@@ -189,10 +200,7 @@ function RouteComponent() {
                 highlightExcludeKeywords={keywords.highlightExcludeKeywords}
                 onOpenDetail={ui.handleOpenDetail}
                 viewLayout={articleViewLayout}
-                onOpenPDF={(id) => {
-                  (ui.handleHighlightReference(id),
-                    fileUpload.setOpenUploadPDFDialog(true));
-                }}
+                onOpenPDF={ui.handleOpenPDF}
               />
               {articleViewLayout !== 'title-abstract' && (
                 <ScreeningFooter

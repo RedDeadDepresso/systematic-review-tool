@@ -21,6 +21,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ReferencesTableBody } from '@/components/shared/references-table-body';
 import { ReviewDataFooter } from '@/components/shared/references-table-footer';
 import { TableBottomHeader } from '@/components/shared/references-table-bottom-header';
+import { PDFDialog } from '@/components/review-full-text-screening/pdf-dialog';
 
 export const Route = createFileRoute('/reviews/$reviewId/review-data')({
   component: RouteComponent,
@@ -108,6 +109,16 @@ function RouteComponent() {
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Dialogs */}
+      {ui.openPDFId && ui.openPDFReference && ui.openPDFReference.file && (
+        <PDFDialog
+          reviewId={reviewId}
+          referenceId={ui.openPDFId}
+          open={ui.openPDFReference !== null}
+          onOpenChange={ui.handleClosePDF}
+          title={ui.openPDFReference.title}
+          fileUrl={ui.openPDFReference.file}
+        />
+      )}
       <ResolveDuplicatesDialog
         reviewId={reviewId}
         isOpen={isResolveDuplicatesOpen}
@@ -187,7 +198,7 @@ function RouteComponent() {
 
           <div className="flex flex-1 overflow-hidden">
             {/* References Table */}
-            <ReferencesTable>
+            <ReferencesTable viewLayout={articleViewLayout}>
               <TableBottomHeader
                 allSelected={ui.allSelected}
                 onSelectAll={ui.handleSelectAllReferences}
@@ -205,10 +216,8 @@ function RouteComponent() {
                 highlightIncludeKeywords={keywords.highlightIncludeKeywords}
                 highlightExcludeKeywords={keywords.highlightExcludeKeywords}
                 onOpenDetail={ui.handleOpenDetail}
-                onOpenPDF={(id) => {
-                  (ui.handleHighlightReference(id),
-                    fileUpload.setOpenUploadPDFDialog(true));
-                }}
+                onOpenPDF={ui.handleOpenPDF}
+                viewLayout={articleViewLayout}
               />
               {articleViewLayout !== 'title-abstract' && (
                 <ReviewDataFooter

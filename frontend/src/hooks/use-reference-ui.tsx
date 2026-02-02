@@ -23,6 +23,9 @@ export function useReferenceUI(references: Reference[]) {
   // Drawer state
   const [openDetailId, setOpenDetailId] = useState<number | null>(null);
 
+  // PDF dialog state
+  const [openPDFId, setOpenPDFId] = useState<number | null>(null);
+
   // Auto-collapse sidebars on mobile
   useEffect(() => {
     const handleResize = () => {
@@ -80,6 +83,11 @@ export function useReferenceUI(references: Reference[]) {
     return references.find((r) => r.id === openDetailId) ?? null;
   }, [openDetailId, references]);
 
+  const openPDFReference = useMemo(() => {
+    if (!openPDFId) return null;
+    return references.find((r) => r.id === openPDFId) ?? null;
+  }, [openPDFId, references]);
+
   // Handlers
   const handleReferenceSelect = useCallback((id: number) => {
     setSelectedReferenceIds((prev) =>
@@ -112,6 +120,14 @@ export function useReferenceUI(references: Reference[]) {
 
   const handleCloseDetail = useCallback(() => {
     setOpenDetailId(null);
+  }, []);
+
+  const handleOpenPDF = useCallback((id: number) => {
+    setOpenPDFId(id);
+  }, []);
+
+  const handleClosePDF = useCallback(() => {
+    setOpenPDFId(null);
   }, []);
 
   const handleNavigateDetail = useCallback(
@@ -195,5 +211,11 @@ export function useReferenceUI(references: Reference[]) {
     handleOpenDetail,
     handleCloseDetail,
     handleNavigateDetail,
+
+    // PDF state
+    openPDFId,
+    openPDFReference,
+    handleOpenPDF,
+    handleClosePDF,
   };
 }
