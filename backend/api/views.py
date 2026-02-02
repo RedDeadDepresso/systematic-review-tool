@@ -5,7 +5,7 @@ from datetime import date
 import bibtexparser
 from django.core.files.storage import default_storage
 from django.db import transaction
-from django.db.models import Count, F, Prefetch, Q
+from django.db.models import Count, F, OuterRef, Prefetch, Subquery
 from django.db.models.functions import ExtractYear
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -37,6 +37,7 @@ from api.models import (
     ReferenceOpinion,
     Review,
     ReviewInvitation,
+    ReviewMember,
     ScreeningCriteria,
     SearchMethod,
     SubTheme,
@@ -126,29 +127,122 @@ class UserViewSet(
         )
 
 
-def is_owner_or_collaborator(user, review):
-    """
-    Check if the user is the owner of the review or a collaborator.
-    """
-    return review.owner == user or user in review.collaborators.all()
+# === Role-based Permission Helper Functions ===
 
 
-class IsOwnerOrCollaboratorReadOnly(BasePermission):
+def get_user_role(user, review):
     """
-    Owners can do anything.
-    Collaborators can only read.
-    Others get no access.
+    Get the user's role for a review.
+    Returns ReviewMember.Role value or None if not a member.
+    """
+    try:
+        member = ReviewMember.objects.get(review=review, user=user)
+        return member.role
+    except ReviewMember.DoesNotExist:
+        return None
+
+
+def has_role(user, review, allowed_roles):
+    """
+    Check if user has any of the allowed roles for the review.
+
+    Args:
+        user: User instance
+        review: Review instance
+        allowed_roles: List of ReviewMember.Role values or single role
+
+    Returns:
+        bool: True if user has an allowed role
+    """
+    if isinstance(allowed_roles, str):
+        allowed_roles = [allowed_roles]
+
+    role = get_user_role(user, review)
+    return role in allowed_roles
+
+
+def has_review_access(user, review):
+    """
+    Check if user has any access to the review (any role).
+    """
+    return ReviewMember.objects.filter(review=review, user=user).exists()
+
+
+def is_owner(user, review):
+    """
+    Check if user is the owner of the review.
+    """
+    return has_role(user, review, ReviewMember.Role.OWNER)
+
+
+def can_modify_review(user, review):
+    """
+    Check if user can modify review (owner only).
+    """
+    return is_owner(user, review)
+
+
+def can_modify_content(user, review):
+    """
+    Check if user can modify content (owner or reviewer).
+    """
+    return has_role(user, review, [ReviewMember.Role.OWNER, ReviewMember.Role.REVIEWER])
+
+
+def can_view(user, review):
+    """
+    Check if user can view review (any role).
+    """
+    return has_review_access(user, review)
+
+
+# === Permission Classes ===
+
+
+class IsReviewOwner(BasePermission):
+    """
+    Only review owners can perform the action.
+    """
+
+    def has_object_permission(self, request, view, obj):
+        return is_owner(request.user, obj)
+
+
+class IsReviewOwnerOrReviewer(BasePermission):
+    """
+    Owners and reviewers can perform the action.
+    """
+
+    def has_object_permission(self, request, view, obj):
+        return can_modify_content(request.user, obj)
+
+
+class IsReviewMember(BasePermission):
+    """
+    Any review member can access (for read operations).
+    """
+
+    def has_object_permission(self, request, view, obj):
+        return has_review_access(request.user, obj)
+
+
+class RoleBasedPermission(BasePermission):
+    """
+    Role-based permission for reviews.
+    - Viewers: read-only access
+    - Reviewers: read and modify content (not review settings)
+    - Owner: full access
     """
 
     def has_object_permission(self, request, view, obj):
         user = request.user
 
-        # SAFE METHODS: collaborators + owner can view
+        # Read operations - all members can view
         if request.method in SAFE_METHODS:
-            return is_owner_or_collaborator(user, obj)
+            return has_review_access(user, obj)
 
-        # WRITE METHODS: only owner
-        return user == obj.owner
+        # Write operations - only owner and reviewer
+        return can_modify_content(user, obj)
 
 
 class ReviewViewSet(viewsets.ModelViewSet):
@@ -156,8 +250,9 @@ class ReviewViewSet(viewsets.ModelViewSet):
     ViewSet for managing reviews and related operations.
 
     Provides standard CRUD operations plus custom actions:
-    - upload_references: Upload BibTeX file
-    - export_latex: Export themes table as LaTeX
+    - upload_references: Upload BibTeX file (owner/reviewer)
+    - export_latex: Export themes table as LaTeX (any member)
+    - export_json: Export themes as JSON (any member)
     """
 
     permission_classes = [IsAuthenticated]
@@ -188,15 +283,46 @@ class ReviewViewSet(viewsets.ModelViewSet):
     }
 
     def get_queryset(self):
-        """Filter reviews to those owned by or shared with the user"""
         user = self.request.user
-        queryset = Review.objects.filter(
-            Q(owner=user) | Q(collaborators=user)
-        ).distinct()
 
-        # Only annotate for list view to optimize performance
+        owner_membership = ReviewMember.objects.filter(
+            review=OuterRef("pk"),
+            role=ReviewMember.Role.OWNER,
+        )
+
+        user_membership = ReviewMember.objects.filter(
+            review=OuterRef("pk"),
+            user=user,
+        )
+
+        queryset = (
+            Review.objects.filter(members__user=user)
+            .distinct()
+            .annotate(
+                owner_id=Subquery(owner_membership.values("user_id")[:1]),
+                owner_first_name=Subquery(
+                    owner_membership.values("user__first_name")[:1]
+                ),
+                owner_last_name=Subquery(
+                    owner_membership.values("user__last_name")[:1]
+                ),
+                owner_email=Subquery(owner_membership.values("user__email")[:1]),
+                user_role=Subquery(user_membership.values("role")[:1]),
+            )
+        )
+
+        # LIST → lightweight
         if self.action == "list":
             queryset = queryset.annotate(reference_count=Count("reference"))
+
+        # DETAIL → include members
+        else:
+            queryset = queryset.prefetch_related(
+                Prefetch(
+                    "members",
+                    queryset=ReviewMember.objects.select_related("user"),
+                )
+            )
 
         return queryset
 
@@ -207,14 +333,18 @@ class ReviewViewSet(viewsets.ModelViewSet):
         return ReviewSerializer
 
     def get_permissions(self):
-        """Apply stricter permissions for update/delete"""
+        """Apply role-based permissions"""
         if self.action in ["update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsOwnerOrCollaboratorReadOnly()]
+            return [IsAuthenticated(), IsReviewOwner()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        """Set the owner to the current user when creating"""
-        serializer.save(owner=self.request.user)
+        """Set the creator as owner when creating"""
+        review = serializer.save()
+        # Create ReviewMember with owner role
+        ReviewMember.objects.create(
+            review=review, user=self.request.user, role=ReviewMember.Role.OWNER
+        )
 
     # === Custom Actions ===
 
@@ -222,15 +352,14 @@ class ReviewViewSet(viewsets.ModelViewSet):
     def upload_references(self, request, pk=None):
         """
         Upload BibTeX file to add references to review.
-
-        Expected multipart/form-data with 'file' field containing .bib file.
+        Only owner and reviewer can upload.
         """
         review = self.get_object()
 
-        # Check ownership
-        if review.owner != request.user:
+        # Check permissions - only owner and reviewer
+        if not can_modify_content(request.user, review):
             return Response(
-                {"error": "Only the review owner can upload references"},
+                {"error": "Only owners and reviewers can upload references"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -285,12 +414,13 @@ class ReviewViewSet(viewsets.ModelViewSet):
     def export_json(self, request, pk=None):
         """
         Export themes, subthemes, and codes as structured JSON.
-
-        Query parameters:
-        - download: 'true' to download as .json file
-        - pretty: 'true' for formatted JSON (default: true)
+        All members can export.
         """
         review = self.get_object()
+
+        # Check if user has access
+        if not has_review_access(request.user, review):
+            raise PermissionDenied("You do not have access to this review.")
 
         # Build structured data
         themes_data = []
@@ -359,17 +489,17 @@ class ReviewViewSet(viewsets.ModelViewSet):
         # Return as JSON response
         return Response(export_data)
 
-    # Also update the export_latex action to support both formats
     @action(detail=True, methods=["get", "post"], url_path="export-latex")
     def export_latex(self, request, pk=None):
         """
         Export themes table as LaTeX code.
-
-        Query parameters (GET):
-        - download: 'true' to download as .tex file
-        - format: 'table_only' or 'full_document' (default: 'full_document' for downloads, 'table_only' for JSON)
+        All members can export.
         """
         review = self.get_object()
+
+        # Check if user has access
+        if not has_review_access(request.user, review):
+            raise PermissionDenied("You do not have access to this review.")
 
         is_download = request.query_params.get("download") == "true"
 
@@ -582,7 +712,7 @@ class ReferenceViewSet(viewsets.ModelViewSet):
     """
     ViewSet for References:
     - list, retrieve, update
-    - Access restricted to review owners or collaborators
+    - Access restricted to review members
     - Blinded review handling
     """
 
@@ -594,35 +724,41 @@ class ReferenceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Returns references for reviews the user has access to.
-        Handles blinded reviews by prefetching only the current user's opinions.
-        Can filter by review via query param ?review=ID
+        Returns references the user has access to.
+
+        - Blinded review: only current user's opinions
+        - Non-blinded: all opinions
         """
         user = self.request.user
         review_id = self.request.query_params.get("review")
 
         queryset = Reference.objects.all()
+        review = None
 
+        # Get the review and enforce access
         if review_id:
             review = get_object_or_404(Review, pk=review_id)
-            if not is_owner_or_collaborator(user, review):
+            if not has_review_access(user, review):
                 return Reference.objects.none()
             queryset = queryset.filter(review=review)
         else:
-            queryset = queryset.filter(
-                Q(review__owner=user) | Q(review__collaborators=user)
-            )
+            queryset = queryset.filter(review__members__user=user)
 
+        # Build opinions queryset
+        if review and review.is_blinded:
+            # Blinded → only current user's opinions
+            opinions_qs = ReferenceOpinion.objects.filter(
+                member__user=user
+            ).select_related("member__user")
+        else:
+            # Not blinded → all opinions
+            opinions_qs = ReferenceOpinion.objects.select_related("member__user")
+
+        # Prefetch and return
         return queryset.prefetch_related(
             Prefetch(
                 "referenceopinion_set",
-                queryset=ReferenceOpinion.objects.select_related("reviewer").only(
-                    "id",
-                    "status",
-                    "reviewer__first_name",
-                    "reviewer__last_name",
-                    "reviewer__email",
-                ),
+                queryset=opinions_qs,
                 to_attr="prefetched_opinions",
             ),
             "labels",
@@ -630,12 +766,12 @@ class ReferenceViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         """
-        Only allow update if user has access to the review.
+        Only allow update if user can modify content (owner/reviewer).
         """
         reference = self.get_object()
         review = reference.review
 
-        if not is_owner_or_collaborator(self.request.user, review):
+        if not can_modify_content(self.request.user, review):
             raise PermissionDenied(
                 "You do not have permission to update this reference."
             )
@@ -649,6 +785,7 @@ class ReferenceViewSet(viewsets.ModelViewSet):
         parser_classes=[CamelCaseJSONParser],
     )
     def attach_pdfs(self, request):
+        """Only owner/reviewer can attach PDFs"""
         serializer = AttachPDFsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -664,12 +801,11 @@ class ReferenceViewSet(viewsets.ModelViewSet):
                     id=item["uploaded_pdf_id"]
                 )
 
-                # Permission check
-                if not (
-                    reference.review.owner == user
-                    or reference.review.collaborators.filter(id=user.id).exists()
-                ):
-                    raise PermissionDenied("You do not have access to this review.")
+                # Permission check - owner or reviewer
+                if not can_modify_content(user, reference.review):
+                    raise PermissionDenied(
+                        "You do not have permission to modify this review."
+                    )
 
                 if uploaded_pdf.review_id != reference.review_id:
                     raise serializers.ValidationError(
@@ -708,6 +844,7 @@ class ReferenceViewSet(viewsets.ModelViewSet):
         parser_classes=[CamelCaseJSONParser],
     )
     def assign(self, request):
+        """Only owner can assign references"""
         serializer = AssignReferencesSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -721,7 +858,7 @@ class ReferenceViewSet(viewsets.ModelViewSet):
         review = get_object_or_404(Review, pk=review_id)
 
         # Only owner can assign
-        if review.owner != user:
+        if not is_owner(user, review):
             return Response(
                 {"detail": "Only the review owner can assign references"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -732,9 +869,8 @@ class ReferenceViewSet(viewsets.ModelViewSet):
             review=review,
         )
 
-        assignable_users = User.objects.filter(
-            id__in=[review.owner_id, *review.collaborators.values_list("id", flat=True)]
-        )
+        # Get all review members
+        assignable_members = ReviewMember.objects.filter(review=review)
 
         if mode == "assign":
             if not assignee_id:
@@ -743,14 +879,14 @@ class ReferenceViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            assignee = get_object_or_404(assignable_users, pk=assignee_id)
+            assignee = get_object_or_404(assignable_members, pk=assignee_id)
             references.update(assignee=assignee)
 
         elif mode == "remove":
             references.update(assignee=None)
 
         elif mode == "split_equally":
-            assignees = list(assignable_users)
+            assignees = list(assignable_members)
 
             if not assignees:
                 return Response(
@@ -786,13 +922,11 @@ class ReviewDataView(generics.ListAPIView):
 
         if review_id:
             review = get_object_or_404(Review, pk=review_id)
-            if not is_owner_or_collaborator(user, review):
+            if not has_review_access(user, review):
                 return Reference.objects.none()
             queryset = queryset.filter(review=review)
         else:
-            queryset = queryset.filter(
-                Q(review__owner=user) | Q(review__collaborators=user)
-            )
+            queryset = queryset.filter(review__members__user=user)
 
         # Prefetch ReferenceLabels for the current user only
         queryset = queryset.prefetch_related(
@@ -801,7 +935,7 @@ class ReviewDataView(generics.ListAPIView):
                 queryset=ReferenceLabel.objects.filter(label__user=user).select_related(
                     "label"
                 ),
-                to_attr="user_labels",  # store them in a custom attribute
+                to_attr="user_labels",
             )
         )
 
@@ -819,7 +953,7 @@ class ReviewDataView(generics.ListAPIView):
             )
 
         review = get_object_or_404(Review, pk=review_id)
-        if not is_owner_or_collaborator(request.user, review):
+        if not has_review_access(request.user, review):
             return Response(
                 {"error": "You do not have permission to access this review"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -909,9 +1043,9 @@ class ReviewDataView(generics.ListAPIView):
             Reference.objects.filter(review_id=review_id, assignee__isnull=False)
             .values(
                 _id=F("assignee__id"),
-                first_name=F("assignee__first_name"),
-                last_name=F("assignee__last_name"),
-                email=F("assignee__email"),
+                first_name=F("assignee__user__first_name"),
+                last_name=F("assignee__user__last_name"),
+                email=F("assignee__user__email"),
             )
             .annotate(count=Count("id"))
             .order_by("-count")
@@ -924,7 +1058,7 @@ class ReviewDataView(generics.ListAPIView):
         if unassigned_count > 0:
             assignees.append(
                 {
-                    "id": None,
+                    "_id": None,
                     "first_name": None,
                     "last_name": None,
                     "email": None,
@@ -951,25 +1085,48 @@ class ReviewDataView(generics.ListAPIView):
 
 class ScreeningView(ReviewDataView):
     def get_queryset(self):
+        user = self.request.user
         queryset = super().get_queryset()
-        queryset = (
+
+        # Try to get the review instance (assume all references in queryset belong to the same review)
+        review = queryset.first().review if queryset.exists() else None
+
+        if review and review.is_blinded:
+            # Blinded → only current user's opinion
+            opinions_qs = (
+                ReferenceOpinion.objects.filter(member__user=user)
+                .select_related("member__user")
+                .only(
+                    "id",
+                    "status",
+                    "member__id",
+                    "member__user__first_name",
+                    "member__user__last_name",
+                    "member__user__email",
+                )
+            )
+        else:
+            # Not blinded → all opinions
+            opinions_qs = ReferenceOpinion.objects.select_related("member__user").only(
+                "id",
+                "status",
+                "member__id",
+                "member__user__first_name",
+                "member__user__last_name",
+                "member__user__email",
+            )
+
+        return (
             queryset.exclude(duplicate_status__in=["Undecided", "Deleted"])
             .prefetch_related(
                 Prefetch(
                     "referenceopinion_set",
-                    queryset=ReferenceOpinion.objects.select_related("reviewer").only(
-                        "id",
-                        "status",
-                        "reviewer__first_name",
-                        "reviewer__last_name",
-                        "reviewer__email",
-                    ),
+                    queryset=opinions_qs,
                     to_attr="prefetched_opinions",
                 )
             )
             .distinct()
         )
-        return queryset
 
 
 class ScreeningFullTextView(ScreeningView):
@@ -978,13 +1135,20 @@ class ScreeningFullTextView(ScreeningView):
 
 class ReferenceOpinionViewSet(viewsets.GenericViewSet):
     """
-    ViewSet to manage a user's opinion on a reference.
-    - Update: create or update the current user's opinion for a reference
+    ViewSet to manage a member's opinion on a reference.
+    All review members can create/update opinions.
     """
 
     permission_classes = [IsAuthenticated]
     serializer_class = ReferenceOpinionSerializer
     queryset = ReferenceOpinion.objects.all()
+
+    def _get_review_member(self, user, review):
+        return get_object_or_404(
+            ReviewMember,
+            review=review,
+            user=user,
+        )
 
     def get_object(self):
         reference_id = self.request.data.get("reference")
@@ -997,12 +1161,14 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
         user = self.request.user
 
         # Access control
-        if not is_owner_or_collaborator(user, review):
+        if not has_review_access(user, review):
             raise PermissionDenied("You do not have access to this review.")
+
+        review_member = self._get_review_member(user, review)
 
         opinion, _ = ReferenceOpinion.objects.get_or_create(
             reference=reference,
-            reviewer=user,
+            member=review_member,
         )
         return opinion
 
@@ -1021,16 +1187,16 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
     @transaction.atomic
     def upsert(self, request):
         reference_ids = request.data.get("reference_ids")
-        reference_ids = request.data.get("reference_ids")
-        reference_ids = list(set(reference_ids))
-        status = request.data.get("status")
+        status_value = request.data.get("status")
 
         if not reference_ids or not isinstance(reference_ids, list):
             raise serializers.ValidationError(
                 {"reference_ids": "This field must be a non-empty list."}
             )
 
-        if not status:
+        reference_ids = list(set(reference_ids))
+
+        if not status_value:
             raise serializers.ValidationError({"status": "This field is required."})
 
         user = request.user
@@ -1042,17 +1208,22 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
         if references.count() != len(reference_ids):
             raise serializers.ValidationError("One or more references do not exist.")
 
-        #  Access control (all references must belong to reviews user can access)
-        reviews = {ref.review for ref in references}
-        for review in reviews:
-            if not is_owner_or_collaborator(user, review):
-                raise PermissionDenied("You do not have access to one or more reviews.")
+        # Access control + resolve review members
+        review_members = {}
+        for ref in references:
+            review = ref.review
+            if review not in review_members:
+                if not has_review_access(user, review):
+                    raise PermissionDenied(
+                        "You do not have access to one or more reviews."
+                    )
+                review_members[review] = self._get_review_member(user, review)
 
         existing_opinions = {
             op.reference_id: op
             for op in ReferenceOpinion.objects.filter(
                 reference_id__in=reference_ids,
-                reviewer=user,
+                member__in=review_members.values(),
             )
         }
 
@@ -1060,16 +1231,18 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
         to_update = []
 
         for ref in references:
+            review_member = review_members[ref.review]
+
             if ref.id in existing_opinions:
                 opinion = existing_opinions[ref.id]
-                opinion.status = status
+                opinion.status = status_value
                 to_update.append(opinion)
             else:
                 to_create.append(
                     ReferenceOpinion(
                         reference=ref,
-                        reviewer=user,
-                        status=status,
+                        member=review_member,
+                        status=status_value,
                     )
                 )
 
@@ -1079,10 +1252,9 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
         if to_update:
             ReferenceOpinion.objects.bulk_update(to_update, ["status"])
 
-        # Return updated opinions
         opinions = ReferenceOpinion.objects.filter(
             reference_id__in=reference_ids,
-            reviewer=user,
+            member__in=review_members.values(),
         )
 
         serializer = self.get_serializer(opinions, many=True)
@@ -1092,23 +1264,28 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
 class ReferenceDuplicatePairViewSet(viewsets.ViewSet):
     """
     ViewSet to handle reference duplicate detection and resolution.
-    - Detect: run duplicate detection for a review (owner only)
-    - List: retrieve the next unresolved duplicate pair for a review
-    - Resolve: keep one reference and delete the other (owner only)
+    - Detect: run duplicate detection (owner only)
+    - List: retrieve duplicate pairs (all members)
+    - Resolve: resolve duplicates (owner only)
     """
 
     permission_classes = [IsAuthenticated]
 
-    def _get_review(self):
-        return get_object_or_404(
-            Review,
-            pk=self.request.query_params.get("review"),
-            owner=self.request.user,
-        )
+    def _get_review(self, require_owner=False):
+        review = get_object_or_404(Review, pk=self.request.query_params.get("review"))
+
+        if require_owner and not is_owner(self.request.user, review):
+            raise PermissionDenied("Only the review owner can perform this action.")
+
+        if not require_owner and not has_review_access(self.request.user, review):
+            raise PermissionDenied("You do not have access to this review.")
+
+        return review
 
     @action(detail=False, methods=["post"])
     def detect(self, request):
-        review = self._get_review()
+        """Only owner can detect duplicates"""
+        review = self._get_review(require_owner=True)
 
         if review.reference_duplicate_detected:
             return Response(
@@ -1127,7 +1304,8 @@ class ReferenceDuplicatePairViewSet(viewsets.ViewSet):
         )
 
     def list(self, request):
-        review = self._get_review()
+        """All members can view duplicates"""
+        review = self._get_review(require_owner=False)
 
         qs = ReferenceDuplicatePair.objects.filter(review=review)
         total = qs.count()
@@ -1162,15 +1340,18 @@ class ReferenceDuplicatePairViewSet(viewsets.ViewSet):
 
     @action(detail=True, methods=["post"])
     def resolve(self, request, pk=None):
-        duplicate_pair = get_object_or_404(
-            ReferenceDuplicatePair,
-            pk=pk,
-        )
+        """Only owner can resolve duplicates"""
+        duplicate_pair = get_object_or_404(ReferenceDuplicatePair, pk=pk)
+
+        # Check if user is owner of the review
+        if not is_owner(request.user, duplicate_pair.review):
+            raise PermissionDenied("Only the review owner can resolve duplicates.")
+
         try:
             selection = int(request.data.get("selection"))
         except (TypeError, ValueError):
             return Response(
-                {"detail": "Selection must be an integer (1 or 2)."},
+                {"detail": "Selection must be an integer (1, 2, or 3)."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1178,19 +1359,16 @@ class ReferenceDuplicatePairViewSet(viewsets.ViewSet):
         reference_2 = duplicate_pair.reference2
 
         if selection == 1:
-            # Mark reference1 as Resolved, reference2 as Deleted
             self.set_duplicate_statuses(reference_1, "Resolved", reference_2, "Deleted")
         elif selection == 2:
-            # Mark reference2 as Resolved, reference1 as Deleted
             self.set_duplicate_statuses(reference_1, "Deleted", reference_2, "Resolved")
         elif selection == 3:
-            # Mark both references as Not Duplicate
             self.set_duplicate_statuses(
                 reference_1, "Not Duplicate", reference_2, "Not Duplicate"
             )
         else:
             return Response(
-                {"detail": "Invalid selection. Must be 1 or 2."},
+                {"detail": "Invalid selection. Must be 1, 2, or 3."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1213,8 +1391,7 @@ class KeywordViewSet(viewsets.ModelViewSet):
     """
     ViewSet for Keywords:
     - Filter by review via query param: ?review=ID
-    - Permissions enforced for review owner/collaborators
-    - Create keywords linked to a review via POST data
+    - Permissions: owner/reviewer can create/update/delete, viewer can only view
     """
 
     serializer_class = KeywordSerializer
@@ -1225,7 +1402,6 @@ class KeywordViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Returns keywords for reviews the user has access to.
-        Can filter by query param ?review=ID
         """
         queryset = Keyword.objects.all()
         review_id = self.request.query_params.get("review")
@@ -1233,17 +1409,14 @@ class KeywordViewSet(viewsets.ModelViewSet):
         if review_id:
             queryset = queryset.filter(review_id=review_id)
 
-        # Only include keywords for reviews user can access
-        queryset = queryset.filter(review__owner=self.request.user) | queryset.filter(
-            review__collaborators=self.request.user
-        )
+        # Only include keywords for reviews user has access to
+        queryset = queryset.filter(review__members__user=self.request.user)
 
         return queryset.distinct()
 
     def perform_create(self, serializer):
         """
-        Save a new keyword linked to a review from POST data.
-        Enforces permission check.
+        Save a new keyword. Only owner/reviewer can create.
         """
         review_id = self.request.data.get("review")
         if not review_id:
@@ -1251,20 +1424,32 @@ class KeywordViewSet(viewsets.ModelViewSet):
 
         review = get_object_or_404(Review, pk=review_id)
 
-        if not is_owner_or_collaborator(self.request.user, review):
+        if not can_modify_content(self.request.user, review):
             raise PermissionDenied(
                 "You do not have permission to add keywords to this review."
             )
 
         serializer.save(review=review)
 
+    def perform_update(self, serializer):
+        """Only owner/reviewer can update"""
+        keyword = self.get_object()
+        if not can_modify_content(self.request.user, keyword.review):
+            raise PermissionDenied("You do not have permission to update this keyword.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        """Only owner/reviewer can delete"""
+        if not can_modify_content(self.request.user, instance.review):
+            raise PermissionDenied("You do not have permission to delete this keyword.")
+        instance.delete()
+
 
 class NoteViewSet(viewsets.ModelViewSet):
     """
     ViewSet for Notes with:
-    - Filtering by reference or review
-    - Permissions for review owner/collaborators
-    - Blinded review handling
+    - All members can create/view notes
+    - Blinded review handling (can only see own notes if blinded)
     """
 
     serializer_class = NoteSerializer
@@ -1277,7 +1462,7 @@ class NoteViewSet(viewsets.ModelViewSet):
         review = obj.reference.review
         user = self.request.user
 
-        if not is_owner_or_collaborator(user, review):
+        if not has_review_access(user, review):
             raise PermissionDenied("You do not have access to this note.")
 
         # Blinded review rule
@@ -1289,19 +1474,15 @@ class NoteViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Returns notes the user has access to.
-        Can filter by query params: ?reference=ID or ?review=ID
         """
         queryset = Note.objects.all()
 
-        # Get filters from query params
         reference_id = self.request.query_params.get("reference")
         if reference_id:
             queryset = queryset.filter(reference_id=reference_id)
 
-        # Only include notes from reviews the user can access
-        queryset = queryset.filter(
-            reference__review__owner=self.request.user
-        ) | queryset.filter(reference__review__collaborators=self.request.user)
+        # Only include notes from reviews the user has access to
+        queryset = queryset.filter(reference__review__members__user=self.request.user)
 
         # Handle blinded reviews: only show own notes
         blinded_reviews = queryset.filter(reference__review__is_blinded=True)
@@ -1313,8 +1494,7 @@ class NoteViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """
-        Saves a new note using the reference ID from POST request data.
-        Ensures the user has access to the review.
+        All members can create notes.
         """
         reference_id = self.request.data.get("reference")
         if not reference_id:
@@ -1323,7 +1503,7 @@ class NoteViewSet(viewsets.ModelViewSet):
         reference = get_object_or_404(Reference, pk=reference_id)
         review = reference.review
 
-        if not is_owner_or_collaborator(self.request.user, review):
+        if not has_review_access(self.request.user, review):
             raise PermissionDenied(
                 "You do not have permission to add notes to this review."
             )
@@ -1332,6 +1512,7 @@ class NoteViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="bulk-create")
     def bulk_create(self, request):
+        """All members can bulk create notes"""
         serializer = BulkCreateNoteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -1350,7 +1531,7 @@ class NoteViewSet(viewsets.ModelViewSet):
         for reference in references:
             review = reference.review
 
-            if not is_owner_or_collaborator(request.user, review):
+            if not has_review_access(request.user, review):
                 raise PermissionDenied(f"No permission for review {review.id}")
 
             notes.append(
@@ -1378,8 +1559,8 @@ class ReviewInvitationViewSet(
 ):
     """
     ViewSet to handle review invitations.
-    - Create: only review owner can send invitations
-    - List: sent or received invitations via query param ?sent=true/false
+    - Create: only owner can send invitations
+    - List: sent or received invitations
     - Update: accept or decline invitation (custom action)
     - Destroy: only user who created the invitation
     """
@@ -1398,7 +1579,6 @@ class ReviewInvitationViewSet(
         List invitations:
         - ?sent=true → invitations sent by current user
         - ?sent=false → invitations received by current user
-        Default → received invitations
         """
         sent_param = self.request.query_params.get("sent", "false").lower() == "true"
         user = self.request.user
@@ -1409,19 +1589,34 @@ class ReviewInvitationViewSet(
             return ReviewInvitation.objects.filter(email=user.email)
 
     def create(self, request, *args, **kwargs):
+        """Only owner can invite"""
         review_id = request.data.get("review")
         emails = request.data.get("emails", [])
+        role = request.data.get("role", ReviewMember.Role.VIEWER)
 
         review = get_object_or_404(Review, pk=review_id)
-        if review.owner != request.user:
-            raise PermissionDenied("You are not the owner of this review.")
+
+        if not is_owner(request.user, review):
+            raise PermissionDenied("Only the review owner can send invitations.")
+
+        # Validate role
+        if role not in [choice[0] for choice in ReviewMember.Role.choices]:
+            return Response(
+                {
+                    "detail": f"Invalid role. Must be one of: {', '.join([c[0] for c in ReviewMember.Role.choices])}"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         created_invitations = []
         for email in emails:
             if email == request.user.email:
                 continue
             invitation = ReviewInvitation.objects.create(
-                email=email, review=review, invited_by=request.user
+                email=email,
+                review=review,
+                invited_by=request.user,
+                role=role,  # Store the role in invitation
             )
             created_invitations.append(invitation)
 
@@ -1431,20 +1626,25 @@ class ReviewInvitationViewSet(
     def update(self, request, pk=None):
         """
         Accept or decline an invitation.
-        Only the recipient (email) can perform this.
+        On accept, create ReviewMember with the specified role.
         """
         invitation = get_object_or_404(
             ReviewInvitation, pk=pk, email=request.user.email
         )
-        action = request.data.get("action", "").lower()
+        action_type = request.data.get("action", "").lower()
 
-        if action == "accept":
-            invitation.review.collaborators.add(request.user)
+        if action_type == "accept":
+            # Create ReviewMember with role from invitation
+            ReviewMember.objects.create(
+                review=invitation.review,
+                user=request.user,
+                role=invitation.role,  # Use role from invitation
+            )
             invitation.delete()
             return Response(
                 {"detail": "Invitation accepted."}, status=status.HTTP_200_OK
             )
-        elif action == "decline":
+        elif action_type == "decline":
             invitation.delete()
             return Response(
                 {"detail": "Invitation declined."}, status=status.HTTP_200_OK
@@ -1466,6 +1666,8 @@ class ReviewInvitationViewSet(
 
 
 class CodeViewSet(viewsets.ModelViewSet):
+    """All members can create codes"""
+
     serializer_class = CodeSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.DjangoFilterBackend]
@@ -1479,6 +1681,8 @@ class CodeViewSet(viewsets.ModelViewSet):
 
 
 class SubThemeViewSet(viewsets.ModelViewSet):
+    """All members can create subthemes"""
+
     serializer_class = SubThemeSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.DjangoFilterBackend]
@@ -1492,6 +1696,8 @@ class SubThemeViewSet(viewsets.ModelViewSet):
 
 
 class MainThemeViewSet(viewsets.ModelViewSet):
+    """All members can create themes"""
+
     serializer_class = MainThemeSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.DjangoFilterBackend]
@@ -1505,28 +1711,30 @@ class MainThemeViewSet(viewsets.ModelViewSet):
 
 
 class UploadedPDFViewSet(viewsets.ModelViewSet):
+    """Only owner/reviewer can upload PDFs"""
+
     serializer_class = UploadedPDFSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
-        return UploadedPDF.objects.filter(
-            Q(review__owner=user) | Q(review__collaborators=user)
-        ).distinct()
+        return UploadedPDF.objects.filter(review__members__user=user).distinct()
 
     def perform_create(self, serializer):
         review = serializer.validated_data["review"]
         user = self.request.user
 
-        if not (
-            review.owner == user or review.collaborators.filter(id=user.id).exists()
-        ):
-            raise PermissionDenied("You do not have access to this review.")
+        if not can_modify_content(user, review):
+            raise PermissionDenied(
+                "You do not have permission to upload files to this review."
+            )
 
         serializer.save()
 
 
 class LabelViewSet(viewsets.ModelViewSet):
+    """All members can create and manage their own labels"""
+
     serializer_class = LabelSerializer
     permission_classes = [IsAuthenticated]
 
@@ -1539,18 +1747,11 @@ class LabelViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["post"], url_path="assign-to-references")
     def assign_to_references(self, request):
         """
-        Custom action to assign/unassign labels to multiple references.
-        Expects payload:
-        {
-            "reference_ids": [1, 2, 3],
-            "checked_label_ids": [1, 2],
-            "indeterminate_label_ids": [3]
-        }
+        All members can assign their own labels to references.
         """
         user = request.user
         reference_ids = request.data.get("reference_ids", [])
         if reference_ids:
-            reference_ids = request.data.get("reference_ids")
             reference_ids = list(set(reference_ids))
         checked_label_ids = request.data.get("checked_label_ids", [])
         indeterminate_label_ids = request.data.get("indeterminate_label_ids", [])
@@ -1607,7 +1808,8 @@ class LabelViewSet(viewsets.ModelViewSet):
 class ScreeningCriteriaViewSet(viewsets.ModelViewSet):
     """
     CRUD for ScreeningCriteria.
-    Access allowed only to review owner or collaborators.
+    Only owner can create/update/delete.
+    All members can view.
     """
 
     serializer_class = ScreeningCriteriaSerializer
@@ -1617,7 +1819,6 @@ class ScreeningCriteriaViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         List only criteria belonging to reviews the user can access.
-        Supports filtering by ?review=ID
         """
         queryset = ScreeningCriteria.objects.all()
 
@@ -1626,29 +1827,41 @@ class ScreeningCriteriaViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(review_id=review_id)
 
         user = self.request.user
-        return queryset.filter(review__owner=user) | queryset.filter(
-            review__collaborators=user
-        )
+        return queryset.filter(review__members__user=user)
 
     def perform_create(self, serializer):
+        """Only owner can create screening criteria"""
         review = serializer.validated_data["review"]
 
-        if not is_owner_or_collaborator(self.request.user, review):
-            raise PermissionDenied(
-                "You do not have permission to add criteria to this review."
-            )
+        if not is_owner(self.request.user, review):
+            raise PermissionDenied("Only the review owner can add screening criteria.")
 
         serializer.save()
 
+    def perform_update(self, serializer):
+        """Only owner can update screening criteria"""
+        criteria = self.get_object()
+        if not is_owner(self.request.user, criteria.review):
+            raise PermissionDenied(
+                "Only the review owner can update screening criteria."
+            )
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        """Only owner can delete screening criteria"""
+        if not is_owner(self.request.user, instance.review):
+            raise PermissionDenied(
+                "Only the review owner can delete screening criteria."
+            )
+        instance.delete()
+
     def get_object(self):
         """
-        Enforce permissions for retrieve / update / delete.
+        Enforce permissions for retrieve.
         """
         obj = super().get_object()
 
-        if not is_owner_or_collaborator(self.request.user, obj.review):
-            raise PermissionDenied(
-                "You do not have permission to access this screening criteria."
-            )
+        if not has_review_access(self.request.user, obj.review):
+            raise PermissionDenied("You do not have access to this screening criteria.")
 
         return obj
