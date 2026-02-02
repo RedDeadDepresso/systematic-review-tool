@@ -86,6 +86,13 @@ def reference_upload_path(instance, filename):
 
 
 class Reference(models.Model):
+    class DuplicateStatus(models.TextChoices):
+        UNRESOLVED = "Unresolved"
+        DELETED = "Deleted"
+        NOT_DUPLICATE = "Not Duplicate"
+        RESOLVED = "Resolved"
+        UNIQUE = "Unique"
+
     review = models.ForeignKey(Review, on_delete=models.CASCADE)
     title = models.TextField()
     publication_type = models.CharField(max_length=255)
@@ -99,15 +106,7 @@ class Reference(models.Model):
     url = models.URLField(max_length=500, blank=True)
     file = models.FileField(upload_to=reference_upload_path, blank=True, null=True)
     duplicate_status = models.CharField(
-        max_length=20,
-        choices=[
-            ("Unresolved", "Unresolved"),
-            ("Deleted", "Deleted"),
-            ("Not Duplicate", "Not Duplicate"),
-            ("Resolved", "Resolved"),
-            ("Unique", "Unique"),
-        ],
-        default="Unique",
+        max_length=20, choices=DuplicateStatus.choices, default=DuplicateStatus.UNIQUE
     )
     search_vector = SearchVectorField(null=True, blank=True)
     assignee = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
@@ -269,17 +268,18 @@ class ReferenceDuplicatePair(models.Model):
 
 
 class ReferenceOpinion(models.Model):
+    class Status(models.TextChoices):
+        UNDECIDED = "Undecided"
+        EXCLUDED = "Excluded"
+        MAYBE = "Maybe"
+        INCLUDED = "Included"
+
     reference = models.ForeignKey(Reference, on_delete=models.CASCADE)
     reviewer = models.ForeignKey(User, on_delete=models.CASCADE)
     status = models.CharField(
         max_length=20,
-        choices=[
-            ("Undecided", "Undecided"),
-            ("Excluded", "Excluded"),
-            ("Maybe", "Maybe"),
-            ("Included", "Included"),
-        ],
-        default="Undecided",
+        choices=Status.choices,
+        default=Status.UNDECIDED,
     )
 
     class Meta:
@@ -357,6 +357,19 @@ class SubTheme(models.Model):
 
 
 class Code(models.Model):
+    class HighlightType(models.TextChoices):
+        TEXT = "text", "Text"
+        AREA = "area", "Area"
+        FREETEXT = "freetext", "Free text"
+        IMAGE = "image", "Image"
+        DRAWING = "drawing", "Drawing"
+        SHAPE = "shape", "Shape"
+
+    class HighlightStyle(models.TextChoices):
+        HIGHLIGHT = "highlight", "Highlight"
+        UNDERLINE = "underline", "Underline"
+        STRIKETHROUGH = "strikethrough", "Strikethrough"
+
     # Core identity
     id = models.UUIDField(
         primary_key=True,
@@ -367,14 +380,7 @@ class Code(models.Model):
     # Highlight type
     type = models.CharField(
         max_length=20,
-        choices=[
-            ("text", "Text"),
-            ("area", "Area"),
-            ("freetext", "Free text"),
-            ("image", "Image"),
-            ("drawing", "Drawing"),
-            ("shape", "Shape"),
-        ],
+        choices=HighlightStyle.choices,
         null=True,
         blank=True,
     )
@@ -404,11 +410,7 @@ class Code(models.Model):
     highlight_color = models.CharField(max_length=50, null=True, blank=True)
     highlight_style = models.CharField(
         max_length=20,
-        choices=[
-            ("highlight", "Highlight"),
-            ("underline", "Underline"),
-            ("strikethrough", "Strikethrough"),
-        ],
+        choices=HighlightType.choices,
         null=True,
         blank=True,
     )
