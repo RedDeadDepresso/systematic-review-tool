@@ -49,14 +49,34 @@ class Review(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     date_created = models.DateTimeField(auto_now_add=True)
-    owner = models.ForeignKey(User, on_delete=models.CASCADE)
     is_active = models.BooleanField(default=True)
     reference_duplicate_detected = models.BooleanField(default=False)
-    collaborators = models.ManyToManyField(User, related_name="collaborators")
     is_blinded = models.BooleanField(default=True)
 
     def __str__(self):
         return self.title
+
+
+class ReviewMember(models.Model):
+    class Role(models.TextChoices):
+        OWNER = "Owner"
+        REVIEWER = "Reviewer"
+        VIEWER = "Viewer"
+
+    review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name="members")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reviews")
+    role = models.CharField(max_length=20, choices=Role.choices)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["review", "user"],
+                name="unique_user_per_review",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user.first_name} {self.user.last_name} ({self.user.email})"
 
 
 class SearchMethod(models.Model):
@@ -109,7 +129,7 @@ class Reference(models.Model):
         max_length=20, choices=DuplicateStatus.choices, default=DuplicateStatus.UNIQUE
     )
     search_vector = SearchVectorField(null=True, blank=True)
-    assignee = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
+    assignee = models.ForeignKey(ReviewMember, null=True, on_delete=models.SET_NULL)
 
     class Meta:
         indexes = [
@@ -275,7 +295,7 @@ class ReferenceOpinion(models.Model):
         INCLUDED = "Included"
 
     reference = models.ForeignKey(Reference, on_delete=models.CASCADE)
-    reviewer = models.ForeignKey(User, on_delete=models.CASCADE)
+    member = models.ForeignKey(ReviewMember, on_delete=models.CASCADE)
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
@@ -283,7 +303,7 @@ class ReferenceOpinion(models.Model):
     )
 
     class Meta:
-        unique_together = ("reference", "reviewer")
+        unique_together = ("reference", "member")
 
 
 class Keyword(models.Model):
@@ -306,12 +326,17 @@ class Note(models.Model):
 
 
 class ReviewInvitation(models.Model):
+    class Role(models.TextChoices):
+        REVIEWER = "Reviewer"
+        VIEWER = "Viewer"
+
     email = models.EmailField()
     review = models.ForeignKey(Review, on_delete=models.CASCADE)
     invited_by = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="sent_invitations"
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    role = models.CharField(max_length=20, choices=Role.choices)
 
     def __str__(self):
         return f"Invitation to {self.email} for review {self.review.id}"
