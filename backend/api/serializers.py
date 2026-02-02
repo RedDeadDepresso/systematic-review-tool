@@ -16,6 +16,7 @@ from api.models import (
     ReferenceOpinion,
     Review,
     ReviewInvitation,
+    ReviewMember,
     ScreeningCriteria,
     SubTheme,
     UploadedPDF,
@@ -110,12 +111,32 @@ class UserSerializer(serializers.ModelSerializer):
         return instance
 
 
+class ReviewMemberSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ReviewMember
+        fields = ["id", "role", "user"]
+
+    def get_user(self, obj):
+        return {
+            "id": obj.user.id,
+            "first_name": obj.user.first_name,
+            "last_name": obj.user.last_name,
+            "email": obj.user.email,
+            "display_name": str(obj),
+        }
+
+
 class ReviewSerializer(ModelSerializer):
     reference_count = serializers.SerializerMethodField()
     reference_duplicates_count = serializers.SerializerMethodField()
     date_created = serializers.DateTimeField(format="%d %b %Y", read_only=True)
-    owner = UserSerializer(read_only=True)
-    collaborators = UserSerializer(read_only=True, many=True)
+    user_role = serializers.SerializerMethodField()
+    members = ReviewMemberSerializer(many=True, read_only=True)
+
+    def get_user_role(self, obj):
+        return getattr(obj, "user_role", None)
 
     def get_reference_count(self, obj):
         return obj.reference_set.count()
@@ -132,27 +153,46 @@ class ReviewSerializer(ModelSerializer):
             "reference_count",
             "reference_duplicates_count",
             "date_created",
-            "owner",
             "is_blinded",
-            "collaborators",
+            "user_role",
+            "members",
         ]
         read_only_fields = [
             "owner",
             "date_created",
             "reference_count",
             "reference_duplicates_count",
-            "collaborators",
+            "user_role",
+            "members",
         ]
 
 
 class ReviewListSerializer(ModelSerializer):
+    user_role = serializers.SerializerMethodField()
     date_created = serializers.DateTimeField(format="%d %b %Y")
     owner = serializers.StringRelatedField()
     reference_count = serializers.IntegerField(read_only=True)
+    owner = serializers.SerializerMethodField()
+
+    def get_user_role(self, obj):
+        return getattr(obj, "user_role", None)
+
+    def get_owner(self, obj):
+        if not obj.owner_email:
+            return None
+
+        return f"{obj.owner_first_name} {obj.owner_last_name} ({obj.owner_email})"
 
     class Meta:
         model = Review
-        fields = ["title", "date_created", "owner", "reference_count", "id"]
+        fields = [
+            "title",
+            "date_created",
+            "owner",
+            "reference_count",
+            "id",
+            "user_role",
+        ]
 
 
 class UploadedPDFSerializer(serializers.ModelSerializer):
@@ -210,13 +250,16 @@ class ReferenceSerializer(BaseReferenceSerializer):
         opinions = getattr(obj, "prefetched_opinions", None)
         if opinions is None:
             return None
-
         return [
             {
-                "reviewer": {
-                    "first_name": op.reviewer.first_name,
-                    "last_name": op.reviewer.last_name,
-                    "email": op.reviewer.email,
+                "member": {
+                    "id": op.member.id,
+                    "user": {
+                        "first_name": op.member.user.first_name,
+                        "last_name": op.member.user.last_name,
+                        "email": op.member.user.email,
+                        "display_name": str(op.member.user),
+                    },
                 },
                 "status": op.status,
             }
@@ -246,19 +289,21 @@ class ReferenceSerializer(BaseReferenceSerializer):
             return None
         return {
             "id": obj.assignee.id,
-            "first_name": obj.assignee.first_name,
-            "last_name": obj.assignee.last_name,
-            "email": obj.assignee.email,
+            "user": {
+                "first_name": obj.assignee.user.first_name,
+                "last_name": obj.assignee.user.last_name,
+                "email": obj.assignee.user.email,
+            },
         }
 
 
 class ReferenceOpinionSerializer(ModelSerializer):
-    reviewer = serializers.StringRelatedField()
+    member = serializers.StringRelatedField()
 
     class Meta:
         model = ReferenceOpinion
-        fields = ["id", "reviewer", "status"]
-        read_only_fields = ["id", "reviewer"]
+        fields = ["id", "member", "status"]
+        read_only_fields = ["id", "member"]
 
 
 class ReferenceDuplicatePairSerializer(ModelSerializer):
