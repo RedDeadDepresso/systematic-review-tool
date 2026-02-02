@@ -1,12 +1,13 @@
-import type { Invitation } from '@/types/invitation';
+import type { Invitation, InvitationRole } from '@/types/invitation';
 import api from './axios';
 
 /* ------------------ SEND INVITATIONS ------------------ */
-export async function sendInvitations(reviewId: number, emails: string[]) {
-  const res = await api.post('/review-invitations/', {
-    review: reviewId,
-    emails,
-  });
+export async function sendInvitations(payload: {
+  review: number;
+  emails: string[];
+  role: InvitationRole;
+}) {
+  const res = await api.post('/review-invitations/', payload);
   return res.data;
 }
 

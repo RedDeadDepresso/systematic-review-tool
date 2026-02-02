@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   Dialog,
   DialogTrigger,
@@ -8,30 +8,48 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import EmailChipsInput from '@/components/review-index/email-chip-input';
 import { useSendInvitations } from '@/hooks/use-invitation';
+import type { InvitationRole } from '@/types/invitation';
 
 export default function InvitationDialog({
   reviewId,
+  trigger,
 }: {
-  reviewId: number | string;
+  reviewId: number;
+  trigger: ReactNode;
 }) {
   const [emails, setEmails] = useState<string[]>([]);
-  const sendInviteMutation = useSendInvitations(reviewId);
+  const [role, setRole] = useState<InvitationRole>('Reviewer');
+
+  const sendInviteMutation = useSendInvitations();
 
   const handleSend = () => {
-    sendInviteMutation.mutate(emails, {
-      onSuccess: () => {
-        setEmails([]);
+    sendInviteMutation.mutate(
+      {
+        review: reviewId,
+        emails,
+        role,
       },
-    });
+      {
+        onSuccess: () => {
+          setEmails([]);
+          setRole('Reviewer');
+        },
+      }
+    );
   };
 
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <Button>Send Invites</Button>
-      </DialogTrigger>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
 
       <DialogContent className="max-w-sm">
         <DialogHeader>
@@ -40,6 +58,19 @@ export default function InvitationDialog({
 
         <div className="flex flex-col gap-4 py-4">
           <EmailChipsInput value={emails} onChange={setEmails} />
+
+          <Select
+            value={role}
+            onValueChange={(v) => setRole(v as InvitationRole)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select role" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Reviewer">Reviewer</SelectItem>
+              <SelectItem value="Viewer">Viewer</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <DialogFooter>

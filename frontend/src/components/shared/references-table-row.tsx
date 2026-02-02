@@ -6,11 +6,11 @@ import { cn } from '@/lib/utils';
 import type { Reference, Label } from '@/types/reference';
 import { highlightText } from '@/lib/reference';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
-import type { User } from '@/types/auth';
 import { Button } from '../ui/button';
+import type { ReviewMember } from '@/types/review';
 
 interface OpinionBadgeProps {
-  opinion: { reviewer: User; status: string };
+  opinion: { member: ReviewMember; status: string };
 }
 
 function OpinionBadge({ opinion }: OpinionBadgeProps) {
@@ -33,26 +33,26 @@ function OpinionBadge({ opinion }: OpinionBadgeProps) {
           {opinion.status === 'Included' && '✓'}
           {opinion.status === 'Maybe' && '?'}
           {opinion.status === 'Excluded' && '✕'}
-          <span>{opinion.reviewer.firstName}</span>
+          <span>{opinion.member.user.firstName}</span>
         </Badge>
       </TooltipTrigger>
       <TooltipContent>
-        {opinion.status} by {opinion.reviewer.email}
+        {opinion.status} by {opinion.member.user.email}
       </TooltipContent>
     </Tooltip>
   );
 }
 
-function AssigneeBadge({ assignee }: { assignee: User }) {
+function AssigneeBadge({ assignee }: { assignee: ReviewMember }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <Badge variant="secondary" className="text-xs gap-1">
           <CircleUser className="h-3 w-3" />
-          {assignee.firstName}
+          {assignee.user.firstName}
         </Badge>
       </TooltipTrigger>
-      <TooltipContent>Assigned to {assignee.email}</TooltipContent>
+      <TooltipContent>Assigned to {assignee.user.email}</TooltipContent>
     </Tooltip>
   );
 }
@@ -162,7 +162,7 @@ export function ReferenceRowTitleOnly({
           {ref.assignee && <AssigneeBadge assignee={ref.assignee} />}
 
           {ref.labels.map((label: Label) => (
-            <LabelBadge label={label} />
+            <LabelBadge key={label.id} label={label} />
           ))}
         </div>
       </div>
@@ -271,7 +271,7 @@ export function ReferenceRowTitleAbstract({
                 {ref.assignee && <AssigneeBadge assignee={ref.assignee} />}
 
                 {ref.labels.map((label: Label) => (
-                  <LabelBadge label={label} />
+                  <LabelBadge key={label.id} label={label} />
                 ))}
               </div>
             </div>

@@ -8,7 +8,6 @@ import { Spinner } from '@/components/ui/spinner';
 import { useContext, useEffect, useState } from 'react';
 import { ResolveDuplicatesDialog } from '@/components/shared/resolve-duplicates-dialog';
 import { AppLayoutContext } from '@/context/app-layout-context';
-import { useFetchUser } from '@/hooks/use-auth';
 import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
 import { ReviewHeader } from '@/components/shared/review-header';
 
@@ -26,7 +25,6 @@ function ReviewPage() {
   const { mutate, isPending } = useDetectDuplicateReferences();
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
-  const { data: user, isLoading: isUserLoading } = useFetchUser();
   const UploadReviewReferences = useUploadReviewReferences();
   const [openUploadDialog, setOpenUploadDialog] = useState(false);
 
@@ -57,7 +55,7 @@ function ReviewPage() {
 
   return (
     <>
-      {!isUserLoading && !isLoading && user.id === data.owner.id && (
+      {!isLoading && data?.userRole === 'Owner' && (
         <ResolveDuplicatesDialog
           reviewId={reviewId}
           isOpen={isOpen}
@@ -81,7 +79,7 @@ function ReviewPage() {
                   Review Title:{' '}
                 </span>
                 <span className="text-muted-foreground">
-                  {isLoading ? '...' : data.title}
+                  {isLoading ? '...' : data?.title}
                 </span>
               </div>
             </div>
@@ -95,7 +93,7 @@ function ReviewPage() {
                   Description:{' '}
                 </span>
                 <span className="text-muted-foreground">
-                  {isLoading ? '...' : data.description}
+                  {isLoading ? '...' : data?.description}
                 </span>
               </div>
             </div>
@@ -115,9 +113,9 @@ function ReviewPage() {
                   Imported References
                 </h3>
                 <p className="text-center text-4xl font-semibold text-foreground">
-                  {isLoading ? '0' : data.referenceCount}
+                  {isLoading ? '0' : data?.referenceCount}
                 </p>
-                {!isUserLoading && !isLoading && user.id === data.owner.id && (
+                {!isLoading && data?.userRole === 'Owner' && (
                   <>
                     <FileUploadDialog
                       open={openUploadDialog}
@@ -147,9 +145,9 @@ function ReviewPage() {
                   Total Duplicates
                 </h3>
                 <p className="text-center text-4xl font-semibold text-foreground">
-                  {isLoading ? '0' : data.referenceDuplicatesCount}
+                  {isLoading ? '0' : data?.referenceDuplicatesCount}
                 </p>
-                {!isUserLoading && !isLoading && user.id === data.owner.id && (
+                {!isLoading && data?.userRole === 'Owner' && (
                   <Button
                     className="w-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
                     onClick={handleDetectDuplicates}
@@ -169,12 +167,12 @@ function ReviewPage() {
                   Unresolved
                 </h3>
                 <p className="text-center text-4xl font-semibold text-foreground">
-                  {isLoading ? '0' : data.referenceDuplicatesCount}
+                  {isLoading ? '0' : data?.referenceDuplicatesCount}
                 </p>
-                {!isUserLoading && !isLoading && user.id === data.owner.id && (
+                {!isLoading && data?.userRole === 'Owner' && (
                   <Button
                     className="w-full bg-gray-200 text-gray-600 hover:bg-gray-300"
-                    disabled={isLoading || data.referenceDuplicatesCount === 0}
+                    disabled={isLoading || data?.referenceDuplicatesCount === 0}
                     onClick={() => setIsOpen(true)}
                   >
                     Continue Resolving

@@ -1,3 +1,4 @@
+import type { Review, ReviewRow } from '@/types/review';
 import api from './axios';
 
 export const createReview = async (payload: {
@@ -9,7 +10,7 @@ export const createReview = async (payload: {
 };
 
 export const fetchReviews = async ({ isActive }: { isActive: boolean }) => {
-  const res = await api.get('/reviews/', {
+  const res = await api.get<ReviewRow[]>('/reviews/', {
     params: {
       is_active: isActive,
     },
@@ -19,7 +20,7 @@ export const fetchReviews = async ({ isActive }: { isActive: boolean }) => {
 };
 
 export const fetchReview = async (id: number) => {
-  const res = await api.get(`/reviews/${id}/`);
+  const res = await api.get<Review>(`/reviews/${id}/`);
   return res.data;
 };
 
@@ -35,7 +36,7 @@ export const updateReview = async ({
     isBlinded?: boolean;
   };
 }) => {
-  const res = await api.patch(`/reviews/${id}/`, payload);
+  const res = await api.patch<Review>(`/reviews/${id}/`, payload);
   return res.data;
 };
 

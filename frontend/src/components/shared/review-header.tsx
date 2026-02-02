@@ -1,4 +1,4 @@
-import { Grid } from 'lucide-react';
+import { Grid, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { ScreeningCriteriaPopover } from '@/components/shared/screening-criteria-popover';
@@ -9,6 +9,8 @@ import {
 } from '../ui/navigation-menu';
 import { Link, useRouterState } from '@tanstack/react-router';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useFetchReview } from '@/hooks/use-review';
+import InvitationDialog from './invitation-dialog';
 
 interface ReviewHeaderProps {
   reviewId: number;
@@ -20,6 +22,8 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
   // detect the current route to highlight the active tab
   const { location } = useRouterState();
   const pathname = location.pathname;
+
+  const fetchReview = useFetchReview(reviewId);
 
   const tabs = [
     { label: 'Overview', path: `/reviews/${reviewId}` },
@@ -88,6 +92,21 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
               </Button>
             }
           />
+          {fetchReview.data?.userRole === 'Owner' && (
+            <InvitationDialog
+              reviewId={reviewId}
+              trigger={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 bg-transparent hidden lg:flex"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Invite
+                </Button>
+              }
+            />
+          )}
         </div>
       </div>
     </header>

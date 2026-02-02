@@ -22,7 +22,6 @@ import {
   useReactTable,
   type VisibilityState,
 } from '@tanstack/react-table';
-import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -57,20 +56,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { ReviewRow } from '@/types/review';
 import { useRouter } from '@tanstack/react-router';
 
-export const schema = z.object({
-  title: z.string(),
-  dateCreated: z.string(),
-  owner: z.string(),
-  referenceCount: z.number(),
-  id: z.number(),
-});
-
 export function createColumns(
   isActive: boolean,
   onToggleArchive: (rowData: ReviewRow) => void,
   onDelete: (rowData: ReviewRow) => void
 ) {
-  const columns: ColumnDef<z.infer<typeof schema>>[] = [
+  const columns: ColumnDef<ReviewRow>[] = [
     {
       accessorKey: 'title',
       header: ({ column }) => {
@@ -173,7 +164,7 @@ export function ReviewTable({
   data,
   isActive,
 }: {
-  data: z.infer<typeof schema>[];
+  data: ReviewRow[];
   isActive: boolean;
 }) {
   const [rowSelection, setRowSelection] = React.useState({});

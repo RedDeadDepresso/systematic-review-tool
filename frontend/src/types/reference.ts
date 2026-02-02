@@ -1,9 +1,9 @@
-import type { User } from './auth';
+import type { ReviewMember } from './review';
 
 export type OpinionStatus = 'Undecided' | 'Included' | 'Excluded' | 'Maybe';
 
 export type Opinion = {
-  reviewer: User;
+  member: ReviewMember;
   status: OpinionStatus;
 };
 
@@ -29,7 +29,7 @@ export type Reference = {
   file?: string;
   doi?: string;
   url?: string;
-  assignee: User | null;
+  assignee: ReviewMember | null;
 };
 
 // Reference Table
