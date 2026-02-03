@@ -1449,7 +1449,7 @@ class KeywordViewSet(viewsets.ModelViewSet):
 class NoteViewSet(viewsets.ModelViewSet):
     """
     ViewSet for Notes with:
-    - All members can create/view notes
+    - All review members can create/view notes
     - Blinded review handling (can only see own notes if blinded)
     """
 
@@ -1463,11 +1463,12 @@ class NoteViewSet(viewsets.ModelViewSet):
         review = obj.reference.review
         user = self.request.user
 
-        if not has_review_access(user, review):
+        # Check review access
+        if not ReviewMember.objects.filter(review=review, user=user).exists():
             raise PermissionDenied("You do not have access to this note.")
 
-        # Blinded review rule
-        if review.is_blinded and obj.author != user:
+        # Blinded review: only author can see
+        if review.is_blinded and obj.member.user != user:
             raise PermissionDenied("You cannot access this note.")
 
         return obj
@@ -1476,26 +1477,31 @@ class NoteViewSet(viewsets.ModelViewSet):
         """
         Returns notes the user has access to.
         """
-        queryset = Note.objects.all()
+        user = self.request.user
+
+        queryset = Note.objects.filter(reference__review__members__user=user)
 
         reference_id = self.request.query_params.get("reference")
         if reference_id:
             queryset = queryset.filter(reference_id=reference_id)
 
-        # Only include notes from reviews the user has access to
-        queryset = queryset.filter(reference__review__members__user=self.request.user)
-
-        # Handle blinded reviews: only show own notes
-        blinded_reviews = queryset.filter(reference__review__is_blinded=True)
+        # Blinded reviews: only own notes
         queryset = queryset.exclude(
             reference__review__is_blinded=True
-        ) | blinded_reviews.filter(author=self.request.user)
+        ) | queryset.filter(
+            reference__review__is_blinded=True,
+            member__user=user,
+        )
 
-        return queryset.distinct().select_related("author")
+        return queryset.distinct().select_related(
+            "member",
+            "member__user",
+            "reference",
+        )
 
     def perform_create(self, serializer):
         """
-        All members can create notes.
+        All review members can create notes.
         """
         reference_id = self.request.data.get("reference")
         if not reference_id:
@@ -1504,12 +1510,16 @@ class NoteViewSet(viewsets.ModelViewSet):
         reference = get_object_or_404(Reference, pk=reference_id)
         review = reference.review
 
-        if not has_review_access(self.request.user, review):
-            raise PermissionDenied(
-                "You do not have permission to add notes to this review."
-            )
+        member = get_object_or_404(
+            ReviewMember,
+            review=review,
+            user=self.request.user,
+        )
 
-        serializer.save(author=self.request.user, reference=reference)
+        serializer.save(
+            member=member,
+            reference=reference,
+        )
 
     @action(detail=False, methods=["post"], url_path="bulk-create")
     def bulk_create(self, request):
@@ -1532,12 +1542,17 @@ class NoteViewSet(viewsets.ModelViewSet):
         for reference in references:
             review = reference.review
 
-            if not has_review_access(request.user, review):
+            member = ReviewMember.objects.filter(
+                review=review,
+                user=request.user,
+            ).first()
+
+            if not member:
                 raise PermissionDenied(f"No permission for review {review.id}")
 
             notes.append(
                 Note(
-                    author=request.user,
+                    member=member,
                     reference=reference,
                     content=content,
                 )

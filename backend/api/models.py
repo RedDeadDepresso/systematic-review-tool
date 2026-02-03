@@ -9,6 +9,7 @@ from django.contrib.postgres.indexes import GinIndex, OpClass
 from django.contrib.postgres.search import SearchVectorField
 from django.db import connection, models, transaction
 from django.db.models.functions import Lower
+from django.utils import timezone
 
 
 class UserManager(BaseUserManager):
@@ -313,16 +314,23 @@ class Keyword(models.Model):
 
 
 class Note(models.Model):
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notes")
+    member = models.ForeignKey(
+        ReviewMember, on_delete=models.CASCADE, related_name="notes"
+    )
     reference = models.ForeignKey(
         Reference, on_delete=models.CASCADE, related_name="notes"
     )
     content = models.TextField()
-    date_created = models.DateTimeField(auto_now_add=True)
-    date_edited = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    edited_at = models.DateTimeField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            self.edited_at = timezone.now()
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Note by {self.author.username} on {self.date_created.strftime('%Y-%m-%d %H:%M')}"
+        return f"Note by {self.member} on {self.created_at.strftime('%d-%m-%Y %H:%M')}"
 
 
 class ReviewInvitation(models.Model):

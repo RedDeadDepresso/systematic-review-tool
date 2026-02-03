@@ -349,12 +349,12 @@ class KeywordSerializer(ModelSerializer):
 
 
 class NoteSerializer(serializers.ModelSerializer):
-    author = UserSerializer(read_only=True)
+    member = ReviewMemberSerializer(read_only=True)
 
     class Meta:
         model = Note
-        fields = ["id", "author", "content", "date_created", "date_edited"]
-        read_only_fields = ["author", "date_created", "date_edited"]
+        fields = ["id", "member", "content", "created_at", "edited_at"]
+        read_only_fields = ["id", "member", "created_at", "edited_at"]
 
 
 class BulkCreateNoteSerializer(serializers.Serializer):
