@@ -10,6 +10,7 @@ import { ResolveDuplicatesDialog } from '@/components/shared/resolve-duplicates-
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
 import { ReviewHeader } from '@/components/shared/review-header';
+import { ReviewTeamTable } from '@/components/review-index/review-team-table';
 
 export const Route = createFileRoute('/reviews/$reviewId/')({
   component: ReviewPage,
@@ -216,6 +217,18 @@ function ReviewPage() {
               </div>
             </Card> */}
           </div>
+        </Card>
+
+        {/* Members Section */}
+        <Card className="p-6">
+          <h2 className="mb-2 text-xl font-semibold text-foreground">
+            Members
+          </h2>
+          <ReviewTeamTable
+            data={data?.members || []}
+            userRole={data?.userRole || 'Viewer'}
+            reviewId={reviewId}
+          />
         </Card>
       </div>
     </>

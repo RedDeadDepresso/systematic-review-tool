@@ -15,14 +15,15 @@ export const Route = createFileRoute('/')({
 });
 
 function IndexPage() {
-  const { data: activeReviews, isLoading: isLoadingActive } = useFetchReviews({
-    isActive: true,
-  });
-  const { data: inactiveReviews, isLoading: isLoadingInactive } =
+  const { data: activeReviews = [], isLoading: isLoadingActive } =
+    useFetchReviews({
+      isActive: true,
+    });
+  const { data: inactiveReviews = [], isLoading: isLoadingInactive } =
     useFetchReviews({
       isActive: false,
     });
-  const { data: invitations, isLoading: isLoadingInvitations } =
+  const { data: invitations = [], isLoading: isLoadingInvitations } =
     useFetchInvitations();
 
   const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
@@ -47,7 +48,7 @@ function IndexPage() {
       <h2 className="text-2xl font-semibold mb-4 text-foreground">
         Invitations
       </h2>
-      {!isLoadingInvitations && <InvitationTable data={invitations ?? []} />}
+      {!isLoadingInvitations && <InvitationTable data={invitations} />}
     </>
   );
 }
