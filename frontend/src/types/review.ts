@@ -16,6 +16,7 @@ export type Review = {
   referenceDuplicatesCount: number;
   userRole: ReviewRole;
   members: ReviewMember[];
+  isBlinded: boolean;
 };
 
 export type ReviewRow = {
