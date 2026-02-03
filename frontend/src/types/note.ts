@@ -1,11 +1,11 @@
-import type { User } from './auth';
+import type { ReviewMember } from './review';
 
 export interface Note {
   id: number;
   content: string;
-  dateCreated: string;
-  dateEdited?: string;
-  author: User;
+  createdAt: Date;
+  editedAt?: Date;
+  member: ReviewMember;
   referenceId: number;
   reviewId: number;
 }

@@ -57,16 +57,17 @@ export function NoteItem({
   const updateNote = useUpdateNote();
   const deleteNote = useDeleteNote();
 
-  const createdDate = new Date(note.dateCreated);
-  const editedDate = note.dateEdited ? new Date(note.dateEdited) : null;
+  const createdDate = new Date(note.createdAt);
+  const editedDate = note.editedAt ? new Date(note.editedAt) : null;
   const isEdited = !!editedDate;
 
   // Check if current user is the author
-  const isAuthor = currentUser?.id === note.author.id;
-  const fullName = note.author.firstName + ' ' + note.author.lastName;
+  const isAuthor = currentUser?.id === note.member.user.id;
+  const fullName = note.member.user.firstName + ' ' + note.member.user.lastName;
 
   // Get initials for avatar fallback
-  const initials = note.author.firstName[0] + ' ' + note.author.lastName[0];
+  const initials =
+    note.member.user.firstName[0] + ' ' + note.member.user.lastName[0];
 
   const handleSave = async () => {
     if (editedContent.trim() === note.content.trim()) {
@@ -140,7 +141,7 @@ export function NoteItem({
                       {fullName}
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent>{note.author.email}</TooltipContent>
+                  <TooltipContent>{note.member.user.email}</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
