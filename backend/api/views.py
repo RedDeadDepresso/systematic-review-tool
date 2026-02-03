@@ -59,6 +59,7 @@ from api.serializers import (
     ReviewInvitationCreateSerializer,
     ReviewInvitationSerializer,
     ReviewListSerializer,
+    ReviewMemberSerializer,
     ReviewSerializer,
     ScreeningCriteriaSerializer,
     SubThemeSerializer,
@@ -1865,3 +1866,25 @@ class ScreeningCriteriaViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You do not have access to this screening criteria.")
 
         return obj
+
+
+class ReviewMemberRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = ReviewMemberSerializer
+    queryset = ReviewMember.objects.all()
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        """
+        Enforce permissions for retrieve.
+        """
+        obj = super().get_object()
+
+        if not is_owner(self.request.user, obj.review):
+            raise PermissionDenied("You do not have access review member.")
+
+        return obj
+
+    def perform_destroy(self, instance):
+        if instance.role == ReviewMember.Role.OWNER:
+            raise serializers.ValidationError("You cannot remove the review owner.")
+        instance.delete()

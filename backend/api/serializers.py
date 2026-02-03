@@ -117,6 +117,7 @@ class ReviewMemberSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReviewMember
         fields = ["id", "role", "user"]
+        read_only_fields = ["id", "user"]
 
     def get_user(self, obj):
         return {
@@ -126,6 +127,31 @@ class ReviewMemberSerializer(serializers.ModelSerializer):
             "email": obj.user.email,
             "display_name": str(obj),
         }
+
+    def validate_role(self, new_role):
+        """
+        Enforce role rules:
+        - Owner role cannot be changed
+        - No one can be promoted to Owner
+        """
+        instance = self.instance  # existing ReviewMember
+
+        if not instance:
+            return new_role
+
+        current_role = instance.role
+
+        #  Cannot modify an existing Owner
+        if current_role == ReviewMember.Role.OWNER:
+            raise serializers.ValidationError(
+                "You cannot change the role of the review owner."
+            )
+
+        # Cannot promote someone to Owner
+        if new_role == ReviewMember.Role.OWNER:
+            raise serializers.ValidationError("You cannot assign the Owner role.")
+
+        return new_role
 
 
 class ReviewSerializer(ModelSerializer):
