@@ -22,6 +22,7 @@ import { ReferencesTableBody } from '@/components/shared/references-table-body';
 import { ReviewDataFooter } from '@/components/shared/references-table-footer';
 import { TableBottomHeader } from '@/components/shared/references-table-bottom-header';
 import { PDFDialog } from '@/components/review-full-text-screening/pdf-dialog';
+import { useFetchReview } from '@/hooks/use-review';
 
 export const Route = createFileRoute('/reviews/$reviewId/review-data')({
   component: RouteComponent,
@@ -67,6 +68,7 @@ function RouteComponent() {
   };
 
   const { data, isLoading, error } = useFetchReviewData(queryParams);
+  const fetchReview = useFetchReview(reviewId);
 
   // UI state management
   const ui = useReferenceUI(data?.references || []);
@@ -156,6 +158,7 @@ function RouteComponent() {
         {/* Sources Sidebar */}
         <SourcesSidebar
           searchMethods={data?.searchMethods || []}
+          userRole={fetchReview.data?.userRole || 'Viewer'}
           selectedSearchMethodIds={filters.searchMethodIds}
           onSearchMethodToggle={filters.handleSearchMethodToggle}
           onSelectAllReferences={() => filters.setSearchMethodIds([])}
@@ -222,6 +225,7 @@ function RouteComponent() {
               {articleViewLayout !== 'title-abstract' && (
                 <ReviewDataFooter
                   reviewId={reviewId}
+                  userRole={fetchReview.data?.userRole || 'Viewer'}
                   selectedReferenceIds={ui.selectedReferenceIds}
                   highlightedReferenceId={ui.highlightedReferenceId}
                   onLabelsApplied={() =>
@@ -238,6 +242,7 @@ function RouteComponent() {
             {articleViewLayout === 'title-abstract' && (
               <ReviewDataReferenceDetailPanel
                 reviewId={reviewId}
+                userRole={fetchReview.data?.userRole || 'Viewer'}
                 reference={
                   data?.references.find(
                     (r) => r.id === ui.highlightedReferenceId
@@ -260,6 +265,7 @@ function RouteComponent() {
             {/* Filters Sidebar */}
             <FiltersSidebar
               reviewId={reviewId}
+              userRole={fetchReview.data?.userRole || 'Viewer'}
               keywords={keywords.allKeywords}
               labels={data?.labels || []}
               publicationTypes={data?.publicationTypes || []}
@@ -358,6 +364,7 @@ function RouteComponent() {
       {ui.openDetail && (
         <ReviewDataReferenceDrawer
           reviewId={reviewId}
+          userRole={fetchReview.data?.userRole || 'Viewer'}
           reference={ui.openDetail}
           onClose={ui.handleCloseDetail}
           onNavigate={ui.handleNavigateDetail}

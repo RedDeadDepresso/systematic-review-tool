@@ -10,8 +10,10 @@ import { DeleteConfirmationDialog } from './delete-confirmation-dialog';
 import type { MainTheme } from '@/types/main-theme';
 import type { Code } from '@/types/code';
 import type { SubTheme } from '@/types/sub-theme';
+import type { ReviewRole } from '@/types/review';
 
 interface MainThemeCardProps {
+  userRole: ReviewRole;
   mainTheme: MainTheme;
   codesMap: Record<string, Code>;
   subThemesMap: Record<number, SubTheme>;
@@ -41,6 +43,7 @@ interface MainThemeCardProps {
 }
 
 export function MainThemeCard({
+  userRole,
   mainTheme,
   codesMap,
   subThemesMap,
@@ -187,6 +190,7 @@ export function MainThemeCard({
                   if (!subTheme) return null; // safety check
                   return (
                     <SubThemeCard
+                      userRole={userRole}
                       key={subTheme.id}
                       subTheme={subTheme}
                       codesMap={codesMap}

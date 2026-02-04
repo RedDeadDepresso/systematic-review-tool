@@ -12,6 +12,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useFetchReview, useUpdateReview } from '@/hooks/use-review';
 import InvitationDialog from './invitation-dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
+import { can } from '@/lib/permissions';
 
 interface ReviewHeaderProps {
   reviewId: number;
@@ -106,6 +107,7 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
 
           <ScreeningCriteriaPopover
             reviewId={reviewId}
+            userRole={fetchReview.data?.userRole || 'Viewer'}
             trigger={
               <Button
                 variant="outline"
@@ -117,7 +119,7 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
               </Button>
             }
           />
-          {fetchReview.data?.userRole === 'Owner' && (
+          {can('invite', fetchReview.data?.userRole) && (
             <InvitationDialog
               reviewId={reviewId}
               trigger={

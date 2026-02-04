@@ -16,8 +16,11 @@ import { EditItemDialog } from './edit-item-dialog';
 import { ItemActionsDropdown } from './item-actions-dropdown';
 import { DeleteConfirmationDialog } from './delete-confirmation-dialog';
 import type { Code } from '@/types/code';
+import { can } from '@/lib/permissions';
+import type { ReviewRole } from '@/types/review';
 
 interface CodeCardProps {
+  userRole: ReviewRole;
   code: Code;
   onEdit: (id: string, name: string, description: string) => void;
   onDelete: (id: string) => void;
@@ -32,6 +35,7 @@ interface CodeCardProps {
 }
 
 export function CodeCard({
+  userRole,
   code,
   onEdit,
   onDelete,
@@ -107,7 +111,7 @@ export function CodeCard({
               )}
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              {nested ? (
+              {nested && can('modifyThemesCodes', userRole) ? (
                 <>
                   <ItemActionsDropdown
                     type="code"
@@ -146,32 +150,38 @@ export function CodeCard({
                       />
                     </Button>
                   )}
-                  <EditItemDialog
-                    type="code"
-                    initialName={code.name}
-                    initialDescription={code?.comment ? code.comment : ''}
-                    onSave={(name, description) =>
-                      onEdit(code.id, name, description)
-                    }
-                  >
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={compact ? 'h-5 w-5' : 'h-6 w-6'}
-                    >
-                      <Pencil className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} />
-                    </Button>
-                  </EditItemDialog>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={compact ? 'h-5 w-5' : 'h-6 w-6'}
-                    onClick={handleDeleteClick}
-                  >
-                    <Trash2
-                      className={`${compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} text-destructive`}
-                    />
-                  </Button>
+                  {can('modifyThemesCodes', userRole) && (
+                    <>
+                      <EditItemDialog
+                        type="code"
+                        initialName={code.name}
+                        initialDescription={code?.comment ? code.comment : ''}
+                        onSave={(name, description) =>
+                          onEdit(code.id, name, description)
+                        }
+                      >
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={compact ? 'h-5 w-5' : 'h-6 w-6'}
+                        >
+                          <Pencil
+                            className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'}
+                          />
+                        </Button>
+                      </EditItemDialog>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={compact ? 'h-5 w-5' : 'h-6 w-6'}
+                        onClick={handleDeleteClick}
+                      >
+                        <Trash2
+                          className={`${compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} text-destructive`}
+                        />
+                      </Button>
+                    </>
+                  )}
                   {onRemove && (
                     <Button
                       variant="ghost"

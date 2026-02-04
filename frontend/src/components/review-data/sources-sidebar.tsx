@@ -15,9 +15,12 @@ import {
 } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import type { DuplicateStatusCounts, SearchMethod } from '@/api/reference';
+import type { ReviewRole } from '@/types/review';
+import { can } from '@/lib/permissions';
 
 interface SourcesSidebarProps {
   searchMethods: SearchMethod[];
+  userRole: ReviewRole;
   selectedSearchMethodIds: number[];
   onSearchMethodToggle: (id: number) => void;
   onSelectAllReferences: () => void;
@@ -33,6 +36,7 @@ interface SourcesSidebarProps {
 
 export function SourcesSidebar({
   searchMethods,
+  userRole,
   selectedSearchMethodIds,
   onSearchMethodToggle,
   onSelectAllReferences,
@@ -119,16 +123,18 @@ export function SourcesSidebar({
                 </button>
               ))}
 
-              <div className="px-3 pt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full text-primary border-primary hover:bg-primary/10 bg-transparent"
-                  onClick={onAddReferences}
-                >
-                  Add References
-                </Button>
-              </div>
+              {can('uploadFiles', userRole) && (
+                <div className="px-3 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-primary border-primary hover:bg-primary/10 bg-transparent"
+                    onClick={onAddReferences}
+                  >
+                    Add References
+                  </Button>
+                </div>
+              )}
             </div>
           </CollapsibleContent>
         </Collapsible>
@@ -168,25 +174,26 @@ export function SourcesSidebar({
                   </button>
                 );
               })}
-
-              <div className="px-3 pt-2 flex flex-col gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full text-primary border-primary hover:bg-primary/10 bg-transparent"
-                  onClick={onDetectDuplicates}
-                >
-                  Detect Duplicates
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full text-primary border-primary hover:bg-primary/10 bg-transparent"
-                  onClick={onResolveDuplicates}
-                >
-                  Resolve Duplicates
-                </Button>
-              </div>
+              {can('manageDuplicates', userRole) && (
+                <div className="px-3 pt-2 flex flex-col gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-primary border-primary hover:bg-primary/10 bg-transparent"
+                    onClick={onDetectDuplicates}
+                  >
+                    Detect Duplicates
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-primary border-primary hover:bg-primary/10 bg-transparent"
+                    onClick={onResolveDuplicates}
+                  >
+                    Resolve Duplicates
+                  </Button>
+                </div>
+              )}
             </div>
           </CollapsibleContent>
         </Collapsible>

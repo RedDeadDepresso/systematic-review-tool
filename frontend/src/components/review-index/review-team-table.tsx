@@ -63,6 +63,7 @@ import {
   useDeleteReviewMember,
   useUpdateReviewMember,
 } from '@/hooks/use-review-member';
+import { can } from '@/lib/permissions';
 
 export function createColumns(
   userRole: ReviewRole,
@@ -151,7 +152,7 @@ export function createColumns(
         const member = row.original;
 
         // If current user is Owner and member is not Owner, show dropdown
-        if (userRole === 'Owner' && member.role !== 'Owner') {
+        if (can('modifyReview', userRole) && member.role !== 'Owner') {
           return (
             <div className="flex justify-center">
               <Select
@@ -167,6 +168,7 @@ export function createColumns(
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="Collaborator">Reviewer</SelectItem>
                   <SelectItem value="Reviewer">Reviewer</SelectItem>
                   <SelectItem value="Viewer">Viewer</SelectItem>
                 </SelectContent>
@@ -187,7 +189,7 @@ export function createColumns(
 
         return (
           <>
-            {userRole === 'Owner' && member.role !== 'Owner' && (
+            {can('modifyReview', userRole) && member.role !== 'Owner' && (
               <>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

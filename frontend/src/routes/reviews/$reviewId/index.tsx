@@ -11,6 +11,7 @@ import { AppLayoutContext } from '@/context/app-layout-context';
 import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
 import { ReviewHeader } from '@/components/shared/review-header';
 import { ReviewTeamTable } from '@/components/review-index/review-team-table';
+import { can } from '@/lib/permissions';
 
 export const Route = createFileRoute('/reviews/$reviewId/')({
   component: ReviewPage,
@@ -56,7 +57,7 @@ function ReviewPage() {
 
   return (
     <>
-      {!isLoading && data?.userRole === 'Owner' && (
+      {can('manageDuplicates', data?.userRole) && (
         <ResolveDuplicatesDialog
           reviewId={reviewId}
           isOpen={isOpen}
@@ -116,7 +117,7 @@ function ReviewPage() {
                 <p className="text-center text-4xl font-semibold text-foreground">
                   {isLoading ? '0' : data?.referenceCount}
                 </p>
-                {!isLoading && data?.userRole === 'Owner' && (
+                {can('uploadFiles', data?.userRole) && (
                   <>
                     <FileUploadDialog
                       open={openUploadDialog}
@@ -148,7 +149,7 @@ function ReviewPage() {
                 <p className="text-center text-4xl font-semibold text-foreground">
                   {isLoading ? '0' : data?.referenceDuplicatesCount}
                 </p>
-                {!isLoading && data?.userRole === 'Owner' && (
+                {can('manageDuplicates', data?.userRole) && (
                   <Button
                     className="w-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
                     onClick={handleDetectDuplicates}
@@ -170,7 +171,7 @@ function ReviewPage() {
                 <p className="text-center text-4xl font-semibold text-foreground">
                   {isLoading ? '0' : data?.referenceDuplicatesCount}
                 </p>
-                {!isLoading && data?.userRole === 'Owner' && (
+                {can('manageDuplicates', data?.userRole) && (
                   <Button
                     className="w-full bg-gray-200 text-gray-600 hover:bg-gray-300"
                     disabled={isLoading || data?.referenceDuplicatesCount === 0}

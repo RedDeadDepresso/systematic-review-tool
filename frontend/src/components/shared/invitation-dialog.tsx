@@ -67,6 +67,7 @@ export default function InvitationDialog({
               <SelectValue placeholder="Select role" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="Collaborator">Collaborator</SelectItem>
               <SelectItem value="Reviewer">Reviewer</SelectItem>
               <SelectItem value="Viewer">Viewer</SelectItem>
             </SelectContent>

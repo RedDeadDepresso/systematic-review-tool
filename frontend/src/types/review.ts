@@ -1,6 +1,6 @@
 import type { User } from './auth';
 
-export type ReviewRole = 'Owner' | 'Reviewer' | 'Viewer';
+export type ReviewRole = 'Owner' | 'Collaborator' | 'Reviewer' | 'Viewer';
 
 export type ReviewMember = {
   id: number;
