@@ -168,7 +168,7 @@ export function createColumns(
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Collaborator">Reviewer</SelectItem>
+                  <SelectItem value="Collaborator">Collaborator</SelectItem>
                   <SelectItem value="Reviewer">Reviewer</SelectItem>
                   <SelectItem value="Viewer">Viewer</SelectItem>
                 </SelectContent>

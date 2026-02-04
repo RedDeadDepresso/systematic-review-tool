@@ -42,6 +42,7 @@ export async function deleteLabel(id: number): Promise<void> {
  * Assign/Remove Labels to References
  */
 export interface AssignLabelsPayload {
+  review: number;
   referenceIds: number[];
   checkedLabelIds: number[];
   indeterminateLabelIds: number[];

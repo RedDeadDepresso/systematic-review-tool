@@ -61,6 +61,7 @@ export function ReviewDataFooter({
         </Button>
       )}
       <LabelPopover
+        reviewId={reviewId}
         trigger={
           <Button
             variant="outline"
@@ -207,6 +208,7 @@ export function ScreeningFooter({
           </Button>
         )}
         <LabelPopover
+          reviewId={reviewId}
           trigger={
             <Button
               variant="outline"
