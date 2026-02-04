@@ -2,6 +2,7 @@ import os
 from collections import defaultdict
 
 from rest_framework import serializers
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.serializers import ModelSerializer
 
 from api.models import (
@@ -22,6 +23,7 @@ from api.models import (
     UploadedPDF,
     User,
 )
+from api.permissions import PERMISSIONS, Permission, permission_denied_message
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -452,3 +454,70 @@ class ScreeningCriteriaSerializer(serializers.ModelSerializer):
         model = ScreeningCriteria
         fields = ["id", "review", "name", "description", "kind"]
         read_only_fields = ["id"]
+
+
+class AssignLabelsSerializer(serializers.Serializer):
+    review = serializers.PrimaryKeyRelatedField(queryset=Review.objects.all())
+    reference_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        allow_empty=False,
+    )
+    checked_label_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        default=list,
+    )
+    indeterminate_label_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        default=list,
+    )
+
+    def validate(self, data):
+        user = self.context["request"].user
+        review = data["review"]
+
+        # Membership check
+        try:
+            member = ReviewMember.objects.get(review=review, user=user)
+        except ReviewMember.DoesNotExist:
+            raise serializers.ValidationError(
+                {"review": "You are not a member of this review."}
+            )
+
+        permission = Permission.ASSIGN_LABEL
+        if member.role not in PERMISSIONS[permission]:
+            raise PermissionDenied(permission_denied_message(permission))
+
+        # Normalize IDs
+        reference_ids = set(data["reference_ids"])
+        checked_ids = set(data["checked_label_ids"])
+        indeterminate_ids = set(data["indeterminate_label_ids"])
+
+        # Validate references belong to review
+        references = Reference.objects.filter(
+            review=review,
+            id__in=reference_ids,
+        )
+        if references.count() != len(reference_ids):
+            raise serializers.ValidationError(
+                {
+                    "reference_ids": "One or more references do not belong to this review."
+                }
+            )
+
+        # Validate labels belong to user
+        label_ids = checked_ids | indeterminate_ids
+        labels = Label.objects.filter(user=user, id__in=label_ids)
+        if labels.count() != len(label_ids):
+            raise serializers.ValidationError(
+                {"label_ids": "One or more labels do not belong to you."}
+            )
+
+        data["member"] = member
+        data["references"] = references
+        data["labels"] = {label.id: label for label in labels}
+        data["checked_ids"] = checked_ids
+        data["indeterminate_ids"] = indeterminate_ids
+
+        return data

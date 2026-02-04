@@ -41,6 +41,7 @@ from api.models import (
 )
 from api.permissions import IsReviewOwner, Permission, check_permission
 from api.serializers import (
+    AssignLabelsSerializer,
     AssignReferencesSerializer,
     AttachPDFsSerializer,
     BulkCreateNoteSerializer,
@@ -1680,54 +1681,40 @@ class LabelViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="assign-to-references")
     def assign_to_references(self, request):
-        """
-        All members can assign their own labels to references.
-        """
-        user = request.user
-        reference_ids = request.data.get("reference_ids", [])
-        if reference_ids:
-            reference_ids = list(set(reference_ids))
-        checked_label_ids = request.data.get("checked_label_ids", [])
-        indeterminate_label_ids = request.data.get("indeterminate_label_ids", [])
-
-        if not reference_ids:
-            return Response(
-                {"detail": "reference_ids is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Fetch labels belonging to the user
-        labels = Label.objects.filter(
-            user=user, id__in=set(checked_label_ids + indeterminate_label_ids)
+        serializer = AssignLabelsSerializer(
+            data=request.data,
+            context={"request": request},
         )
-        labels_map = {label.id: label for label in labels}
+        serializer.is_valid(raise_exception=True)
 
-        # Fetch references
-        references = Reference.objects.filter(id__in=reference_ids)
+        member = serializer.validated_data["member"]
+        references = serializer.validated_data["references"]
+        labels_map = serializer.validated_data["labels"]
+        checked_ids = serializer.validated_data["checked_ids"]
+        indeterminate_ids = serializer.validated_data["indeterminate_ids"]
+        review = serializer.validated_data["review"]
 
         created_count = 0
-        deleted_count = 0
 
         with transaction.atomic():
-            # Create ReferenceLabels for checked_label_ids
+            # Create labels
             for ref in references:
-                for label_id in checked_label_ids:
-                    label = labels_map.get(label_id)
-                    if label:
-                        obj, created = ReferenceLabel.objects.get_or_create(
-                            reference=ref,
-                            label=label,
-                        )
-                        if created:
-                            created_count += 1
+                for label_id in checked_ids:
+                    obj, created = ReferenceLabel.objects.get_or_create(
+                        reference=ref,
+                        label=labels_map[label_id],
+                        member=member,
+                    )
+                    if created:
+                        created_count += 1
 
-            # Delete ReferenceLabels for indeterminate_label_ids
-            to_delete = ReferenceLabel.objects.filter(
-                reference_id__in=reference_ids,
-                label_id__in=indeterminate_label_ids,
-            )
-            deleted_count = to_delete.count()
-            to_delete.delete()
+            # Delete labels
+            deleted_count, _ = ReferenceLabel.objects.filter(
+                reference__review=review,
+                reference__in=references,
+                label_id__in=indeterminate_ids,
+                member=member,
+            ).delete()
 
         return Response(
             {

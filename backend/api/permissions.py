@@ -19,6 +19,7 @@ class Permission(str, Enum):
     MODIFY_SCREENING_CRITERIA = "modify_screening_criteria"
     UPLOAD_FILES = "upload_files"
     MANAGE_DUPLICATES = "manage_duplicates"
+    ASSIGN_LABEL = "assign_label"
     MODIFY_THEMES_CODES = "modify_themes_codes"
     MODIFY_REFERENCE = "modify_reference"
     MODIFY_KEYWORD = "modify_keyword"
@@ -45,6 +46,7 @@ PERMISSIONS = {
     Permission.MODIFY_KEYWORD: [Role.OWNER, Role.COLLABORATOR, Role.REVIEWER],
     Permission.MODIFY_OPINION: [Role.OWNER, Role.COLLABORATOR, Role.REVIEWER],
     Permission.MODIFY_NOTE: [Role.OWNER, Role.COLLABORATOR, Role.REVIEWER],
+    Permission.ASSIGN_LABEL: [Role.OWNER, Role.COLLABORATOR, Role.REVIEWER],
 }
 
 
