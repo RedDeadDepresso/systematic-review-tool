@@ -1544,30 +1544,30 @@ class CodeViewSet(viewsets.ModelViewSet):
     filterset_fields = ["review"]
 
     def get_queryset(self):
-        return Code.objects.select_related("reference").filter(user=self.request.user)
+        user = self.request.user
+        return Code.objects.filter(member__user=user).select_related("reference")
 
     def perform_create(self, serializer):
-        # Check if user has permission to create codes for this review
         review_id = self.request.data.get("review")
-        if review_id:
-            review = get_object_or_404(Review, pk=review_id)
-            check_permission(Permission.MODIFY_THEMES_CODES, self.request.user, review)
-        serializer.save(user=self.request.user)
+        if not review_id:
+            raise serializer.ValidationError("Review is required")
+
+        review = get_object_or_404(Review, pk=review_id)
+
+        member = get_object_or_404(ReviewMember, review=review, user=self.request.user)
+        check_permission(Permission.MODIFY_THEMES_CODES, self.request.user, review)
+
+        serializer.save(member=member)
 
     def perform_update(self, serializer):
-        """Only owner and collaborator can update codes"""
         code = self.get_object()
-        # Get review from the code's reference
-        review = code.reference.review if code.reference else None
-        if review:
-            check_permission(Permission.MODIFY_THEMES_CODES, self.request.user, review)
+        check_permission(Permission.MODIFY_THEMES_CODES, self.request.user, code.review)
         serializer.save()
 
     def perform_destroy(self, instance):
-        """Only owner and collaborator can delete codes"""
-        review = instance.reference.review if instance.reference else None
-        if review:
-            check_permission(Permission.MODIFY_THEMES_CODES, self.request.user, review)
+        check_permission(
+            Permission.MODIFY_THEMES_CODES, self.request.user, instance.review
+        )
         instance.delete()
 
 
@@ -1580,18 +1580,22 @@ class SubThemeViewSet(viewsets.ModelViewSet):
     filterset_fields = ["review"]
 
     def get_queryset(self):
-        return SubTheme.objects.filter(user=self.request.user)
+        user = self.request.user
+        return SubTheme.objects.filter(member__user=user)
 
     def perform_create(self, serializer):
-        # Check if user has permission to create subthemes for this review
         review_id = self.request.data.get("review")
-        if review_id:
-            review = get_object_or_404(Review, pk=review_id)
-            check_permission(Permission.MODIFY_THEMES_CODES, self.request.user, review)
-        serializer.save(user=self.request.user)
+        if not review_id:
+            raise serializer.ValidationError("Review is required")
+
+        review = get_object_or_404(Review, pk=review_id)
+
+        member = get_object_or_404(ReviewMember, review=review, user=self.request.user)
+        check_permission(Permission.MODIFY_THEMES_CODES, self.request.user, review)
+
+        serializer.save(member=member)
 
     def perform_update(self, serializer):
-        """Only owner and collaborator can update subthemes"""
         subtheme = self.get_object()
         check_permission(
             Permission.MODIFY_THEMES_CODES, self.request.user, subtheme.review
@@ -1599,7 +1603,6 @@ class SubThemeViewSet(viewsets.ModelViewSet):
         serializer.save()
 
     def perform_destroy(self, instance):
-        """Only owner and collaborator can delete subthemes"""
         check_permission(
             Permission.MODIFY_THEMES_CODES, self.request.user, instance.review
         )
@@ -1615,18 +1618,22 @@ class MainThemeViewSet(viewsets.ModelViewSet):
     filterset_fields = ["review"]
 
     def get_queryset(self):
-        return MainTheme.objects.filter(user=self.request.user)
+        user = self.request.user
+        return MainTheme.objects.filter(member__user=user)
 
     def perform_create(self, serializer):
-        # Check if user has permission to create themes for this review
         review_id = self.request.data.get("review")
-        if review_id:
-            review = get_object_or_404(Review, pk=review_id)
-            check_permission(Permission.MODIFY_THEMES_CODES, self.request.user, review)
-        serializer.save(user=self.request.user)
+        if not review_id:
+            raise serializer.ValidationError("Review is required")
+
+        review = get_object_or_404(Review, pk=review_id)
+
+        member = get_object_or_404(ReviewMember, review=review, user=self.request.user)
+        check_permission(Permission.MODIFY_THEMES_CODES, self.request.user, review)
+
+        serializer.save(member=member)
 
     def perform_update(self, serializer):
-        """Only owner and collaborator can update themes"""
         theme = self.get_object()
         check_permission(
             Permission.MODIFY_THEMES_CODES, self.request.user, theme.review
@@ -1634,7 +1641,6 @@ class MainThemeViewSet(viewsets.ModelViewSet):
         serializer.save()
 
     def perform_destroy(self, instance):
-        """Only owner and collaborator can delete themes"""
         check_permission(
             Permission.MODIFY_THEMES_CODES, self.request.user, instance.review
         )

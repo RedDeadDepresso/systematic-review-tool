@@ -386,7 +386,7 @@ class CodeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Code
         fields = "__all__"
-        read_only_fields = ["id", "user"]
+        read_only_fields = ["id", "member"]
 
     def get_reference_file_url(self, obj):
         request = self.context.get("request")

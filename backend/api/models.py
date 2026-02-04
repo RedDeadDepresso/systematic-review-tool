@@ -156,6 +156,7 @@ class ReferenceLabel(models.Model):
         on_delete=models.CASCADE,
         related_name="reference_labels",
     )
+    member = models.ForeignKey(ReviewMember, on_delete=models.CASCADE)
 
     class Meta:
         constraints = [
@@ -368,7 +369,7 @@ class MainTheme(models.Model):
     name = models.CharField(max_length=150)
     description = models.TextField(blank=True)
     review = models.ForeignKey(Review, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    member = models.ForeignKey(ReviewMember, on_delete=models.CASCADE)
 
     def __str__(self):
         return self.name
@@ -378,7 +379,7 @@ class SubTheme(models.Model):
     name = models.CharField(max_length=150)
     description = models.TextField(blank=True)
     review = models.ForeignKey(Review, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    member = models.ForeignKey(ReviewMember, on_delete=models.CASCADE)
     main_theme = models.ForeignKey(
         MainTheme,
         on_delete=models.SET_NULL,
@@ -429,7 +430,7 @@ class Code(models.Model):
         blank=True,
         related_name="codes",
     )
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    member = models.ForeignKey(ReviewMember, on_delete=models.CASCADE)
     sub_theme = models.ForeignKey(
         SubTheme, on_delete=models.SET_NULL, null=True, blank=True, related_name="codes"
     )
