@@ -61,6 +61,7 @@ class Review(models.Model):
 class ReviewMember(models.Model):
     class Role(models.TextChoices):
         OWNER = "Owner"
+        COLLABORATOR = "Collaborator"
         REVIEWER = "Reviewer"
         VIEWER = "Viewer"
 
@@ -335,6 +336,7 @@ class Note(models.Model):
 
 class ReviewInvitation(models.Model):
     class Role(models.TextChoices):
+        COLLABORATOR = "Collaborator"
         REVIEWER = "Reviewer"
         VIEWER = "Viewer"
 
