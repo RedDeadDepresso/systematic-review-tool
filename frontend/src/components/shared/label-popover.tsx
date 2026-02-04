@@ -19,6 +19,7 @@ import type { Label } from '@/types/label';
 import { toast } from 'sonner';
 
 interface LabelPopoverProps {
+  reviewId: number;
   trigger: React.ReactNode;
   selectedReferenceIds: number[];
   onLabelsApplied?: () => void;
@@ -27,6 +28,7 @@ interface LabelPopoverProps {
 type LabelState = 'checked' | 'unchecked' | 'indeterminate';
 
 export function LabelPopover({
+  reviewId,
   trigger,
   selectedReferenceIds,
   onLabelsApplied,
@@ -110,6 +112,7 @@ export function LabelPopover({
     setIsApplying(true);
     try {
       await assignLabelsMutation.mutateAsync({
+        review: reviewId,
         referenceIds: selectedReferenceIds,
         checkedLabelIds: checkedIds,
         indeterminateLabelIds: indeterminateIds,

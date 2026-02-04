@@ -19,6 +19,7 @@ import { useCodingTheming } from '@/hooks/use-coding-theming';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '../ui/scroll-area';
 import type { Code } from '@/types/code';
+import { useFetchReview } from '@/hooks/use-review';
 
 interface CodingThemingSidebarProps {
   reviewId: number;
@@ -54,6 +55,7 @@ export function CodingThemingSidebar({
     handleRemoveCodeFromSubTheme,
     handleRemoveSubThemeFromMainTheme,
   } = useCodingTheming(reviewId);
+  const fetchReview = useFetchReview(reviewId);
 
   const [codesOpen, setCodesOpen] = useState(true);
   const [subThemesOpen, setSubThemesOpen] = useState(true);
@@ -251,6 +253,7 @@ export function CodingThemingSidebar({
                   filteredCodes.map((code) => (
                     <CodeCard
                       key={code.id}
+                      userRole={fetchReview.data?.userRole || 'Viewer'}
                       code={code}
                       onEdit={handleEditCode}
                       onDelete={handleDeleteCode}
@@ -313,6 +316,7 @@ export function CodingThemingSidebar({
                   filteredSubThemes.map((subTheme) => (
                     <SubThemeCard
                       key={subTheme.id}
+                      userRole={fetchReview.data?.userRole || 'Viewer'}
                       subTheme={subTheme}
                       codesMap={codesMap}
                       onEdit={handleEditSubTheme}
@@ -388,6 +392,7 @@ export function CodingThemingSidebar({
                   filteredMainThemes.map((mainTheme) => (
                     <MainThemeCard
                       key={mainTheme.id}
+                      userRole={fetchReview.data?.userRole || 'Viewer'}
                       mainTheme={mainTheme}
                       codesMap={codesMap}
                       subThemesMap={subThemesMap}

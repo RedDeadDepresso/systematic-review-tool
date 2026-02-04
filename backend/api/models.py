@@ -9,6 +9,7 @@ from django.contrib.postgres.indexes import GinIndex, OpClass
 from django.contrib.postgres.search import SearchVectorField
 from django.db import connection, models, transaction
 from django.db.models.functions import Lower
+from django.utils import timezone
 
 
 class UserManager(BaseUserManager):
@@ -49,14 +50,35 @@ class Review(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     date_created = models.DateTimeField(auto_now_add=True)
-    owner = models.ForeignKey(User, on_delete=models.CASCADE)
     is_active = models.BooleanField(default=True)
     reference_duplicate_detected = models.BooleanField(default=False)
-    collaborators = models.ManyToManyField(User, related_name="collaborators")
     is_blinded = models.BooleanField(default=True)
 
     def __str__(self):
         return self.title
+
+
+class ReviewMember(models.Model):
+    class Role(models.TextChoices):
+        OWNER = "Owner"
+        COLLABORATOR = "Collaborator"
+        REVIEWER = "Reviewer"
+        VIEWER = "Viewer"
+
+    review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name="members")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reviews")
+    role = models.CharField(max_length=20, choices=Role.choices)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["review", "user"],
+                name="unique_user_per_review",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user.first_name} {self.user.last_name} ({self.user.email})"
 
 
 class SearchMethod(models.Model):
@@ -109,7 +131,7 @@ class Reference(models.Model):
         max_length=20, choices=DuplicateStatus.choices, default=DuplicateStatus.UNIQUE
     )
     search_vector = SearchVectorField(null=True, blank=True)
-    assignee = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
+    assignee = models.ForeignKey(ReviewMember, null=True, on_delete=models.SET_NULL)
 
     class Meta:
         indexes = [
@@ -134,6 +156,7 @@ class ReferenceLabel(models.Model):
         on_delete=models.CASCADE,
         related_name="reference_labels",
     )
+    member = models.ForeignKey(ReviewMember, on_delete=models.CASCADE)
 
     class Meta:
         constraints = [
@@ -275,7 +298,7 @@ class ReferenceOpinion(models.Model):
         INCLUDED = "Included"
 
     reference = models.ForeignKey(Reference, on_delete=models.CASCADE)
-    reviewer = models.ForeignKey(User, on_delete=models.CASCADE)
+    member = models.ForeignKey(ReviewMember, on_delete=models.CASCADE)
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
@@ -283,7 +306,7 @@ class ReferenceOpinion(models.Model):
     )
 
     class Meta:
-        unique_together = ("reference", "reviewer")
+        unique_together = ("reference", "member")
 
 
 class Keyword(models.Model):
@@ -293,25 +316,38 @@ class Keyword(models.Model):
 
 
 class Note(models.Model):
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notes")
+    member = models.ForeignKey(
+        ReviewMember, on_delete=models.CASCADE, related_name="notes"
+    )
     reference = models.ForeignKey(
         Reference, on_delete=models.CASCADE, related_name="notes"
     )
     content = models.TextField()
-    date_created = models.DateTimeField(auto_now_add=True)
-    date_edited = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    edited_at = models.DateTimeField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            self.edited_at = timezone.now()
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Note by {self.author.username} on {self.date_created.strftime('%Y-%m-%d %H:%M')}"
+        return f"Note by {self.member} on {self.created_at.strftime('%d-%m-%Y %H:%M')}"
 
 
 class ReviewInvitation(models.Model):
+    class Role(models.TextChoices):
+        COLLABORATOR = "Collaborator"
+        REVIEWER = "Reviewer"
+        VIEWER = "Viewer"
+
     email = models.EmailField()
     review = models.ForeignKey(Review, on_delete=models.CASCADE)
     invited_by = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="sent_invitations"
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    role = models.CharField(max_length=20, choices=Role.choices)
 
     def __str__(self):
         return f"Invitation to {self.email} for review {self.review.id}"
@@ -333,7 +369,7 @@ class MainTheme(models.Model):
     name = models.CharField(max_length=150)
     description = models.TextField(blank=True)
     review = models.ForeignKey(Review, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    member = models.ForeignKey(ReviewMember, on_delete=models.CASCADE)
 
     def __str__(self):
         return self.name
@@ -343,7 +379,7 @@ class SubTheme(models.Model):
     name = models.CharField(max_length=150)
     description = models.TextField(blank=True)
     review = models.ForeignKey(Review, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    member = models.ForeignKey(ReviewMember, on_delete=models.CASCADE)
     main_theme = models.ForeignKey(
         MainTheme,
         on_delete=models.SET_NULL,
@@ -394,7 +430,7 @@ class Code(models.Model):
         blank=True,
         related_name="codes",
     )
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    member = models.ForeignKey(ReviewMember, on_delete=models.CASCADE)
     sub_theme = models.ForeignKey(
         SubTheme, on_delete=models.SET_NULL, null=True, blank=True, related_name="codes"
     )

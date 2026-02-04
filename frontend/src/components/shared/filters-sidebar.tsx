@@ -47,9 +47,12 @@ import type {
   PublicationYear,
   SearchMethod,
 } from '@/api/reference';
+import type { ReviewRole } from '@/types/review';
+import { can } from '@/lib/permissions';
 
 interface FiltersSidebarProps {
-  reviewId: number; // ADD THIS - needed for state persistence
+  reviewId: number;
+  userRole: ReviewRole;
   keywords: Keyword[];
   labels: LabelCount[];
   publicationTypes: PublicationType[];
@@ -185,6 +188,7 @@ const CheckboxItem: React.FC<CheckboxItemProps> = ({
 
 export function FiltersSidebar({
   reviewId,
+  userRole,
   keywords,
   selectedIncludeKeywords,
   selectedExcludeKeywords,
@@ -228,6 +232,10 @@ export function FiltersSidebar({
   onArticleViewLayoutChange,
 }: FiltersSidebarProps) {
   const isMobile = useIsMobile();
+
+  onDeleteKeyword = can('modifyKeyword', userRole)
+    ? onDeleteKeyword
+    : undefined;
 
   // PERSISTENT STATE - survives data changes
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -653,17 +661,19 @@ export function FiltersSidebar({
                     )}
                   />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowAddIncludeInput(!showAddIncludeInput);
-                  }}
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
+                {can('modifyKeyword', userRole) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowAddIncludeInput(!showAddIncludeInput);
+                    }}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                )}
               </>
             }
           >
@@ -759,17 +769,19 @@ export function FiltersSidebar({
                     )}
                   />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowAddExcludeInput(!showAddExcludeInput);
-                  }}
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
+                {can('modifyKeyword', userRole) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowAddExcludeInput(!showAddExcludeInput);
+                    }}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                )}
               </>
             }
           >

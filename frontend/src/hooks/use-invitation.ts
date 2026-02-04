@@ -8,9 +8,9 @@ import { toast } from 'sonner';
 import type { Invitation } from '@/types/invitation';
 
 // Send Invite Hook
-export function useSendInvitations(reviewId: number) {
-  return useMutation<Invitation, Error, string[]>({
-    mutationFn: (emails) => sendInvitations(reviewId, emails),
+export function useSendInvitations() {
+  return useMutation({
+    mutationFn: sendInvitations,
     onSuccess: () => toast.success('Invitations have been sent.'),
     onError: (error) =>
       toast.error(`Failed to send invitations: ${error.message}`),

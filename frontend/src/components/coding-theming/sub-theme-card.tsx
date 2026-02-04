@@ -19,8 +19,11 @@ import { ItemActionsDropdown } from './item-actions-dropdown';
 import { DeleteConfirmationDialog } from './delete-confirmation-dialog';
 import type { SubTheme } from '@/types/sub-theme';
 import type { Code } from '@/types/code';
+import type { ReviewRole } from '@/types/review';
+import { can } from '@/lib/permissions';
 
 interface SubThemeCardProps {
+  userRole: ReviewRole;
   subTheme: SubTheme;
   codesMap: Record<string, Code>;
   onEdit: (id: number, name: string, description: string) => void;
@@ -43,6 +46,7 @@ interface SubThemeCardProps {
 }
 
 export function SubThemeCard({
+  userRole,
   subTheme,
   codesMap,
   onEdit,
@@ -156,7 +160,7 @@ export function SubThemeCard({
               )}
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              {nested ? (
+              {nested && can('modifyThemesCodes', userRole) ? (
                 <>
                   <ItemActionsDropdown
                     type="subTheme"
@@ -239,6 +243,7 @@ export function SubThemeCard({
                   if (!code) return null;
                   return (
                     <CodeCard
+                      userRole={userRole}
                       key={code.id}
                       code={code}
                       onEdit={onEditCode}

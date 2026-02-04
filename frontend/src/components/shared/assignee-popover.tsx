@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/popover';
 import { useFetchReview } from '@/hooks/use-review';
 import { useAssignReferences } from '@/hooks/use-reference';
-import type { User } from '@/types/auth';
+import type { ReviewMember } from '@/types/review';
 
 interface AssigneePopoverProps {
   reviewId: number;
@@ -37,27 +37,18 @@ export function AssigneePopover({
   const assignReferences = useAssignReferences();
   const { data: review } = useFetchReview(reviewId);
 
-  const assignableUsers = useMemo<User[]>(() => {
+  const assignableMembers = useMemo<ReviewMember[]>(() => {
     if (!review) return [];
-
-    const users = [review.owner, ...(review.collaborators ?? [])];
-
-    // De-duplicate by id (owner may also be in collaborators)
-    const seen = new Map<number, User>();
-    users.forEach((u) => {
-      if (u) seen.set(u.id, u);
-    });
-
-    return Array.from(seen.values());
+    return review.members.filter((m) => m.role === 'Reviewer' || 'Owner');
   }, [review]);
 
-  const filteredCollaborators = useMemo(() => {
-    if (!searchQuery.trim()) return assignableUsers;
+  const filteredMemebers = useMemo(() => {
+    if (!searchQuery.trim()) return assignableMembers;
 
-    return assignableUsers.filter((u) =>
-      u.displayName.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [assignableUsers, searchQuery]);
+    return assignableMembers.filter((m) => {
+      m.user.displayName.toLowerCase().includes(searchQuery.toLowerCase());
+    });
+  }, [assignableMembers, searchQuery]);
 
   const handleApply = async () => {
     if (selectedReferenceIds.length === 0 || selectedAssigneeId === null)
@@ -117,33 +108,31 @@ export function AssigneePopover({
               </button>
             </div>
 
-            {/* Collaborators */}
+            {/* Members */}
             <div className="max-h-60 overflow-y-auto border-b">
-              {filteredCollaborators.map((collaborator: User) => (
+              {filteredMemebers.map((member: ReviewMember) => (
                 <div
-                  key={collaborator.id}
-                  onClick={() => setSelectedAssigneeId(collaborator.id)}
+                  key={member.id}
+                  onClick={() => setSelectedAssigneeId(member.id)}
                   className="flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-muted/50"
                 >
                   <RadioGroupItem
-                    value={String(collaborator.id)}
-                    checked={selectedAssigneeId === collaborator.id}
+                    value={String(member.id)}
+                    checked={selectedAssigneeId === member.id}
                     tabIndex={-1}
-                    aria-label={collaborator.displayName}
+                    aria-label={member.user.displayName}
                     className="pointer-events-none"
                   />
                   <span className="text-sm truncate">
-                    {collaborator.displayName}
-                    {review?.owner?.id === collaborator.id && (
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        (Owner)
-                      </span>
-                    )}
+                    {member.user.displayName}
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      ({member.role})
+                    </span>
                   </span>
                 </div>
               ))}
 
-              {filteredCollaborators.length === 0 && (
+              {filteredMemebers.length === 0 && (
                 <div className="px-4 py-6 text-center text-sm text-muted-foreground">
                   No collaborators found
                 </div>

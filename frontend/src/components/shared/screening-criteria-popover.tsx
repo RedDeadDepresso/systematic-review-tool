@@ -31,15 +31,19 @@ import {
   useUpdateScreeningCriteria,
 } from '@/hooks/use-screening-criteria';
 import type { ScreeningCriteria } from '@/types/screening-criteria';
+import type { ReviewRole } from '@/types/review';
+import { can } from '@/lib/permissions';
 
 interface ScreeningCriteriaPopoverProps {
   reviewId: number;
+  userRole: ReviewRole;
   trigger: React.ReactNode;
 }
 
 export function ScreeningCriteriaPopover({
   trigger,
   reviewId,
+  userRole,
 }: ScreeningCriteriaPopoverProps) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'inclusion' | 'exclusion'>(
@@ -268,24 +272,26 @@ export function ScreeningCriteriaPopover({
                             {index + 1}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0"
-                            onClick={() => handleEditStart(c)}
-                          >
-                            <Pencil className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0"
-                            onClick={() => handleDeleteClick(c.id)}
-                          >
-                            <Minus className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
-                          </Button>
-                        </div>
+                        {can('modifyScreeningCriteria', userRole) && (
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => handleEditStart(c)}
+                            >
+                              <Pencil className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => handleDeleteClick(c.id)}
+                            >
+                              <Minus className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
 
                       {/* Editing Mode */}
@@ -363,52 +369,56 @@ export function ScreeningCriteriaPopover({
           </div>
 
           {/* Add Criteria Input */}
-          <div className="px-3 sm:px-4 py-3 border-t border-border shrink-0">
-            <div className="space-y-2">
-              <div>
-                <label className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 block">
-                  Name
-                </label>
-                <Input
-                  value={newCriteriaName}
-                  onChange={(e) => setNewCriteriaName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && e.ctrlKey) handleAddCriteria();
-                  }}
-                  placeholder={`${activeTab === 'inclusion' ? 'Inclusion' : 'Exclusion'} criteria name`}
-                  className="h-8 sm:h-9 text-xs sm:text-sm"
-                  disabled={createCriteria.isPending}
-                />
-              </div>
-              <div>
-                <label className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 block">
-                  Description
-                </label>
-                <Textarea
-                  value={newCriteriaDescription}
-                  onChange={(e) => setNewCriteriaDescription(e.target.value)}
-                  placeholder="Criteria description (optional)"
-                  className="text-xs sm:text-sm min-h-[50px] sm:min-h-[60px] resize-none"
-                  disabled={createCriteria.isPending}
-                />
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="hidden sm:inline text-xs text-muted-foreground">
-                  Ctrl+Enter to add
-                </span>
-                <Button
-                  size="sm"
-                  className="h-8 sm:h-9 gap-1 sm:gap-2 text-xs sm:text-sm ml-auto"
-                  onClick={handleAddCriteria}
-                  disabled={!newCriteriaName.trim() || createCriteria.isPending}
-                >
-                  <Send className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Add Criteria</span>
-                  <span className="sm:hidden">Add</span>
-                </Button>
+          {can('modifyScreeningCriteria', userRole) && (
+            <div className="px-3 sm:px-4 py-3 border-t border-border shrink-0">
+              <div className="space-y-2">
+                <div>
+                  <label className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 block">
+                    Name
+                  </label>
+                  <Input
+                    value={newCriteriaName}
+                    onChange={(e) => setNewCriteriaName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && e.ctrlKey) handleAddCriteria();
+                    }}
+                    placeholder={`${activeTab === 'inclusion' ? 'Inclusion' : 'Exclusion'} criteria name`}
+                    className="h-8 sm:h-9 text-xs sm:text-sm"
+                    disabled={createCriteria.isPending}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 block">
+                    Description
+                  </label>
+                  <Textarea
+                    value={newCriteriaDescription}
+                    onChange={(e) => setNewCriteriaDescription(e.target.value)}
+                    placeholder="Criteria description (optional)"
+                    className="text-xs sm:text-sm min-h-[50px] sm:min-h-[60px] resize-none"
+                    disabled={createCriteria.isPending}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="hidden sm:inline text-xs text-muted-foreground">
+                    Ctrl+Enter to add
+                  </span>
+                  <Button
+                    size="sm"
+                    className="h-8 sm:h-9 gap-1 sm:gap-2 text-xs sm:text-sm ml-auto"
+                    onClick={handleAddCriteria}
+                    disabled={
+                      !newCriteriaName.trim() || createCriteria.isPending
+                    }
+                  >
+                    <Send className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">Add Criteria</span>
+                    <span className="sm:hidden">Add</span>
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </PopoverContent>
       </Popover>
 

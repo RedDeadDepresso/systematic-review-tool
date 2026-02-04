@@ -21,6 +21,7 @@ import { ScreeningFooter } from '@/components/shared/references-table-footer';
 import { TableBottomHeader } from '@/components/shared/references-table-bottom-header';
 import { useUpdateReferenceOpinion } from '@/hooks/use-reference-opinion';
 import { PDFDialog } from '@/components/review-full-text-screening/pdf-dialog';
+import { useFetchReview } from '@/hooks/use-review';
 
 export const Route = createFileRoute('/reviews/$reviewId/screening')({
   component: RouteComponent,
@@ -63,6 +64,7 @@ function RouteComponent() {
   };
 
   const { data, isLoading, error } = useFetchScreening(queryParams);
+  const fetchReview = useFetchReview(reviewId);
 
   // UI state management
   const ui = useReferenceUI(data?.references || []);
@@ -205,6 +207,7 @@ function RouteComponent() {
               {articleViewLayout !== 'title-abstract' && (
                 <ScreeningFooter
                   reviewId={reviewId}
+                  userRole={fetchReview.data?.userRole || 'Viewer'}
                   selectedReferenceIds={ui.selectedReferenceIds}
                   highlightedReferenceId={ui.highlightedReferenceId}
                   onLabelsApplied={() =>
@@ -222,6 +225,7 @@ function RouteComponent() {
             {articleViewLayout === 'title-abstract' && (
               <ScreeningReferenceDetailPanel
                 reviewId={reviewId}
+                userRole={fetchReview.data?.userRole || 'Viewer'}
                 reference={
                   data?.references.find(
                     (r) => r.id === ui.highlightedReferenceId
@@ -245,6 +249,7 @@ function RouteComponent() {
             {/* Filters Sidebar */}
             <FiltersSidebar
               reviewId={reviewId}
+              userRole={fetchReview.data?.userRole || 'Viewer'}
               keywords={keywords.allKeywords}
               labels={data?.labels || []}
               publicationTypes={data?.publicationTypes || []}
@@ -343,6 +348,7 @@ function RouteComponent() {
       {ui.openDetail && (
         <ScreeningReferenceDrawer
           reviewId={reviewId}
+          userRole={fetchReview.data?.userRole || 'Viewer'}
           reference={ui.openDetail}
           onClose={ui.handleCloseDetail}
           onNavigate={ui.handleNavigateDetail}

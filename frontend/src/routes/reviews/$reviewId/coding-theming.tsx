@@ -19,6 +19,8 @@ import { PDFDialog } from '@/components/review-full-text-screening/pdf-dialog';
 import React from 'react';
 import { ExportDropdown } from '@/components/coding-theming/export-dropdown';
 import { ReviewHeader } from '@/components/shared/review-header';
+import { useFetchReview } from '@/hooks/use-review';
+import { can } from '@/lib/permissions';
 
 export const Route = createFileRoute('/reviews/$reviewId/coding-theming')({
   component: RouteComponent,
@@ -27,6 +29,7 @@ export const Route = createFileRoute('/reviews/$reviewId/coding-theming')({
 function RouteComponent() {
   const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
   const reviewId = Number(Route.useParams()['reviewId']);
+  const fetchReview = useFetchReview(reviewId);
   const {
     codes,
     subThemes,
@@ -211,10 +214,12 @@ function RouteComponent() {
                 </Button>
               </CollapsibleTrigger>
               <CreateItemDialog type="code" onCreate={handleCreateCode}>
-                <Button size="sm" variant="outline">
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Code
-                </Button>
+                {can('modifyThemesCodes', fetchReview.data?.userRole) && (
+                  <Button size="sm" variant="outline">
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Code
+                  </Button>
+                )}
               </CreateItemDialog>
             </div>
             <CollapsibleContent className="mt-4 space-y-3">
@@ -236,6 +241,7 @@ function RouteComponent() {
                   filteredCodes.map((code) => (
                     <CodeCard
                       key={code.id}
+                      userRole={fetchReview.data?.userRole || 'Viewer'}
                       code={code}
                       onEdit={handleEditCode}
                       onDelete={handleDeleteCode}
@@ -276,10 +282,12 @@ function RouteComponent() {
                 </Button>
               </CollapsibleTrigger>
               <CreateItemDialog type="subTheme" onCreate={handleCreateSubTheme}>
-                <Button size="sm" variant="outline">
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Sub Theme
-                </Button>
+                {can('modifyThemesCodes', fetchReview.data?.userRole) && (
+                  <Button size="sm" variant="outline">
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Sub Theme
+                  </Button>
+                )}
               </CreateItemDialog>
             </div>
             <CollapsibleContent className="mt-4 space-y-3">
@@ -301,6 +309,7 @@ function RouteComponent() {
                   filteredSubThemes.map((subTheme) => (
                     <SubThemeCard
                       key={subTheme.id}
+                      userRole={fetchReview.data?.userRole || 'Viewer'}
                       subTheme={subTheme}
                       codesMap={codesMap}
                       onEdit={handleEditSubTheme}
@@ -354,10 +363,12 @@ function RouteComponent() {
                 type="mainTheme"
                 onCreate={handleCreateMainTheme}
               >
-                <Button size="sm" variant="outline">
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Main Theme
-                </Button>
+                {can('modifyThemesCodes', fetchReview.data?.userRole) && (
+                  <Button size="sm" variant="outline">
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Main Theme
+                  </Button>
+                )}
               </CreateItemDialog>
             </div>
             <CollapsibleContent className="mt-4 space-y-3">
@@ -379,6 +390,7 @@ function RouteComponent() {
                   filteredMainThemes.map((mainTheme) => (
                     <MainThemeCard
                       key={mainTheme.id}
+                      userRole={fetchReview.data?.userRole || 'Viewer'}
                       mainTheme={mainTheme}
                       codesMap={codesMap}
                       subThemesMap={subThemesMap}

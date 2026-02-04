@@ -20,7 +20,6 @@ import {
   getSortedRowModel,
   type SortingState,
   useReactTable,
-  type VisibilityState,
 } from '@tanstack/react-table';
 
 import { Button } from '@/components/ui/button';
@@ -41,6 +40,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Table,
   TableBody,
   TableCell,
@@ -48,171 +57,238 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { ArrowUpDown } from 'lucide-react';
-import { ReviewForm } from './review-form';
-import { useDeleteReview, useUpdateReview } from '@/hooks/use-review';
-import { useQueryClient } from '@tanstack/react-query';
-import type { ReviewRow } from '@/types/review';
-import { useRouter } from '@tanstack/react-router';
+import type { ReviewMember, ReviewRole } from '@/types/review';
+import {
+  useDeleteReviewMember,
+  useUpdateReviewMember,
+} from '@/hooks/use-review-member';
+import { can } from '@/lib/permissions';
 
 export function createColumns(
-  isActive: boolean,
-  onToggleArchive: (rowData: ReviewRow) => void,
-  onDelete: (rowData: ReviewRow) => void
+  userRole: ReviewRole,
+  onUpdateRole: (memberId: number, role: ReviewRole) => void,
+  onDelete: (memberId: number) => void
 ) {
-  const columns: ColumnDef<ReviewRow>[] = [
+  const columns: ColumnDef<ReviewMember>[] = [
     {
-      accessorKey: 'title',
+      id: 'name',
+      accessorFn: (row) => `${row.user.firstName} ${row.user.lastName}`,
       header: ({ column }) => {
         return (
           <Button
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           >
-            Title
+            Name
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
+        );
+      },
+      cell: ({ row }) => {
+        const user = row.original.user;
+        const initials =
+          `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase();
+        const fullName = `${user.firstName} ${user.lastName}`;
+
+        return (
+          <div className="flex items-center gap-3 pl-4">
+            {user.avatar ? (
+              <img
+                src={user.avatar}
+                alt={fullName}
+                className="size-8 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex size-8 items-center justify-center rounded-full bg-muted text-sm font-medium">
+                {initials}
+              </div>
+            )}
+            <span>{fullName}</span>
+          </div>
         );
       },
       enableHiding: false,
     },
     {
-      accessorKey: 'dateCreated',
+      id: 'email',
+      accessorFn: (row) => row.user.email,
+      enableGlobalFilter: true,
       header: ({ column }) => {
         return (
           <Button
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           >
-            Date Created
+            Email
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         );
       },
+      cell: ({ row }) => (
+        <a
+          href={`mailto:${row.original.user.email}`}
+          className="hover:underline"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {row.original.user.email}
+        </a>
+      ),
     },
     {
-      accessorKey: 'owner',
+      accessorKey: 'role',
       header: ({ column }) => {
         return (
           <Button
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           >
-            Owner
+            Role
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         );
       },
-    },
-    {
-      accessorKey: 'referenceCount',
-      header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          >
-            N. of References
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        );
+      cell: ({ row }) => {
+        const member = row.original;
+
+        // If current user is Owner and member is not Owner, show dropdown
+        if (can('modifyReview', userRole) && member.role !== 'Owner') {
+          return (
+            <div className="flex justify-center">
+              <Select
+                value={member.role}
+                onValueChange={(value: ReviewRole) => {
+                  onUpdateRole(member.id, value);
+                }}
+              >
+                <SelectTrigger
+                  className="w-32 text-center"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Collaborator">Collaborator</SelectItem>
+                  <SelectItem value="Reviewer">Reviewer</SelectItem>
+                  <SelectItem value="Viewer">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          );
+        }
+
+        // Otherwise just display the role
+        return <span>{member.role}</span>;
       },
     },
     {
       id: 'actions',
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="data-[state=open]:bg-muted text-muted-foreground flex size-8"
-              size="icon"
-            >
-              <IconDotsVertical />
-              <span className="sr-only">Open menu</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-32">
-            <DropdownMenuItem
-              variant="destructive"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleArchive(row.original);
-              }}
-            >
-              {isActive ? 'Archive' : 'Unarchive'}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              variant="destructive"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(row.original);
-              }}
-            >
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+      cell: ({ row }) => {
+        const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+        const member = row.original;
+
+        return (
+          <>
+            {can('modifyReview', userRole) && member.role !== 'Owner' && (
+              <>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="data-[state=open]:bg-muted text-muted-foreground flex size-8"
+                      size="icon"
+                    >
+                      <IconDotsVertical />
+                      <span className="sr-only">Open menu</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-32">
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowDeleteDialog(true);
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <AlertDialog
+                  open={showDeleteDialog}
+                  onOpenChange={setShowDeleteDialog}
+                >
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will remove {member.user.firstName}{' '}
+                        {member.user.lastName} from the review team. This action
+                        cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => {
+                          onDelete(member.id);
+                          setShowDeleteDialog(false);
+                        }}
+                      >
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            )}
+          </>
+        );
+      },
     },
   ];
   return columns;
 }
 
-export function ReviewTable({
+export function ReviewTeamTable({
+  reviewId,
   data,
-  isActive,
+  userRole,
 }: {
-  data: ReviewRow[];
-  isActive: boolean;
+  reviewId: number;
+  data: ReviewMember[];
+  userRole: ReviewRole;
 }) {
   const [rowSelection, setRowSelection] = React.useState({});
-  const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
+  const [globalFilter, setGlobalFilter] = React.useState('');
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
     pageSize: 10,
   });
 
-  const updateReview = useUpdateReview();
-  const deleteReview = useDeleteReview();
-  const queryClient = useQueryClient();
+  const updateMember = useUpdateReviewMember();
+  const deleteMember = useDeleteReviewMember();
 
-  const router = useRouter();
-
-  const onToggleArchive = async (rowData: ReviewRow) => {
-    updateReview.mutate({
-      id: rowData.id,
-      payload: { isActive: !isActive },
+  const onUpdateRole = (memberId: number, role: ReviewRole) => {
+    updateMember.mutate({
+      id: memberId,
+      reviewId: reviewId,
+      payload: { role: role },
     });
-    queryClient.setQueryData(
-      ['reviews', { isActive: isActive }],
-      (old: any = []) => old.filter((r: any) => r.id !== rowData.id)
-    );
-    queryClient.setQueryData(
-      ['reviews', { isActive: !isActive }],
-      (oldData: any = []) => [...oldData, rowData]
-    );
   };
 
-  const onDelete = async (rowData: ReviewRow) => {
-    deleteReview.mutate({
-      id: rowData.id,
-    });
-    queryClient.setQueryData(
-      ['reviews', { isActive: isActive }],
-      (old: any = []) => old.filter((r: any) => r.id !== rowData.id)
-    );
+  const onDelete = (memberId: number) => {
+    deleteMember.mutate({ id: memberId, reviewId: reviewId });
   };
 
   const columns = React.useMemo(
-    () => createColumns(isActive, onToggleArchive, onDelete),
-    [isActive, onToggleArchive]
+    () => createColumns(userRole, onUpdateRole, onDelete),
+    [userRole]
   );
 
   const table = useReactTable({
@@ -220,15 +296,15 @@ export function ReviewTable({
     columns,
     state: {
       sorting,
-      columnVisibility,
       rowSelection,
       columnFilters,
+      globalFilter,
       pagination,
     },
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
-    onColumnVisibilityChange: setColumnVisibility,
+    onGlobalFilterChange: setGlobalFilter,
     onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -236,27 +312,19 @@ export function ReviewTable({
     getSortedRowModel: getSortedRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
+    globalFilterFn: 'includesString',
   });
 
   return (
-    <Tabs
-      defaultValue="outline"
-      className="w-full flex-col justify-start gap-6"
-    >
+    <div className="w-full flex-col justify-start gap-6">
       <div className="flex items-center justify-between">
-        <Label htmlFor="view-selector" className="sr-only">
-          View
-        </Label>
         <Input
-          placeholder="Filter reviews..."
-          value={(table.getColumn('title')?.getFilterValue() as string) ?? ''}
-          onChange={(event) =>
-            table.getColumn('title')?.setFilterValue(event.target.value)
-          }
+          placeholder="Search by name or email..."
+          value={globalFilter ?? ''}
+          onChange={(event) => setGlobalFilter(event.target.value)}
           className="max-w-sm"
         />
         <div className="flex items-center gap-2">
-          {isActive && <ReviewForm />}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
@@ -292,10 +360,7 @@ export function ReviewTable({
           </DropdownMenu>
         </div>
       </div>
-      <TabsContent
-        value="outline"
-        className="relative flex flex-col gap-4 overflow-auto"
-      >
+      <div className="relative flex flex-col gap-4 overflow-auto mt-4">
         <div className="overflow-hidden rounded-lg border">
           <Table>
             <TableHeader className="bg-muted sticky top-0 z-10">
@@ -306,7 +371,9 @@ export function ReviewTable({
                       <TableHead
                         key={header.id}
                         colSpan={header.colSpan}
-                        className="text-center"
+                        className={
+                          header.id === 'name' ? 'text-left' : 'text-center'
+                        }
                       >
                         {header.isPlaceholder
                           ? null
@@ -323,15 +390,16 @@ export function ReviewTable({
             <TableBody>
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    className="cursor-pointer"
-                    key={row.id}
-                    onClick={() =>
-                      router.navigate({ to: `/reviews/${row.original.id}` })
-                    }
-                  >
+                  <TableRow key={row.id}>
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="text-center">
+                      <TableCell
+                        key={cell.id}
+                        className={
+                          cell.column.id === 'name'
+                            ? 'text-left'
+                            : 'text-center'
+                        }
+                      >
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext()
@@ -346,7 +414,7 @@ export function ReviewTable({
                     colSpan={columns.length}
                     className="h-24 text-center"
                   >
-                    No results.
+                    No team members.
                   </TableCell>
                 </TableRow>
               )}
@@ -426,22 +494,7 @@ export function ReviewTable({
             </div>
           </div>
         </div>
-      </TabsContent>
-      <TabsContent
-        value="past-performance"
-        className="flex flex-col px-4 lg:px-6"
-      >
-        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
-      </TabsContent>
-      <TabsContent value="key-personnel" className="flex flex-col px-4 lg:px-6">
-        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
-      </TabsContent>
-      <TabsContent
-        value="focus-documents"
-        className="flex flex-col px-4 lg:px-6"
-      >
-        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
-      </TabsContent>
-    </Tabs>
+      </div>
+    </div>
   );
 }

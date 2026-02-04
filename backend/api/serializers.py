@@ -2,6 +2,7 @@ import os
 from collections import defaultdict
 
 from rest_framework import serializers
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.serializers import ModelSerializer
 
 from api.models import (
@@ -16,11 +17,13 @@ from api.models import (
     ReferenceOpinion,
     Review,
     ReviewInvitation,
+    ReviewMember,
     ScreeningCriteria,
     SubTheme,
     UploadedPDF,
     User,
 )
+from api.permissions import PERMISSIONS, Permission, permission_denied_message
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -110,12 +113,58 @@ class UserSerializer(serializers.ModelSerializer):
         return instance
 
 
+class ReviewMemberSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ReviewMember
+        fields = ["id", "role", "user"]
+        read_only_fields = ["id", "user"]
+
+    def get_user(self, obj):
+        return {
+            "id": obj.user.id,
+            "first_name": obj.user.first_name,
+            "last_name": obj.user.last_name,
+            "email": obj.user.email,
+            "display_name": str(obj),
+        }
+
+    def validate_role(self, new_role):
+        """
+        Enforce role rules:
+        - Owner role cannot be changed
+        - No one can be promoted to Owner
+        """
+        instance = self.instance  # existing ReviewMember
+
+        if not instance:
+            return new_role
+
+        current_role = instance.role
+
+        #  Cannot modify an existing Owner
+        if current_role == ReviewMember.Role.OWNER:
+            raise serializers.ValidationError(
+                "You cannot change the role of the review owner."
+            )
+
+        # Cannot promote someone to Owner
+        if new_role == ReviewMember.Role.OWNER:
+            raise serializers.ValidationError("You cannot assign the Owner role.")
+
+        return new_role
+
+
 class ReviewSerializer(ModelSerializer):
     reference_count = serializers.SerializerMethodField()
     reference_duplicates_count = serializers.SerializerMethodField()
     date_created = serializers.DateTimeField(format="%d %b %Y", read_only=True)
-    owner = UserSerializer(read_only=True)
-    collaborators = UserSerializer(read_only=True, many=True)
+    user_role = serializers.SerializerMethodField()
+    members = ReviewMemberSerializer(many=True, read_only=True)
+
+    def get_user_role(self, obj):
+        return getattr(obj, "user_role", None)
 
     def get_reference_count(self, obj):
         return obj.reference_set.count()
@@ -132,27 +181,46 @@ class ReviewSerializer(ModelSerializer):
             "reference_count",
             "reference_duplicates_count",
             "date_created",
-            "owner",
             "is_blinded",
-            "collaborators",
+            "user_role",
+            "members",
         ]
         read_only_fields = [
             "owner",
             "date_created",
             "reference_count",
             "reference_duplicates_count",
-            "collaborators",
+            "user_role",
+            "members",
         ]
 
 
 class ReviewListSerializer(ModelSerializer):
+    user_role = serializers.SerializerMethodField()
     date_created = serializers.DateTimeField(format="%d %b %Y")
     owner = serializers.StringRelatedField()
     reference_count = serializers.IntegerField(read_only=True)
+    owner = serializers.SerializerMethodField()
+
+    def get_user_role(self, obj):
+        return getattr(obj, "user_role", None)
+
+    def get_owner(self, obj):
+        if not obj.owner_email:
+            return None
+
+        return f"{obj.owner_first_name} {obj.owner_last_name} ({obj.owner_email})"
 
     class Meta:
         model = Review
-        fields = ["title", "date_created", "owner", "reference_count", "id"]
+        fields = [
+            "title",
+            "date_created",
+            "owner",
+            "reference_count",
+            "id",
+            "user_role",
+        ]
 
 
 class UploadedPDFSerializer(serializers.ModelSerializer):
@@ -210,13 +278,16 @@ class ReferenceSerializer(BaseReferenceSerializer):
         opinions = getattr(obj, "prefetched_opinions", None)
         if opinions is None:
             return None
-
         return [
             {
-                "reviewer": {
-                    "first_name": op.reviewer.first_name,
-                    "last_name": op.reviewer.last_name,
-                    "email": op.reviewer.email,
+                "member": {
+                    "id": op.member.id,
+                    "user": {
+                        "first_name": op.member.user.first_name,
+                        "last_name": op.member.user.last_name,
+                        "email": op.member.user.email,
+                        "display_name": str(op.member.user),
+                    },
                 },
                 "status": op.status,
             }
@@ -246,19 +317,21 @@ class ReferenceSerializer(BaseReferenceSerializer):
             return None
         return {
             "id": obj.assignee.id,
-            "first_name": obj.assignee.first_name,
-            "last_name": obj.assignee.last_name,
-            "email": obj.assignee.email,
+            "user": {
+                "first_name": obj.assignee.user.first_name,
+                "last_name": obj.assignee.user.last_name,
+                "email": obj.assignee.user.email,
+            },
         }
 
 
 class ReferenceOpinionSerializer(ModelSerializer):
-    reviewer = serializers.StringRelatedField()
+    member = serializers.StringRelatedField()
 
     class Meta:
         model = ReferenceOpinion
-        fields = ["id", "reviewer", "status"]
-        read_only_fields = ["id", "reviewer"]
+        fields = ["id", "member", "status"]
+        read_only_fields = ["id", "member"]
 
 
 class ReferenceDuplicatePairSerializer(ModelSerializer):
@@ -315,7 +388,7 @@ class CodeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Code
         fields = "__all__"
-        read_only_fields = ["id", "user"]
+        read_only_fields = ["id", "member"]
 
     def get_reference_file_url(self, obj):
         request = self.context.get("request")
@@ -381,3 +454,70 @@ class ScreeningCriteriaSerializer(serializers.ModelSerializer):
         model = ScreeningCriteria
         fields = ["id", "review", "name", "description", "kind"]
         read_only_fields = ["id"]
+
+
+class AssignLabelsSerializer(serializers.Serializer):
+    review = serializers.PrimaryKeyRelatedField(queryset=Review.objects.all())
+    reference_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        allow_empty=False,
+    )
+    checked_label_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        default=list,
+    )
+    indeterminate_label_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        default=list,
+    )
+
+    def validate(self, data):
+        user = self.context["request"].user
+        review = data["review"]
+
+        # Membership check
+        try:
+            member = ReviewMember.objects.get(review=review, user=user)
+        except ReviewMember.DoesNotExist:
+            raise serializers.ValidationError(
+                {"review": "You are not a member of this review."}
+            )
+
+        permission = Permission.ASSIGN_LABEL
+        if member.role not in PERMISSIONS[permission]:
+            raise PermissionDenied(permission_denied_message(permission))
+
+        # Normalize IDs
+        reference_ids = set(data["reference_ids"])
+        checked_ids = set(data["checked_label_ids"])
+        indeterminate_ids = set(data["indeterminate_label_ids"])
+
+        # Validate references belong to review
+        references = Reference.objects.filter(
+            review=review,
+            id__in=reference_ids,
+        )
+        if references.count() != len(reference_ids):
+            raise serializers.ValidationError(
+                {
+                    "reference_ids": "One or more references do not belong to this review."
+                }
+            )
+
+        # Validate labels belong to user
+        label_ids = checked_ids | indeterminate_ids
+        labels = Label.objects.filter(user=user, id__in=label_ids)
+        if labels.count() != len(label_ids):
+            raise serializers.ValidationError(
+                {"label_ids": "One or more labels do not belong to you."}
+            )
+
+        data["member"] = member
+        data["references"] = references
+        data["labels"] = {label.id: label for label in labels}
+        data["checked_ids"] = checked_ids
+        data["indeterminate_ids"] = indeterminate_ids
+
+        return data

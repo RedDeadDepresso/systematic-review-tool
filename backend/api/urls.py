@@ -13,6 +13,7 @@ from api.views import (
     ReferenceViewSet,
     ReviewDataView,
     ReviewInvitationViewSet,
+    ReviewMemberRetrieveUpdateDestroyView,
     ReviewViewSet,
     ScreeningCriteriaViewSet,
     ScreeningView,
@@ -46,8 +47,8 @@ router.register(r"uploaded-pdfs", UploadedPDFViewSet, basename="uploaded-pdf")
 router.register(r"keywords", KeywordViewSet, basename="keyword")
 router.register(r"notes", NoteViewSet, basename="note")
 
-router.register(r"main-themes", MainThemeViewSet, basename="main_theme")
-router.register(r"sub-themes", SubThemeViewSet, basename="sub_theme")
+router.register(r"main-themes", MainThemeViewSet, basename="main-theme")
+router.register(r"sub-themes", SubThemeViewSet, basename="sub-theme")
 router.register(r"codes", CodeViewSet, basename="code")
 router.register(r"labels", LabelViewSet, basename="label")
 router.register(
@@ -61,5 +62,10 @@ urlpatterns = [
     path("review-data/", ReviewDataView.as_view(), name="review-data"),
     path("screening/", ScreeningView.as_view(), name="screening"),
     path("screening-full-text/", ScreeningView.as_view(), name="screening-full-text"),
+    path(
+        "review-members/<int:pk>/",
+        ReviewMemberRetrieveUpdateDestroyView.as_view(),
+        name="review-member-detail",
+    ),
     path("", include(router.urls)),
 ]

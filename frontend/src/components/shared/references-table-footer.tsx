@@ -15,9 +15,12 @@ import { LabelPopover } from '@/components/shared/label-popover';
 import { AssigneePopover } from './assignee-popover';
 import type { OpinionStatus } from '@/types/reference';
 import { useBulkCreateNote } from '@/hooks/use-note';
+import type { ReviewRole } from '@/types/review';
+import { can } from '@/lib/permissions';
 
 export interface ReviewDataFooterProps {
   reviewId: number;
+  userRole: ReviewRole;
   selectedReferenceIds: number[];
   highlightedReferenceId: number | null;
   onAttachPDF?: () => void;
@@ -26,6 +29,7 @@ export interface ReviewDataFooterProps {
 
 export function ReviewDataFooter({
   reviewId,
+  userRole,
   selectedReferenceIds,
   highlightedReferenceId,
   onAttachPDF,
@@ -41,19 +45,23 @@ export function ReviewDataFooter({
         ? [highlightedReferenceId]
         : [];
 
+  if (!can('modifyOpinion', userRole)) return null;
+
   return (
     <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-3 border-t border-border bg-card">
-      <Button
-        variant="outline"
-        size="sm"
-        className="gap-2 bg-transparent"
-        onClick={onAttachPDF}
-      >
-        <Paperclip className="h-4 w-4" />
-        <span className="hidden sm:inline">Attach PDF</span>
-      </Button>
-
+      {can('uploadFiles', userRole) && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2 bg-transparent"
+          onClick={onAttachPDF}
+        >
+          <Paperclip className="h-4 w-4" />
+          <span className="hidden sm:inline">Attach PDF</span>
+        </Button>
+      )}
       <LabelPopover
+        reviewId={reviewId}
         trigger={
           <Button
             variant="outline"
@@ -67,23 +75,23 @@ export function ReviewDataFooter({
         selectedReferenceIds={selectedRefs}
         onLabelsApplied={onLabelsApplied}
       />
-
-      <AssigneePopover
-        reviewId={reviewId}
-        trigger={
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 text-primary border-primary bg-transparent"
-          >
-            <CircleUser className="h-4 w-4" />
-            <span className="hidden sm:inline">Assign</span>
-          </Button>
-        }
-        selectedReferenceIds={selectedRefs}
-        onAssigneeApplied={onLabelsApplied}
-      />
-
+      {can('assign', userRole) && (
+        <AssigneePopover
+          reviewId={reviewId}
+          trigger={
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 text-primary border-primary bg-transparent"
+            >
+              <CircleUser className="h-4 w-4" />
+              <span className="hidden sm:inline">Assign</span>
+            </Button>
+          }
+          selectedReferenceIds={selectedRefs}
+          onAssigneeApplied={onLabelsApplied}
+        />
+      )}
       <div className="flex items-center gap-2 w-full">
         <Input
           placeholder="Add note"
@@ -131,6 +139,7 @@ export interface ScreeningFooterProps extends ReviewDataFooterProps {
 
 export function ScreeningFooter({
   reviewId,
+  userRole,
   selectedReferenceIds,
   highlightedReferenceId,
   onAttachPDF,
@@ -146,6 +155,8 @@ export function ScreeningFooter({
       : highlightedReferenceId !== null
         ? [highlightedReferenceId]
         : [];
+
+  if (!can('modifyOpinion', userRole)) return null;
 
   return (
     <div className="flex flex-col w-full sm:gap-3 px-3 sm:px-6 py-3 border-t border-border bg-card">
@@ -185,18 +196,19 @@ export function ScreeningFooter({
           <MessageSquareText className="h-4 w-4" />
           <span className="hidden sm:inline">Reason</span>
         </Button> */}
-
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex-1 gap-2 bg-transparent"
-          onClick={onAttachPDF}
-        >
-          <Paperclip className="h-4 w-4" />
-          <span className="hidden sm:inline">Attach PDF</span>
-        </Button>
-
+        {can('uploadFiles', userRole) && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 gap-2 bg-transparent"
+            onClick={onAttachPDF}
+          >
+            <Paperclip className="h-4 w-4" />
+            <span className="hidden sm:inline">Attach PDF</span>
+          </Button>
+        )}
         <LabelPopover
+          reviewId={reviewId}
           trigger={
             <Button
               variant="outline"
@@ -210,22 +222,23 @@ export function ScreeningFooter({
           selectedReferenceIds={selectedRefs}
           onLabelsApplied={onLabelsApplied}
         />
-
-        <AssigneePopover
-          reviewId={reviewId}
-          trigger={
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 gap-2 text-primary border-primary bg-transparent"
-            >
-              <CircleUser className="h-4 w-4" />
-              <span className="hidden sm:inline">Assign</span>
-            </Button>
-          }
-          selectedReferenceIds={selectedRefs}
-          onAssigneeApplied={onLabelsApplied}
-        />
+        {can('assign', userRole) && (
+          <AssigneePopover
+            reviewId={reviewId}
+            trigger={
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 gap-2 text-primary border-primary bg-transparent"
+              >
+                <CircleUser className="h-4 w-4" />
+                <span className="hidden sm:inline">Assign</span>
+              </Button>
+            }
+            selectedReferenceIds={selectedRefs}
+            onAssigneeApplied={onLabelsApplied}
+          />
+        )}
       </div>
       <div className="flex items-center gap-2 w-full">
         <Input
