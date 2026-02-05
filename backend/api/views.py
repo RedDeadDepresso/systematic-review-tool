@@ -1,3 +1,4 @@
+import csv
 import json
 import os
 from datetime import date
@@ -22,6 +23,9 @@ from rest_framework.response import Response
 from api.filters import ReferenceFilter, ReviewFilter
 from api.models import (
     Code,
+    ExtractionAnswer,
+    ExtractionQuestion,
+    ExtractionSection,
     Keyword,
     Label,
     MainTheme,
@@ -44,8 +48,14 @@ from api.serializers import (
     AssignLabelsSerializer,
     AssignReferencesSerializer,
     AttachPDFsSerializer,
+    BatchAnswerSerializer,
     BulkCreateNoteSerializer,
+    BulkUpdateExtractionStatusSerializer,
     CodeSerializer,
+    ExtractionAnswerSerializer,
+    ExtractionQuestionSerializer,
+    ExtractionSectionSerializer,
+    ExtractionTableDataSerializer,
     KeywordSerializer,
     LabelSerializer,
     MainThemeSerializer,
@@ -1811,3 +1821,224 @@ class ReviewMemberRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVie
         if instance.role == ReviewMember.Role.OWNER:
             raise serializers.ValidationError("You cannot remove the review owner.")
         instance.delete()
+
+
+class ExtractionSectionViewSet(viewsets.ModelViewSet):
+    queryset = ExtractionSection.objects.all()
+    serializer_class = ExtractionSectionSerializer
+    filter_backends = [filters.DjangoFilterBackend]
+    filterset_fields = ["review"]
+
+
+class ExtractionQuestionViewSet(viewsets.ModelViewSet):
+    queryset = ExtractionQuestion.objects.all()
+    serializer_class = ExtractionQuestionSerializer
+    filter_backends = [filters.DjangoFilterBackend]
+    filterset_fields = ["section"]
+
+
+class ExtractionAnswerViewSet(viewsets.ModelViewSet):
+    queryset = ExtractionAnswer.objects.all()
+    serializer_class = ExtractionAnswerSerializer
+    filter_backends = [filters.DjangoFilterBackend]
+    filterset_fields = ["reference", "question"]
+
+    def create(self, request, *args, **kwargs):
+        """
+        Create or update answer - returns existing answer if reference-question pair exists
+        """
+        reference_id = request.data.get("reference")
+        question_id = request.data.get("question")
+
+        # Check if answer already exists
+        existing_answer = ExtractionAnswer.objects.filter(
+            reference=reference_id, question=question_id
+        ).first()
+
+        if existing_answer:
+            # Update existing answer
+            serializer = self.get_serializer(
+                existing_answer, data=request.data, partial=True
+            )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            # Create new answer
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            headers = self.get_success_headers(serializer.data)
+            return Response(
+                serializer.data, status=status.HTTP_201_CREATED, headers=headers
+            )
+
+    @action(detail=False, methods=["post"], url_path="batch-update")
+    def batch_update(self, request):
+        """
+        Update multiple answers at once
+        """
+        answers_data = request.data.get("answers", [])
+
+        if not answers_data:
+            return Response(
+                {"error": "answers array is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate input
+        batch_serializer = BatchAnswerSerializer(data=answers_data, many=True)
+        batch_serializer.is_valid(raise_exception=True)
+
+        updated_answers = []
+
+        for answer_data in batch_serializer.validated_data:
+            answer, created = ExtractionAnswer.objects.update_or_create(
+                reference_id=answer_data["reference_id"],
+                question_id=answer_data["question_id"],
+                defaults={"value": answer_data.get("value", "")},
+            )
+            updated_answers.append(answer)
+
+        serializer = ExtractionAnswerSerializer(updated_answers, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ExtractionTableViewSet(viewsets.ViewSet):
+    """
+    ViewSet for extraction table operations
+    """
+
+    @action(detail=False, methods=["get"], url_path="table-data")
+    def table_data(self, request):
+        """
+        Get all data needed for extraction table in a single request
+        GET /api/extraction/table-data/?review_id=1
+        """
+        review_id = request.query_params.get("review")
+
+        if not review_id:
+            return Response(
+                {"error": "review is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get questions with sections, ordered
+        questions = (
+            ExtractionQuestion.objects.filter(section__review=review_id)
+            .select_related("section")
+            .order_by("section__order", "order")
+        )
+
+        # Get references with prefetched answers for efficiency
+        references = (
+            Reference.objects.filter(review=review_id)
+            .prefetch_related(
+                Prefetch(
+                    "extraction_answers",
+                    queryset=ExtractionAnswer.objects.select_related("question"),
+                ),
+                Prefetch(
+                    "labels",
+                    queryset=ReferenceLabel.objects.filter(
+                        label__user=self.request.user
+                    ).select_related("label"),
+                    to_attr="prefetched_labels",
+                ),
+            )
+            .select_related("assignee__user")
+        )
+
+        serializer = ExtractionTableDataSerializer(
+            {"questions": questions, "references": references},
+            context={"request": request},
+        )
+
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="export-csv")
+    def export_csv(self, request):
+        """
+        Export extraction data as CSV
+        GET /api/extraction/export-csv/?review_id=1
+        """
+        review_id = request.query_params.get("review_id")
+
+        if not review_id:
+            return Response(
+                {"error": "review_id is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get questions with sections, ordered
+        questions = (
+            ExtractionQuestion.objects.filter(section__review_id=review_id)
+            .select_related("section")
+            .order_by("section__order", "order")
+        )
+
+        # Get references with prefetched answers
+        references = (
+            Reference.objects.filter(review_id=review_id)
+            .prefetch_related(
+                Prefetch(
+                    "extraction_answers",
+                    queryset=ExtractionAnswer.objects.select_related("question"),
+                )
+            )
+            .order_by("id")
+        )
+
+        # Create CSV response
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = (
+            f'attachment; filename="extraction_data_review_{review_id}.csv"'
+        )
+
+        writer = csv.writer(response)
+
+        # Write header row
+        header = ["ID", "Title", "PDF"]
+        for question in questions:
+            header.append(question.column_title)
+        writer.writerow(header)
+
+        # Write data rows
+        for ref in references:
+            row = [ref.id, ref.title, ref.file or ""]
+
+            # Create answers dict for quick lookup
+            answers_dict = {}
+            for answer in ref.extraction_answers.all():
+                answers_dict[answer.question_id] = answer.value
+
+            # Add answer values in question order
+            for question in questions:
+                row.append(answers_dict.get(question.id, ""))
+
+            writer.writerow(row)
+
+        return response
+
+    @action(detail=False, methods=["post"], url_path="bulk-update-status")
+    def bulk_update_status(self, request):
+        """
+        Bulk update extraction completion status for multiple references
+        """
+        serializer = BulkUpdateExtractionStatusSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        reference_ids = serializer.validated_data["reference_ids"]
+        is_extraction_completed = serializer.validated_data["is_extraction_completed"]
+
+        # Update references
+        updated_count = Reference.objects.filter(id__in=reference_ids).update(
+            is_extraction_completed=is_extraction_completed
+        )
+
+        return Response(
+            {
+                "updated_count": updated_count,
+                "reference_ids": reference_ids,
+                "is_extraction_completed": is_extraction_completed,
+            },
+            status=status.HTTP_200_OK,
+        )
