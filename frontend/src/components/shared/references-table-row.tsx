@@ -43,7 +43,7 @@ function OpinionBadge({ opinion }: OpinionBadgeProps) {
   );
 }
 
-function AssigneeBadge({ assignee }: { assignee: ReviewMember }) {
+export function AssigneeBadge({ assignee }: { assignee: ReviewMember }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -57,7 +57,7 @@ function AssigneeBadge({ assignee }: { assignee: ReviewMember }) {
   );
 }
 
-function LabelBadge({ label }: { label: Label }) {
+export function LabelBadge({ label }: { label: Label }) {
   return (
     <Badge
       key={label.id}

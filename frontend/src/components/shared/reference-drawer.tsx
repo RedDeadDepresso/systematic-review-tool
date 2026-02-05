@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { highlightText } from '@/lib/reference';
 import type { Reference } from '@/types/reference';
 import {
+  ExtractionFooter,
   ReviewDataFooter,
   ScreeningFooter,
   type ReviewDataFooterProps,
@@ -142,5 +143,13 @@ export interface ScreeningeferenceDrawerProps
 export function ScreeningReferenceDrawer(props: ScreeningeferenceDrawerProps) {
   return (
     <ReferenceDrawer {...props} children={<ScreeningFooter {...props} />} />
+  );
+}
+
+export function ExtractionReferenceDrawer(
+  props: ReviewDataReferenceDrawerProps
+) {
+  return (
+    <ReferenceDrawer {...props} children={<ExtractionFooter {...props} />} />
   );
 }

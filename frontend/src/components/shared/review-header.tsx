@@ -37,6 +37,10 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
       path: `/reviews/${reviewId}/full-text-screening`,
     },
     {
+      label: 'Data Extraction',
+      path: `/reviews/${reviewId}/data-extraction`,
+    },
+    {
       label: 'Coding & Theming',
       path: `/reviews/${reviewId}/coding-theming`,
     },

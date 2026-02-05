@@ -240,8 +240,7 @@ export function MatchPDFDialog({
           <Button
             onClick={handleImport}
             disabled={!hasSelections || isSubmitting}
-            className="bg-muted text-muted-foreground hover:bg-muted/80 disabled:opacity-50"
-            variant="secondary"
+            variant="default"
           >
             {isSubmitting ? 'Importing...' : 'Import'}
           </Button>

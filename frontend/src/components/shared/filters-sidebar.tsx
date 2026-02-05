@@ -93,8 +93,8 @@ interface FiltersSidebarProps {
   onCreateKeyword: (name: string, isInclusive: boolean) => void;
   onDeleteKeyword?: (keyword: Keyword) => void;
   onDeleteLabel?: (label: Label) => void;
-  articleViewLayout: ArticleViewLayout;
-  onArticleViewLayoutChange: (layout: ArticleViewLayout) => void;
+  articleViewLayout?: ArticleViewLayout;
+  onArticleViewLayoutChange?: (layout: ArticleViewLayout) => void;
 }
 
 // Reusable collapsible section component
@@ -489,7 +489,7 @@ export function FiltersSidebar({
   };
 
   useEffect(() => {
-    if (isMobile) onArticleViewLayoutChange('title-only');
+    if (isMobile) onArticleViewLayoutChange?.('title-only');
   }, [isMobile]);
 
   useEffect(() => {
@@ -1048,7 +1048,7 @@ export function FiltersSidebar({
                 )}
                 onClick={() => {
                   if (isMobile) return;
-                  onArticleViewLayoutChange('title-abstract');
+                  onArticleViewLayoutChange?.('title-abstract');
                 }}
               >
                 <div
@@ -1067,7 +1067,7 @@ export function FiltersSidebar({
               </label>
               <label
                 className="flex items-center gap-3 py-1.5 cursor-pointer hover:bg-muted/50 rounded px-2 -mx-2"
-                onClick={() => onArticleViewLayoutChange('title-only')}
+                onClick={() => onArticleViewLayoutChange?.('title-only')}
               >
                 <div
                   className={cn(
@@ -1093,7 +1093,7 @@ export function FiltersSidebar({
                 )}
                 onClick={() => {
                   if (isMobile) return;
-                  onArticleViewLayoutChange('title-file');
+                  onArticleViewLayoutChange?.('title-file');
                 }}
               >
                 <div

@@ -1,0 +1,44 @@
+import type { Label, Reference } from './reference';
+import type { ReviewMember } from './review';
+
+// Data extraction types
+export type QuestionType =
+  | 'free-text'
+  | 'number'
+  | 'date'
+  | 'single-select'
+  | 'multi-select'
+  | 'boolean';
+
+export type ExtractionSection = {
+  id: number;
+  name: string;
+};
+
+export type ExtractionQuestion = {
+  id: number;
+  section: number;
+  question: string;
+  columnTitle: string;
+  type: QuestionType;
+  required: boolean;
+};
+
+export type ExtractionAnswer = {
+  id: number;
+  reference: number;
+  question: number;
+  value: string;
+};
+
+export interface ReferenceWithAnswers extends Reference {
+  answers: Record<number, ExtractionAnswer>; // questionId -> answer
+  isExtractionCompleted: boolean;
+}
+
+export interface ExtractionTableData {
+  questions: ExtractionQuestion[];
+  references: ReferenceWithAnswers[];
+}
+
+export type ExtractionStatus = 'in-progress' | 'completed';

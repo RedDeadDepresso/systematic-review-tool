@@ -1,16 +1,16 @@
-import type { Review, ReviewRow } from '@/types/review';
+import type { Review } from '@/types/review';
 import api from './axios';
 
 export const createReview = async (payload: {
   title: string;
   description: string;
 }) => {
-  const res = await api.post('/reviews/', payload);
+  const res = await api.post<Review>('/reviews/', payload);
   return res.data;
 };
 
 export const fetchReviews = async ({ isActive }: { isActive: boolean }) => {
-  const res = await api.get<ReviewRow[]>('/reviews/', {
+  const res = await api.get<Review>('/reviews/', {
     params: {
       is_active: isActive,
     },
