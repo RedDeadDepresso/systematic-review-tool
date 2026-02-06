@@ -417,7 +417,7 @@ class Code(models.Model):
     # Highlight type
     type = models.CharField(
         max_length=20,
-        choices=HighlightStyle.choices,
+        choices=HighlightType.choices,
         null=True,
         blank=True,
     )
@@ -447,7 +447,7 @@ class Code(models.Model):
     highlight_color = models.CharField(max_length=50, null=True, blank=True)
     highlight_style = models.CharField(
         max_length=20,
-        choices=HighlightType.choices,
+        choices=HighlightStyle.choices,
         null=True,
         blank=True,
     )

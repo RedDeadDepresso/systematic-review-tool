@@ -655,14 +655,13 @@ class ExtractionAnswerSerializer(serializers.ModelSerializer):
 class ExtractionQuestionTableSerializer(serializers.ModelSerializer):
     """Serializer for questions in the table view"""
 
-    section_id = serializers.IntegerField(source="section.id", read_only=True)
     section_name = serializers.CharField(source="section.name", read_only=True)
 
     class Meta:
         model = ExtractionQuestion
         fields = [
             "id",
-            "section_id",
+            "section",
             "section_name",
             "question",
             "column_title",

@@ -1913,7 +1913,6 @@ class ExtractionTableViewSet(viewsets.ViewSet):
     def table_data(self, request):
         """
         Get all data needed for extraction table in a single request
-        GET /api/extraction/table-data/?review_id=1
         """
         review_id = request.query_params.get("review")
 
@@ -1959,7 +1958,6 @@ class ExtractionTableViewSet(viewsets.ViewSet):
     def export_csv(self, request):
         """
         Export extraction data as CSV
-        GET /api/extraction/export-csv/?review_id=1
         """
         review_id = request.query_params.get("review_id")
 
