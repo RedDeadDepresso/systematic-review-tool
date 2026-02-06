@@ -1,12 +1,16 @@
 import os
 from collections import defaultdict
 
+from django.db import models
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.serializers import ModelSerializer
 
 from api.models import (
     Code,
+    ExtractionAnswer,
+    ExtractionQuestion,
+    ExtractionSection,
     Keyword,
     Label,
     MainTheme,
@@ -521,3 +525,242 @@ class AssignLabelsSerializer(serializers.Serializer):
         data["indeterminate_ids"] = indeterminate_ids
 
         return data
+
+
+class ExtractionSectionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExtractionSection
+        fields = ["id", "name", "order", "review"]
+        read_only_fields = ["id"]
+
+    def validate(self, data):
+        """
+        Check for duplicate names within the same review
+        """
+        review = data.get("review")
+        name = data.get("name", "").strip()
+
+        # For updates, exclude the current instance
+        queryset = ExtractionSection.objects.filter(review=review, name__iexact=name)
+
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+
+        if queryset.exists():
+            raise serializers.ValidationError(
+                {"name": "A section with this name already exists for this review."}
+            )
+
+        return data
+
+    def create(self, validated_data):
+        # Trim the name
+        validated_data["name"] = validated_data["name"].strip()
+
+        # Set order if not provided
+        if "order" not in validated_data:
+            max_order = (
+                ExtractionSection.objects.filter(
+                    review=validated_data["review"]
+                ).aggregate(models.Max("order"))["order__max"]
+                or 0
+            )
+            validated_data["order"] = max_order + 1
+
+        return super().create(validated_data)
+
+
+class ExtractionQuestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExtractionQuestion
+        fields = [
+            "id",
+            "section",
+            "question",
+            "column_title",
+            "type",
+            "options",
+            "required",
+            "order",
+        ]
+        read_only_fields = ["id"]
+
+    def validate_question(self, value):
+        """Trim whitespace from question"""
+        return value.strip() if value else value
+
+    def validate_column_title(self, value):
+        """Trim whitespace from column title"""
+        return value.strip() if value else value
+
+    def validate(self, data):
+        """Additional validation"""
+        question_type = data.get("type")
+        options = data.get("options")
+
+        # Validate that select types have options
+        if question_type in ["single-select", "multi-select"]:
+            if not options or not isinstance(options, list) or len(options) == 0:
+                raise serializers.ValidationError(
+                    {"options": "Options are required for select type questions."}
+                )
+
+        return data
+
+    def create(self, validated_data):
+        # Set order if not provided
+        if "order" not in validated_data:
+            section = validated_data["section"]
+            max_order = (
+                ExtractionQuestion.objects.filter(section=section).aggregate(
+                    models.Max("order")
+                )["order__max"]
+                or 0
+            )
+            validated_data["order"] = max_order + 1
+
+        return super().create(validated_data)
+
+
+class ExtractionAnswerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExtractionAnswer
+        fields = ["id", "reference", "question", "value"]
+        read_only_fields = ["id"]
+
+    def create(self, validated_data):
+        """
+        Create or update answer if it already exists for the reference-question pair
+        """
+        reference = validated_data["reference"]
+        question = validated_data["question"]
+        value = validated_data.get("value", "")
+
+        # Try to get existing answer
+        answer, _ = ExtractionAnswer.objects.update_or_create(
+            reference=reference, question=question, defaults={"value": value}
+        )
+
+        return answer
+
+    def update(self, instance, validated_data):
+        """
+        Update existing answer
+        """
+        instance.value = validated_data.get("value", instance.value)
+        instance.save()
+        return instance
+
+
+class ExtractionQuestionTableSerializer(serializers.ModelSerializer):
+    """Serializer for questions in the table view"""
+
+    section_name = serializers.CharField(source="section.name", read_only=True)
+
+    class Meta:
+        model = ExtractionQuestion
+        fields = [
+            "id",
+            "section",
+            "section_name",
+            "question",
+            "column_title",
+            "type",
+            "required",
+            "order",
+        ]
+
+
+class ReferenceTableSerializer(serializers.ModelSerializer):
+    """Serializer for references with their extraction answers"""
+
+    answers = serializers.SerializerMethodField()
+    labels = serializers.SerializerMethodField()
+    assignee = serializers.SerializerMethodField()
+    file = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Reference
+        fields = [
+            "id",
+            "title",
+            "file",
+            "answers",
+            "is_extraction_completed",
+            "labels",
+            "assignee",
+        ]
+
+    def get_file(self, obj):
+        request = self.context.get("request")
+
+        if obj.file:
+            url = obj.file.url
+            return request.build_absolute_uri(url) if request else url
+
+        return None
+
+    def get_answers(self, obj):
+        """Returns dict mapping question_id -> {id, value}"""
+        # Access prefetched answers
+        answers = {}
+        for answer in obj.extraction_answers.all():
+            answers[answer.question_id] = {"id": answer.id, "value": answer.value}
+        return answers
+
+    def get_labels(self, obj):
+        """
+        Return labels applied to this reference for the current user only.
+        Expects that `obj` has a `user_labels` prefetched attribute.
+        """
+
+        return [
+            {"id": rl.label.id, "name": rl.label.name, "color": rl.label.color}
+            for rl in obj.prefetched_labels
+        ]
+
+    def get_assignee(self, obj):
+        if not obj.assignee:
+            return None
+        return {
+            "id": obj.assignee.id,
+            "user": {
+                "first_name": obj.assignee.user.first_name,
+                "last_name": obj.assignee.user.last_name,
+                "email": obj.assignee.user.email,
+            },
+        }
+
+
+class ExtractionTableDataSerializer(serializers.Serializer):
+    """Combined serializer for all table data"""
+
+    questions = ExtractionQuestionTableSerializer(many=True)
+    references = ReferenceTableSerializer(many=True)
+
+
+class BatchAnswerSerializer(serializers.Serializer):
+    """Serializer for batch answer updates"""
+
+    reference_id = serializers.IntegerField()
+    question_id = serializers.IntegerField()
+    value = serializers.CharField(allow_blank=True)
+
+
+class BulkUpdateExtractionStatusSerializer(serializers.Serializer):
+    """Serializer for bulk updating extraction completion status"""
+
+    reference_ids = serializers.ListField(
+        child=serializers.IntegerField(), min_length=1
+    )
+    is_extraction_completed = serializers.BooleanField()
+
+
+class ExtractionAnswerBulkSerializer(serializers.Serializer):
+    """Serializer for bulk answer updates for a single reference"""
+
+    reference_id = serializers.IntegerField()
+    answers = serializers.DictField(
+        child=serializers.CharField(allow_blank=True),
+        help_text="Dict mapping question_id to answer value",
+    )

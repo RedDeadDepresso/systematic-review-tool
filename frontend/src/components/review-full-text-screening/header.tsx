@@ -2,10 +2,11 @@ import {
   Download,
   Minus,
   Moon,
-  PanelLeftClose,
-  PanelLeft,
   Plus,
   Sun,
+  Network,
+  FileText,
+  Highlighter,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components//ui/separator';
@@ -23,11 +24,13 @@ interface HeaderProps {
   onExportPdf: () => void;
   highlightSidebarOpen: boolean;
   codingSidebarOpen: boolean;
+  extractionSidebarOpen: boolean;
   onToggleHighlightSidebar: () => void;
   onToggleCodingSidebar: () => void;
+  onToggleExtractionSidebar: () => void;
   darkMode: boolean;
   onToggleDarkMode: () => void;
-  viewerMode?: boolean;
+  readOnly?: boolean;
 }
 
 export function Header({
@@ -37,11 +40,13 @@ export function Header({
   onExportPdf,
   highlightSidebarOpen,
   codingSidebarOpen,
+  extractionSidebarOpen,
   onToggleHighlightSidebar,
   onToggleCodingSidebar,
+  onToggleExtractionSidebar,
   darkMode,
   onToggleDarkMode,
-  viewerMode = true,
+  readOnly = true,
 }: HeaderProps) {
   const displayZoom = pdfScaleValue
     ? `${Math.round(pdfScaleValue * 100)}%`
@@ -52,24 +57,22 @@ export function Header({
       <header className="flex h-14 items-center justify-between border-b bg-background px-4">
         {/* Left section - Logo and sidebar toggle */}
         <div className="flex items-center gap-3">
-          {!viewerMode && (
+          {!readOnly && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="ghost"
+                  variant={highlightSidebarOpen ? 'secondary' : 'ghost'}
                   size="icon"
                   onClick={onToggleHighlightSidebar}
                   className="h-9 w-9"
                 >
-                  {highlightSidebarOpen ? (
-                    <PanelLeftClose className="h-5 w-5" />
-                  ) : (
-                    <PanelLeft className="h-5 w-5" />
-                  )}
+                  <Highlighter className="h-5 w-5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                {highlightSidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+                {highlightSidebarOpen
+                  ? 'Hide highlight sidebar'
+                  : 'Show highlight sidebar'}
               </TooltipContent>
             </Tooltip>
           )}
@@ -153,26 +156,43 @@ export function Header({
 
         {/* Left section - Logo and sidebar toggle */}
         <div className="flex items-center gap-3">
-          {!viewerMode && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onToggleCodingSidebar}
-                  className="h-9 w-9"
-                >
-                  {codingSidebarOpen ? (
-                    <PanelLeftClose className="h-5 w-5" />
-                  ) : (
-                    <PanelLeft className="h-5 w-5" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {codingSidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-              </TooltipContent>
-            </Tooltip>
+          {!readOnly && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={extractionSidebarOpen ? 'secondary' : 'ghost'}
+                    size="icon"
+                    onClick={onToggleExtractionSidebar}
+                    className="h-9 w-9"
+                  >
+                    <FileText className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {extractionSidebarOpen
+                    ? 'Hide extraction sidebar'
+                    : 'Show extraction sidebar'}
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={codingSidebarOpen ? 'secondary' : 'ghost'}
+                    size="icon"
+                    onClick={onToggleCodingSidebar}
+                    className="h-9 w-9"
+                  >
+                    <Network className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {codingSidebarOpen
+                    ? 'Hide coding sidebar'
+                    : 'Show coding sidebar'}
+                </TooltipContent>
+              </Tooltip>
+            </>
           )}
 
           <Separator orientation="vertical" className="h-6" />

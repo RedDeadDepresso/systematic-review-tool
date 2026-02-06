@@ -127,11 +127,12 @@ class Reference(models.Model):
     doi = models.CharField(max_length=255, blank=True)
     url = models.URLField(max_length=500, blank=True)
     file = models.FileField(upload_to=reference_upload_path, blank=True, null=True)
+    search_vector = SearchVectorField(null=True, blank=True)
+    assignee = models.ForeignKey(ReviewMember, null=True, on_delete=models.SET_NULL)
     duplicate_status = models.CharField(
         max_length=20, choices=DuplicateStatus.choices, default=DuplicateStatus.UNIQUE
     )
-    search_vector = SearchVectorField(null=True, blank=True)
-    assignee = models.ForeignKey(ReviewMember, null=True, on_delete=models.SET_NULL)
+    is_extraction_completed = models.BooleanField(default=False)
 
     class Meta:
         indexes = [
@@ -416,7 +417,7 @@ class Code(models.Model):
     # Highlight type
     type = models.CharField(
         max_length=20,
-        choices=HighlightStyle.choices,
+        choices=HighlightType.choices,
         null=True,
         blank=True,
     )
@@ -446,7 +447,7 @@ class Code(models.Model):
     highlight_color = models.CharField(max_length=50, null=True, blank=True)
     highlight_style = models.CharField(
         max_length=20,
-        choices=HighlightType.choices,
+        choices=HighlightStyle.choices,
         null=True,
         blank=True,
     )
@@ -472,3 +473,67 @@ class ScreeningCriteria(models.Model):
                 name="unique_criteria_per_review",
             )
         ]
+
+
+class ExtractionSection(models.Model):
+    review = models.ForeignKey(Review, on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+    order = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ["order"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["review", "name"], name="unique_review_section_name"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.review} - {self.name}"
+
+
+class ExtractionQuestion(models.Model):
+    class QuestionType(models.TextChoices):
+        FREE_TEXT = "free-text", "Free Text"
+        NUMBER = "number", "Number"
+        DATE = "date", "Date"
+        SINGLE_SELECT = "single-select", "Single Select"
+        MULTI_SELECT = "multi-select", "Multi Select"
+        BOOLEAN = "boolean", "Boolean"
+
+    section = models.ForeignKey(
+        ExtractionSection, on_delete=models.CASCADE, related_name="questions"
+    )
+    question = models.TextField()
+    column_title = models.CharField(max_length=255)
+    type = models.CharField(max_length=20, choices=QuestionType.choices)
+    options = models.JSONField(null=True, blank=True)
+    required = models.BooleanField(default=False)
+    order = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ["order"]
+
+    def __str__(self):
+        return f"{self.section.name} - {self.column_title}"
+
+
+class ExtractionAnswer(models.Model):
+    reference = models.ForeignKey(
+        Reference, on_delete=models.CASCADE, related_name="extraction_answers"
+    )
+    question = models.ForeignKey(
+        ExtractionQuestion, on_delete=models.CASCADE, related_name="answers"
+    )
+    value = models.TextField(blank=True, default="")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reference", "question"],
+                name="unique_reference_question_answer",
+            )
+        ]
+
+    def __str__(self):
+        return f"Answer for {self.question.column_title} - Ref {self.reference.id}"

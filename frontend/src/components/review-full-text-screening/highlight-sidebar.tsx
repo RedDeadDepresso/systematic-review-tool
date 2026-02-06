@@ -8,7 +8,7 @@ import {
 import { HighlightCard } from '@/components/review-full-text-screening/highlight-card';
 import { PageGroup } from '@/components/review-full-text-screening/page-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { FileText } from 'lucide-react';
+import { FileText, Highlighter } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SidebarProps {
@@ -109,7 +109,7 @@ const HighLightSidebar = ({
       <div className="flex-shrink-0 border-b p-4">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
-            <FileText className="h-4 w-4 text-primary-foreground" />
+            <Highlighter className="h-4 w-4 text-primary-foreground" />
           </div>
           <div>
             <h2 className="text-sm font-semibold">Highlights</h2>

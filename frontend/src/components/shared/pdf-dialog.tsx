@@ -26,7 +26,7 @@ import {
 } from 'react-pdf-highlighter-plus';
 import { type CommentedHighlight, type Code } from '@/types/code';
 import '@/styles/pdf-viewer.css';
-import { CodingThemingSidebar } from './coding-theming-sidebar';
+import { CodingThemingSidebar } from '../review-full-text-screening/coding-theming-sidebar';
 import {
   useCreateCode,
   useDeleteCode,
@@ -34,6 +34,9 @@ import {
   useUpdateCode,
 } from '@/hooks/use-code';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
+import { ExtractionFormSidebar } from '../review-data-extraction/extraction-sidebar';
+import type { ReviewRole } from '@/types/review';
+import { can } from '@/lib/permissions';
 
 const parseIdFromHash = () => {
   return document.location.hash.slice('#highlight-'.length);
@@ -57,9 +60,10 @@ type PDFDialogProps = {
   reviewId: number;
   referenceId: number;
   fileUrl: string;
+  userRole: ReviewRole;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  viewerMode?: boolean;
+  readOnly?: boolean;
 };
 
 export const PDFDialog = ({
@@ -69,8 +73,10 @@ export const PDFDialog = ({
   fileUrl,
   open,
   onOpenChange,
-  viewerMode = true,
+  readOnly = true,
+  userRole,
 }: PDFDialogProps) => {
+  readOnly = readOnly || !can('modifyThemesCodes', userRole);
   const [referenceId, setReferenceId] = useState<number>(initialReferenceId);
   const [url, setUrl] = useState<string | Uint8Array>(fileUrl);
   const [highlights, setHighlights] = useState<Array<CommentedHighlight>>([]);
@@ -83,11 +89,13 @@ export const PDFDialog = ({
 
   // HighLightSidebar state
   const [highlightSidebarOpen, setHighlightSidebarOpen] =
-    useState<boolean>(true);
+    useState<boolean>(false);
   const [scrolledToHighlightId, setScrolledToHighlightId] = useState<
     string | null
   >(null);
   const [codingSidebarOpen, setCodingSidebarOpen] = useState<boolean>(false);
+  const [extractionSidebarOpen, setExtractionSidebarOpen] =
+    useState<boolean>(false);
   // Left panel state
   const [leftPanelOpen, setLeftPanelOpen] = useState<boolean>(false);
   // Dark mode state
@@ -266,6 +274,7 @@ export const PDFDialog = ({
 
   // Open comment tip and update highlight with new user input
   const editComment = (highlight: ViewportHighlight<CommentedHighlight>) => {
+    if (readOnly) return;
     if (!highlighterUtilsRef.current) return;
 
     const editCommentTip: Tip = {
@@ -329,21 +338,27 @@ export const PDFDialog = ({
             onExportPdf={handleExportPdf}
             highlightSidebarOpen={highlightSidebarOpen}
             codingSidebarOpen={codingSidebarOpen}
+            extractionSidebarOpen={extractionSidebarOpen}
             onToggleHighlightSidebar={() =>
               setHighlightSidebarOpen(!highlightSidebarOpen)
             }
-            onToggleCodingSidebar={() =>
-              setCodingSidebarOpen(!codingSidebarOpen)
-            }
+            onToggleCodingSidebar={() => {
+              setExtractionSidebarOpen(false);
+              setCodingSidebarOpen(!codingSidebarOpen);
+            }}
+            onToggleExtractionSidebar={() => {
+              setExtractionSidebarOpen(!extractionSidebarOpen);
+              setCodingSidebarOpen(false);
+            }}
             darkMode={darkMode}
             onToggleDarkMode={() => setDarkMode(!darkMode)}
-            viewerMode={viewerMode}
+            readOnly={readOnly}
           />
 
           {/* Main content */}
           <div className="flex flex-1 overflow-hidden">
             {/* HighLightSidebar */}
-            {!viewerMode && (
+            {!readOnly && (
               <HighLightSidebar
                 highlights={highlights}
                 scrolledToHighlightId={scrolledToHighlightId}
@@ -391,10 +406,12 @@ export const PDFDialog = ({
                         }}
                         pdfScaleValue={pdfScaleValue}
                         textSelectionColor={
-                          highlightPen ? 'rgba(255, 226, 143, 1)' : undefined
+                          highlightPen && !readOnly
+                            ? 'rgba(255, 226, 143, 1)'
+                            : undefined
                         }
                         onSelection={
-                          highlightPen
+                          highlightPen && !readOnly
                             ? (selection) => {
                                 addHighlight(
                                   selection.makeGhostHighlight(),
@@ -405,7 +422,7 @@ export const PDFDialog = ({
                             : undefined
                         }
                         selectionTip={
-                          highlightPen ? undefined : (
+                          highlightPen || readOnly ? undefined : (
                             <ExpandableTip
                               addHighlight={(highlight, name, comment) => {
                                 addHighlight(highlight, name, comment);
@@ -433,7 +450,7 @@ export const PDFDialog = ({
               </PdfLoader>
 
               {/* Floating Actions */}
-              {!viewerMode && (
+              {!readOnly && (
                 <FloatingActions
                   highlightPen={highlightPen}
                   onToggleHighlightPen={() => setHighlightPen(!highlightPen)}
@@ -443,13 +460,20 @@ export const PDFDialog = ({
               )}
             </div>
             {/* Coding Theming Sidebar */}
-            {!viewerMode && (
-              <CodingThemingSidebar
-                reviewId={reviewId}
-                referenceId={referenceId}
-                isOpen={codingSidebarOpen}
-                handleJumpToCode={handleJumpToCode}
-              />
+            {!readOnly && (
+              <>
+                <ExtractionFormSidebar
+                  referenceId={referenceId}
+                  reviewId={reviewId}
+                  isOpen={extractionSidebarOpen}
+                />
+                <CodingThemingSidebar
+                  reviewId={reviewId}
+                  referenceId={referenceId}
+                  isOpen={codingSidebarOpen}
+                  handleJumpToCode={handleJumpToCode}
+                />
+              </>
             )}
           </div>
 

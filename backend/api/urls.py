@@ -4,6 +4,10 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from api.views import (
     CodeViewSet,
+    ExtractionAnswerViewSet,
+    ExtractionQuestionViewSet,
+    ExtractionSectionViewSet,
+    ExtractionTableViewSet,
     KeywordViewSet,
     LabelViewSet,
     MainThemeViewSet,
@@ -55,6 +59,16 @@ router.register(
     r"screening-criteria", ScreeningCriteriaViewSet, basename="screening-criteria"
 )
 
+router.register(
+    r"extraction-sections", ExtractionSectionViewSet, basename="extraction-section"
+)
+router.register(
+    r"extraction-questions", ExtractionQuestionViewSet, basename="extraction-question"
+)
+router.register(
+    r"extraction-answers", ExtractionAnswerViewSet, basename="extraction-answer"
+)
+router.register(r"extraction", ExtractionTableViewSet, basename="extraction-table")
 
 urlpatterns = [
     path("auth/login/", TokenObtainPairView.as_view(), name="login"),
