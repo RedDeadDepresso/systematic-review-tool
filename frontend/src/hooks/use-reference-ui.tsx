@@ -2,9 +2,9 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import type { Reference, SortDirection, SortField } from '@/types/reference';
 import type { ReferenceWithAnswers } from '@/types/extraction';
 
-export function useReferenceUI(
-  references: Reference[] | ReferenceWithAnswers[]
-) {
+type ReferenceType = Reference | ReferenceWithAnswers;
+
+export function useReferenceUI<T extends ReferenceType>(references: T[]) {
   // Sidebar collapse states
   const [isSourcesSidebarCollapsed, setIsSourcesSidebarCollapsed] =
     useState(true);

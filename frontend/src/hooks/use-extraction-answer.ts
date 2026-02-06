@@ -1,4 +1,5 @@
 import {
+  bulkSaveAnswers,
   deleteExtractionAnswer,
   fetchExtractionAnswers,
   saveExtractionAnswer,
@@ -99,6 +100,31 @@ export const useDeleteExtractionAnswer = () => {
     },
     onError: () => {
       toast.error('Failed to delete answer.');
+    },
+  });
+};
+
+export const useBulkSaveAnswers = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: bulkSaveAnswers,
+    onSuccess: (data, variables) => {
+      toast.success(`${data.savedCount} answer(s) saved.`);
+
+      // Invalidate queries
+      queryClient.invalidateQueries({
+        queryKey: [
+          'extraction-answers',
+          { referenceId: variables.referenceId },
+        ],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['extraction-table'],
+      });
+    },
+    onError: () => {
+      toast.error('Failed to save answers.');
     },
   });
 };

@@ -15,7 +15,7 @@ import {
 import { Plus, ChevronDown, ChevronRight } from 'lucide-react';
 import { useCodingTheming } from '@/hooks/use-coding-theming';
 import type { Code } from '@/types/code';
-import { PDFDialog } from '@/components/review-full-text-screening/pdf-dialog';
+import { PDFDialog } from '@/components/shared/pdf-dialog';
 import React from 'react';
 import { ExportDropdown } from '@/components/coding-theming/export-dropdown';
 import { ReviewHeader } from '@/components/shared/review-header';
@@ -182,7 +182,8 @@ function RouteComponent() {
             onOpenChange={(open) => !open && setOpenPdfDialog(false)}
             title=""
             fileUrl={selectedCode.referenceFileUrl}
-            viewerMode={false}
+            readOnly={false}
+            userRole={fetchReview.data?.userRole || 'Viewer'}
           />
         )}
       <ReviewHeader reviewId={reviewId} />

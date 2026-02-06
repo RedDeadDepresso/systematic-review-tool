@@ -20,7 +20,7 @@ import { ReferencesTableBody } from '@/components/shared/references-table-body';
 import { ScreeningFooter } from '@/components/shared/references-table-footer';
 import { TableBottomHeader } from '@/components/shared/references-table-bottom-header';
 import { useUpdateReferenceOpinion } from '@/hooks/use-reference-opinion';
-import { PDFDialog } from '@/components/review-full-text-screening/pdf-dialog';
+import { PDFDialog } from '@/components/shared/pdf-dialog';
 import { useFetchReview } from '@/hooks/use-review';
 
 export const Route = createFileRoute('/reviews/$reviewId/screening')({
@@ -148,6 +148,7 @@ function RouteComponent() {
           onOpenChange={ui.handleClosePDF}
           title={ui.openPDFReference.title}
           fileUrl={ui.openPDFReference.file}
+          userRole={fetchReview.data?.userRole || 'Viewer'}
         />
       )}
       <FileUploadDialog

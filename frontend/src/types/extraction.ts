@@ -1,5 +1,4 @@
-import type { Label, Reference } from './reference';
-import type { ReviewMember } from './review';
+import type { Reference } from './reference';
 
 // Data extraction types
 export type QuestionType =
@@ -42,3 +41,14 @@ export interface ExtractionTableData {
 }
 
 export type ExtractionStatus = 'in-progress' | 'completed';
+
+export interface ExtractionFormData {
+  [questionId: number]: string | string[]; // Support both single and multi-value
+}
+
+export interface ExtractionChanges {
+  [questionId: number]: {
+    oldValue: string;
+    newValue: string;
+  };
+}

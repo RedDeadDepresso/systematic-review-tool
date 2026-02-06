@@ -30,3 +30,11 @@ export const deleteExtractionAnswer = async (answerId: number) => {
   const res = await api.delete(`/extraction-answers/${answerId}/`);
   return res.data;
 };
+
+export const bulkSaveAnswers = async (payload: {
+  referenceId: number;
+  answers: Record<number, string>;
+}) => {
+  const res = await api.post('/extraction-answers/bulk-save/', payload);
+  return res.data;
+};

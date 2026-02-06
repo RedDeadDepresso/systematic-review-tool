@@ -1,5 +1,5 @@
 import { DataExtractionTable } from '@/components/review-data-extraction/data-extraction-table';
-import { PDFDialog } from '@/components/review-full-text-screening/pdf-dialog';
+import { PDFDialog } from '@/components/shared/pdf-dialog';
 import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
 import { MatchPDFDialog } from '@/components/shared/match-pdf-dialog';
 import { ExtractionFooter } from '@/components/shared/references-table-footer';
@@ -72,7 +72,8 @@ function RouteComponent() {
           onOpenChange={ui.handleClosePDF}
           title={ui.openPDFReference.title}
           fileUrl={ui.openPDFReference.file}
-          viewerMode={false}
+          readOnly={false}
+          userRole={fetchReview.data?.userRole || 'Viewer'}
         />
       )}
       <FileUploadDialog
