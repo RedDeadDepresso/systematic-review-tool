@@ -62,7 +62,6 @@ export function SectionSelect({
       {
         review: reviewId,
         name: searchQuery.trim(),
-        kind: 'free-text', // Default kind, adjust as needed
       },
       {
         onSuccess: (data) => {

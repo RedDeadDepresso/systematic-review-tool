@@ -21,7 +21,7 @@ function RouteComponent() {
   const reviewId = Number(Route.useParams().reviewId);
   const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
   const fetchReview = useFetchReview(reviewId);
-  const { data } = useFetchExtractionTableData(reviewId);
+  const { data, isLoading, error } = useFetchExtractionTableData(reviewId);
   const queryClient = useQueryClient();
 
   // UI state management
@@ -44,6 +44,22 @@ function RouteComponent() {
     setPageTitle('Data Extraction');
     setIsAuthenticated(true);
   }, []);
+
+  if (isLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-muted-foreground">Loading references...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-destructive">Error loading references</div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col bg-background">

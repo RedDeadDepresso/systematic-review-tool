@@ -54,9 +54,8 @@ export const useUpdateExtractionQuestion = () => {
       payload,
     }: {
       questionId: number;
-      sectionId: number;
       payload: {
-        section_id?: number;
+        section?: number;
         question?: string;
         columnTitle?: string;
         type?:
@@ -74,7 +73,7 @@ export const useUpdateExtractionQuestion = () => {
     onSuccess: (data, variables) => {
       toast.success('Question updated.');
       queryClient.setQueryData(
-        ['extraction-sections', variables.sectionId, 'questions'],
+        ['extraction-sections', variables.payload.section, 'questions'],
         (oldData: ExtractionQuestion[] | undefined) => {
           if (!oldData) return oldData;
           return oldData.map((question) =>

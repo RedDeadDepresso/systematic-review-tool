@@ -15,7 +15,6 @@ export const fetchExtractionSections = async (params: { reviewId: number }) => {
 export const createExtractionSection = async (payload: {
   review: number;
   name: string;
-  kind: 'free-text' | 'number';
 }) => {
   const res = await api.post<ExtractionSection>(
     '/extraction-sections/',
@@ -29,7 +28,6 @@ export const updateExtractionSection = async (
   sectionId: number,
   payload: {
     name?: string;
-    kind?: 'free-text' | 'number';
     order?: number;
   }
 ) => {

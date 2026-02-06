@@ -33,6 +33,8 @@ import {
   useDownloadCSVFile,
 } from '@/hooks/use-extraction-table';
 import { AssigneeBadge, LabelBadge } from '../shared/references-table-row';
+import { EditQuestionPopover } from './edit-question-popover';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface DataExtractionTableProps {
   reviewId: number;
@@ -81,6 +83,8 @@ export function DataExtractionTable({
     questionId: number;
   } | null>(null);
   const [editValue, setEditValue] = useState('');
+
+  const queryClient = useQueryClient();
 
   // Fetch table data (single API call)
   const saveAnswerMutation = useSaveExtractionAnswer();
@@ -176,6 +180,12 @@ export function DataExtractionTable({
       return;
     }
     onOpenDetail(id);
+  };
+
+  const invalidateQuery = () => {
+    queryClient.invalidateQueries({
+      queryKey: ['extraction-table', reviewId],
+    });
   };
 
   return (
@@ -304,26 +314,42 @@ export function DataExtractionTable({
               <th className="text-left text-sm font-medium text-muted-foreground px-4 py-3 w-28">
                 PDF
               </th>
-              {questions.map((q) => (
-                <th
-                  key={q.id}
-                  className="text-left text-sm font-medium text-muted-foreground px-4 py-3 min-w-[120px] border-l border-border"
-                >
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={cn(
-                        'w-2 h-2 rounded-full',
-                        q.section === 1
-                          ? 'bg-amber-500'
-                          : q.section === 2
-                            ? 'bg-blue-500'
-                            : 'bg-green-500'
-                      )}
+              {questions.map((q) => {
+                return (
+                  <th
+                    key={q.id}
+                    className="text-left text-sm font-medium text-muted-foreground min-w-[120px] border-l border-border p-0"
+                  >
+                    <EditQuestionPopover
+                      reviewId={reviewId}
+                      onQuestionDeleted={invalidateQuery}
+                      onQuestionUpdated={invalidateQuery}
+                      question={q}
+                      trigger={
+                        <button
+                          type="button"
+                          className="flex items-center gap-2 w-full px-4 py-3 text-left hover:bg-muted/50 transition-colors cursor-pointer"
+                        >
+                          <div
+                            className={cn(
+                              'w-2 h-2 rounded-full shrink-0',
+                              q.section === 1
+                                ? 'bg-amber-500'
+                                : q.section === 2
+                                  ? 'bg-blue-500'
+                                  : 'bg-green-500'
+                            )}
+                          />
+                          <span className="truncate">{q.columnTitle}</span>
+                          {q.required && (
+                            <span className="text-destructive">*</span>
+                          )}
+                        </button>
+                      }
                     />
-                    <span>{q.columnTitle}</span>
-                  </div>
-                </th>
-              ))}
+                  </th>
+                );
+              })}
               <th className="px-4 py-3 w-12 border-l border-border">
                 <AddQuestionPopover
                   reviewId={reviewId}
@@ -332,6 +358,7 @@ export function DataExtractionTable({
                       <Plus className="h-4 w-4" />
                     </Button>
                   }
+                  onQuestionAdded={invalidateQuery}
                 />
               </th>
             </tr>

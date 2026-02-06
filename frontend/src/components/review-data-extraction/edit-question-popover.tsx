@@ -1,8 +1,9 @@
+// components/edit-question-popover.tsx
 'use client';
 
 import React from 'react';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,14 +27,29 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { SectionSelect } from '@/components/review-data-extraction/section-select';
-import type { QuestionType } from '@/types/extraction';
-import { useCreateExtractionQuestion } from '@/hooks/use-extraction-question';
+import type { ExtractionQuestion, QuestionType } from '@/types/extraction';
+import {
+  useUpdateExtractionQuestion,
+  useDeleteExtractionQuestion,
+} from '@/hooks/use-extraction-question';
 
-interface AddQuestionPopoverProps {
+interface EditQuestionPopoverProps {
+  question: ExtractionQuestion;
   trigger: React.ReactNode;
-  onQuestionAdded?: () => void;
   reviewId: number;
+  onQuestionUpdated?: () => void;
+  onQuestionDeleted?: () => void;
 }
 
 const questionTypes: { value: QuestionType; label: string }[] = [
@@ -45,69 +61,88 @@ const questionTypes: { value: QuestionType; label: string }[] = [
   { value: 'boolean', label: 'Yes/No' },
 ];
 
-export function AddQuestionPopover({
+export function EditQuestionPopover({
+  question,
   trigger,
-  onQuestionAdded,
   reviewId,
-}: AddQuestionPopoverProps) {
+  onQuestionUpdated,
+  onQuestionDeleted,
+}: EditQuestionPopoverProps) {
   const [open, setOpen] = useState(false);
-  const [sectionId, setSectionId] = useState<number | null>(null);
-  const [question, setQuestion] = useState('');
-  const [questionType, setQuestionType] = useState<QuestionType>('free-text');
-  const [columnTitle, setColumnTitle] = useState('');
-  const [required, setRequired] = useState(false);
+  const [sectionId, setSectionId] = useState<number | null>(question.section);
+  const [questionText, setQuestionText] = useState(question.question);
+  const [questionType, setQuestionType] = useState<QuestionType>(question.type);
+  const [columnTitle, setColumnTitle] = useState(question.columnTitle);
+  const [required, setRequired] = useState(question.required);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const createQuestionMutation = useCreateExtractionQuestion();
+  const updateQuestionMutation = useUpdateExtractionQuestion();
+  const deleteQuestionMutation = useDeleteExtractionQuestion();
 
-  const resetForm = () => {
-    setSectionId(null);
-    setQuestion('');
-    setQuestionType('free-text');
-    setColumnTitle('');
-    setRequired(false);
-  };
-
-  const handleOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen);
-    if (!isOpen) {
-      resetForm();
+  // Reset form when question prop changes or popover opens
+  useEffect(() => {
+    if (open) {
+      setSectionId(question.section);
+      setQuestionText(question.question);
+      setQuestionType(question.type);
+      setColumnTitle(question.columnTitle);
+      setRequired(question.required);
     }
-  };
+  }, [open, question]);
 
-  const handleSubmit = async () => {
-    if (!sectionId || !question.trim() || !columnTitle.trim()) return;
+  const handleSave = async () => {
+    if (!sectionId || !questionText.trim() || !columnTitle.trim()) return;
 
-    createQuestionMutation.mutate(
+    updateQuestionMutation.mutate(
       {
-        section: sectionId,
-        question: question.trim(),
-        columnTitle: columnTitle.trim(),
-        type: questionType,
-        required,
+        questionId: question.id,
+        payload: {
+          section: sectionId,
+          question: questionText.trim(),
+          columnTitle: columnTitle.trim(),
+          type: questionType,
+          required,
+        },
       },
       {
         onSuccess: () => {
-          onQuestionAdded?.();
+          onQuestionUpdated?.();
           setOpen(false);
-          resetForm();
         },
       }
     );
   };
 
-  const isValid = sectionId !== null && question.trim() && columnTitle.trim();
+  const handleDelete = async () => {
+    deleteQuestionMutation.mutate(
+      {
+        questionId: question.id,
+        sectionId: question.section,
+      },
+      {
+        onSuccess: () => {
+          onQuestionDeleted?.();
+          setOpen(false);
+          setShowDeleteConfirm(false);
+        },
+      }
+    );
+  };
+
+  const isValid =
+    sectionId !== null && questionText.trim() && columnTitle.trim();
 
   return (
     <TooltipProvider>
-      <Popover open={open} onOpenChange={handleOpenChange}>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-        <PopoverContent className="w-80 p-0" align="end">
+        <PopoverContent className="w-80 p-0" align="start">
           <div className="flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-border">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-amber-500" />
-                <h3 className="font-semibold text-foreground">Add Question</h3>
+                <h3 className="font-semibold text-foreground">Edit Question</h3>
               </div>
               <button
                 onClick={() => setOpen(false)}
@@ -158,8 +193,8 @@ export function AddQuestionPopover({
                   </Tooltip>
                 </div>
                 <Textarea
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
+                  value={questionText}
+                  onChange={(e) => setQuestionText(e.target.value)}
                   placeholder="Type your question here"
                   className="min-h-[60px] resize-y"
                 />
@@ -227,18 +262,55 @@ export function AddQuestionPopover({
                 <Switch checked={required} onCheckedChange={setRequired} />
               </div>
 
-              {/* Submit */}
+              {/* Save */}
               <Button
-                onClick={handleSubmit}
-                disabled={!isValid || createQuestionMutation.isPending}
+                onClick={handleSave}
+                disabled={!isValid || updateQuestionMutation.isPending}
                 className="w-full"
               >
-                {createQuestionMutation.isPending ? 'Adding...' : 'Add'}
+                {updateQuestionMutation.isPending
+                  ? 'Saving...'
+                  : 'Save Changes'}
               </Button>
+
+              {/* Delete */}
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={deleteQuestionMutation.isPending}
+                className="w-full text-center text-sm font-medium text-foreground hover:text-destructive transition-colors disabled:opacity-50"
+              >
+                {deleteQuestionMutation.isPending
+                  ? 'Deleting...'
+                  : 'Delete Question'}
+              </button>
             </div>
           </div>
         </PopoverContent>
       </Popover>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Question</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the question &quot;
+              {question.columnTitle}&quot;? This will also remove all associated
+              answers. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleteQuestionMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteQuestionMutation.isPending ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </TooltipProvider>
   );
 }

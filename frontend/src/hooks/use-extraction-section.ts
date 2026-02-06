@@ -53,7 +53,6 @@ export const useUpdateExtractionSection = () => {
       reviewId: number;
       payload: {
         name?: string;
-        kind?: 'free-text' | 'number';
         order?: number;
       };
     }) => updateExtractionSection(sectionId, payload),
