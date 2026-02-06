@@ -86,11 +86,17 @@ function RouteComponent() {
   );
 
   // File upload management
-  const fileUpload = useFileUpload(reviewId, () => {
-    queryClient.invalidateQueries({
-      queryKey: ['reviews', 'review-data', queryParams],
-    });
-  });
+  const fileUpload = useFileUpload(
+    reviewId,
+    () => {
+      queryClient.invalidateQueries({
+        queryKey: ['reviews', 'review-data', queryParams],
+      });
+    },
+    ui.selectedReferenceIds,
+    ui.highlightedReferenceId,
+    ui.sortedReferences
+  );
 
   if (isLoading) {
     return (

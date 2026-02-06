@@ -72,6 +72,7 @@ function RouteComponent() {
           onOpenChange={ui.handleClosePDF}
           title={ui.openPDFReference.title}
           fileUrl={ui.openPDFReference.file}
+          viewerMode={false}
         />
       )}
       <FileUploadDialog
