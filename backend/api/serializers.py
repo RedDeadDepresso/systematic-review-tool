@@ -754,3 +754,13 @@ class BulkUpdateExtractionStatusSerializer(serializers.Serializer):
         child=serializers.IntegerField(), min_length=1
     )
     is_extraction_completed = serializers.BooleanField()
+
+
+class ExtractionAnswerBulkSerializer(serializers.Serializer):
+    """Serializer for bulk answer updates for a single reference"""
+
+    reference_id = serializers.IntegerField()
+    answers = serializers.DictField(
+        child=serializers.CharField(allow_blank=True),
+        help_text="Dict mapping question_id to answer value",
+    )

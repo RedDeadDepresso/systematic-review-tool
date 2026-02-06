@@ -48,10 +48,10 @@ from api.serializers import (
     AssignLabelsSerializer,
     AssignReferencesSerializer,
     AttachPDFsSerializer,
-    BatchAnswerSerializer,
     BulkCreateNoteSerializer,
     BulkUpdateExtractionStatusSerializer,
     CodeSerializer,
+    ExtractionAnswerBulkSerializer,
     ExtractionAnswerSerializer,
     ExtractionQuestionSerializer,
     ExtractionSectionSerializer,
@@ -1873,35 +1873,35 @@ class ExtractionAnswerViewSet(viewsets.ModelViewSet):
                 serializer.data, status=status.HTTP_201_CREATED, headers=headers
             )
 
-    @action(detail=False, methods=["post"], url_path="batch-update")
-    def batch_update(self, request):
+    @action(detail=False, methods=["post"], url_path="bulk-save")
+    def bulk_save(self, request):
         """
-        Update multiple answers at once
+        Save all answers for a reference in a single transaction
         """
-        answers_data = request.data.get("answers", [])
+        serializer = ExtractionAnswerBulkSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if not answers_data:
-            return Response(
-                {"error": "answers array is required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        reference_id = serializer.validated_data["reference_id"]
+        answers_dict = serializer.validated_data["answers"]
 
-        # Validate input
-        batch_serializer = BatchAnswerSerializer(data=answers_data, many=True)
-        batch_serializer.is_valid(raise_exception=True)
+        saved_answers = []
 
-        updated_answers = []
+        with transaction.atomic():
+            for question_id_str, value in answers_dict.items():
+                question_id = int(question_id_str)
 
-        for answer_data in batch_serializer.validated_data:
-            answer, created = ExtractionAnswer.objects.update_or_create(
-                reference_id=answer_data["reference_id"],
-                question_id=answer_data["question_id"],
-                defaults={"value": answer_data.get("value", "")},
-            )
-            updated_answers.append(answer)
+                answer, _ = ExtractionAnswer.objects.update_or_create(
+                    reference_id=reference_id,
+                    question_id=question_id,
+                    defaults={"value": value},
+                )
+                saved_answers.append(answer)
 
-        serializer = ExtractionAnswerSerializer(updated_answers, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        result_serializer = ExtractionAnswerSerializer(saved_answers, many=True)
+        return Response(
+            {"saved_count": len(saved_answers), "answers": result_serializer.data},
+            status=status.HTTP_200_OK,
+        )
 
 
 class ExtractionTableViewSet(viewsets.ViewSet):
