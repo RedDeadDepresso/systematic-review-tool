@@ -12,6 +12,7 @@ from api.views import (
     LabelViewSet,
     MainThemeViewSet,
     NoteViewSet,
+    ReasonViewSet,
     ReferenceDuplicatePairViewSet,
     ReferenceOpinionViewSet,
     ReferenceViewSet,
@@ -51,6 +52,7 @@ router.register(r"uploaded-pdfs", UploadedPDFViewSet, basename="uploaded-pdf")
 
 router.register(r"keywords", KeywordViewSet, basename="keyword")
 router.register(r"notes", NoteViewSet, basename="note")
+router.register(r"reasons", ReasonViewSet, basename="reason")
 
 router.register(r"main-themes", MainThemeViewSet, basename="main-theme")
 router.register(r"sub-themes", SubThemeViewSet, basename="sub-theme")

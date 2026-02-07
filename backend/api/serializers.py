@@ -15,6 +15,7 @@ from api.models import (
     Label,
     MainTheme,
     Note,
+    Reason,
     Reference,
     ReferenceDuplicatePair,
     ReferenceLabel,
@@ -294,6 +295,7 @@ class ReferenceSerializer(BaseReferenceSerializer):
                     },
                 },
                 "status": op.status,
+                "reason": op.reason.name if op.reason else None,
             }
             for op in opinions
         ]
@@ -331,11 +333,32 @@ class ReferenceSerializer(BaseReferenceSerializer):
 
 class ReferenceOpinionSerializer(ModelSerializer):
     member = serializers.StringRelatedField()
+    reason = serializers.StringRelatedField(read_only=True)
 
     class Meta:
         model = ReferenceOpinion
-        fields = ["id", "member", "status"]
-        read_only_fields = ["id", "member"]
+        fields = ["id", "member", "status", "reason"]
+        read_only_fields = ["id", "member", "reason"]
+
+    def validate(self, attrs):
+        instance = getattr(self, "instance", None)
+
+        status = attrs.get("status", getattr(instance, "status", None))
+        reason = attrs.get("reason", getattr(instance, "reason", None))
+        reference = attrs.get("reference", getattr(instance, "reference", None))
+
+        # Only keep reason when excluded
+        if status != ReferenceOpinion.Status.EXCLUDED:
+            attrs["reason"] = None
+
+        # If reason exists, ensure same review
+        if reason and reference:
+            if reason.review_id != reference.review_id:
+                raise serializers.ValidationError(
+                    {"reason": "Reason must belong to the same review."}
+                )
+
+        return attrs
 
 
 class ReferenceDuplicatePairSerializer(ModelSerializer):
@@ -822,8 +845,25 @@ class ReferenceOpinionUpsertSerializer(serializers.Serializer):
         choices=ReferenceOpinion.Stage.choices,
         help_text="Stage for which opinions are upserted",
     )
+    reason = serializers.PrimaryKeyRelatedField(
+        queryset=Reason.objects.all(),
+        required=False,
+        allow_null=True,
+    )
 
     def validate_reference_ids(self, value):
         if len(set(value)) != len(value):
             value = list(set(value))
         return value
+
+    def validate(self, attrs):
+        if attrs["status"] != ReferenceOpinion.Status.EXCLUDED:
+            attrs["reason"] = None
+        return attrs
+
+
+class ReasonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Reason
+        fields = ["id", "name", "review"]
+        read_only_fields = ["id"]

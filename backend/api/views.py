@@ -30,6 +30,7 @@ from api.models import (
     Label,
     MainTheme,
     Note,
+    Reason,
     Reference,
     ReferenceDuplicatePair,
     ReferenceLabel,
@@ -62,6 +63,7 @@ from api.serializers import (
     LabelSerializer,
     MainThemeSerializer,
     NoteSerializer,
+    ReasonSerializer,
     ReferenceDuplicatePairSerializer,
     ReferenceOpinionSerializer,
     ReferenceOpinionUpsertSerializer,
@@ -966,7 +968,7 @@ class ScreeningQuerysetMixin:
         if review and review.is_blinded:
             opinions_qs = opinions_qs.filter(member__user=user)
 
-        opinions_qs = opinions_qs.select_related("member__user").only(
+        opinions_qs = opinions_qs.select_related("member__user", "reason").only(
             "id",
             "status",
             "stage",
@@ -974,6 +976,7 @@ class ScreeningQuerysetMixin:
             "member__user__first_name",
             "member__user__last_name",
             "member__user__email",
+            "reason__name",
         )
 
         qs = qs.exclude(duplicate_status__in=["Undecided", "Deleted"])
@@ -1114,6 +1117,42 @@ class ScreeningFullTextView(ScreeningQuerysetMixin, ReviewDataView):
         )
 
 
+class ReasonViewSet(viewsets.ModelViewSet):
+    serializer_class = ReasonSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = Reason.objects.all()
+
+    def _get_review(self):
+        review_id = self.request.query_params.get("review")
+
+        if not review_id:
+            raise serializers.ValidationError(
+                {"review": "This query parameter is required."}
+            )
+
+        review = get_object_or_404(Review, pk=review_id)
+
+        # Optional permission check
+        check_permission(Permission.ACCESS_REVIEW, self.request.user, review)
+
+        return review
+
+    def get_queryset(self):
+        if self.action == "list":
+            review = self._get_review()
+            return Reason.objects.filter(review=review)
+
+        return super().get_queryset()
+
+    def perform_create(self, serializer):
+        review_id = self.request.data.get("review")
+        review = get_object_or_404(Review, pk=review_id)
+
+        check_permission(Permission.MODIFY_REVIEW, self.request.user, review)
+
+        serializer.save(review=review)
+
+
 class ReferenceOpinionViewSet(viewsets.GenericViewSet):
     """
     ViewSet to manage a member's opinion on a reference.
@@ -1173,17 +1212,31 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
         reference_ids = data["reference_ids"]
         status_value = data["status"]
         stage_value = data["stage"]
+        reason_value = data.get("reason")
         user = request.user
+
+        # Normalize reason: only allowed when excluded
+        if status_value != ReferenceOpinion.Status.EXCLUDED:
+            reason_value = None
 
         references = Reference.objects.filter(id__in=reference_ids).select_related(
             "review"
         )
         if references.count() != len(reference_ids):
-            missing_ids = set(reference_ids) - set(ref.id for ref in references)
+            missing_ids = set(reference_ids) - {ref.id for ref in references}
             raise serializers.ValidationError(
                 {"reference_ids": f"References not found: {missing_ids}"}
             )
 
+        # Validate reason belongs to same review
+        if reason_value:
+            review_ids = {ref.review_id for ref in references}
+            if reason_value.review_id not in review_ids:
+                raise serializers.ValidationError(
+                    {"reason": "Reason must belong to the same review."}
+                )
+
+        # Resolve members + permissions
         review_members = {}
         for ref in references:
             review = ref.review
@@ -1203,9 +1256,11 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
         to_create, to_update = [], []
         for ref in references:
             review_member = review_members[ref.review]
+
             if ref.id in existing_opinions:
                 opinion = existing_opinions[ref.id]
                 opinion.status = status_value
+                opinion.reason = reason_value
                 to_update.append(opinion)
             else:
                 to_create.append(
@@ -1214,19 +1269,25 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
                         member=review_member,
                         status=status_value,
                         stage=stage_value,
+                        reason=reason_value,
                     )
                 )
 
         if to_create:
             ReferenceOpinion.objects.bulk_create(to_create)
+
         if to_update:
-            ReferenceOpinion.objects.bulk_update(to_update, ["status"])
+            ReferenceOpinion.objects.bulk_update(
+                to_update,
+                ["status", "reason"],
+            )
 
         opinions = ReferenceOpinion.objects.filter(
             reference_id__in=reference_ids,
             member__in=review_members.values(),
             stage=stage_value,
         )
+
         response_serializer = self.get_serializer(opinions, many=True)
         return Response(response_serializer.data)
 
