@@ -8,6 +8,7 @@ from django.contrib.auth.models import (
 from django.contrib.postgres.indexes import GinIndex, OpClass
 from django.contrib.postgres.search import SearchVectorField
 from django.db import connection, models, transaction
+from django.db.models import Q
 from django.db.models.functions import Lower
 from django.utils import timezone
 
@@ -293,6 +294,14 @@ class ReferenceDuplicatePair(models.Model):
         return f"DuplicatePair({self.reference1.id}, {self.reference2.id})"
 
 
+class Reason(models.Model):
+    review = models.ForeignKey(Review, on_delete=models.CASCADE)
+    name = models.CharField(max_length=150)
+
+    def __str__(self):
+        return self.name
+
+
 class ReferenceOpinion(models.Model):
     class Status(models.TextChoices):
         UNDECIDED = "Undecided"
@@ -316,9 +325,21 @@ class ReferenceOpinion(models.Model):
         choices=Stage.choices,
         default=Stage.SCREENING,
     )
+    reason = models.ForeignKey(Reason, null=True, on_delete=models.SET_NULL)
 
     class Meta:
-        unique_together = ("reference", "member", "stage")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reference", "member", "stage"],
+                name="unique_reference_opinion",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(status="Excluded", reason__isnull=False) | ~Q(status="Excluded")
+                ),
+                name="reason_required_if_excluded",
+            ),
+        ]
 
 
 class Keyword(models.Model):
