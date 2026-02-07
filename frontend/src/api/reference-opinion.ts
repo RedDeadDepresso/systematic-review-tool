@@ -1,11 +1,12 @@
-import type { OpinionStatus } from '@/types/reference';
+import type { OpinionStatus, Stage } from '@/types/reference';
 import api from './axios';
 
 /* ------------------ CREATE OR UPDATE OPINION ------------------ */
-export const updateReferenceOpinion = async (payload: {
+export const bulkUpsertReferenceOpinions = async (payload: {
   referenceIds: number[];
   status: OpinionStatus;
+  stage: Stage;
 }) => {
-  const res = await api.patch('/reference-opinions/upsert/', payload);
+  const res = await api.patch('/reference-opinions/bulk-upsert/', payload);
   return res.data;
 };

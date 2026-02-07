@@ -19,7 +19,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ReferencesTableBody } from '@/components/shared/references-table-body';
 import { ScreeningFooter } from '@/components/shared/references-table-footer';
 import { TableBottomHeader } from '@/components/shared/references-table-bottom-header';
-import { useUpdateReferenceOpinion } from '@/hooks/use-reference-opinion';
+import { useBulkUpsertReferenceOpinions } from '@/hooks/use-reference-opinion';
 import { PDFDialog } from '@/components/shared/pdf-dialog';
 import { useFetchReview } from '@/hooks/use-review';
 import { AddDataDialog } from '@/components/shared/add-data-dialog';
@@ -97,7 +97,7 @@ function RouteComponent() {
     ui.sortedReferences
   );
 
-  const updateReferenceOpinion = useUpdateReferenceOpinion();
+  const bulkUpsertReferenceOpinions = useBulkUpsertReferenceOpinions();
 
   const handleOpinionApplied = async (status: OpinionStatus) => {
     try {
@@ -105,10 +105,11 @@ function RouteComponent() {
         ...ui.selectedReferenceIds,
         ...(ui.highlightedReferenceId ? [ui.highlightedReferenceId] : []),
       ];
-      await updateReferenceOpinion.mutateAsync({
+      await bulkUpsertReferenceOpinions.mutateAsync({
         payload: {
           referenceIds: referenceIds,
           status: status,
+          stage: 'full-text',
         },
       });
       invalidateQuery();

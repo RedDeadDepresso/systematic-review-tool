@@ -1,9 +1,9 @@
-import { updateReferenceOpinion } from '@/api/reference-opinion';
-import type { OpinionStatus } from '@/types/reference';
+import { bulkUpsertReferenceOpinions } from '@/api/reference-opinion';
+import type { OpinionStatus, Stage } from '@/types/reference';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-export const useUpdateReferenceOpinion = () => {
+export const useBulkUpsertReferenceOpinions = () => {
   return useMutation({
     mutationFn: async ({
       payload,
@@ -11,9 +11,10 @@ export const useUpdateReferenceOpinion = () => {
       payload: {
         referenceIds: number[];
         status: OpinionStatus;
+        stage: Stage;
       };
     }) => {
-      return updateReferenceOpinion(payload);
+      return bulkUpsertReferenceOpinions(payload);
     },
     onError: () => {
       toast.error('Failed to update reference.');
