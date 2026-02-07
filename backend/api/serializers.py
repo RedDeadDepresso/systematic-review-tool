@@ -301,11 +301,11 @@ class ReferenceSerializer(BaseReferenceSerializer):
     def get_labels(self, obj):
         """
         Return labels applied to this reference for the current user only.
-        Expects that `obj` has a `user_labels` prefetched attribute.
+        Expects that `obj` has a `prefetched_labels` prefetched attribute.
         """
         user = self.context["request"].user
         # Fallback if prefetch not done
-        reference_labels = getattr(obj, "user_labels", None)
+        reference_labels = getattr(obj, "prefetched_labels", None)
         if reference_labels is None:
             reference_labels = ReferenceLabel.objects.filter(
                 reference=obj, label__user=user
@@ -711,7 +711,7 @@ class ReferenceTableSerializer(serializers.ModelSerializer):
     def get_labels(self, obj):
         """
         Return labels applied to this reference for the current user only.
-        Expects that `obj` has a `user_labels` prefetched attribute.
+        Expects that `obj` has a `prefetched_labels` prefetched attribute.
         """
 
         return [
@@ -806,3 +806,24 @@ class AddDataSerializer(serializers.Serializer):
             )
 
         return attrs
+
+
+class ReferenceOpinionUpsertSerializer(serializers.Serializer):
+    reference_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        allow_empty=False,
+        help_text="List of reference IDs to upsert opinions for",
+    )
+    status = serializers.ChoiceField(
+        choices=ReferenceOpinion.Status.choices,
+        help_text="Status to set for the opinions",
+    )
+    stage = serializers.ChoiceField(
+        choices=ReferenceOpinion.Stage.choices,
+        help_text="Stage for which opinions are upserted",
+    )
+
+    def validate_reference_ids(self, value):
+        if len(set(value)) != len(value):
+            value = list(set(value))
+        return value

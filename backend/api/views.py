@@ -64,6 +64,7 @@ from api.serializers import (
     NoteSerializer,
     ReferenceDuplicatePairSerializer,
     ReferenceOpinionSerializer,
+    ReferenceOpinionUpsertSerializer,
     ReferenceSerializer,
     ReviewInvitationCreateSerializer,
     ReviewInvitationSerializer,
@@ -894,230 +895,223 @@ class ReferenceViewSet(viewsets.ModelViewSet):
         )
 
 
-class ReviewDataView(generics.ListAPIView):
+class ReviewQuerysetMixin:
+    """
+    Handles:
+    - Review permission checks
+    - Base reference queryset
+    - Label prefetching
+    """
+
+    def get_review(self):
+        if hasattr(self, "_review"):
+            return self._review
+
+        review_id = self.request.query_params.get("review")
+        if not review_id:
+            self._review = None
+            return None
+
+        review = get_object_or_404(Review, pk=review_id)
+        check_permission(Permission.ACCESS_REVIEW, self.request.user, review)
+
+        self._review = review
+        return review
+
+    def get_base_queryset(self):
+        user = self.request.user
+        review = self.get_review()
+
+        qs = Reference.objects.select_related(
+            "assignee",
+            "search_method",
+            "review",
+        )
+
+        if review:
+            qs = qs.filter(review=review)
+        else:
+            qs = qs.filter(review__members__user=user)
+
+        return qs.prefetch_related(
+            Prefetch(
+                "labels",
+                queryset=ReferenceLabel.objects.filter(label__user=user).select_related(
+                    "label"
+                ),
+                to_attr="prefetched_labels",
+            )
+        )
+
+    def get_base_queryset_for_counts(self):
+        review = self.get_review()
+        return (
+            Reference.objects.filter(review=review)
+            if review
+            else Reference.objects.none()
+        )
+
+
+class ScreeningQuerysetMixin:
+    """
+    Screening-specific queryset modifications.
+    """
+
+    def apply_screening(self, qs, full_text=None, stage=None):
+        user = self.request.user
+        review = self.get_review()
+
+        opinions_qs = ReferenceOpinion.objects.filter(stage=stage)
+
+        if review and review.is_blinded:
+            opinions_qs = opinions_qs.filter(member__user=user)
+
+        opinions_qs = opinions_qs.select_related("member__user").only(
+            "id",
+            "status",
+            "stage",
+            "member__id",
+            "member__user__first_name",
+            "member__user__last_name",
+            "member__user__email",
+        )
+
+        qs = qs.exclude(duplicate_status__in=["Undecided", "Deleted"])
+
+        if full_text is not None:
+            qs = qs.filter(in_full_text=full_text)
+
+        return qs.prefetch_related(
+            Prefetch(
+                "referenceopinion_set",
+                queryset=opinions_qs,
+                to_attr="prefetched_opinions",
+            )
+        ).distinct()
+
+
+class ReferenceAggregationService:
+    @staticmethod
+    def build(reference_qs, user, review):
+        base_qs = reference_qs.filter(review=review)
+
+        return {
+            "search_methods": (
+                SearchMethod.objects.filter(review=review)
+                .annotate(count=Count("reference"))
+                .values("id", "name", "count")
+            ),
+            "duplicate_status_counts": dict(
+                base_qs.values("duplicate_status")
+                .annotate(count=Count("id"))
+                .values_list("duplicate_status", "count")
+            ),
+            "labels": (
+                Label.objects.filter(
+                    user=user,
+                    reference_labels__reference__review=review,
+                )
+                .annotate(count=Count("reference_labels__reference"))
+                .values("id", "name", "count")
+            ),
+            "publication_types": (
+                base_qs.exclude(publication_type="")
+                .values("publication_type")
+                .annotate(count=Count("id"))
+                .order_by("-count")
+            ),
+            "publication_years": (
+                base_qs.filter(publication_date__isnull=False)
+                .annotate(year=ExtractYear("publication_date"))
+                .values("year")
+                .annotate(count=Count("id"))
+                .order_by("-year")
+            ),
+            "file_counts": {
+                "with_file": base_qs.exclude(file="").count(),
+                "without_file": base_qs.filter(file="").count(),
+            },
+            "assignees": list(
+                base_qs.filter(assignee__isnull=False)
+                .values(
+                    _id=F("assignee__id"),
+                    first_name=F("assignee__user__first_name"),
+                    last_name=F("assignee__user__last_name"),
+                    email=F("assignee__user__email"),
+                )
+                .annotate(count=Count("id"))
+            ),
+        }
+
+
+class ReviewDataView(ReviewQuerysetMixin, generics.ListAPIView):
     serializer_class = ReferenceSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.DjangoFilterBackend]
     filterset_class = ReferenceFilter
 
     def get_queryset(self):
-        user = self.request.user
-        review_id = self.request.query_params.get("review")
-
-        queryset = Reference.objects.select_related(
-            "assignee",
-            "search_method",
-            "review",
-        )
-
-        if review_id:
-            review = get_object_or_404(Review, pk=review_id)
-            check_permission(Permission.ACCESS_REVIEW, user, review)
-            queryset = queryset.filter(review=review)
-        else:
-            queryset = queryset.filter(review__members__user=user)
-
-        # Prefetch ReferenceLabels for the current user only
-        queryset = queryset.prefetch_related(
-            Prefetch(
-                "labels",
-                queryset=ReferenceLabel.objects.filter(label__user=user).select_related(
-                    "label"
-                ),
-                to_attr="user_labels",
-            )
-        )
-
-        return queryset
+        return self.get_base_queryset()
 
     def list(self, request, *args, **kwargs):
-        """
-        Return aggregated data along with references, including user labels.
-        """
-        review_id = request.query_params.get("review")
-        if not review_id:
+        review = self.get_review()
+        if not review:
             return Response(
-                {"error": "review parameter is required for list view"},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"error": "review parameter required"},
+                status=400,
             )
 
-        review = get_object_or_404(Review, pk=review_id)
-        check_permission(Permission.ACCESS_REVIEW, request.user, review)
-
-        total_count = Reference.objects.filter(review_id=review_id).count()
         queryset = self.filter_queryset(self.get_queryset())
+
+        total_count = self.get_base_queryset_for_counts().count()
         filtered_count = queryset.count()
 
-        page = self.paginate_queryset(queryset)
-        references = page if page is not None else queryset
+        serializer = self.get_serializer(queryset, many=True)
 
-        # Serialize references
-        serializer = ReferenceSerializer(
-            references, many=True, context={"request": request}
+        aggregations = ReferenceAggregationService.build(
+            queryset,
+            request.user,
+            review,
         )
 
-        # Search methods with counts
-        search_methods = list(
-            SearchMethod.objects.filter(review_id=review_id)
-            .annotate(count=Count("reference"))
-            .values("id", "name", "count")
+        return Response(
+            {
+                "references": serializer.data,
+                "total_count": total_count,
+                "filtered_count": filtered_count,
+                **aggregations,
+            }
         )
 
-        # Keywords
-        keywords = KeywordSerializer(
-            Keyword.objects.filter(review_id=review_id), many=True
-        )
 
-        # Duplicate status counts
-        duplicate_status_counts = (
-            Reference.objects.filter(review_id=review_id)
-            .values("duplicate_status")
-            .annotate(count=Count("id"))
-        )
-        status_counts_dict = {
-            "Unresolved": 0,
-            "Deleted": 0,
-            "Not Duplicate": 0,
-            "Resolved": 0,
-        }
-        for item in duplicate_status_counts:
-            status_value = item["duplicate_status"]
-            if status_value in status_counts_dict:
-                status_counts_dict[status_value] = item["count"]
-
-        # Labels with counts (only user labels)
-        labels_qs = Label.objects.filter(
-            user=request.user, reference_labels__reference__review_id=review_id
-        )
-        labels = labels_qs.annotate(count=Count("reference_labels__reference")).values(
-            "id", "name", "count"
-        )
-
-        # Publication type counts
-        publication_types = list(
-            Reference.objects.filter(review_id=review_id)
-            .exclude(publication_type="")
-            .values("publication_type")
-            .annotate(count=Count("id"))
-            .order_by("-count")
-        )
-
-        # Publication year counts
-        publication_years = list(
-            Reference.objects.filter(
-                review_id=review_id, publication_date__isnull=False
-            )
-            .annotate(year=ExtractYear("publication_date"))
-            .values("year")
-            .annotate(count=Count("id"))
-            .order_by("-year")
-        )
-
-        # File status counts
-        file_counts = {
-            "with_file": Reference.objects.filter(review_id=review_id)
-            .exclude(file="")
-            .count(),
-            "without_file": Reference.objects.filter(
-                review_id=review_id, file=""
-            ).count(),
-        }
-
-        # Assignee counts
-        assignees = list(
-            Reference.objects.filter(review_id=review_id, assignee__isnull=False)
-            .values(
-                _id=F("assignee__id"),
-                first_name=F("assignee__user__first_name"),
-                last_name=F("assignee__user__last_name"),
-                email=F("assignee__user__email"),
-            )
-            .annotate(count=Count("id"))
-            .order_by("-count")
-        )
-
-        # Add unassigned count
-        unassigned_count = Reference.objects.filter(
-            review_id=review_id, assignee__isnull=True
-        ).count()
-        if unassigned_count > 0:
-            assignees.append(
-                {
-                    "_id": None,
-                    "first_name": None,
-                    "last_name": None,
-                    "email": None,
-                    "count": unassigned_count,
-                }
-            )
-
-        response_data = {
-            "references": serializer.data,
-            "total_count": total_count,
-            "filtered_count": filtered_count,
-            "search_methods": search_methods,
-            "keywords": keywords.data,
-            "duplicate_status_counts": status_counts_dict,
-            "labels": list(labels),
-            "publication_types": publication_types,
-            "publication_years": publication_years,
-            "file_counts": file_counts,
-            "assignees": assignees,
-        }
-
-        return Response(response_data)
-
-
-class ScreeningView(ReviewDataView):
+class ScreeningView(ScreeningQuerysetMixin, ReviewDataView):
     def get_queryset(self):
-        user = self.request.user
-        queryset = super().get_queryset()
+        return self.apply_screening(
+            super().get_queryset(),
+            stage=ReferenceOpinion.Stage.SCREENING,
+        )
 
-        # Try to get the review instance (assume all references in queryset belong to the same review)
-        review = queryset.first().review if queryset.exists() else None
-
-        if review and review.is_blinded:
-            # Blinded → only current user's opinion
-            opinions_qs = (
-                ReferenceOpinion.objects.filter(member__user=user)
-                .select_related("member__user")
-                .only(
-                    "id",
-                    "status",
-                    "member__id",
-                    "member__user__first_name",
-                    "member__user__last_name",
-                    "member__user__email",
-                )
-            )
-        else:
-            # Not blinded → all opinions
-            opinions_qs = ReferenceOpinion.objects.select_related("member__user").only(
-                "id",
-                "status",
-                "member__id",
-                "member__user__first_name",
-                "member__user__last_name",
-                "member__user__email",
-            )
-
-        return (
-            queryset.exclude(duplicate_status__in=["Undecided", "Deleted"])
-            .prefetch_related(
-                Prefetch(
-                    "referenceopinion_set",
-                    queryset=opinions_qs,
-                    to_attr="prefetched_opinions",
-                )
-            )
-            .distinct()
+    def get_base_queryset_for_counts(self):
+        return self.apply_screening(
+            super().get_base_queryset_for_counts(),
+            stage=ReferenceOpinion.Stage.SCREENING,
         )
 
 
-class ScreeningFullTextView(ScreeningView):
+class ScreeningFullTextView(ScreeningQuerysetMixin, ReviewDataView):
     def get_queryset(self):
-        queryset = super().get_queryset()
-        return queryset.filter(in_full_text=True)
+        return self.apply_screening(
+            super().get_queryset(),
+            full_text=True,
+            stage=ReferenceOpinion.Stage.FULL_TEXT,
+        )
+
+    def get_base_queryset_for_counts(self):
+        return self.apply_screening(
+            super().get_base_queryset_for_counts(),
+            full_text=True,
+            stage=ReferenceOpinion.Stage.FULL_TEXT,
+        )
 
 
 class ReferenceOpinionViewSet(viewsets.GenericViewSet):
@@ -1169,32 +1163,27 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
         serializer.save()
         return Response(serializer.data)
 
-    @action(detail=False, methods=["patch"], url_path="upsert")
+    @action(detail=False, methods=["patch"], url_path="bulk_upsert")
     @transaction.atomic
-    def upsert(self, request):
-        reference_ids = request.data.get("reference_ids")
-        status_value = request.data.get("status")
+    def bulk_upsert(self, request):
+        serializer = ReferenceOpinionUpsertSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
 
-        if not reference_ids or not isinstance(reference_ids, list):
-            raise serializers.ValidationError(
-                {"reference_ids": "This field must be a non-empty list."}
-            )
-
-        reference_ids = list(set(reference_ids))
-
-        if not status_value:
-            raise serializers.ValidationError({"status": "This field is required."})
-
+        reference_ids = data["reference_ids"]
+        status_value = data["status"]
+        stage_value = data["stage"]
         user = request.user
 
         references = Reference.objects.filter(id__in=reference_ids).select_related(
             "review"
         )
-
         if references.count() != len(reference_ids):
-            raise serializers.ValidationError("One or more references do not exist.")
+            missing_ids = set(reference_ids) - set(ref.id for ref in references)
+            raise serializers.ValidationError(
+                {"reference_ids": f"References not found: {missing_ids}"}
+            )
 
-        # Access control + resolve review members (exclude viewers)
         review_members = {}
         for ref in references:
             review = ref.review
@@ -1207,15 +1196,13 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
             for op in ReferenceOpinion.objects.filter(
                 reference_id__in=reference_ids,
                 member__in=review_members.values(),
+                stage=stage_value,
             )
         }
 
-        to_create = []
-        to_update = []
-
+        to_create, to_update = [], []
         for ref in references:
             review_member = review_members[ref.review]
-
             if ref.id in existing_opinions:
                 opinion = existing_opinions[ref.id]
                 opinion.status = status_value
@@ -1226,22 +1213,22 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
                         reference=ref,
                         member=review_member,
                         status=status_value,
+                        stage=stage_value,
                     )
                 )
 
         if to_create:
             ReferenceOpinion.objects.bulk_create(to_create)
-
         if to_update:
             ReferenceOpinion.objects.bulk_update(to_update, ["status"])
 
         opinions = ReferenceOpinion.objects.filter(
             reference_id__in=reference_ids,
             member__in=review_members.values(),
+            stage=stage_value,
         )
-
-        serializer = self.get_serializer(opinions, many=True)
-        return Response(serializer.data)
+        response_serializer = self.get_serializer(opinions, many=True)
+        return Response(response_serializer.data)
 
 
 class ReferenceDuplicatePairViewSet(viewsets.ViewSet):
