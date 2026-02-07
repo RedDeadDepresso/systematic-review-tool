@@ -132,6 +132,8 @@ class Reference(models.Model):
     duplicate_status = models.CharField(
         max_length=20, choices=DuplicateStatus.choices, default=DuplicateStatus.UNIQUE
     )
+    in_full_text = models.BooleanField(default=False)
+    in_extraction = models.BooleanField(default=False)
     is_extraction_completed = models.BooleanField(default=False)
 
     class Meta:
@@ -298,6 +300,10 @@ class ReferenceOpinion(models.Model):
         MAYBE = "Maybe"
         INCLUDED = "Included"
 
+    class Stage(models.TextChoices):
+        SCREENING = "screening", "Screening"
+        FULL_TEXT = "full-text", "Full-Text Screening"
+
     reference = models.ForeignKey(Reference, on_delete=models.CASCADE)
     member = models.ForeignKey(ReviewMember, on_delete=models.CASCADE)
     status = models.CharField(
@@ -305,9 +311,14 @@ class ReferenceOpinion(models.Model):
         choices=Status.choices,
         default=Status.UNDECIDED,
     )
+    stage = models.CharField(
+        max_length=20,
+        choices=Stage.choices,
+        default=Stage.SCREENING,
+    )
 
     class Meta:
-        unique_together = ("reference", "member")
+        unique_together = ("reference", "member", "stage")
 
 
 class Keyword(models.Model):
