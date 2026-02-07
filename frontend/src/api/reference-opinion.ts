@@ -7,6 +7,6 @@ export const bulkUpsertReferenceOpinions = async (payload: {
   status: OpinionStatus;
   stage: Stage;
 }) => {
-  const res = await api.patch('/reference-opinions/bulk-upsert/', payload);
+  const res = await api.post('/reference-opinions/bulk-upsert/', payload);
   return res.data;
 };

@@ -132,14 +132,9 @@ export function TableTopHeader({
           )}
         </div>
         {onAddData && can('addData', userRole) && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 bg-transparent hidden sm:flex"
-            onClick={onAddData}
-          >
+          <Button variant="outline" size="sm" onClick={onAddData}>
             <Upload className="h-4 w-4" />
-            Add articles
+            <span className="hidden sm:inline">Add articles</span>
           </Button>
         )}
         <DropdownMenu>

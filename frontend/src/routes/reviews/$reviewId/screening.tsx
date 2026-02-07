@@ -117,8 +117,8 @@ function RouteComponent() {
         referenceIds[0] === ui.highlightedReferenceId
       )
         ui.handleNavigateDetail('next');
-    } catch {
-      console.log('error');
+    } catch (error) {
+      console.error('Failed to update reference: ', error);
     }
   };
 
