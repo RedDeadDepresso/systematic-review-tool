@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Search,
   X,
+  Upload,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -18,8 +19,11 @@ import {
 import { Button } from '../ui/button';
 import { useEffect, useRef, useState } from 'react';
 import { Input } from '../ui/input';
+import { can } from '@/lib/permissions';
+import type { ReviewRole } from '@/types/review';
 
 interface TableTopHeaderProps {
+  userRole: ReviewRole;
   filteredCount: number;
   totalCount: number;
   searchQuery?: string;
@@ -29,9 +33,11 @@ interface TableTopHeaderProps {
   onToggleLeftCollapse?: () => void;
   isRightCollapsed?: boolean;
   onToggleRightCollapse?: () => void;
+  onAddData?: () => void;
 }
 
 export function TableTopHeader({
+  userRole,
   filteredCount,
   totalCount,
   searchQuery = '',
@@ -40,6 +46,7 @@ export function TableTopHeader({
   onToggleLeftCollapse,
   onToggleRightCollapse,
   onSortChange,
+  onAddData,
 }: TableTopHeaderProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(searchQuery !== '');
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -124,6 +131,12 @@ export function TableTopHeader({
             </Button>
           )}
         </div>
+        {onAddData && can('addData', userRole) && (
+          <Button variant="outline" size="sm" onClick={onAddData}>
+            <Upload className="h-4 w-4" />
+            <span className="hidden sm:inline">Add articles</span>
+          </Button>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm">

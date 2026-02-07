@@ -16,6 +16,7 @@ class Permission(str, Enum):
     MODIFY_REVIEW = "modify_review"
     ASSIGN = "assign"
     INVITE = "invite"
+    ADD_DATA = "add_data"
     MODIFY_SCREENING_CRITERIA = "modify_screening_criteria"
     UPLOAD_FILES = "upload_files"
     MANAGE_DUPLICATES = "manage_duplicates"
@@ -47,6 +48,7 @@ PERMISSIONS = {
     Permission.MODIFY_OPINION: [Role.OWNER, Role.COLLABORATOR, Role.REVIEWER],
     Permission.MODIFY_NOTE: [Role.OWNER, Role.COLLABORATOR, Role.REVIEWER],
     Permission.ASSIGN_LABEL: [Role.OWNER, Role.COLLABORATOR, Role.REVIEWER],
+    Permission.ADD_DATA: [Role.OWNER, Role.COLLABORATOR],
 }
 
 

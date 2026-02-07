@@ -20,6 +20,7 @@ from api.views import (
     ReviewMemberRetrieveUpdateDestroyView,
     ReviewViewSet,
     ScreeningCriteriaViewSet,
+    ScreeningFullTextView,
     ScreeningView,
     SubThemeViewSet,
     UploadedPDFViewSet,
@@ -75,7 +76,11 @@ urlpatterns = [
     path("auth/refresh/", TokenRefreshView.as_view(), name="refresh"),
     path("review-data/", ReviewDataView.as_view(), name="review-data"),
     path("screening/", ScreeningView.as_view(), name="screening"),
-    path("screening-full-text/", ScreeningView.as_view(), name="screening-full-text"),
+    path(
+        "screening-full-text/",
+        ScreeningFullTextView.as_view(),
+        name="screening-full-text",
+    ),
     path(
         "review-members/<int:pk>/",
         ReviewMemberRetrieveUpdateDestroyView.as_view(),

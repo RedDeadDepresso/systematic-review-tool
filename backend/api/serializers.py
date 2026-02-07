@@ -301,11 +301,11 @@ class ReferenceSerializer(BaseReferenceSerializer):
     def get_labels(self, obj):
         """
         Return labels applied to this reference for the current user only.
-        Expects that `obj` has a `user_labels` prefetched attribute.
+        Expects that `obj` has a `prefetched_labels` prefetched attribute.
         """
         user = self.context["request"].user
         # Fallback if prefetch not done
-        reference_labels = getattr(obj, "user_labels", None)
+        reference_labels = getattr(obj, "prefetched_labels", None)
         if reference_labels is None:
             reference_labels = ReferenceLabel.objects.filter(
                 reference=obj, label__user=user
@@ -429,8 +429,8 @@ class MainThemeSerializer(serializers.ModelSerializer):
 class LabelSerializer(serializers.ModelSerializer):
     class Meta:
         model = Label
-        fields = ["id", "user", "name"]
-        read_only_fields = ["user"]
+        fields = ["id", "user", "name", "color"]
+        read_only_fields = ["id", "user"]
 
     def validate_name(self, value):
         """
@@ -711,7 +711,7 @@ class ReferenceTableSerializer(serializers.ModelSerializer):
     def get_labels(self, obj):
         """
         Return labels applied to this reference for the current user only.
-        Expects that `obj` has a `user_labels` prefetched attribute.
+        Expects that `obj` has a `prefetched_labels` prefetched attribute.
         """
 
         return [
@@ -764,3 +764,66 @@ class ExtractionAnswerBulkSerializer(serializers.Serializer):
         child=serializers.CharField(allow_blank=True),
         help_text="Dict mapping question_id to answer value",
     )
+
+
+class LabelCountSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    color = serializers.CharField(allow_null=True)
+    count = serializers.IntegerField()
+
+
+class ArticleCountSerializer(serializers.Serializer):
+    included = serializers.IntegerField()
+    maybe = serializers.IntegerField()
+    labeled = serializers.IntegerField()
+    labels = LabelCountSerializer(many=True)
+
+
+class AddDataSerializer(serializers.Serializer):
+    data_source = serializers.ChoiceField(
+        choices=["screening", "full-text"],
+    )
+    data_sink = serializers.ChoiceField(
+        choices=["full-text", "extraction"],
+    )
+    article_types = serializers.ListField(
+        child=serializers.ChoiceField(choices=["included", "maybe", "labeled"]),
+    )
+    label_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        default=list,
+    )
+
+    def validate(self, attrs):
+        source = attrs["data_source"]
+        sink = attrs["data_sink"]
+
+        if source == "full-text" and sink == "full-text":
+            raise serializers.ValidationError(
+                "Source and destination cannot both be full-text."
+            )
+
+        return attrs
+
+
+class ReferenceOpinionUpsertSerializer(serializers.Serializer):
+    reference_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        allow_empty=False,
+        help_text="List of reference IDs to upsert opinions for",
+    )
+    status = serializers.ChoiceField(
+        choices=ReferenceOpinion.Status.choices,
+        help_text="Status to set for the opinions",
+    )
+    stage = serializers.ChoiceField(
+        choices=ReferenceOpinion.Stage.choices,
+        help_text="Stage for which opinions are upserted",
+    )
+
+    def validate_reference_ids(self, value):
+        if len(set(value)) != len(value):
+            value = list(set(value))
+        return value

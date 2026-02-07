@@ -19,9 +19,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ReferencesTableBody } from '@/components/shared/references-table-body';
 import { ScreeningFooter } from '@/components/shared/references-table-footer';
 import { TableBottomHeader } from '@/components/shared/references-table-bottom-header';
-import { useUpdateReferenceOpinion } from '@/hooks/use-reference-opinion';
+import { useBulkUpsertReferenceOpinions } from '@/hooks/use-reference-opinion';
 import { PDFDialog } from '@/components/shared/pdf-dialog';
 import { useFetchReview } from '@/hooks/use-review';
+import { AddDataDialog } from '@/components/shared/add-data-dialog';
 
 export const Route = createFileRoute('/reviews/$reviewId/full-text-screening')({
   component: RouteComponent,
@@ -64,6 +65,12 @@ function RouteComponent() {
   };
 
   const { data, isLoading, error } = useFetchScreeningFullText(queryParams);
+  const invalidateQuery = () => {
+    queryClient.invalidateQueries({
+      queryKey: ['reviews', 'screening-full-text', queryParams],
+    });
+  };
+
   const fetchReview = useFetchReview(reviewId);
 
   // UI state management
@@ -84,17 +91,13 @@ function RouteComponent() {
   // File upload management
   const fileUpload = useFileUpload(
     reviewId,
-    () => {
-      queryClient.invalidateQueries({
-        queryKey: ['reviews', 'screening-full-text', queryParams],
-      });
-    },
+    invalidateQuery,
     ui.selectedReferenceIds,
     ui.highlightedReferenceId,
     ui.sortedReferences
   );
 
-  const updateReferenceOpinion = useUpdateReferenceOpinion();
+  const bulkUpsertReferenceOpinions = useBulkUpsertReferenceOpinions();
 
   const handleOpinionApplied = async (status: OpinionStatus) => {
     try {
@@ -102,24 +105,25 @@ function RouteComponent() {
         ...ui.selectedReferenceIds,
         ...(ui.highlightedReferenceId ? [ui.highlightedReferenceId] : []),
       ];
-      await updateReferenceOpinion.mutateAsync({
+      await bulkUpsertReferenceOpinions.mutateAsync({
         payload: {
           referenceIds: referenceIds,
           status: status,
+          stage: 'full-text',
         },
       });
-      queryClient.invalidateQueries({
-        queryKey: ['reviews', 'screening-full-text', queryParams],
-      });
+      invalidateQuery();
       if (
         referenceIds.length === 1 &&
         referenceIds[0] === ui.highlightedReferenceId
       )
         ui.handleNavigateDetail('next');
-    } catch {
-      console.log('error');
+    } catch (error) {
+      console.error('Failed to update reference: ', error);
     }
   };
+
+  const [openAddData, setOpenAddData] = useState<boolean>(false);
 
   if (isLoading) {
     return (
@@ -165,6 +169,14 @@ function RouteComponent() {
           onImport={fileUpload.handleMatch}
         />
       )}
+      <AddDataDialog
+        reviewId={reviewId}
+        open={openAddData}
+        dataSources={['screening']}
+        dataSink="full-text"
+        onOpenChange={setOpenAddData}
+        onAdd={invalidateQuery}
+      />
 
       {/* Header */}
       <ReviewHeader reviewId={reviewId} />
@@ -173,6 +185,7 @@ function RouteComponent() {
         <div className="flex flex-col flex-1">
           {/* Table Header */}
           <TableTopHeader
+            userRole={fetchReview.data?.userRole || 'Viewer'}
             filteredCount={data?.filteredCount || 0}
             totalCount={data?.totalCount || 0}
             searchQuery={filters.searchQuery}
@@ -186,6 +199,7 @@ function RouteComponent() {
             onToggleRightCollapse={() =>
               ui.setIsFiltersSidebarCollapsed(!ui.isFiltersSidebarCollapsed)
             }
+            onAddData={() => setOpenAddData(true)}
           />
 
           <div className="flex flex-1 overflow-hidden">
@@ -217,11 +231,7 @@ function RouteComponent() {
                   userRole={fetchReview.data?.userRole || 'Viewer'}
                   selectedReferenceIds={ui.selectedReferenceIds}
                   highlightedReferenceId={ui.highlightedReferenceId}
-                  onLabelsApplied={() =>
-                    queryClient.invalidateQueries({
-                      queryKey: ['reviews', 'screening-full-text', queryParams],
-                    })
-                  }
+                  onLabelsApplied={invalidateQuery}
                   onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
                   onOpinionApplied={handleOpinionApplied}
                 />
@@ -243,11 +253,7 @@ function RouteComponent() {
                 highlightedReferenceId={ui.highlightedReferenceId}
                 highlightIncludeKeywords={keywords.highlightIncludeKeywords}
                 highlightExcludeKeywords={keywords.highlightExcludeKeywords}
-                onLabelsApplied={() =>
-                  queryClient.invalidateQueries({
-                    queryKey: ['reviews', 'screening-full-text', queryParams],
-                  })
-                }
+                onLabelsApplied={invalidateQuery}
                 onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
                 onOpinionApplied={handleOpinionApplied}
               />
@@ -365,11 +371,7 @@ function RouteComponent() {
           highlightExcludeKeywords={keywords.highlightExcludeKeywords}
           selectedReferenceIds={ui.selectedReferenceIds}
           highlightedReferenceId={ui.highlightedReferenceId}
-          onLabelsApplied={() =>
-            queryClient.invalidateQueries({
-              queryKey: ['reviews', 'screening-full-text', queryParams],
-            })
-          }
+          onLabelsApplied={invalidateQuery}
           onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
           onOpinionApplied={handleOpinionApplied}
         />

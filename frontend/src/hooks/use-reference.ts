@@ -9,6 +9,7 @@ import {
   assignReferences,
   type AssignReferencesPayload,
   fetchScreening,
+  fetchScreeningFullText,
 } from '@/api/reference';
 import type { Reference } from '@/types/reference';
 import type { UploadedPDF } from '@/types/uploaded-pdf';
@@ -40,7 +41,7 @@ export const useFetchScreening = (params: FetchReviewDataParams) => {
 export const useFetchScreeningFullText = (params: FetchReviewDataParams) => {
   return useQuery({
     queryKey: ['reviews', 'screening-full-text', params],
-    queryFn: () => fetchScreening(params),
+    queryFn: () => fetchScreeningFullText(params),
   });
 };
 

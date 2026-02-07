@@ -5,10 +5,13 @@ import {
   fetchReview,
   fetchReviews,
   UploadReviewReferences,
+  fetchArticleCounts,
+  addData,
 } from '@/api/review';
 import type { Review } from '@/types/review';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { type Stage } from '@/types/reference';
 
 export const useFetchReviews = (params: { isActive: boolean }) => {
   return useQuery({
@@ -21,6 +24,27 @@ export const useFetchReview = (id: number) => {
   return useQuery({
     queryKey: ['reviews', id],
     queryFn: () => fetchReview(id),
+  });
+};
+
+export const useFetchArticleCounts = (
+  reviewId: number,
+  params?: { stage?: Stage }
+) => {
+  return useQuery({
+    queryKey: ['articleCounts', reviewId, params],
+    queryFn: () => fetchArticleCounts(reviewId, params),
+  });
+};
+
+export const useAddData = (reviewId: number) => {
+  return useMutation({
+    mutationFn: (payload: {
+      dataSource: string;
+      dataSink: string;
+      articleTypes: string[];
+      labelIds: number[];
+    }) => addData(reviewId, payload),
   });
 };
 

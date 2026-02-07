@@ -27,3 +27,17 @@ export type ReviewRow = {
   id: number;
   userRole: ReviewRole;
 };
+
+type LabelCount = {
+  id: number;
+  name: string;
+  color: string;
+  count: number;
+};
+
+export type ArticleCounts = {
+  included: number;
+  maybe: number;
+  labeleled: number;
+  labels: LabelCount[];
+};

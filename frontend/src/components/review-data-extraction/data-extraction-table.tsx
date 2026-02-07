@@ -9,9 +9,8 @@ import {
   ChevronDown,
   CheckCircle2,
   XCircle,
-  Sparkles,
+  FileText,
 } from 'lucide-react';
-import type { Label } from '@/types/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +34,7 @@ import {
 import { AssigneeBadge, LabelBadge } from '../shared/references-table-row';
 import { EditQuestionPopover } from './edit-question-popover';
 import { useQueryClient } from '@tanstack/react-query';
+import { AddDataDialog } from '../shared/add-data-dialog';
 
 interface DataExtractionTableProps {
   reviewId: number;
@@ -83,7 +83,8 @@ export function DataExtractionTable({
     questionId: number;
   } | null>(null);
   const [editValue, setEditValue] = useState('');
-
+  const [isAddDataDialogOpen, setIsAddDataDialogOpen] =
+    useState<boolean>(false);
   const queryClient = useQueryClient();
 
   // Fetch table data (single API call)
@@ -222,7 +223,7 @@ export function DataExtractionTable({
             variant="outline"
             size="sm"
             className="gap-2 bg-transparent hidden sm:flex"
-            onClick={() => {}}
+            onClick={() => setIsAddDataDialogOpen(true)}
           >
             <Upload className="h-4 w-4" />
             Add articles
@@ -234,7 +235,7 @@ export function DataExtractionTable({
             onClick={handleExtractData}
             disabled={!firstIncompleteReference}
           >
-            <Sparkles className="h-4 w-4" />
+            <FileText className="h-4 w-4" />
             Extract data
           </Button>
           <Button
@@ -394,8 +395,7 @@ export function DataExtractionTable({
                       {ref.assignee && (
                         <AssigneeBadge assignee={ref.assignee} />
                       )}
-
-                      {ref.labels.map((label: Label) => (
+                      {ref.labels.map((label) => (
                         <LabelBadge key={label.id} label={label} />
                       ))}
                     </div>
@@ -507,13 +507,14 @@ export function DataExtractionTable({
       )} */}
 
       {/* Add Data Dialog */}
-      {/* <AddDataDialog
+      <AddDataDialog
+        reviewId={reviewId}
+        dataSources={['full-text', 'screening']}
+        dataSink="extraction"
         open={isAddDataDialogOpen}
         onOpenChange={setIsAddDataDialogOpen}
-        labels={labels}
-        articleCounts={0}
-        onAdd={handleAddData}
-      /> */}
+        onAdd={invalidateQuery}
+      />
     </div>
   );
 }
