@@ -2,9 +2,12 @@ import type { ReviewMember } from './review';
 
 export type OpinionStatus = 'Undecided' | 'Included' | 'Excluded' | 'Maybe';
 
+export type Stage = 'screening' | 'full-text';
+
 export type Opinion = {
   member: ReviewMember;
   status: OpinionStatus;
+  stage: Stage;
 };
 
 export type Label = {

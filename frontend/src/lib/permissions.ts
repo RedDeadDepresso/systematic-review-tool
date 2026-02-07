@@ -14,7 +14,8 @@ export type ReviewPermission =
   | 'modifyContent'
   | 'modifyKeyword'
   | 'modifyOpinion'
-  | 'modifyNote';
+  | 'modifyNote'
+  | 'addData';
 
 /**
  * Define allowed roles for each permission
@@ -33,6 +34,7 @@ const permissions: Record<ReviewPermission, ReviewRole[]> = {
   modifyKeyword: ['Owner', 'Collaborator', 'Reviewer'],
   modifyOpinion: ['Owner', 'Collaborator', 'Reviewer'],
   modifyNote: ['Owner', 'Collaborator', 'Reviewer'],
+  addData: ['Owner', 'Collaborator'],
 };
 
 /**

@@ -173,6 +173,7 @@ function RouteComponent() {
         <div className="flex flex-col flex-1">
           {/* Table Header */}
           <TableTopHeader
+            userRole={fetchReview.data?.userRole || 'Viewer'}
             filteredCount={data?.filteredCount || 0}
             totalCount={data?.totalCount || 0}
             searchQuery={filters.searchQuery}

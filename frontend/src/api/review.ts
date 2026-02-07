@@ -1,5 +1,6 @@
-import type { Review } from '@/types/review';
+import type { ArticleCounts, Review } from '@/types/review';
 import api from './axios';
+import type { Stage } from '@/types/reference';
 
 export const createReview = async (payload: {
   title: string;
@@ -56,6 +57,32 @@ export const UploadReviewReferences = async (payload: {
       headers: { 'Content-Type': 'multipart/form-data' },
     }
   );
+  return res.data;
+};
+
+export const fetchArticleCounts = async (
+  reviewId: number,
+  params?: { stage?: Stage }
+) => {
+  const res = await api.get<ArticleCounts>(
+    `/reviews/${reviewId}/article-counts/`,
+    {
+      params,
+    }
+  );
+  return res.data;
+};
+
+export const addData = async (
+  reviewId: number,
+  payload: {
+    dataSource: string;
+    dataSink: string;
+    articleTypes: string[];
+    labelIds: number[];
+  }
+) => {
+  const res = await api.post(`/reviews/${reviewId}/add-data/`, payload);
   return res.data;
 };
 

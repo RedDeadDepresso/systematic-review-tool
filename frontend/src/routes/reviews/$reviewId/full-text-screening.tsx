@@ -22,6 +22,7 @@ import { TableBottomHeader } from '@/components/shared/references-table-bottom-h
 import { useUpdateReferenceOpinion } from '@/hooks/use-reference-opinion';
 import { PDFDialog } from '@/components/shared/pdf-dialog';
 import { useFetchReview } from '@/hooks/use-review';
+import { AddDataDialog } from '@/components/shared/add-data-dialog';
 
 export const Route = createFileRoute('/reviews/$reviewId/full-text-screening')({
   component: RouteComponent,
@@ -64,6 +65,12 @@ function RouteComponent() {
   };
 
   const { data, isLoading, error } = useFetchScreeningFullText(queryParams);
+  const invalidateQuery = () => {
+    queryClient.invalidateQueries({
+      queryKey: ['reviews', 'screening-full-text', queryParams],
+    });
+  };
+
   const fetchReview = useFetchReview(reviewId);
 
   // UI state management
@@ -84,11 +91,7 @@ function RouteComponent() {
   // File upload management
   const fileUpload = useFileUpload(
     reviewId,
-    () => {
-      queryClient.invalidateQueries({
-        queryKey: ['reviews', 'screening-full-text', queryParams],
-      });
-    },
+    invalidateQuery,
     ui.selectedReferenceIds,
     ui.highlightedReferenceId,
     ui.sortedReferences
@@ -108,9 +111,7 @@ function RouteComponent() {
           status: status,
         },
       });
-      queryClient.invalidateQueries({
-        queryKey: ['reviews', 'screening-full-text', queryParams],
-      });
+      invalidateQuery();
       if (
         referenceIds.length === 1 &&
         referenceIds[0] === ui.highlightedReferenceId
@@ -120,6 +121,8 @@ function RouteComponent() {
       console.log('error');
     }
   };
+
+  const [openAddData, setOpenAddData] = useState<boolean>(false);
 
   if (isLoading) {
     return (
@@ -165,6 +168,14 @@ function RouteComponent() {
           onImport={fileUpload.handleMatch}
         />
       )}
+      <AddDataDialog
+        reviewId={reviewId}
+        open={openAddData}
+        dataSources={['screening']}
+        dataSink="full-text"
+        onOpenChange={setOpenAddData}
+        onAdd={invalidateQuery}
+      />
 
       {/* Header */}
       <ReviewHeader reviewId={reviewId} />
@@ -173,6 +184,7 @@ function RouteComponent() {
         <div className="flex flex-col flex-1">
           {/* Table Header */}
           <TableTopHeader
+            userRole={fetchReview.data?.userRole || 'Viewer'}
             filteredCount={data?.filteredCount || 0}
             totalCount={data?.totalCount || 0}
             searchQuery={filters.searchQuery}
@@ -186,6 +198,7 @@ function RouteComponent() {
             onToggleRightCollapse={() =>
               ui.setIsFiltersSidebarCollapsed(!ui.isFiltersSidebarCollapsed)
             }
+            onAddData={() => setOpenAddData(true)}
           />
 
           <div className="flex flex-1 overflow-hidden">
@@ -217,11 +230,7 @@ function RouteComponent() {
                   userRole={fetchReview.data?.userRole || 'Viewer'}
                   selectedReferenceIds={ui.selectedReferenceIds}
                   highlightedReferenceId={ui.highlightedReferenceId}
-                  onLabelsApplied={() =>
-                    queryClient.invalidateQueries({
-                      queryKey: ['reviews', 'screening-full-text', queryParams],
-                    })
-                  }
+                  onLabelsApplied={invalidateQuery}
                   onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
                   onOpinionApplied={handleOpinionApplied}
                 />
@@ -243,11 +252,7 @@ function RouteComponent() {
                 highlightedReferenceId={ui.highlightedReferenceId}
                 highlightIncludeKeywords={keywords.highlightIncludeKeywords}
                 highlightExcludeKeywords={keywords.highlightExcludeKeywords}
-                onLabelsApplied={() =>
-                  queryClient.invalidateQueries({
-                    queryKey: ['reviews', 'screening-full-text', queryParams],
-                  })
-                }
+                onLabelsApplied={invalidateQuery}
                 onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
                 onOpinionApplied={handleOpinionApplied}
               />
@@ -365,11 +370,7 @@ function RouteComponent() {
           highlightExcludeKeywords={keywords.highlightExcludeKeywords}
           selectedReferenceIds={ui.selectedReferenceIds}
           highlightedReferenceId={ui.highlightedReferenceId}
-          onLabelsApplied={() =>
-            queryClient.invalidateQueries({
-              queryKey: ['reviews', 'screening-full-text', queryParams],
-            })
-          }
+          onLabelsApplied={invalidateQuery}
           onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
           onOpinionApplied={handleOpinionApplied}
         />
