@@ -1163,7 +1163,7 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
         serializer.save()
         return Response(serializer.data)
 
-    @action(detail=False, methods=["patch"], url_path="bulk_upsert")
+    @action(detail=False, methods=["post"], url_path="bulk-upsert")
     @transaction.atomic
     def bulk_upsert(self, request):
         serializer = ReferenceOpinionUpsertSerializer(data=request.data)
