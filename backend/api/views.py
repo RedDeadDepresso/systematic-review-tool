@@ -6,7 +6,7 @@ from datetime import date
 import bibtexparser
 from django.core.files.storage import default_storage
 from django.db import transaction
-from django.db.models import Count, F, OuterRef, Prefetch, Subquery
+from django.db.models import Count, F, OuterRef, Prefetch, Q, Subquery
 from django.db.models.functions import ExtractYear
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -45,6 +45,8 @@ from api.models import (
 )
 from api.permissions import IsReviewOwner, Permission, check_permission
 from api.serializers import (
+    AddDataSerializer,
+    ArticleCountSerializer,
     AssignLabelsSerializer,
     AssignReferencesSerializer,
     AttachPDFsSerializer,
@@ -295,6 +297,121 @@ class ReviewViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_201_CREATED,
         )
+
+    @action(detail=True, methods=["get"], url_path="article-counts")
+    def article_counts(self, request, pk=None):
+        review = self.get_object()
+        stage = request.query_params.get("stage")
+
+        member = get_object_or_404(
+            ReviewMember,
+            review=review,
+            user=request.user,
+        )
+
+        # Opinion filtering
+        opinion_filter = Q(referenceopinion__member=member)
+        if stage:
+            opinion_filter &= Q(referenceopinion__stage=stage)
+
+        # Base counts
+        counts = Reference.objects.filter(review=review).aggregate(
+            included=Count(
+                "referenceopinion",
+                filter=opinion_filter
+                & Q(referenceopinion__status=ReferenceOpinion.Status.INCLUDED),
+                distinct=True,
+            ),
+            maybe=Count(
+                "referenceopinion",
+                filter=opinion_filter
+                & Q(referenceopinion__status=ReferenceOpinion.Status.MAYBE),
+                distinct=True,
+            ),
+            labeled=Count(
+                "labels",
+                filter=Q(labels__member=member),
+                distinct=True,
+            ),
+        )
+
+        # Label counts
+        label_qs = (
+            ReferenceLabel.objects.filter(
+                reference__review=review,
+                member=member,
+            )
+            .values("label__id", "label__name", "label__color")
+            .annotate(count=Count("reference", distinct=True))
+            .order_by("label__name")
+        )
+
+        counts["labels"] = [
+            {
+                "id": row["label__id"],
+                "name": row["label__name"],
+                "color": row["label__color"],
+                "count": row["count"],
+            }
+            for row in label_qs
+        ]
+
+        serializer = ArticleCountSerializer(counts)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"], url_path="add-data")
+    def add_data(self, request, pk=None):
+        review = self.get_object()
+        check_permission(Permission.ADD_DATA, self.request.user, review)
+        serializer = AddDataSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        data_source = data["data_source"]
+        data_sink = data["data_sink"]
+        article_types = data["article_types"]
+        label_ids = data["label_ids"]
+
+        member = get_object_or_404(
+            ReviewMember,
+            review=review,
+            user=request.user,
+        )
+
+        refs = Reference.objects.filter(review=review)
+
+        # Opinion filtering with stage
+        opinion_q = Q(
+            referenceopinion__member=member,
+            referenceopinion__stage=data_source,
+        )
+
+        type_q = Q()
+
+        if "included" in article_types:
+            type_q |= Q(referenceopinion__status=ReferenceOpinion.Status.INCLUDED)
+
+        if "maybe" in article_types:
+            type_q |= Q(referenceopinion__status=ReferenceOpinion.Status.MAYBE)
+
+        if type_q:
+            refs = refs.filter(opinion_q & type_q).distinct()
+
+        # Label filtering
+        if "labeled" in article_types and label_ids:
+            refs = refs.filter(
+                labels__member=member,
+                labels__label_id__in=label_ids,
+            ).distinct()
+
+        # Apply destination
+        if data_sink == "full-text":
+            refs.update(in_full_text=True)
+
+        elif data_sink == "extraction":
+            refs.update(in_extraction=True)
+
+        return Response({"updated": refs.count()})
 
     @action(detail=True, methods=["get"], url_path="export-json")
     def export_json(self, request, pk=None):
@@ -998,7 +1115,9 @@ class ScreeningView(ReviewDataView):
 
 
 class ScreeningFullTextView(ScreeningView):
-    pass
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        return queryset.filter(in_full_text=True)
 
 
 class ReferenceOpinionViewSet(viewsets.GenericViewSet):
@@ -1930,7 +2049,7 @@ class ExtractionTableViewSet(viewsets.ViewSet):
 
         # Get references with prefetched answers for efficiency
         references = (
-            Reference.objects.filter(review=review_id)
+            Reference.objects.filter(review=review_id, in_extraction=True)
             .prefetch_related(
                 Prefetch(
                     "extraction_answers",

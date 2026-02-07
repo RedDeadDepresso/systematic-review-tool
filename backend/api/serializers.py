@@ -429,8 +429,8 @@ class MainThemeSerializer(serializers.ModelSerializer):
 class LabelSerializer(serializers.ModelSerializer):
     class Meta:
         model = Label
-        fields = ["id", "user", "name"]
-        read_only_fields = ["user"]
+        fields = ["id", "user", "name", "color"]
+        read_only_fields = ["id", "user"]
 
     def validate_name(self, value):
         """
@@ -764,3 +764,45 @@ class ExtractionAnswerBulkSerializer(serializers.Serializer):
         child=serializers.CharField(allow_blank=True),
         help_text="Dict mapping question_id to answer value",
     )
+
+
+class LabelCountSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    color = serializers.CharField(allow_null=True)
+    count = serializers.IntegerField()
+
+
+class ArticleCountSerializer(serializers.Serializer):
+    included = serializers.IntegerField()
+    maybe = serializers.IntegerField()
+    labeled = serializers.IntegerField()
+    labels = LabelCountSerializer(many=True)
+
+
+class AddDataSerializer(serializers.Serializer):
+    data_source = serializers.ChoiceField(
+        choices=["screening", "full-text"],
+    )
+    data_sink = serializers.ChoiceField(
+        choices=["full-text", "extraction"],
+    )
+    article_types = serializers.ListField(
+        child=serializers.ChoiceField(choices=["included", "maybe", "labeled"]),
+    )
+    label_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        default=list,
+    )
+
+    def validate(self, attrs):
+        source = attrs["data_source"]
+        sink = attrs["data_sink"]
+
+        if source == "full-text" and sink == "full-text":
+            raise serializers.ValidationError(
+                "Source and destination cannot both be full-text."
+            )
+
+        return attrs
