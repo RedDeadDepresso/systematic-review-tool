@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ReviewsReviewIdIndexRouteImport } from './routes/reviews/$reviewId/index'
 import { Route as ReviewsReviewIdScreeningRouteImport } from './routes/reviews/$reviewId/screening'
 import { Route as ReviewsReviewIdReviewDataRouteImport } from './routes/reviews/$reviewId/review-data'
+import { Route as ReviewsReviewIdPrismaRouteImport } from './routes/reviews/$reviewId/prisma'
 import { Route as ReviewsReviewIdFullTextScreeningRouteImport } from './routes/reviews/$reviewId/full-text-screening'
 import { Route as ReviewsReviewIdDataExtractionRouteImport } from './routes/reviews/$reviewId/data-extraction'
 import { Route as ReviewsReviewIdCodingThemingRouteImport } from './routes/reviews/$reviewId/coding-theming'
@@ -51,6 +52,11 @@ const ReviewsReviewIdReviewDataRoute =
     path: '/reviews/$reviewId/review-data',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ReviewsReviewIdPrismaRoute = ReviewsReviewIdPrismaRouteImport.update({
+  id: '/reviews/$reviewId/prisma',
+  path: '/reviews/$reviewId/prisma',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReviewsReviewIdFullTextScreeningRoute =
   ReviewsReviewIdFullTextScreeningRouteImport.update({
     id: '/reviews/$reviewId/full-text-screening',
@@ -77,6 +83,7 @@ export interface FileRoutesByFullPath {
   '/reviews/$reviewId/coding-theming': typeof ReviewsReviewIdCodingThemingRoute
   '/reviews/$reviewId/data-extraction': typeof ReviewsReviewIdDataExtractionRoute
   '/reviews/$reviewId/full-text-screening': typeof ReviewsReviewIdFullTextScreeningRoute
+  '/reviews/$reviewId/prisma': typeof ReviewsReviewIdPrismaRoute
   '/reviews/$reviewId/review-data': typeof ReviewsReviewIdReviewDataRoute
   '/reviews/$reviewId/screening': typeof ReviewsReviewIdScreeningRoute
   '/reviews/$reviewId': typeof ReviewsReviewIdIndexRoute
@@ -88,6 +95,7 @@ export interface FileRoutesByTo {
   '/reviews/$reviewId/coding-theming': typeof ReviewsReviewIdCodingThemingRoute
   '/reviews/$reviewId/data-extraction': typeof ReviewsReviewIdDataExtractionRoute
   '/reviews/$reviewId/full-text-screening': typeof ReviewsReviewIdFullTextScreeningRoute
+  '/reviews/$reviewId/prisma': typeof ReviewsReviewIdPrismaRoute
   '/reviews/$reviewId/review-data': typeof ReviewsReviewIdReviewDataRoute
   '/reviews/$reviewId/screening': typeof ReviewsReviewIdScreeningRoute
   '/reviews/$reviewId': typeof ReviewsReviewIdIndexRoute
@@ -100,6 +108,7 @@ export interface FileRoutesById {
   '/reviews/$reviewId/coding-theming': typeof ReviewsReviewIdCodingThemingRoute
   '/reviews/$reviewId/data-extraction': typeof ReviewsReviewIdDataExtractionRoute
   '/reviews/$reviewId/full-text-screening': typeof ReviewsReviewIdFullTextScreeningRoute
+  '/reviews/$reviewId/prisma': typeof ReviewsReviewIdPrismaRoute
   '/reviews/$reviewId/review-data': typeof ReviewsReviewIdReviewDataRoute
   '/reviews/$reviewId/screening': typeof ReviewsReviewIdScreeningRoute
   '/reviews/$reviewId/': typeof ReviewsReviewIdIndexRoute
@@ -113,6 +122,7 @@ export interface FileRouteTypes {
     | '/reviews/$reviewId/coding-theming'
     | '/reviews/$reviewId/data-extraction'
     | '/reviews/$reviewId/full-text-screening'
+    | '/reviews/$reviewId/prisma'
     | '/reviews/$reviewId/review-data'
     | '/reviews/$reviewId/screening'
     | '/reviews/$reviewId'
@@ -124,6 +134,7 @@ export interface FileRouteTypes {
     | '/reviews/$reviewId/coding-theming'
     | '/reviews/$reviewId/data-extraction'
     | '/reviews/$reviewId/full-text-screening'
+    | '/reviews/$reviewId/prisma'
     | '/reviews/$reviewId/review-data'
     | '/reviews/$reviewId/screening'
     | '/reviews/$reviewId'
@@ -135,6 +146,7 @@ export interface FileRouteTypes {
     | '/reviews/$reviewId/coding-theming'
     | '/reviews/$reviewId/data-extraction'
     | '/reviews/$reviewId/full-text-screening'
+    | '/reviews/$reviewId/prisma'
     | '/reviews/$reviewId/review-data'
     | '/reviews/$reviewId/screening'
     | '/reviews/$reviewId/'
@@ -147,6 +159,7 @@ export interface RootRouteChildren {
   ReviewsReviewIdCodingThemingRoute: typeof ReviewsReviewIdCodingThemingRoute
   ReviewsReviewIdDataExtractionRoute: typeof ReviewsReviewIdDataExtractionRoute
   ReviewsReviewIdFullTextScreeningRoute: typeof ReviewsReviewIdFullTextScreeningRoute
+  ReviewsReviewIdPrismaRoute: typeof ReviewsReviewIdPrismaRoute
   ReviewsReviewIdReviewDataRoute: typeof ReviewsReviewIdReviewDataRoute
   ReviewsReviewIdScreeningRoute: typeof ReviewsReviewIdScreeningRoute
   ReviewsReviewIdIndexRoute: typeof ReviewsReviewIdIndexRoute
@@ -196,6 +209,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReviewsReviewIdReviewDataRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reviews/$reviewId/prisma': {
+      id: '/reviews/$reviewId/prisma'
+      path: '/reviews/$reviewId/prisma'
+      fullPath: '/reviews/$reviewId/prisma'
+      preLoaderRoute: typeof ReviewsReviewIdPrismaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reviews/$reviewId/full-text-screening': {
       id: '/reviews/$reviewId/full-text-screening'
       path: '/reviews/$reviewId/full-text-screening'
@@ -227,6 +247,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReviewsReviewIdCodingThemingRoute: ReviewsReviewIdCodingThemingRoute,
   ReviewsReviewIdDataExtractionRoute: ReviewsReviewIdDataExtractionRoute,
   ReviewsReviewIdFullTextScreeningRoute: ReviewsReviewIdFullTextScreeningRoute,
+  ReviewsReviewIdPrismaRoute: ReviewsReviewIdPrismaRoute,
   ReviewsReviewIdReviewDataRoute: ReviewsReviewIdReviewDataRoute,
   ReviewsReviewIdScreeningRoute: ReviewsReviewIdScreeningRoute,
   ReviewsReviewIdIndexRoute: ReviewsReviewIdIndexRoute,

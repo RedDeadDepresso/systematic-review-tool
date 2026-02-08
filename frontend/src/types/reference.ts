@@ -8,6 +8,8 @@ export type Opinion = {
   member: ReviewMember;
   status: OpinionStatus;
   stage: Stage;
+  reason: string | null;
+  updatedAt: string;
 };
 
 export type Label = {

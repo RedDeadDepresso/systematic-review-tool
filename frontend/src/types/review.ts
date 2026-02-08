@@ -41,3 +41,40 @@ export type ArticleCounts = {
   labeleled: number;
   labels: LabelCount[];
 };
+
+export interface PrismaData {
+  dbRegisters: DbRegisters;
+  included: Included;
+}
+
+export interface DbRegisters {
+  identification: {
+    databases: number;
+    registers?: number;
+  };
+  removedBeforeScreening?: {
+    duplicates?: number;
+    automation?: number;
+    other?: number;
+  };
+  records?: {
+    screened?: number;
+    excluded?: number;
+  };
+  reports?: {
+    sought?: number;
+    notRetrieved?: number;
+    assessed?: number;
+    excludedReasons?: Record<string, number>; // e.g., { 'wrong popululation': 4, 'wrong setting': 2 }
+  };
+}
+
+export interface Included {
+  studies: number;
+  reports?: number; // if missing, assume equal to studies
+}
+
+export interface ValidationIssue {
+  severity: string; // e.g., "WARNING", "ERROR", "INFO"
+  message: string;
+}

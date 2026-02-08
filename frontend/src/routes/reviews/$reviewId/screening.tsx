@@ -22,6 +22,7 @@ import { TableBottomHeader } from '@/components/shared/references-table-bottom-h
 import { useBulkUpsertReferenceOpinions } from '@/hooks/use-reference-opinion';
 import { PDFDialog } from '@/components/shared/pdf-dialog';
 import { useFetchReview } from '@/hooks/use-review';
+import { Spinner } from '@/components/ui/spinner';
 
 export const Route = createFileRoute('/reviews/$reviewId/screening')({
   component: RouteComponent,
@@ -96,7 +97,10 @@ function RouteComponent() {
 
   const bulkUpsertReferenceOpinions = useBulkUpsertReferenceOpinions();
 
-  const handleOpinionApplied = async (status: OpinionStatus) => {
+  const handleOpinionApplied = async (
+    status: OpinionStatus,
+    reasonId?: number | null
+  ) => {
     try {
       const referenceIds = [
         ...ui.selectedReferenceIds,
@@ -107,6 +111,7 @@ function RouteComponent() {
           referenceIds: referenceIds,
           status: status,
           stage: 'screening',
+          reason: reasonId,
         },
       });
       queryClient.invalidateQueries({
@@ -124,8 +129,13 @@ function RouteComponent() {
 
   if (isLoading) {
     return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-muted-foreground">Loading references...</div>
+      <div className="h-full flex items-center justify-center text-muted-foreground">
+        <div className="flex flex-col gap-2">
+          <span>Loading references...</span>
+          <div className="flex items-center justify-center w-full">
+            <Spinner />
+          </div>
+        </div>
       </div>
     );
   }

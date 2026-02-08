@@ -12,6 +12,7 @@ export const useBulkUpsertReferenceOpinions = () => {
         referenceIds: number[];
         status: OpinionStatus;
         stage: Stage;
+        reason?: number | null;
       };
     }) => {
       return bulkUpsertReferenceOpinions(payload);

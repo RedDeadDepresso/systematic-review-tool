@@ -1,4 +1,9 @@
-import type { ArticleCounts, Review } from '@/types/review';
+import type {
+  ArticleCounts,
+  PrismaData,
+  Review,
+  ValidationIssue,
+} from '@/types/review';
 import api from './axios';
 import type { Stage } from '@/types/reference';
 
@@ -22,6 +27,18 @@ export const fetchReviews = async ({ isActive }: { isActive: boolean }) => {
 
 export const fetchReview = async (id: number) => {
   const res = await api.get<Review>(`/reviews/${id}/`);
+  return res.data;
+};
+
+export interface PrismaApiResponse {
+  fileUrl: string; // URL to the diagram image
+  interactiveUrl?: string; // URL to interactive Shiny diagram
+  data: PrismaData; // structured PRISMA data
+  validationIssues?: ValidationIssue[]; // optional validation warnings/errors
+}
+
+export const createReviewPrisma = async (id: number) => {
+  const res = await api.post<PrismaApiResponse>(`/reviews/${id}/prisma/`);
   return res.data;
 };
 

@@ -53,6 +53,7 @@ class Review(models.Model):
     is_active = models.BooleanField(default=True)
     reference_duplicate_detected = models.BooleanField(default=False)
     is_blinded = models.BooleanField(default=True)
+    prisma_file = models.FileField(upload_to="prisma_diagrams/", blank=True, null=True)
 
     def __str__(self):
         return self.title
@@ -293,6 +294,14 @@ class ReferenceDuplicatePair(models.Model):
         return f"DuplicatePair({self.reference1.id}, {self.reference2.id})"
 
 
+class Reason(models.Model):
+    review = models.ForeignKey(Review, on_delete=models.CASCADE)
+    name = models.CharField(max_length=150)
+
+    def __str__(self):
+        return self.name
+
+
 class ReferenceOpinion(models.Model):
     class Status(models.TextChoices):
         UNDECIDED = "Undecided"
@@ -316,9 +325,17 @@ class ReferenceOpinion(models.Model):
         choices=Stage.choices,
         default=Stage.SCREENING,
     )
+    reason = models.ForeignKey(Reason, null=True, on_delete=models.SET_NULL)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ("reference", "member", "stage")
+        ordering = ["-updated_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reference", "member", "stage"],
+                name="unique_reference_opinion",
+            ),
+        ]
 
 
 class Keyword(models.Model):

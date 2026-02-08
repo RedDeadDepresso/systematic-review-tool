@@ -26,6 +26,7 @@ class Permission(str, Enum):
     MODIFY_KEYWORD = "modify_keyword"
     MODIFY_OPINION = "modify_opinion"
     MODIFY_NOTE = "modify_note"
+    MODIFY_REASON = "modify_reason"
 
 
 # === Permissions map ===
@@ -46,6 +47,7 @@ PERMISSIONS = {
     Permission.MODIFY_REFERENCE: [Role.OWNER, Role.COLLABORATOR, Role.REVIEWER],
     Permission.MODIFY_KEYWORD: [Role.OWNER, Role.COLLABORATOR, Role.REVIEWER],
     Permission.MODIFY_OPINION: [Role.OWNER, Role.COLLABORATOR, Role.REVIEWER],
+    Permission.MODIFY_REASON: [Role.OWNER, Role.COLLABORATOR, Role.REVIEWER],
     Permission.MODIFY_NOTE: [Role.OWNER, Role.COLLABORATOR, Role.REVIEWER],
     Permission.ASSIGN_LABEL: [Role.OWNER, Role.COLLABORATOR, Role.REVIEWER],
     Permission.ADD_DATA: [Role.OWNER, Role.COLLABORATOR],

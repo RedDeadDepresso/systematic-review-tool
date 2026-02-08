@@ -44,6 +44,10 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
       label: 'Coding & Theming',
       path: `/reviews/${reviewId}/coding-theming`,
     },
+    {
+      label: 'Prisma',
+      path: `/reviews/${reviewId}/prisma`,
+    },
   ];
 
   return (

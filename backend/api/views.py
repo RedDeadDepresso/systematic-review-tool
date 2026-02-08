@@ -1,12 +1,24 @@
 import csv
 import json
 import os
+import re
+import tempfile
 from datetime import date
+from urllib.parse import urlencode
 
 import bibtexparser
+from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import transaction
-from django.db.models import Count, F, OuterRef, Prefetch, Q, Subquery
+from django.db.models import (
+    Count,
+    Exists,
+    F,
+    OuterRef,
+    Prefetch,
+    Q,
+    Subquery,
+)
 from django.db.models.functions import ExtractYear
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -30,6 +42,7 @@ from api.models import (
     Label,
     MainTheme,
     Note,
+    Reason,
     Reference,
     ReferenceDuplicatePair,
     ReferenceLabel,
@@ -62,6 +75,7 @@ from api.serializers import (
     LabelSerializer,
     MainThemeSerializer,
     NoteSerializer,
+    ReasonSerializer,
     ReferenceDuplicatePairSerializer,
     ReferenceOpinionSerializer,
     ReferenceOpinionUpsertSerializer,
@@ -76,6 +90,15 @@ from api.serializers import (
     UploadedPDFSerializer,
     UserSerializer,
 )
+from vendor.prisma_flow_diagram.prisma import Prisma2020Diagram, plot_prisma2020_new
+from vendor.prisma_flow_diagram.validation import _human_issue
+
+
+ANSI_ESCAPE = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
+
+
+def strip_ansi(text: str) -> str:
+    return ANSI_ESCAPE.sub("", text)
 
 
 class UserViewSet(
@@ -414,6 +437,177 @@ class ReviewViewSet(viewsets.ModelViewSet):
 
         return Response({"updated": refs.count()})
 
+    @action(detail=True, methods=["post"], url_path="prisma")
+    def prisma(self, request, pk=None):
+        """
+        Generate PRISMA flow diagram for the review
+        """
+        review = self.get_object()
+        check_permission(Permission.ACCESS_REVIEW, self.request.user, review)
+
+        # Get all references for this review
+        references_qs = Reference.objects.filter(review=review)
+
+        # Total references from all sources
+        total_references = references_qs.count()
+
+        # Duplicates count
+        duplicates_count = references_qs.filter(
+            duplicate_status=Reference.DuplicateStatus.DELETED
+        ).count()
+
+        # References after duplicate removal
+        screened_qs = references_qs.exclude(
+            duplicate_status__in=[
+                Reference.DuplicateStatus.UNRESOLVED,
+                Reference.DuplicateStatus.DELETED,
+            ]
+        )
+        screened_count = screened_qs.count()
+
+        # Reports sought for full-text
+        full_text_qs = references_qs.filter(in_full_text=True)
+        sought_count = full_text_qs.count()
+
+        # Excluded in screening
+        screening_excluded_count = screened_count - sought_count
+
+        # Not retrieved (references in full-text but no full-text opinion/assessment yet)
+        not_retrieved_count = full_text_qs.filter(
+            ~Exists(
+                ReferenceOpinion.objects.filter(
+                    reference_id=OuterRef("pk"), stage=ReferenceOpinion.Stage.FULL_TEXT
+                )
+            )
+        ).count()
+
+        # Assessed for full-text (references with at least one full-text opinion)
+        assessed_count = full_text_qs.filter(
+            Exists(
+                ReferenceOpinion.objects.filter(
+                    reference_id=OuterRef("pk"), stage=ReferenceOpinion.Stage.FULL_TEXT
+                )
+            )
+        ).count()
+
+        # Full-text exclusion reasons
+        # Subquery: latest FULL-TEXT exclusion opinion per reference
+        latest_opinion_ids = (
+            ReferenceOpinion.objects.filter(
+                reference__review=review,
+                reference__in_full_text=True,
+                reference__in_extraction=False,
+                stage=ReferenceOpinion.Stage.FULL_TEXT,
+                status=ReferenceOpinion.Status.EXCLUDED,
+                reason__isnull=False,
+            )
+            .order_by("reference_id", "-updated_at")
+            .distinct("reference_id")
+            .values("id")
+        )
+
+        # Aggregate reasons from those latest opinions only
+        excluded_reasons_qs = (
+            ReferenceOpinion.objects.filter(id__in=Subquery(latest_opinion_ids))
+            .values("reason__name")
+            .annotate(count=Count("reference_id"))
+            .order_by("-count")
+        )
+
+        excluded_reasons = {
+            item["reason__name"]: item["count"] for item in excluded_reasons_qs
+        }
+
+        # Studies included in data extraction
+        studies_count = references_qs.filter(in_extraction=True).count()
+        reports_count = studies_count  # Assuming 1:1 for now
+
+        # Build PRISMA data structure
+        prisma_data = {
+            "db_registers": {
+                "identification": {
+                    "databases": total_references,
+                },
+                "removed_before_screening": {
+                    "duplicates": duplicates_count,
+                },
+                "records": {
+                    "screened": screened_count,
+                    "excluded": screening_excluded_count,
+                },
+                "reports": {
+                    "sought": sought_count,
+                    "not_retrieved": not_retrieved_count,
+                    "assessed": assessed_count,
+                    "excluded_reasons": excluded_reasons,
+                },
+            },
+            "included": {"studies": studies_count, "reports": reports_count},
+        }
+
+        try:
+            # Validate the diagram data first
+            diagram = Prisma2020Diagram(
+                db_registers=prisma_data["db_registers"],
+                included=prisma_data["included"],
+            )
+            validation_issues = diagram.validate()
+
+            # Generate the diagram to temp file
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_file:
+                tmp_path = tmp_file.name
+
+            try:
+                # Generate diagram
+                plot_prisma2020_new(
+                    db_registers=prisma_data["db_registers"],
+                    included=prisma_data["included"],
+                    filename=tmp_path,
+                    validation="off",
+                )
+
+                # Read temp file and save to model
+                with open(tmp_path, "rb") as f:
+                    filename = f"prisma_{review.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.png"
+                    review.prisma_file.save(filename, ContentFile(f.read()), save=True)
+            finally:
+                # Clean up temp file
+                if os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+
+            # Build interactive PRISMA URL
+            interactive_url = self._build_prisma_url(prisma_data)
+
+            # Prepare response
+            response_data = {
+                "message": "PRISMA diagram generated successfully",
+                "file_url": request.build_absolute_uri(review.prisma_file.url)
+                if review.prisma_file
+                else None,
+                "interactive_url": interactive_url,
+                "data": prisma_data,
+            }
+
+            # Include validation issues
+            if validation_issues:
+                response_data["validation_issues"] = []
+                for issue in validation_issues:
+                    severity, message = _human_issue(issue)
+                    response_data["validation_issues"].append(
+                        {
+                            "severity": strip_ansi(severity),
+                            "message": strip_ansi(message),
+                        }
+                    )
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to generate PRISMA diagram: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
     @action(detail=True, methods=["get"], url_path="export-json")
     def export_json(self, request, pk=None):
         """
@@ -709,6 +903,54 @@ class ReviewViewSet(viewsets.ModelViewSet):
 
         return text
 
+    def _build_prisma_url(self, prisma_data: dict) -> str:
+        """
+        Build interactive PRISMA flowchart URL with pre-populated data
+        using the correct PRISMA shiny app parameter names
+        https://estech.shinyapps.io/prisma_flowdiagram/
+        """
+        base_url = "https://estech.shinyapps.io/prisma_flowdiagram/"
+
+        db_reg = prisma_data.get("db_registers", {})
+        identification = db_reg.get("identification", {})
+        removed = db_reg.get("removed_before_screening", {})
+        records = db_reg.get("records", {})
+        reports = db_reg.get("reports", {})
+        included = prisma_data.get("included", {})
+        excluded_reasons = reports.get("excluded_reasons", {})
+
+        params = {
+            # Identification
+            "database_results": identification.get("databases", 0),
+            "register_results": identification.get("registers", 0),
+            # Removed before screening
+            "duplicates": removed.get("duplicates", 0),
+            "excluded_automatic": removed.get("automation", 0),
+            "excluded_other": removed.get("other", 0),
+            # Screening
+            "records_screened": records.get("screened", 0),
+            "records_excluded": records.get("excluded", 0),
+            # Full-text retrieval
+            "dbr_sought_reports": reports.get("sought", 0),
+            "dbr_notretrieved_reports": reports.get("not_retrieved", 0),
+            "dbr_assessed": reports.get("assessed", 0),
+            # Included studies
+            "new_studies": included.get("studies", 0),
+            "new_reports": included.get("reports", included.get("studies", 0)),
+            "total_studies": included.get("studies", 0),
+            "total_reports": included.get("reports", included.get("studies", 0)),
+        }
+
+        # Add exclusion reasons (format expected by CSV description)
+        if excluded_reasons:
+            reasons_str = "; ".join(
+                f"{reason}, {count}" for reason, count in excluded_reasons.items()
+            )
+            params["dbr_excluded"] = reasons_str
+
+        query_string = urlencode(params)
+        return f"{base_url}?{query_string}"
+
 
 class ReferenceViewSet(viewsets.ModelViewSet):
     """
@@ -966,14 +1208,16 @@ class ScreeningQuerysetMixin:
         if review and review.is_blinded:
             opinions_qs = opinions_qs.filter(member__user=user)
 
-        opinions_qs = opinions_qs.select_related("member__user").only(
+        opinions_qs = opinions_qs.select_related("member__user", "reason").only(
             "id",
             "status",
             "stage",
+            "updated_at",
             "member__id",
             "member__user__first_name",
             "member__user__last_name",
             "member__user__email",
+            "reason__name",
         )
 
         qs = qs.exclude(duplicate_status__in=["Undecided", "Deleted"])
@@ -1114,6 +1358,41 @@ class ScreeningFullTextView(ScreeningQuerysetMixin, ReviewDataView):
         )
 
 
+class ReasonViewSet(viewsets.ModelViewSet):
+    serializer_class = ReasonSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = Reason.objects.all()
+
+    def _get_review(self):
+        review_id = self.request.query_params.get("review")
+
+        if not review_id:
+            raise serializers.ValidationError(
+                {"review": "This query parameter is required."}
+            )
+
+        review = get_object_or_404(Review, pk=review_id)
+
+        check_permission(Permission.ACCESS_REVIEW, self.request.user, review)
+
+        return review
+
+    def get_queryset(self):
+        if self.action == "list":
+            review = self._get_review()
+            return Reason.objects.filter(review=review)
+
+        return super().get_queryset()
+
+    def perform_create(self, serializer):
+        review_id = self.request.data.get("review")
+        review = get_object_or_404(Review, pk=review_id)
+
+        check_permission(Permission.MODIFY_REASON, self.request.user, review)
+
+        serializer.save(review=review)
+
+
 class ReferenceOpinionViewSet(viewsets.GenericViewSet):
     """
     ViewSet to manage a member's opinion on a reference.
@@ -1173,17 +1452,31 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
         reference_ids = data["reference_ids"]
         status_value = data["status"]
         stage_value = data["stage"]
+        reason_value = data.get("reason")
         user = request.user
+
+        # Normalize reason: only allowed when excluded
+        if status_value != ReferenceOpinion.Status.EXCLUDED:
+            reason_value = None
 
         references = Reference.objects.filter(id__in=reference_ids).select_related(
             "review"
         )
         if references.count() != len(reference_ids):
-            missing_ids = set(reference_ids) - set(ref.id for ref in references)
+            missing_ids = set(reference_ids) - {ref.id for ref in references}
             raise serializers.ValidationError(
                 {"reference_ids": f"References not found: {missing_ids}"}
             )
 
+        # Validate reason belongs to same review
+        if reason_value:
+            review_ids = {ref.review_id for ref in references}
+            if reason_value.review_id not in review_ids:
+                raise serializers.ValidationError(
+                    {"reason": "Reason must belong to the same review."}
+                )
+
+        # Resolve members + permissions
         review_members = {}
         for ref in references:
             review = ref.review
@@ -1203,9 +1496,11 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
         to_create, to_update = [], []
         for ref in references:
             review_member = review_members[ref.review]
+
             if ref.id in existing_opinions:
                 opinion = existing_opinions[ref.id]
                 opinion.status = status_value
+                opinion.reason = reason_value
                 to_update.append(opinion)
             else:
                 to_create.append(
@@ -1214,19 +1509,25 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
                         member=review_member,
                         status=status_value,
                         stage=stage_value,
+                        reason=reason_value,
                     )
                 )
 
         if to_create:
             ReferenceOpinion.objects.bulk_create(to_create)
+
         if to_update:
-            ReferenceOpinion.objects.bulk_update(to_update, ["status"])
+            ReferenceOpinion.objects.bulk_update(
+                to_update,
+                ["status", "reason"],
+            )
 
         opinions = ReferenceOpinion.objects.filter(
             reference_id__in=reference_ids,
             member__in=review_members.values(),
             stage=stage_value,
         )
+
         response_serializer = self.get_serializer(opinions, many=True)
         return Response(response_serializer.data)
 
