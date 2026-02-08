@@ -3,17 +3,18 @@ import { CircleUser, ExternalLink, Link2, Paperclip } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import type { Reference, Label } from '@/types/reference';
+import type { Reference, Label, Opinion } from '@/types/reference';
 import { highlightText } from '@/lib/reference';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { Button } from '../ui/button';
 import type { ReviewMember } from '@/types/review';
 
 interface OpinionBadgeProps {
-  opinion: { member: ReviewMember; status: string; reason: string | null };
+  idx: number;
+  opinion: Opinion;
 }
 
-function OpinionBadge({ opinion }: OpinionBadgeProps) {
+function OpinionBadge({ idx, opinion }: OpinionBadgeProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -38,7 +39,8 @@ function OpinionBadge({ opinion }: OpinionBadgeProps) {
         </Badge>
       </TooltipTrigger>
       <TooltipContent>
-        {opinion.status} by {opinion.member.user.email}
+        {opinion.status} by {opinion.member.user.email} at {opinion.updatedAt}{' '}
+        {idx === 0 && '(Most Recent)'}
       </TooltipContent>
     </Tooltip>
   );
@@ -138,7 +140,7 @@ export function ReferenceRowTitleOnly({
         {ref.opinions?.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-2">
             {ref.opinions.map((opinion, idx) => (
-              <OpinionBadge key={idx} opinion={opinion} />
+              <OpinionBadge key={idx} idx={idx} opinion={opinion} />
             ))}
           </div>
         )}
@@ -247,7 +249,7 @@ export function ReferenceRowTitleAbstract({
               {ref.opinions?.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {ref.opinions.map((opinion, idx) => (
-                    <OpinionBadge key={idx} opinion={opinion} />
+                    <OpinionBadge key={idx} idx={idx} opinion={opinion} />
                   ))}
                 </div>
               )}
@@ -354,7 +356,7 @@ export function ReferenceRowTitleFile({
         {ref.opinions?.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-2">
             {ref.opinions.map((opinion, idx) => (
-              <OpinionBadge key={idx} opinion={opinion} />
+              <OpinionBadge key={idx} idx={idx} opinion={opinion} />
             ))}
           </div>
         )}

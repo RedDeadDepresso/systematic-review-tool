@@ -9,6 +9,7 @@ export type Opinion = {
   status: OpinionStatus;
   stage: Stage;
   reason: string | null;
+  updatedAt: string;
 };
 
 export type Label = {
