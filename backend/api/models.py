@@ -8,7 +8,6 @@ from django.contrib.auth.models import (
 from django.contrib.postgres.indexes import GinIndex, OpClass
 from django.contrib.postgres.search import SearchVectorField
 from django.db import connection, models, transaction
-from django.db.models import Q
 from django.db.models.functions import Lower
 from django.utils import timezone
 
@@ -54,6 +53,7 @@ class Review(models.Model):
     is_active = models.BooleanField(default=True)
     reference_duplicate_detected = models.BooleanField(default=False)
     is_blinded = models.BooleanField(default=True)
+    prisma_file = models.FileField(upload_to="prisma_diagrams/", blank=True, null=True)
 
     def __str__(self):
         return self.title
@@ -332,12 +332,6 @@ class ReferenceOpinion(models.Model):
             models.UniqueConstraint(
                 fields=["reference", "member", "stage"],
                 name="unique_reference_opinion",
-            ),
-            models.CheckConstraint(
-                condition=(
-                    Q(status="Excluded", reason__isnull=False) | ~Q(status="Excluded")
-                ),
-                name="reason_required_if_excluded",
             ),
         ]
 
