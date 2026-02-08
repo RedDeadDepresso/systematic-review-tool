@@ -1,50 +1,41 @@
-upstream django {
-    server django:8000;
-}
-
 server {
     listen 80;
     server_name ${SITE_DOMAIN};
 
-    # ACME challenge must be first
+    # ACME challenge FIRST
     location /.well-known/acme-challenge/ {
         alias /var/www/certbot/;
     }
 
-    location = / {
-        return 302 /login/;   # redirect / to /login
-    }
-
-    # Serve React frontend
+    # React frontend
     location / {
         root /usr/share/nginx/html;
-        index index.html index.htm;
-        try_files $uri /index.html;
+        index index.html;
+        try_files $uri $uri/ /index.html;
     }
 
-    # Proxy API requests to Django
+    # Django API
     location /api/ {
-        proxy_pass http://django:8000/api/;
+        proxy_pass http://django/api/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Serve Django static files
+    # Static files
     location /static/ {
         alias /backend/staticfiles/;
     }
 
-    # Increase max upload size
     client_max_body_size 50M;
 
-    # WebSockets for Django
+    # WebSockets
     location /ws/ {
         proxy_pass http://django/ws/;
-        proxy_set_header Host $host;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
     }
 }
