@@ -7,6 +7,7 @@ import {
   UploadReviewReferences,
   fetchArticleCounts,
   addData,
+  createReviewPrisma,
 } from '@/api/review';
 import type { Review } from '@/types/review';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -24,6 +25,13 @@ export const useFetchReview = (id: number) => {
   return useQuery({
     queryKey: ['reviews', id],
     queryFn: () => fetchReview(id),
+  });
+};
+
+export const useCreateReviewPrisma = (id: number) => {
+  return useQuery({
+    queryKey: ['reviews', id, 'prisma'],
+    queryFn: () => createReviewPrisma(id),
   });
 };
 
