@@ -6,8 +6,9 @@ server {
     server_name ${SITE_DOMAIN};
 
     # ACME challenge FIRST
-    location /.well-known/acme-challenge/ {
+    location ^~ /.well-known/acme-challenge/ {
         alias /var/www/certbot/;
+        try_files $uri =404;
     }
 
     location / {
