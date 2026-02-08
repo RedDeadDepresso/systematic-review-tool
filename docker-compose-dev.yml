@@ -11,7 +11,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     env_file:
-      - ./dev.env
+      - ./.env.development
 
   django:
     build: ./backend
@@ -25,7 +25,7 @@ services:
     depends_on:
       - postgres
     env_file:
-      - ./dev.env
+      - ./.env.development
 
   celery:
     build: ./backend
@@ -38,7 +38,7 @@ services:
       - redis
       - django
     env_file:
-      - ./dev.env
+      - ./.env.development
     environment:
       - C_FORCE_ROOT="true"
 
@@ -60,7 +60,7 @@ services:
       - CI=true
     command: sh -c "pnpm dev"
     env_file:
-      - ./dev.env
+      - ./.env.development
 
 volumes:
   postgres-data:
