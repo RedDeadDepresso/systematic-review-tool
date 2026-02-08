@@ -99,7 +99,10 @@ function RouteComponent() {
 
   const bulkUpsertReferenceOpinions = useBulkUpsertReferenceOpinions();
 
-  const handleOpinionApplied = async (status: OpinionStatus) => {
+  const handleOpinionApplied = async (
+    status: OpinionStatus,
+    reasonId?: number | null
+  ) => {
     try {
       const referenceIds = [
         ...ui.selectedReferenceIds,
@@ -110,6 +113,7 @@ function RouteComponent() {
           referenceIds: referenceIds,
           status: status,
           stage: 'full-text',
+          reason: reasonId,
         },
       });
       invalidateQuery();

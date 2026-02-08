@@ -10,7 +10,7 @@ import { Button } from '../ui/button';
 import type { ReviewMember } from '@/types/review';
 
 interface OpinionBadgeProps {
-  opinion: { member: ReviewMember; status: string };
+  opinion: { member: ReviewMember; status: string; reason: string | null };
 }
 
 function OpinionBadge({ opinion }: OpinionBadgeProps) {
@@ -34,6 +34,7 @@ function OpinionBadge({ opinion }: OpinionBadgeProps) {
           {opinion.status === 'Maybe' && '?'}
           {opinion.status === 'Excluded' && '✕'}
           <span>{opinion.member.user.firstName}</span>
+          {opinion.reason && <span>- {opinion.reason}</span>}
         </Badge>
       </TooltipTrigger>
       <TooltipContent>

@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  MessageSquareText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +23,7 @@ import { useBulkCreateNote } from '@/hooks/use-note';
 import type { ReviewRole } from '@/types/review';
 import { can } from '@/lib/permissions';
 import { useBulkUpdateExtractionStatus } from '@/hooks/use-extraction-table';
+import { ReasonPopover } from './reason-popover';
 
 export interface ReviewDataFooterProps {
   reviewId: number;
@@ -33,7 +35,7 @@ export interface ReviewDataFooterProps {
 }
 
 export interface ScreeningFooterProps extends ReviewDataFooterProps {
-  onOpinionApplied: (status: OpinionStatus) => void;
+  onOpinionApplied: (status: OpinionStatus, reasonId?: number | null) => void;
 }
 
 // Shared hook for getting selected references
@@ -326,6 +328,22 @@ export function ScreeningFooter({
             <span className="hidden sm:inline">{label}</span>
           </Button>
         ))}
+        <ReasonPopover
+          reviewId={reviewId}
+          trigger={
+            <Button
+              size="sm"
+              className="flex-1 bg-gray-50 text-red-700 border border-red-200 hover:bg-red-100 gap-2"
+              disabled={selectedRefs.length === 0}
+            >
+              <MessageSquareText className="h-4 w-4" />
+              <span className="hidden sm:inline">Reason</span>
+            </Button>
+          }
+          handleReasonApplied={(reasonId) =>
+            onOpinionApplied('Excluded', reasonId)
+          }
+        />
         <ActionButtons
           reviewId={reviewId}
           userRole={userRole}
