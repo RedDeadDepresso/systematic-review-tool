@@ -1,9 +1,13 @@
 import csv
 import json
 import os
+import re
+import tempfile
 from datetime import date
+from urllib.parse import urlencode
 
 import bibtexparser
+from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import transaction
 from django.db.models import Count, F, OuterRef, Prefetch, Q, Subquery
@@ -78,6 +82,15 @@ from api.serializers import (
     UploadedPDFSerializer,
     UserSerializer,
 )
+from vendor.prisma_flow_diagram.prisma import Prisma2020Diagram, plot_prisma2020_new
+from vendor.prisma_flow_diagram.validation import _human_issue
+
+
+ANSI_ESCAPE = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
+
+
+def strip_ansi(text: str) -> str:
+    return ANSI_ESCAPE.sub("", text)
 
 
 class UserViewSet(
@@ -416,6 +429,154 @@ class ReviewViewSet(viewsets.ModelViewSet):
 
         return Response({"updated": refs.count()})
 
+    @action(detail=True, methods=["post"], url_path="prisma")
+    def prisma(self, request, pk=None):
+        """
+        Generate PRISMA flow diagram for the review
+        """
+        review = self.get_object()
+        check_permission(Permission.ACCESS_REVIEW, self.request.user, review)
+
+        # Get all references for this review
+        references_qs = Reference.objects.filter(review=review)
+
+        # Total references from all sources
+        total_references = references_qs.count()
+
+        # Duplicates count
+        duplicates_count = ReferenceDuplicatePair.objects.filter(review=review).count()
+
+        # References after duplicate removal
+        screened_qs = references_qs.exclude(
+            duplicate_status__in=[
+                Reference.DuplicateStatus.UNRESOLVED,
+                Reference.DuplicateStatus.DELETED,
+            ]
+        )
+        screened_count = screened_qs.count()
+
+        # Reports sought for full-text
+        full_text_qs = references_qs.filter(in_full_text=True)
+        sought_count = full_text_qs.count()
+
+        # Excluded in screening
+        screening_excluded_count = screened_count - sought_count
+
+        # Not retrieved (no file attached)
+        not_retrieved_count = full_text_qs.filter(
+            Q(file="") | Q(file__isnull=True)
+        ).count()
+
+        # Assessed for full-text (with file)
+        assessed_count = full_text_qs.exclude(Q(file="") | Q(file__isnull=True)).count()
+
+        # Full-text exclusion reasons
+        excluded_reasons_qs = (
+            ReferenceOpinion.objects.filter(
+                reference__review=review,
+                stage=ReferenceOpinion.Stage.FULL_TEXT,
+                status=ReferenceOpinion.Status.EXCLUDED,
+                reason__isnull=False,
+            )
+            .values("reason__name")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+
+        excluded_reasons = {
+            item["reason__name"]: item["count"] for item in excluded_reasons_qs
+        }
+
+        # Studies included in data extraction
+        studies_count = references_qs.filter(in_extraction=True).count()
+        reports_count = studies_count  # Assuming 1:1 for now
+
+        # Build PRISMA data structure
+        prisma_data = {
+            "db_registers": {
+                "identification": {
+                    "databases": total_references,
+                },
+                "removed_before_screening": {
+                    "duplicates": duplicates_count,
+                },
+                "records": {
+                    "screened": screened_count,
+                    "excluded": screening_excluded_count,
+                },
+                "reports": {
+                    "sought": sought_count,
+                    "not_retrieved": not_retrieved_count,
+                    "assessed": assessed_count,
+                    "excluded_reasons": excluded_reasons,
+                },
+            },
+            "included": {"studies": studies_count, "reports": reports_count},
+        }
+
+        try:
+            # Validate the diagram data first
+            diagram = Prisma2020Diagram(
+                db_registers=prisma_data["db_registers"],
+                included=prisma_data["included"],
+            )
+            validation_issues = diagram.validate()
+
+            # Generate the diagram to temp file
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_file:
+                tmp_path = tmp_file.name
+
+            try:
+                # Generate diagram
+                plot_prisma2020_new(
+                    db_registers=prisma_data["db_registers"],
+                    included=prisma_data["included"],
+                    filename=tmp_path,
+                    validation="off",
+                )
+
+                # Read temp file and save to model
+                with open(tmp_path, "rb") as f:
+                    filename = f"prisma_{review.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.png"
+                    review.prisma_file.save(filename, ContentFile(f.read()), save=True)
+            finally:
+                # Clean up temp file
+                if os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+
+            # Build interactive PRISMA URL
+            interactive_url = self._build_prisma_url(prisma_data)
+
+            # Prepare response
+            response_data = {
+                "message": "PRISMA diagram generated successfully",
+                "file_url": request.build_absolute_uri(review.prisma_file.url)
+                if review.prisma_file
+                else None,
+                "interactive_url": interactive_url,
+                "data": prisma_data,
+            }
+
+            # Include validation issues
+            if validation_issues:
+                response_data["validation_issues"] = []
+                for issue in validation_issues:
+                    severity, message = _human_issue(issue)
+                    response_data["validation_issues"].append(
+                        {
+                            "severity": strip_ansi(severity),
+                            "message": strip_ansi(message),
+                        }
+                    )
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to generate PRISMA diagram: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
     @action(detail=True, methods=["get"], url_path="export-json")
     def export_json(self, request, pk=None):
         """
@@ -710,6 +871,54 @@ class ReviewViewSet(viewsets.ModelViewSet):
             text = text.replace(old, new)
 
         return text
+
+    def _build_prisma_url(self, prisma_data: dict) -> str:
+        """
+        Build interactive PRISMA flowchart URL with pre-populated data
+        using the correct PRISMA shiny app parameter names
+        https://estech.shinyapps.io/prisma_flowdiagram/
+        """
+        base_url = "https://estech.shinyapps.io/prisma_flowdiagram/"
+
+        db_reg = prisma_data.get("db_registers", {})
+        identification = db_reg.get("identification", {})
+        removed = db_reg.get("removed_before_screening", {})
+        records = db_reg.get("records", {})
+        reports = db_reg.get("reports", {})
+        included = prisma_data.get("included", {})
+        excluded_reasons = reports.get("excluded_reasons", {})
+
+        params = {
+            # Identification
+            "database_results": identification.get("databases", 0),
+            "register_results": identification.get("registers", 0),
+            # Removed before screening
+            "duplicates": removed.get("duplicates", 0),
+            "excluded_automatic": removed.get("automation", 0),
+            "excluded_other": removed.get("other", 0),
+            # Screening
+            "records_screened": records.get("screened", 0),
+            "records_excluded": records.get("excluded", 0),
+            # Full-text retrieval
+            "dbr_sought_reports": reports.get("sought", 0),
+            "dbr_notretrieved_reports": reports.get("not_retrieved", 0),
+            "dbr_assessed": reports.get("assessed", 0),
+            # Included studies
+            "new_studies": included.get("studies", 0),
+            "new_reports": included.get("reports", included.get("studies", 0)),
+            "total_studies": included.get("studies", 0),
+            "total_reports": included.get("reports", included.get("studies", 0)),
+        }
+
+        # Add exclusion reasons (format expected by CSV description)
+        if excluded_reasons:
+            reasons_str = "; ".join(
+                f"{reason}, {count}" for reason, count in excluded_reasons.items()
+            )
+            params["dbr_excluded"] = reasons_str
+
+        query_string = urlencode(params)
+        return f"{base_url}?{query_string}"
 
 
 class ReferenceViewSet(viewsets.ModelViewSet):
