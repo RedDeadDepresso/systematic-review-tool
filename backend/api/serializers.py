@@ -296,6 +296,7 @@ class ReferenceSerializer(BaseReferenceSerializer):
                 },
                 "status": op.status,
                 "reason": op.reason.name if op.reason else None,
+                "updated_at": op.updated_at.strftime("%H:%M %d/%m/%Y"),
             }
             for op in opinions
         ]
@@ -334,11 +335,12 @@ class ReferenceSerializer(BaseReferenceSerializer):
 class ReferenceOpinionSerializer(ModelSerializer):
     member = serializers.StringRelatedField()
     reason = serializers.StringRelatedField(read_only=True)
+    updated_at = serializers.DateTimeField(format="%h:%m %d/%m/%Y")
 
     class Meta:
         model = ReferenceOpinion
-        fields = ["id", "member", "status", "reason"]
-        read_only_fields = ["id", "member", "reason"]
+        fields = ["id", "member", "status", "reason", "updated_at"]
+        read_only_fields = ["id", "member", "reason", "updated_at"]
 
     def validate(self, attrs):
         instance = getattr(self, "instance", None)

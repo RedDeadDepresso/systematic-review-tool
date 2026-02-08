@@ -1212,6 +1212,7 @@ class ScreeningQuerysetMixin:
             "id",
             "status",
             "stage",
+            "updated_at",
             "member__id",
             "member__user__first_name",
             "member__user__last_name",
