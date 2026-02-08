@@ -180,6 +180,7 @@ class ReviewSerializer(ModelSerializer):
     class Meta:
         model = Review
         fields = [
+            "id",
             "title",
             "description",
             "is_active",
@@ -191,6 +192,7 @@ class ReviewSerializer(ModelSerializer):
             "members",
         ]
         read_only_fields = [
+            "id",
             "owner",
             "date_created",
             "reference_count",
