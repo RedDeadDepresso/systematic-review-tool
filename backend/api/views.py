@@ -10,7 +10,15 @@ import bibtexparser
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import transaction
-from django.db.models import Count, F, OuterRef, Prefetch, Q, Subquery
+from django.db.models import (
+    Count,
+    Exists,
+    F,
+    OuterRef,
+    Prefetch,
+    Q,
+    Subquery,
+)
 from django.db.models.functions import ExtractYear
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -444,7 +452,9 @@ class ReviewViewSet(viewsets.ModelViewSet):
         total_references = references_qs.count()
 
         # Duplicates count
-        duplicates_count = ReferenceDuplicatePair.objects.filter(review=review).count()
+        duplicates_count = references_qs.filter(
+            duplicate_status=Reference.DuplicateStatus.DELETED
+        ).count()
 
         # References after duplicate removal
         screened_qs = references_qs.exclude(
@@ -462,24 +472,45 @@ class ReviewViewSet(viewsets.ModelViewSet):
         # Excluded in screening
         screening_excluded_count = screened_count - sought_count
 
-        # Not retrieved (no file attached)
+        # Not retrieved (references in full-text but no full-text opinion/assessment yet)
         not_retrieved_count = full_text_qs.filter(
-            Q(file="") | Q(file__isnull=True)
+            ~Exists(
+                ReferenceOpinion.objects.filter(
+                    reference_id=OuterRef("pk"), stage=ReferenceOpinion.Stage.FULL_TEXT
+                )
+            )
         ).count()
 
-        # Assessed for full-text (with file)
-        assessed_count = full_text_qs.exclude(Q(file="") | Q(file__isnull=True)).count()
+        # Assessed for full-text (references with at least one full-text opinion)
+        assessed_count = full_text_qs.filter(
+            Exists(
+                ReferenceOpinion.objects.filter(
+                    reference_id=OuterRef("pk"), stage=ReferenceOpinion.Stage.FULL_TEXT
+                )
+            )
+        ).count()
 
         # Full-text exclusion reasons
-        excluded_reasons_qs = (
+        # Subquery: latest FULL-TEXT exclusion opinion per reference
+        latest_opinion_ids = (
             ReferenceOpinion.objects.filter(
                 reference__review=review,
+                reference__in_full_text=True,
+                reference__in_extraction=False,
                 stage=ReferenceOpinion.Stage.FULL_TEXT,
                 status=ReferenceOpinion.Status.EXCLUDED,
                 reason__isnull=False,
             )
+            .order_by("reference_id", "-updated_at")
+            .distinct("reference_id")
+            .values("id")
+        )
+
+        # Aggregate reasons from those latest opinions only
+        excluded_reasons_qs = (
+            ReferenceOpinion.objects.filter(id__in=Subquery(latest_opinion_ids))
             .values("reason__name")
-            .annotate(count=Count("id"))
+            .annotate(count=Count("reference_id"))
             .order_by("-count")
         )
 
@@ -1341,7 +1372,6 @@ class ReasonViewSet(viewsets.ModelViewSet):
 
         review = get_object_or_404(Review, pk=review_id)
 
-        # Optional permission check
         check_permission(Permission.ACCESS_REVIEW, self.request.user, review)
 
         return review
@@ -1357,7 +1387,7 @@ class ReasonViewSet(viewsets.ModelViewSet):
         review_id = self.request.data.get("review")
         review = get_object_or_404(Review, pk=review_id)
 
-        check_permission(Permission.MODIFY_REVIEW, self.request.user, review)
+        check_permission(Permission.MODIFY_REASON, self.request.user, review)
 
         serializer.save(review=review)
 

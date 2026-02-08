@@ -326,6 +326,7 @@ class ReferenceOpinion(models.Model):
         default=Stage.SCREENING,
     )
     reason = models.ForeignKey(Reason, null=True, on_delete=models.SET_NULL)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         constraints = [
