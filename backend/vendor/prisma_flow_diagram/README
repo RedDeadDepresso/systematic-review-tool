@@ -1,0 +1,9 @@
+## Vendored Library: `prisma_flow_diagram`
+
+This project includes a **vendored copy** of `prisma_flow_diagram`(https://github.com/CoLRev-Environment/prisma-flow-diagram) because:
+
+1. The library is currently in **pre-release (0.1.0)** and not on PyPI.
+2. Installing it requires a subdependency that is **not needed** for this project.
+3. Using a vendored copy avoids **downgrading Python** or installing unnecessary packages.
+
+Only the modules required for this project have been included to **keep things lightweight** and have been copied under `vendor/prisma_flow_diagram` and can be imported directly from there.
