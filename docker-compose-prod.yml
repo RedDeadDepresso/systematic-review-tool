@@ -23,6 +23,8 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/backend
+      - media-data:/backend/media
+      - static-data:/backend/staticfiles
     depends_on:
       - postgres
     env_file:
@@ -57,9 +59,10 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d
-      - ./nginx/certbot/conf:/etc/letsencrypt
-      - ./nginx/certbot/www:/var/www/certbot
+      - media-data:/backend/media
+      - static-data:/backend/staticfiles
+      - letsencrypt-certs:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
       - frontend-dist:/usr/share/nginx/html
     env_file:
       - ./.env.production
@@ -70,8 +73,8 @@ services:
     image: certbot/certbot
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
     volumes:
-      - ./nginx/certbot/conf:/etc/letsencrypt
-      - ./nginx/certbot/www:/var/www/certbot
+      - letsencrypt-certs:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
     env_file:
       - ./.env.production
     depends_on:
@@ -80,3 +83,7 @@ services:
 volumes:
   frontend-dist:
   postgres-data:
+  media-data:
+  static-data:
+  letsencrypt-certs:
+  certbot-www:
