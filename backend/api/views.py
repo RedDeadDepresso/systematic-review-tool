@@ -24,7 +24,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django_filters import rest_framework as filters
 from djangorestframework_camel_case.parser import CamelCaseJSONParser
-from rest_framework import generics, serializers, status, viewsets
+from rest_framework import generics, mixins, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -1288,7 +1288,9 @@ class ReferenceAggregationService:
         }
 
 
-class ReviewDataView(ReviewQuerysetMixin, generics.ListAPIView):
+class ReviewDataViewSet(
+    ReviewQuerysetMixin, mixins.ListModelMixin, viewsets.GenericViewSet
+):
     serializer_class = ReferenceSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.DjangoFilterBackend]
@@ -1327,8 +1329,67 @@ class ReviewDataView(ReviewQuerysetMixin, generics.ListAPIView):
             }
         )
 
+    @action(detail=False, methods=["get"], url_path="export")
+    def export(self, request, *args, **kwargs):
+        """
+        Export filtered references as a BibTeX file using bibtexparser.
+        """
+        queryset = self.filter_queryset(self.get_queryset())
 
-class ScreeningView(ScreeningQuerysetMixin, ReviewDataView):
+        bib_content = self._references_to_bibtex(queryset)
+
+        response = HttpResponse(bib_content, content_type="application/x-bibtex")
+        response["Content-Disposition"] = 'attachment; filename="references.bib"'
+        return response
+
+    def _bibtex_str(self, value):
+        if value is None:
+            return ""
+        return str(value)
+
+    def _references_to_bibtex(self, references):
+        """
+        Convert a queryset of Reference objects into a BibTeX string using bibtexparser.
+        """
+        entries = []
+
+        for ref in references:
+            cite_key = (
+                ref.doi.replace("/", "_") if ref.doi else f"{ref.review.id}_{ref.id}"
+            )
+
+            entry = {
+                "ENTRYTYPE": "article",
+                "ID": cite_key,
+                "author": self._bibtex_str(ref.authors),
+                "title": self._bibtex_str(ref.title),
+                "journal": self._bibtex_str(ref.journal),
+                "year": self._bibtex_str(
+                    ref.publication_date.year if ref.publication_date else ""
+                ),
+            }
+
+            if ref.doi:
+                entry["doi"] = ref.doi
+            if ref.url:
+                entry["url"] = ref.url
+
+            # add labels if prefetched
+            if hasattr(ref, "prefetched_labels") and ref.prefetched_labels:
+                labels = ", ".join(
+                    [ref_label.label.name for ref_label in ref.prefetched_labels]
+                )
+                entry["keywords"] = labels
+
+            entries.append(entry)
+
+        bib_database = bibtexparser.bibdatabase.BibDatabase()
+        bib_database.entries = entries
+
+        return bibtexparser.dumps(bib_database)
+
+
+class ScreeningViewSet(ScreeningQuerysetMixin, ReviewDataViewSet):
     def get_queryset(self):
         return self.apply_screening(
             super().get_queryset(),
@@ -1342,7 +1403,7 @@ class ScreeningView(ScreeningQuerysetMixin, ReviewDataView):
         )
 
 
-class ScreeningFullTextView(ScreeningQuerysetMixin, ReviewDataView):
+class ScreeningFullTextViewSet(ScreeningQuerysetMixin, ReviewDataViewSet):
     def get_queryset(self):
         return self.apply_screening(
             super().get_queryset(),
@@ -2401,14 +2462,14 @@ class ExtractionTableViewSet(viewsets.ViewSet):
         writer = csv.writer(response)
 
         # Write header row
-        header = ["ID", "Title", "PDF"]
+        header = ["Title"]
         for question in questions:
             header.append(question.column_title)
         writer.writerow(header)
 
         # Write data rows
         for ref in references:
-            row = [ref.id, ref.title, ref.file or ""]
+            row = [ref.title]
 
             # Create answers dict for quick lookup
             answers_dict = {}
