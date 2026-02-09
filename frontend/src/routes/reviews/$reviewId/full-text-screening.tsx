@@ -1,13 +1,16 @@
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { useFetchScreeningFullText } from '@/hooks/use-reference';
 import { createFileRoute } from '@tanstack/react-router';
-import { useContext, useState, useEffect } from 'react';
+import { useContext, useState, useEffect, useCallback } from 'react';
 import { ReviewHeader } from '@/components/shared/review-header';
 import { ReferencesTable } from '@/components/shared/references-table';
 import { FiltersSidebar } from '@/components/shared/filters-sidebar';
 import { ScreeningReferenceDrawer } from '@/components/shared/reference-drawer';
 import { ScreeningReferenceDetailPanel } from '@/components/shared/reference-panel';
-import { TableTopHeader } from '@/components/shared/references-table-top-header';
+import {
+  TableTopHeader,
+  type ExportType,
+} from '@/components/shared/references-table-top-header';
 import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
 import { MatchPDFDialog } from '@/components/shared/match-pdf-dialog';
 import type { ArticleViewLayout, OpinionStatus } from '@/types/reference';
@@ -24,6 +27,7 @@ import { PDFDialog } from '@/components/shared/pdf-dialog';
 import { useFetchReview } from '@/hooks/use-review';
 import { AddDataDialog } from '@/components/shared/add-data-dialog';
 import { Spinner } from '@/components/ui/spinner';
+import { exportScreeningFullText } from '@/api/reference';
 
 export const Route = createFileRoute('/reviews/$reviewId/full-text-screening')({
   component: RouteComponent,
@@ -96,6 +100,16 @@ function RouteComponent() {
     ui.selectedReferenceIds,
     ui.highlightedReferenceId,
     ui.sortedReferences
+  );
+
+  const handleExport = useCallback(
+    (exportType: ExportType) => {
+      const filename = `review-${reviewId}-screening-full-text${exportType === 'all' ? '' : '-filtered'}.bib`;
+      exportType === 'all'
+        ? exportScreeningFullText(filename)
+        : exportScreeningFullText(filename, queryParams);
+    },
+    [queryParams]
   );
 
   const bulkUpsertReferenceOpinions = useBulkUpsertReferenceOpinions();
@@ -210,6 +224,7 @@ function RouteComponent() {
               ui.setIsFiltersSidebarCollapsed(!ui.isFiltersSidebarCollapsed)
             }
             onAddData={() => setOpenAddData(true)}
+            onExport={handleExport}
           />
 
           <div className="flex flex-1 overflow-hidden">
