@@ -81,7 +81,6 @@ services:
 volumes:
   frontend-dist:
   postgres-data:
-  nginx-config:
   media-data:
   static-data:
   letsencrypt-certs:

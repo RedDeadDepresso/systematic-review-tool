@@ -8,7 +8,6 @@ from urllib.parse import urlencode
 
 import bibtexparser
 from django.core.files.base import ContentFile
-from django.core.files.storage import default_storage
 from django.db import transaction
 from django.db.models import (
     Count,
@@ -1031,6 +1030,7 @@ class ReferenceViewSet(viewsets.ModelViewSet):
 
         user = request.user
         updated = []
+        ids_to_delete = []
 
         with transaction.atomic():
             for item in serializer.validated_data["mappings"]:
@@ -1049,10 +1049,6 @@ class ReferenceViewSet(viewsets.ModelViewSet):
                         "Uploaded PDF and reference must belong to the same review."
                     )
 
-                # Delete existing reference file (if any)
-                if reference.file and default_storage.exists(reference.file.name):
-                    default_storage.delete(reference.file.name)
-
                 # Delete all codes associated with this reference
                 Code.objects.filter(reference=reference).delete()
 
@@ -1069,8 +1065,12 @@ class ReferenceViewSet(viewsets.ModelViewSet):
                     }
                 )
 
-                # Delete uploaded PDF
-                uploaded_pdf.delete()
+                ids_to_delete.append(uploaded_pdf.pk)
+
+            # Delete uploaded PDFs bypassing django cleanup
+            UploadedPDF.objects.filter(pk__in=ids_to_delete)._raw_delete(
+                using="default"
+            )
 
         return Response({"updated_references": updated}, status=status.HTTP_200_OK)
 
