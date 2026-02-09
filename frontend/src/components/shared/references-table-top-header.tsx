@@ -9,6 +9,7 @@ import {
   Search,
   X,
   Upload,
+  Download,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -22,6 +23,8 @@ import { Input } from '../ui/input';
 import { can } from '@/lib/permissions';
 import type { ReviewRole } from '@/types/review';
 
+export type ExportType = 'all' | 'filtered';
+
 interface TableTopHeaderProps {
   userRole: ReviewRole;
   filteredCount: number;
@@ -34,6 +37,7 @@ interface TableTopHeaderProps {
   isRightCollapsed?: boolean;
   onToggleRightCollapse?: () => void;
   onAddData?: () => void;
+  onExport?: (exportType: ExportType) => void;
 }
 
 export function TableTopHeader({
@@ -47,6 +51,7 @@ export function TableTopHeader({
   onToggleRightCollapse,
   onSortChange,
   onAddData,
+  onExport,
 }: TableTopHeaderProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(searchQuery !== '');
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -136,6 +141,24 @@ export function TableTopHeader({
             <Upload className="h-4 w-4" />
             <span className="hidden sm:inline">Add articles</span>
           </Button>
+        )}
+        {onExport && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">Export</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="start">
+              <DropdownMenuItem onSelect={() => onExport('all')}>
+                All
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onExport('filtered')}>
+                Filtered
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

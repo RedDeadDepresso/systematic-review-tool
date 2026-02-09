@@ -122,6 +122,45 @@ export const fetchScreeningFullText = async (
   });
   return res.data;
 };
+
+export const downloadBib = async (
+  url: string,
+  filename: string,
+  params?: FetchReviewDataParams
+) => {
+  const res = await api.get(url, {
+    params: params ? paramsToSnakeCase(params) : undefined,
+    responseType: 'blob', // IMPORTANT for files
+  });
+
+  const blob = new Blob([res.data]);
+  const downloadUrl = window.URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+
+  link.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+};
+
+export const exportReviewData = (
+  filename: string,
+  params?: FetchReviewDataParams
+) => downloadBib('/review-data/export/', filename, params);
+
+export const exportScreening = (
+  filename: string,
+  params?: FetchReviewDataParams
+) => downloadBib('/screening/export/', filename, params);
+
+export const exportScreeningFullText = (
+  filename: string,
+  params?: FetchReviewDataParams
+) => downloadBib('/screening-full-text/export/', filename, params);
+
 /* ------------------ FETCH SINGLE REFERENCE ------------------ */
 export const fetchReference = async (referenceId: number) => {
   const res = await api.get(`/references/${referenceId}/`);

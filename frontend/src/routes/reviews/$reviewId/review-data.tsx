@@ -1,14 +1,17 @@
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { useFetchReviewData } from '@/hooks/use-reference';
 import { createFileRoute } from '@tanstack/react-router';
-import { useContext, useState, useEffect } from 'react';
+import { useContext, useState, useEffect, useCallback } from 'react';
 import { ReviewHeader } from '@/components/shared/review-header';
 import { SourcesSidebar } from '@/components/review-data/sources-sidebar';
 import { ReferencesTable } from '@/components/shared/references-table';
 import { FiltersSidebar } from '@/components/shared/filters-sidebar';
 import { ReviewDataReferenceDrawer } from '@/components/shared/reference-drawer';
 import { ReviewDataReferenceDetailPanel } from '@/components/shared/reference-panel';
-import { TableTopHeader } from '@/components/shared/references-table-top-header';
+import {
+  TableTopHeader,
+  type ExportType,
+} from '@/components/shared/references-table-top-header';
 import { ResolveDuplicatesDialog } from '@/components/shared/resolve-duplicates-dialog';
 import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
 import { MatchPDFDialog } from '@/components/shared/match-pdf-dialog';
@@ -24,6 +27,7 @@ import { TableBottomHeader } from '@/components/shared/references-table-bottom-h
 import { PDFDialog } from '@/components/shared/pdf-dialog';
 import { useFetchReview } from '@/hooks/use-review';
 import { Spinner } from '@/components/ui/spinner';
+import { exportReviewData } from '@/api/reference';
 
 export const Route = createFileRoute('/reviews/$reviewId/review-data')({
   component: RouteComponent,
@@ -97,6 +101,16 @@ function RouteComponent() {
     ui.selectedReferenceIds,
     ui.highlightedReferenceId,
     ui.sortedReferences
+  );
+
+  const handleExport = useCallback(
+    (exportType: ExportType) => {
+      const filename = `review-${reviewId}-review-data${exportType === 'all' ? '' : '-filtered'}.bib`;
+      exportType === 'all'
+        ? exportReviewData(filename)
+        : exportReviewData(filename, queryParams);
+    },
+    [queryParams]
   );
 
   if (isLoading) {
@@ -211,6 +225,7 @@ function RouteComponent() {
             onToggleRightCollapse={() =>
               ui.setIsFiltersSidebarCollapsed(!ui.isFiltersSidebarCollapsed)
             }
+            onExport={handleExport}
           />
 
           <div className="flex flex-1 overflow-hidden">

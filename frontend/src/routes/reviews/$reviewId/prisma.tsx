@@ -77,7 +77,7 @@ function RouteComponent() {
   const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
 
   useEffect(() => {
-    setPageTitle('Prisma');
+    setPageTitle('PRISMA');
     setIsAuthenticated(true);
   }, []);
 

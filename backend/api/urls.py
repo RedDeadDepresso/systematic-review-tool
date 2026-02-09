@@ -16,13 +16,13 @@ from api.views import (
     ReferenceDuplicatePairViewSet,
     ReferenceOpinionViewSet,
     ReferenceViewSet,
-    ReviewDataView,
+    ReviewDataViewSet,
     ReviewInvitationViewSet,
     ReviewMemberRetrieveUpdateDestroyView,
     ReviewViewSet,
     ScreeningCriteriaViewSet,
-    ScreeningFullTextView,
-    ScreeningView,
+    ScreeningFullTextViewSet,
+    ScreeningViewSet,
     SubThemeViewSet,
     UploadedPDFViewSet,
     UserViewSet,
@@ -45,6 +45,12 @@ router.register(
 )
 
 router.register(r"references", ReferenceViewSet, basename="reference")
+router.register(r"review-data", ReviewDataViewSet, basename="review-data")
+router.register(r"screening", ScreeningViewSet, basename="screening")
+router.register(
+    r"screening-full-text", ScreeningFullTextViewSet, basename="screening-full-text"
+)
+
 router.register(
     r"reference-opinions", ReferenceOpinionViewSet, basename="reference-opinions"
 )
@@ -76,13 +82,6 @@ router.register(r"extraction", ExtractionTableViewSet, basename="extraction-tabl
 urlpatterns = [
     path("auth/login/", TokenObtainPairView.as_view(), name="login"),
     path("auth/refresh/", TokenRefreshView.as_view(), name="refresh"),
-    path("review-data/", ReviewDataView.as_view(), name="review-data"),
-    path("screening/", ScreeningView.as_view(), name="screening"),
-    path(
-        "screening-full-text/",
-        ScreeningFullTextView.as_view(),
-        name="screening-full-text",
-    ),
     path(
         "review-members/<int:pk>/",
         ReviewMemberRetrieveUpdateDestroyView.as_view(),
