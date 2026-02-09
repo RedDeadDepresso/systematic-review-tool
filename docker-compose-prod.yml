@@ -22,7 +22,6 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/backend
       - media-data:/backend/media
       - static-data:/backend/staticfiles
     depends_on:
@@ -35,8 +34,6 @@ services:
     command: sh -c "celery -A backend worker --loglevel=info"
     ports:
       - "5555:5555"
-    volumes:
-      - ./backend:/backend
     depends_on:
       - redis
       - django
@@ -59,6 +56,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
       - media-data:/backend/media
       - static-data:/backend/staticfiles
       - letsencrypt-certs:/etc/letsencrypt
@@ -83,6 +81,7 @@ services:
 volumes:
   frontend-dist:
   postgres-data:
+  nginx-config:
   media-data:
   static-data:
   letsencrypt-certs:
