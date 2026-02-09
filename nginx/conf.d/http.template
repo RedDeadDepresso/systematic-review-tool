@@ -29,6 +29,11 @@ server {
         alias /backend/staticfiles/;
     }
 
+    # Media files
+    location /media/ {
+        alias /backend/media/;
+    }
+
     client_max_body_size 50M;
 
     # WebSockets
