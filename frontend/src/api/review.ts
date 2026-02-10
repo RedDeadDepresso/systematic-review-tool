@@ -2,6 +2,7 @@ import type {
   ArticleCounts,
   PrismaData,
   Review,
+  ReviewRow,
   ValidationIssue,
 } from '@/types/review';
 import api from './axios';
@@ -16,7 +17,7 @@ export const createReview = async (payload: {
 };
 
 export const fetchReviews = async ({ isActive }: { isActive: boolean }) => {
-  const res = await api.get<Review>('/reviews/', {
+  const res = await api.get<ReviewRow[]>('/reviews/', {
     params: {
       is_active: isActive,
     },

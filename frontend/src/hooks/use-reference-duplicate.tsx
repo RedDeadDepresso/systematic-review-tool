@@ -25,8 +25,8 @@ export const useDetectDuplicateReferences = () => {
         if (!oldData) return oldData;
         return {
           ...oldData,
-          referenceDuplicatesCount:
-            oldData.referenceDuplicatesCount + duplicatesFoundCount,
+          duplicatePairsCount:
+            oldData.duplicatePairsCount + duplicatesFoundCount,
         };
       });
     },
@@ -76,7 +76,7 @@ export const useResolveDuplicateReferences = () => {
         if (!oldData) return oldData;
         return {
           ...oldData,
-          referenceDuplicatesCount: oldData.referenceDuplicatesCount - 1,
+          duplicatePairsCount: oldData.duplicatePairsCount - 1,
         };
       });
     },

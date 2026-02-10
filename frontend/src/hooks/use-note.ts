@@ -62,7 +62,6 @@ export const useUpdateNote = () => {
   return useMutation({
     mutationFn: ({
       noteId,
-      referenceId,
       payload,
     }: {
       noteId: number;

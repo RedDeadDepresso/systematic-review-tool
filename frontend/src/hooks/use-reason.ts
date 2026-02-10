@@ -55,7 +55,6 @@ export const useUpdateReason = () => {
   return useMutation({
     mutationFn: ({
       reasonId,
-      reviewId,
       payload,
     }: {
       reasonId: number;

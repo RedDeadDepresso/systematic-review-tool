@@ -76,7 +76,7 @@ export const useSaveExtractionAnswer = () => {
 
       return { previousData };
     },
-    onError: (err, newAnswer, context) => {
+    onError: (_, __, context) => {
       // Rollback on error
       queryClient.setQueryData(['extraction-table'], context?.previousData);
       toast.error('Failed to save answer.');
@@ -142,7 +142,7 @@ export const useBulkUpdateExtractionStatus = () => {
         : 'incomplete';
       toast.success(`${data.updatedCount} reference(s) marked as ${action}.`);
     },
-    onError: (err, variables, context) => {
+    onError: (_, __, context) => {
       // Rollback on error
       queryClient.setQueryData(['extraction-table'], context?.previousData);
       toast.error('Failed to update extraction status.');
