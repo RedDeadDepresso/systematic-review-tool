@@ -1,4 +1,5 @@
 import type { User } from './auth';
+import type { OpinionStats, ScreeningStat } from './screening-stat';
 
 export type ReviewRole = 'Owner' | 'Collaborator' | 'Reviewer' | 'Viewer';
 
@@ -13,10 +14,17 @@ export type Review = {
   description: string;
   isActive: boolean;
   referenceCount: number;
-  referenceDuplicatesCount: number;
   userRole: ReviewRole;
   members: ReviewMember[];
   isBlinded: boolean;
+  screeningStats: ScreeningStat[];
+  screeningOpinions: OpinionStats[];
+  fullTextOpinions: OpinionStats[];
+  duplicatePairsCount: number;
+  duplicatePairsUnresolvedCount: number;
+  duplicateResolvedCount: number;
+  duplicateNotDuplicateCount: number;
+  duplicateDeletedCount: number;
 };
 
 export type ReviewRow = {

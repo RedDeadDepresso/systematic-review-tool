@@ -22,6 +22,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Input } from '../ui/input';
 import { can } from '@/lib/permissions';
 import type { ReviewRole } from '@/types/review';
+import { ScreeningBreakButton } from './screening-break-button';
 
 export type ExportType = 'all' | 'filtered';
 
@@ -38,6 +39,7 @@ interface TableTopHeaderProps {
   onToggleRightCollapse?: () => void;
   onAddData?: () => void;
   onExport?: (exportType: ExportType) => void;
+  breakButtonReviewId?: number;
 }
 
 export function TableTopHeader({
@@ -52,6 +54,7 @@ export function TableTopHeader({
   onSortChange,
   onAddData,
   onExport,
+  breakButtonReviewId,
 }: TableTopHeaderProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(searchQuery !== '');
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -91,6 +94,9 @@ export function TableTopHeader({
             : `${filteredCount} / ${totalCount}`}{' '}
           Articles
         </h1>
+        {breakButtonReviewId && (
+          <ScreeningBreakButton reviewId={breakButtonReviewId} />
+        )}
       </div>
       <div className="flex items-center gap-2">
         {/* Search Bar */}

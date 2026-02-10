@@ -1,8 +1,17 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useFetchReview, useUploadReviewReferences } from '@/hooks/use-review';
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { FileCheck, FileText } from 'lucide-react';
+import {
+  FileCheck,
+  FileText,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
+  FileX2,
+  Trash2,
+} from 'lucide-react';
 import { useDetectDuplicateReferences } from '@/hooks/use-reference-duplicate';
 import { Spinner } from '@/components/ui/spinner';
 import { useContext, useEffect, useState } from 'react';
@@ -12,6 +21,12 @@ import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
 import { ReviewHeader } from '@/components/shared/review-header';
 import { ReviewTeamTable } from '@/components/review-index/review-team-table';
 import { can } from '@/lib/permissions';
+import { StatsTabs } from '@/components/review-index/stats-tabs';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 
 export const Route = createFileRoute('/reviews/$reviewId/')({
   component: ReviewPage,
@@ -29,6 +44,10 @@ function ReviewPage() {
   const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
   const UploadReviewReferences = useUploadReviewReferences();
   const [openUploadDialog, setOpenUploadDialog] = useState(false);
+
+  // Collapsible state
+  const [isMembersOpen, setIsMembersOpen] = useState(false);
+  const [isStatisticsOpen, setIsStatisticsOpen] = useState(false);
 
   useEffect(() => {
     setPageTitle('Overview');
@@ -71,35 +90,46 @@ function ReviewPage() {
           <h2 className="mb-2 text-xl font-semibold text-foreground">
             Review Info
           </h2>
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-purple-600">
-                <FileText className="h-4 w-4 text-white" />
+          {isLoading ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-8 w-8 rounded-md" />
+                <Skeleton className="h-4 w-3/4" />
               </div>
-              <div className="text-sm">
-                <span className="font-semibold text-foreground">
-                  Review Title:{' '}
-                </span>
-                <span className="text-muted-foreground">
-                  {isLoading ? '...' : data?.title}
-                </span>
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-8 w-8 rounded-md" />
+                <Skeleton className="h-4 w-2/3" />
               </div>
             </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-purple-600">
+                  <FileText className="h-4 w-4 text-white" />
+                </div>
+                <div className="text-sm">
+                  <span className="font-semibold text-foreground">
+                    Review Title:{' '}
+                  </span>
+                  <span className="text-muted-foreground">{data?.title}</span>
+                </div>
+              </div>
 
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-red-500">
-                <FileCheck className="h-4 w-4 text-white" />
-              </div>
-              <div className="text-sm">
-                <span className="font-semibold text-foreground">
-                  Description:{' '}
-                </span>
-                <span className="text-muted-foreground">
-                  {isLoading ? '...' : data?.description}
-                </span>
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-red-500">
+                  <FileCheck className="h-4 w-4 text-white" />
+                </div>
+                <div className="text-sm">
+                  <span className="font-semibold text-foreground">
+                    Description:{' '}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {data?.description}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </Card>
 
         {/* Data Summary Section */}
@@ -107,34 +137,43 @@ function ReviewPage() {
           <h2 className="mb-2 text-xl font-semibold text-foreground">
             Data Summary
           </h2>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {/* Imported References Card */}
             <Card className="p-6">
               <div className="space-y-4">
                 <h3 className="text-center text-sm font-medium text-muted-foreground">
                   Imported References
                 </h3>
-                <p className="text-center text-4xl font-semibold text-foreground">
-                  {isLoading ? '0' : data?.referenceCount}
-                </p>
-                {can('uploadFiles', data?.userRole) && (
+                {isLoading ? (
                   <>
-                    <FileUploadDialog
-                      open={openUploadDialog}
-                      onOpenChange={setOpenUploadDialog}
-                      title="Upload References"
-                      description="Add references to the review"
-                      acceptedFormats=".bib,application/x-bibtex"
-                      acceptedMimeTypes={['application/x-bibtex']}
-                      fileTypeLabel="BibTeX"
-                      onUpload={handleUploadReferences}
-                    />
-                    <Button
-                      className="w-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
-                      onClick={() => setOpenUploadDialog(true)}
-                    >
-                      Add References
-                    </Button>
+                    <Skeleton className="h-12 w-24 mx-auto" />
+                    <Skeleton className="h-10 w-full" />
+                  </>
+                ) : (
+                  <>
+                    <p className="text-center text-4xl font-semibold text-foreground">
+                      {data?.referenceCount}
+                    </p>
+                    {can('uploadFiles', data?.userRole) && (
+                      <>
+                        <FileUploadDialog
+                          open={openUploadDialog}
+                          onOpenChange={setOpenUploadDialog}
+                          title="Upload References"
+                          description="Add references to the review"
+                          acceptedFormats=".bib,application/x-bibtex"
+                          acceptedMimeTypes={['application/x-bibtex']}
+                          fileTypeLabel="BibTeX"
+                          onUpload={handleUploadReferences}
+                        />
+                        <Button
+                          className="w-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                          onClick={() => setOpenUploadDialog(true)}
+                        >
+                          Add References
+                        </Button>
+                      </>
+                    )}
                   </>
                 )}
               </div>
@@ -146,18 +185,27 @@ function ReviewPage() {
                 <h3 className="text-center text-sm font-medium text-muted-foreground">
                   Total Duplicates
                 </h3>
-                <p className="text-center text-4xl font-semibold text-foreground">
-                  {isLoading ? '0' : data?.referenceDuplicatesCount}
-                </p>
-                {can('manageDuplicates', data?.userRole) && (
-                  <Button
-                    className="w-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
-                    onClick={handleDetectDuplicates}
-                    disabled={isPending}
-                  >
-                    {isPending && <Spinner />}
-                    Detect Duplicates
-                  </Button>
+                {isLoading ? (
+                  <>
+                    <Skeleton className="h-12 w-24 mx-auto" />
+                    <Skeleton className="h-10 w-full" />
+                  </>
+                ) : (
+                  <>
+                    <p className="text-center text-4xl font-semibold text-foreground">
+                      {data?.duplicatePairsCount}
+                    </p>
+                    {can('manageDuplicates', data?.userRole) && (
+                      <Button
+                        className="w-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                        onClick={handleDetectDuplicates}
+                        disabled={isPending}
+                      >
+                        {isPending && <Spinner />}
+                        Detect Duplicates
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             </Card>
@@ -168,69 +216,185 @@ function ReviewPage() {
                 <h3 className="text-center text-sm font-medium text-muted-foreground">
                   Unresolved
                 </h3>
-                <p className="text-center text-4xl font-semibold text-foreground">
-                  {isLoading ? '0' : data?.referenceDuplicatesCount}
-                </p>
-                {can('manageDuplicates', data?.userRole) && (
-                  <Button
-                    className="w-full bg-gray-200 text-gray-600 hover:bg-gray-300"
-                    disabled={isLoading || data?.referenceDuplicatesCount === 0}
-                    onClick={() => setIsOpen(true)}
-                  >
-                    Continue Resolving
-                  </Button>
+                {isLoading ? (
+                  <>
+                    <Skeleton className="h-12 w-24 mx-auto" />
+                    <Skeleton className="h-10 w-full" />
+                  </>
+                ) : (
+                  <>
+                    <p className="text-center text-4xl font-semibold text-foreground">
+                      {data?.duplicatePairsUnresolvedCount}
+                    </p>
+                    {can('manageDuplicates', data?.userRole) && (
+                      <Button
+                        className="w-full bg-gray-200 text-gray-600 hover:bg-gray-300"
+                        disabled={data?.duplicatePairsUnresolvedCount === 0}
+                        onClick={() => setIsOpen(true)}
+                      >
+                        Continue Resolving
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             </Card>
 
             {/* Status Summary Card */}
-            {/* <Card className="p-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-muted-foreground">
-                      Resolved
+            <Card className="p-6">
+              {isLoading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-4 w-4 rounded-full" />
+                        <Skeleton className="h-4 w-24" />
+                      </div>
+                      <Skeleton className="h-8 w-12" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm text-muted-foreground">
+                        Resolved
+                      </span>
+                    </div>
+                    <span className="text-2xl font-bold text-foreground">
+                      {data?.duplicateResolvedCount}
                     </span>
                   </div>
-                  <span className="text-2xl font-bold text-foreground">2</span>
-                </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileX2 className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-muted-foreground">
-                      Not Duplicate
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileX2 className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm text-muted-foreground">
+                        Not Duplicate
+                      </span>
+                    </div>
+                    <span className="text-2xl font-bold text-foreground">
+                      {data?.duplicateNotDuplicateCount}
                     </span>
                   </div>
-                  <span className="text-2xl font-bold text-foreground">1</span>
-                </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Trash2 className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-muted-foreground">
-                      Deleted
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Trash2 className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm text-muted-foreground">
+                        Deleted
+                      </span>
+                    </div>
+                    <span className="text-2xl font-bold text-foreground">
+                      {data?.duplicateDeletedCount}
                     </span>
                   </div>
-                  <span className="text-2xl font-bold text-foreground">4</span>
                 </div>
-              </div>
-            </Card> */}
+              )}
+            </Card>
           </div>
         </Card>
 
-        {/* Members Section */}
-        <Card className="p-6">
-          <h2 className="mb-2 text-xl font-semibold text-foreground">
-            Members
-          </h2>
-          <ReviewTeamTable
-            data={data?.members || []}
-            userRole={data?.userRole || 'Viewer'}
-            reviewId={reviewId}
-          />
-        </Card>
+        {/* Members Section - Collapsible */}
+        <Collapsible open={isMembersOpen} onOpenChange={setIsMembersOpen}>
+          <Card className="p-6">
+            <CollapsibleTrigger className="flex w-full items-center justify-between hover:opacity-80 transition-opacity">
+              <h2 className="text-xl font-semibold text-foreground">
+                Members
+                {!isLoading && data?.members && (
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
+                    ({data.members.length})
+                  </span>
+                )}
+              </h2>
+              {isMembersOpen ? (
+                <ChevronUp className="h-5 w-5 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-5 w-5 text-muted-foreground" />
+              )}
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-4">
+              {isLoading ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-4">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-1/4" />
+                      <Skeleton className="h-3 w-1/3" />
+                    </div>
+                    <Skeleton className="h-6 w-20" />
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-1/4" />
+                      <Skeleton className="h-3 w-1/3" />
+                    </div>
+                    <Skeleton className="h-6 w-20" />
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-1/4" />
+                      <Skeleton className="h-3 w-1/3" />
+                    </div>
+                    <Skeleton className="h-6 w-20" />
+                  </div>
+                </div>
+              ) : (
+                <ReviewTeamTable
+                  data={data?.members || []}
+                  userRole={data?.userRole || 'Viewer'}
+                  reviewId={reviewId}
+                />
+              )}
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
+        {/* Statistics Section - Collapsible */}
+        <Collapsible open={isStatisticsOpen} onOpenChange={setIsStatisticsOpen}>
+          <Card className="p-6">
+            <CollapsibleTrigger className="flex w-full items-center justify-between hover:opacity-80 transition-opacity">
+              <h2 className="text-xl font-semibold text-foreground">
+                Statistics
+              </h2>
+              {isStatisticsOpen ? (
+                <ChevronUp className="h-5 w-5 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-5 w-5 text-muted-foreground" />
+              )}
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-4">
+              {isLoading ? (
+                <div className="space-y-4">
+                  {/* Tabs skeleton */}
+                  <div className="flex gap-2 border-b">
+                    <Skeleton className="h-10 w-32" />
+                    <Skeleton className="h-10 w-32" />
+                    <Skeleton className="h-10 w-32" />
+                  </div>
+                  {/* Chart skeleton */}
+                  <div className="space-y-4">
+                    <div className="flex gap-6">
+                      <Skeleton className="h-16 w-32" />
+                      <Skeleton className="h-16 w-32" />
+                    </div>
+                    <Skeleton className="h-[400px] w-full" />
+                  </div>
+                </div>
+              ) : (
+                <StatsTabs
+                  screeningStats={data?.screeningStats || []}
+                  screeningOpinions={data?.screeningOpinions || []}
+                  fullTextOpinions={data?.fullTextOpinions || []}
+                />
+              )}
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
       </div>
     </>
   );

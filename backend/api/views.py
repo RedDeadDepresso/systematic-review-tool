@@ -201,14 +201,10 @@ class ReviewViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         owner_membership = ReviewMember.objects.filter(
-            review=OuterRef("pk"),
-            role=ReviewMember.Role.OWNER,
+            review=OuterRef("pk"), role=ReviewMember.Role.OWNER
         )
 
-        user_membership = ReviewMember.objects.filter(
-            review=OuterRef("pk"),
-            user=user,
-        )
+        user_membership = ReviewMember.objects.filter(review=OuterRef("pk"), user=user)
 
         queryset = (
             Review.objects.filter(members__user=user)
@@ -223,15 +219,38 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 ),
                 owner_email=Subquery(owner_membership.values("user__email")[:1]),
                 user_role=Subquery(user_membership.values("role")[:1]),
+                reference_count=Count("reference", distinct=True),
+                duplicate_resolved_count=Count(
+                    "reference",
+                    filter=Q(
+                        reference__duplicate_status=Reference.DuplicateStatus.RESOLVED
+                    ),
+                    distinct=True,
+                ),
+                duplicate_not_duplicate_count=Count(
+                    "reference",
+                    filter=Q(
+                        reference__duplicate_status=Reference.DuplicateStatus.NOT_DUPLICATE
+                    ),
+                    distinct=True,
+                ),
+                duplicate_deleted_count=Count(
+                    "reference",
+                    filter=Q(
+                        reference__duplicate_status=Reference.DuplicateStatus.DELETED
+                    ),
+                    distinct=True,
+                ),
+                duplicate_pairs_count=Count("referenceduplicatepair", distinct=True),
+                duplicate_pairs_unresolved_count=Count(
+                    "referenceduplicatepair",
+                    filter=Q(referenceduplicatepair__resolved=False),
+                    distinct=True,
+                ),
             )
         )
 
-        # LIST → lightweight
-        if self.action == "list":
-            queryset = queryset.annotate(reference_count=Count("reference"))
-
-        # DETAIL → include members
-        else:
+        if self.action != "list":
             queryset = queryset.prefetch_related(
                 Prefetch(
                     "members",
