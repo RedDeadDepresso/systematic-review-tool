@@ -201,7 +201,7 @@ class ScreeningStatConsumer(AsyncJsonWebsocketConsumer):
         def _do_increment():
             stat, _ = ScreeningStat.objects.get_or_create(member=self.member)
             stat.sessions += 1
-            stat.save(update_fields=["sessions", "last_seen"])
+            stat.save(update_fields=["sessions"])
 
         await sync_to_async(_do_increment)()
 
@@ -211,6 +211,6 @@ class ScreeningStatConsumer(AsyncJsonWebsocketConsumer):
         def _do_update():
             stat, _ = ScreeningStat.objects.get_or_create(member=self.member)
             stat.seconds += seconds
-            stat.save(update_fields=["seconds", "last_seen"])
+            stat.save(update_fields=["seconds"])
 
         await sync_to_async(_do_update)()

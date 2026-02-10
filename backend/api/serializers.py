@@ -2,6 +2,8 @@ import os
 from collections import defaultdict
 
 from django.db import models
+from django.db.models import Count, F, Q, Value
+from django.db.models.functions import Concat
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.serializers import ModelSerializer
@@ -24,6 +26,7 @@ from api.models import (
     ReviewInvitation,
     ReviewMember,
     ScreeningCriteria,
+    ScreeningStat,
     SubTheme,
     UploadedPDF,
     User,
@@ -161,21 +164,55 @@ class ReviewMemberSerializer(serializers.ModelSerializer):
         return new_role
 
 
-class ReviewSerializer(ModelSerializer):
-    reference_count = serializers.SerializerMethodField()
-    reference_duplicates_count = serializers.SerializerMethodField()
-    date_created = serializers.DateTimeField(format="%d %b %Y", read_only=True)
+class ScreeningStatSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+    user_email = serializers.SerializerMethodField()
+    hours = serializers.SerializerMethodField()
+
+    def get_user_name(self, obj):
+        return f"{obj.member.user.first_name} {obj.member.user.last_name}".strip()
+
+    def get_user_email(self, obj):
+        return obj.member.user.email
+
+    def get_hours(self, obj):
+        return round(obj.seconds / 3600, 2)
+
+    class Meta:
+        model = ScreeningStat
+        fields = ["id", "user_name", "user_email", "seconds", "hours", "sessions"]
+
+
+class OpinionStatsSerializer(serializers.Serializer):
+    """Serializer for aggregated opinion statistics per member"""
+
+    member_id = serializers.IntegerField()
+    user_name = serializers.CharField()
+    user_email = serializers.EmailField()
+    excluded = serializers.IntegerField()
+    maybe = serializers.IntegerField()
+    included = serializers.IntegerField()
+    total = serializers.IntegerField()
+
+
+class ReviewSerializer(serializers.ModelSerializer):
     user_role = serializers.SerializerMethodField()
+
+    # annotated counts from queryset
+    reference_count = serializers.IntegerField(read_only=True)
+    duplicate_resolved_count = serializers.IntegerField(read_only=True)
+    duplicate_not_duplicate_count = serializers.IntegerField(read_only=True)
+    duplicate_deleted_count = serializers.IntegerField(read_only=True)
+    duplicate_pairs_count = serializers.IntegerField(read_only=True)
+    duplicate_pairs_unresolved_count = serializers.IntegerField(read_only=True)
+
     members = ReviewMemberSerializer(many=True, read_only=True)
 
-    def get_user_role(self, obj):
-        return getattr(obj, "user_role", None)
+    screening_stats = serializers.SerializerMethodField()
+    screening_opinions = serializers.SerializerMethodField()
+    full_text_opinions = serializers.SerializerMethodField()
 
-    def get_reference_count(self, obj):
-        return obj.reference_set.count()
-
-    def get_reference_duplicates_count(self, obj):
-        return obj.referenceduplicatepair_set.count()
+    date_created = serializers.DateTimeField(format="%d %b %Y", read_only=True)
 
     class Meta:
         model = Review
@@ -185,21 +222,79 @@ class ReviewSerializer(ModelSerializer):
             "description",
             "is_active",
             "reference_count",
-            "reference_duplicates_count",
             "date_created",
             "is_blinded",
             "user_role",
             "members",
+            "screening_stats",
+            "screening_opinions",
+            "full_text_opinions",
+            "duplicate_resolved_count",
+            "duplicate_not_duplicate_count",
+            "duplicate_deleted_count",
+            "duplicate_pairs_unresolved_count",
+            "duplicate_pairs_count",
         ]
-        read_only_fields = [
-            "id",
-            "owner",
-            "date_created",
-            "reference_count",
-            "reference_duplicates_count",
-            "user_role",
-            "members",
-        ]
+
+    def get_user_role(self, obj):
+        return getattr(obj, "user_role", None)
+
+    def _get_user(self):
+        return self.context.get("request").user
+
+    def get_screening_stats(self, obj):
+        user = self._get_user()
+
+        qs = ScreeningStat.objects.filter(member__review=obj).select_related(
+            "member__user"
+        )
+
+        if obj.is_blinded:
+            qs = qs.filter(member__user=user)
+
+        return ScreeningStatSerializer(qs.order_by("-seconds"), many=True).data
+
+    def get_screening_opinions(self, obj):
+        user = self._get_user()
+        data = self.compute_opinion_stats(obj, ReferenceOpinion.Stage.SCREENING, user)
+        return OpinionStatsSerializer(data, many=True).data
+
+    def get_full_text_opinions(self, obj):
+        user = self._get_user()
+        data = self.compute_opinion_stats(obj, ReferenceOpinion.Stage.FULL_TEXT, user)
+        return OpinionStatsSerializer(data, many=True).data
+
+    def compute_opinion_stats(self, review, stage, user=None):
+        """Optimised single-query aggregation for opinion stats."""
+
+        qs = ReferenceOpinion.objects.filter(
+            member__review=review,
+            stage=stage,
+        ).select_related("member__user")
+
+        if review.is_blinded and user:
+            qs = qs.filter(member__user=user)
+
+        stats = (
+            qs.values(
+                "member_id",
+                user_name=Concat(
+                    F("member__user__first_name"),
+                    Value(" "),
+                    F("member__user__last_name"),
+                ),
+                user_email=F("member__user__email"),
+            )
+            .annotate(
+                excluded=Count("id", filter=Q(status=ReferenceOpinion.Status.EXCLUDED)),
+                maybe=Count("id", filter=Q(status=ReferenceOpinion.Status.MAYBE)),
+                included=Count("id", filter=Q(status=ReferenceOpinion.Status.INCLUDED)),
+                total=Count("id"),
+            )
+            .order_by("-total")
+        )
+
+        return list(stats)
 
 
 class ReviewListSerializer(ModelSerializer):
@@ -382,12 +477,12 @@ class KeywordSerializer(ModelSerializer):
 
 
 class NoteSerializer(serializers.ModelSerializer):
-    author = UserSerializer(read_only=True)
+    member = ReviewMemberSerializer(read_only=True)
 
     class Meta:
         model = Note
-        fields = ["id", "author", "content", "date_created", "date_edited"]
-        read_only_fields = ["author", "date_created", "date_edited"]
+        fields = ["id", "member", "content", "created_at", "edited_at"]
+        read_only_fields = ["member", "created_at", "edited_at"]
 
 
 class BulkCreateNoteSerializer(serializers.Serializer):

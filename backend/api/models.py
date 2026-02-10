@@ -571,7 +571,6 @@ class ScreeningStat(models.Model):
     member = models.ForeignKey(ReviewMember, on_delete=models.CASCADE)
     seconds = models.IntegerField(default=0)
     sessions = models.IntegerField(default=0)
-    last_seen = models.DateTimeField(auto_now=True)
 
     class Meta:
         constraints = [
