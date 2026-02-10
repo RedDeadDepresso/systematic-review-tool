@@ -44,11 +44,8 @@ services:
 
   react:
     image: ghcr.io/2739548r/slrt-react:latest
-    command: sh -c "pnpm build"
-    env_file:
-      - ./.env.production
     volumes:
-      - frontend-dist:/frontend/dist
+      - frontend-dist:/dist
 
   nginx:
     build: ./nginx

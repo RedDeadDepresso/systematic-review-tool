@@ -168,7 +168,7 @@ build-react:
       EOF
     - /kaniko/executor
       --context ./frontend
-      --dockerfile ./frontend/Dockerfile
+      --dockerfile ./frontend/Dockerfile.prod
       --destination $REACT_IMAGE:$CI_COMMIT_SHORT_SHA
       --destination $REACT_IMAGE:latest
   only:
