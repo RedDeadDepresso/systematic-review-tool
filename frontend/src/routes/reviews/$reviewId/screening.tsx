@@ -27,6 +27,7 @@ import { PDFDialog } from '@/components/shared/pdf-dialog';
 import { useFetchReview } from '@/hooks/use-review';
 import { Spinner } from '@/components/ui/spinner';
 import { exportScreening } from '@/api/reference';
+import { useScreeningStats } from '@/hooks/use-screening-stats';
 
 export const Route = createFileRoute('/reviews/$reviewId/screening')({
   component: RouteComponent,
@@ -36,6 +37,12 @@ function RouteComponent() {
   const reviewId = Number(Route.useParams().reviewId);
   const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
   const queryClient = useQueryClient();
+
+  // Auto-track when on this page
+  useScreeningStats({
+    reviewId: reviewId,
+    autoTrack: true, // Will pause when leaving route
+  });
 
   useEffect(() => {
     setPageTitle('Screening');
@@ -213,6 +220,7 @@ function RouteComponent() {
               ui.setIsFiltersSidebarCollapsed(!ui.isFiltersSidebarCollapsed)
             }
             onExport={handleExport}
+            breakButtonReviewId={reviewId}
           />
 
           <div className="flex flex-1 overflow-hidden">

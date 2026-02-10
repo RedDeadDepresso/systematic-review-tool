@@ -28,6 +28,7 @@ import { useFetchReview } from '@/hooks/use-review';
 import { AddDataDialog } from '@/components/shared/add-data-dialog';
 import { Spinner } from '@/components/ui/spinner';
 import { exportScreeningFullText } from '@/api/reference';
+import { useScreeningStats } from '@/hooks/use-screening-stats';
 
 export const Route = createFileRoute('/reviews/$reviewId/full-text-screening')({
   component: RouteComponent,
@@ -37,6 +38,12 @@ function RouteComponent() {
   const reviewId = Number(Route.useParams().reviewId);
   const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
   const queryClient = useQueryClient();
+
+  // Auto-track when on this page
+  useScreeningStats({
+    reviewId: reviewId,
+    autoTrack: true, // Will pause when leaving route
+  });
 
   useEffect(() => {
     setPageTitle('Full Text Screening');
@@ -225,6 +232,7 @@ function RouteComponent() {
             }
             onAddData={() => setOpenAddData(true)}
             onExport={handleExport}
+            breakButtonReviewId={reviewId}
           />
 
           <div className="flex flex-1 overflow-hidden">
