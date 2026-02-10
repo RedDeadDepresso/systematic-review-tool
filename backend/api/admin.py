@@ -7,6 +7,7 @@ from api.models import (
     Reference,
     ReferenceDuplicatePair,
     Review,
+    ScreeningStat,
     SubTheme,
     User,
 )
@@ -20,3 +21,4 @@ admin.site.register(MainTheme)
 admin.site.register(SubTheme)
 admin.site.register(Code)
 admin.site.register(Keyword)
+admin.site.register(ScreeningStat)

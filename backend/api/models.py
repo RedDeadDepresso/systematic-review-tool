@@ -565,3 +565,20 @@ class ExtractionAnswer(models.Model):
 
     def __str__(self):
         return f"Answer for {self.question.column_title} - Ref {self.reference.id}"
+
+
+class ScreeningStat(models.Model):
+    member = models.ForeignKey(ReviewMember, on_delete=models.CASCADE)
+    seconds = models.IntegerField(default=0)
+    sessions = models.IntegerField(default=0)
+    last_seen = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["member"], name="unique_screening_stat_per_member"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.member} - {self.seconds}s ({self.sessions} sessions)"

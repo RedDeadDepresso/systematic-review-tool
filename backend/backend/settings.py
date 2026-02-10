@@ -198,7 +198,6 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = "UTC"
 CELERY_TASK_TIME_LIMIT = 30 * 60
-CACHE_NAVBARS = os.getenv("CACHE_NAVBARS", "False") == "True"
 
 CACHES = {
     "default": {
@@ -206,6 +205,18 @@ CACHES = {
         "LOCATION": BROKER_URL,
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    },
+}
+
+
+# Channels
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [BROKER_URL],
         },
     },
 }

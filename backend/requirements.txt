@@ -14,8 +14,10 @@ sqlparse==0.5.5
 tzdata==2025.3
 djangorestframework-camel-case==1.4.2
 daphne==4.2.1
-redis==7.1.0
+redis==7.1.1
 django-redis==6.0.0
 celery==5.6.2
 matplotlib==3.10.8
 django-cleanup==9.0.0
+channels==4.3.2
+channels_redis==4.3.0
