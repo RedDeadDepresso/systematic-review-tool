@@ -5,10 +5,6 @@ FROM node:24-alpine AS build
 ARG VITE_API_BASE_URL
 ARG VITE_WS_URL
 
-# export them
-ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
-ENV VITE_WS_URL=$VITE_WS_URL
-
 WORKDIR /frontend
 
 RUN corepack enable
@@ -17,7 +13,9 @@ COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY . .
-RUN pnpm build
+RUN VITE_API_BASE_URL=$VITE_API_BASE_URL \
+    VITE_WS_URL=$VITE_WS_URL \
+    pnpm build
 
 # ---------- Final image (optional, can be tiny) ----------
 FROM alpine:3.18 AS react-dist
