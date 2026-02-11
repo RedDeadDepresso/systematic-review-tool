@@ -149,6 +149,9 @@ build-django:
 
 build-react:
   stage: build
+  variables:
+    VITE_API_BASE_URL: $VITE_API_BASE_URL
+    VITE_WS_URL: $VITE_WS_URL
   needs: ["lint-frontend", "test-frontend"]
   image:
     name: gcr.io/kaniko-project/executor:debug
