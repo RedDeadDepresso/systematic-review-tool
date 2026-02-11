@@ -42,11 +42,6 @@ services:
     environment:
       - C_FORCE_ROOT="true"
 
-  react:
-    image: ghcr.io/2739548r/slrt-react:latest
-    volumes:
-      - frontend-dist:/dist
-
   nginx:
     build: ./nginx
     ports:
@@ -58,7 +53,6 @@ services:
       - static-data:/backend/staticfiles
       - letsencrypt-certs:/etc/letsencrypt
       - certbot-www:/var/www/certbot
-      - frontend-dist:/usr/share/nginx/html
     env_file:
       - ./.env.production
     depends_on:
@@ -76,7 +70,6 @@ services:
       - nginx
 
 volumes:
-  frontend-dist:
   postgres-data:
   media-data:
   static-data:
