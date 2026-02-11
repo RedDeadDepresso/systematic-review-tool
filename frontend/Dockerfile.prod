@@ -1,9 +1,12 @@
 # ---------- Build stage ----------
 FROM node:24-alpine AS build
 
+# build args
 ARG VITE_API_BASE_URL
-ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 ARG VITE_WS_URL
+
+# export them
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 ENV VITE_WS_URL=$VITE_WS_URL
 
 WORKDIR /frontend
