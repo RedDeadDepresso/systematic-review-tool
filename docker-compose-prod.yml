@@ -43,7 +43,7 @@ services:
       - C_FORCE_ROOT="true"
 
   nginx:
-    build: ./nginx
+    image: ghcr.io/2739548r/slrt-nginx:latest
     ports:
       - "80:80"
       - "443:443"

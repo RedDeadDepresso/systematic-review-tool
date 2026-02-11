@@ -1,20 +1,35 @@
-# Accept React image tag from CI
-ARG REACT_IMAGE_TAG=latest
+# ---------- Build React frontend ----------
+FROM node:24-alpine AS frontend-build
 
-# Stage 1: Get the React dist files
-FROM ghcr.io/2739548r/slrt-react:${REACT_IMAGE_TAG} AS react-dist
+WORKDIR /frontend
+RUN corepack enable
 
-# Stage 2: Build the final nginx image
+# Copy entire frontend first
+COPY frontend/ ./
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Build-time env vars for Vite
+ARG VITE_API_BASE_URL
+ARG VITE_WS_URL
+
+RUN VITE_API_BASE_URL=$VITE_API_BASE_URL \
+    VITE_WS_URL=$VITE_WS_URL \
+    pnpm build
+
+
+# ---------- Final nginx image ----------
 FROM nginx:1.29.4-alpine
 
-# Install gettext for envsubst
+# Install envsubst support for runtime config if needed
 RUN apk add --no-cache gettext
 
-# Copy the React dist files from the react image
-COPY --from=react-dist /dist /usr/share/nginx/html
+# Copy built React app
+COPY --from=frontend-build /frontend/dist /usr/share/nginx/html
 
-# Copy the entrypoint script
-COPY boot.sh /home/docker/scripts/boot.sh
+# Custom entrypoint
+COPY nginx/boot.sh /home/docker/scripts/boot.sh
 
 # Normalize line endings and make the boot script executable
 RUN sed -i 's/\r$//' /home/docker/scripts/boot.sh && \

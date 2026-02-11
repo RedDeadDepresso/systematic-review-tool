@@ -147,7 +147,7 @@ build-django:
   only:
     - main
 
-build-react:
+build-nginx:
   stage: build
   needs: ["lint-frontend", "test-frontend"]
   image:
@@ -166,14 +166,13 @@ build-react:
         }
       }
       EOF
-    - /kaniko/executor
-      --context ./frontend
-      --dockerfile ./frontend/Dockerfile.prod
-      --destination $REACT_IMAGE:$CI_COMMIT_SHORT_SHA
-      --destination $REACT_IMAGE:latest
-      --build-arg REACT_IMAGE_TAG=$CI_COMMIT_SHORT_SHA
-      --build-arg VITE_API_BASE_URL="$VITE_API_BASE_URL"
-      --build-arg VITE_WS_URL="$VITE_WS_URL"
+    - /kaniko/executor \
+      --context . \
+      --dockerfile nginx/Dockerfile \
+      --destination ghcr.io/$GHCR_USERNAME/slrt-nginx:$CI_COMMIT_SHORT_SHA \
+      --destination ghcr.io/$GHCR_USERNAME/slrt-nginx:latest \
+      --build-arg VITE_API_BASE_URL=$VITE_API_BASE_URL \
+      --build-arg VITE_WS_URL=$VITE_WS_URL
   only:
     - main
 
