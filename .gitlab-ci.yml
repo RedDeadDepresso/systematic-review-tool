@@ -153,14 +153,9 @@ build-react:
   image:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
-  before_script:
-    # Create .env.production file with GitLab CI variables
-    - |
-      cat <<EOF > frontend/.env.production
-      VITE_API_BASE_URL=$VITE_API_BASE_URL
-      VITE_WS_URL=$VITE_WS_URL
-      EOF
   script:
+    - echo "VITE_API_BASE_URL=$VITE_API_BASE_URL"
+    - echo "VITE_WS_URL=$VITE_WS_URL"
     - mkdir -p $DOCKER_CONFIG
     - |
       cat <<EOF > $DOCKER_CONFIG/config.json
@@ -178,6 +173,8 @@ build-react:
       --dockerfile ./frontend/Dockerfile.prod
       --destination $REACT_IMAGE:$CI_COMMIT_SHORT_SHA
       --destination $REACT_IMAGE:latest
+      --build-arg VITE_API_BASE_URL="$VITE_API_BASE_URL"
+      --build-arg VITE_WS_URL="$VITE_WS_URL"
   only:
     - main
 
