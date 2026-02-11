@@ -171,6 +171,8 @@ build-react:
       --dockerfile ./frontend/Dockerfile.prod
       --destination $REACT_IMAGE:$CI_COMMIT_SHORT_SHA
       --destination $REACT_IMAGE:latest
+      --build-arg VITE_API_BASE_URL=$VITE_API_BASE_URL
+      --build-arg VITE_WS_URL=$VITE_WS_URL
   only:
     - main
 
