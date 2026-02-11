@@ -1,5 +1,8 @@
+# Accept React image tag from CI
+ARG REACT_IMAGE_TAG=latest
+
 # Stage 1: Get the React dist files
-FROM ghcr.io/2739548r/slrt-react:latest AS react-dist
+FROM ghcr.io/2739548r/slrt-react:${REACT_IMAGE_TAG} AS react-dist
 
 # Stage 2: Build the final nginx image
 FROM nginx:1.29.4-alpine

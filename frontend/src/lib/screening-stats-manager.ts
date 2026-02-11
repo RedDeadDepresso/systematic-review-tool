@@ -46,7 +46,6 @@ class ScreeningStatsManager {
 
     this.currentReviewId = reviewId;
     const token = localStorage.getItem('access_token');
-    console.log(VITE_WS_URL);
     const wsUrl = `${VITE_WS_URL}/screening-stats/${reviewId}/?token=${token}`;
 
     console.log('Connecting to screening stats:', reviewId);
