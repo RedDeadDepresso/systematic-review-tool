@@ -166,12 +166,12 @@ build-nginx:
         }
       }
       EOF
-    - /kaniko/executor \
-      --context . \
-      --dockerfile nginx/Dockerfile \
-      --destination ghcr.io/$GHCR_USERNAME/slrt-nginx:$CI_COMMIT_SHORT_SHA \
-      --destination ghcr.io/$GHCR_USERNAME/slrt-nginx:latest \
-      --build-arg VITE_API_BASE_URL=$VITE_API_BASE_URL \
+    - /kaniko/executor
+      --context .
+      --dockerfile nginx/Dockerfile
+      --destination ghcr.io/$GHCR_USERNAME/slrt-nginx:$CI_COMMIT_SHORT_SHA
+      --destination ghcr.io/$GHCR_USERNAME/slrt-nginx:latest
+      --build-arg VITE_API_BASE_URL=$VITE_API_BASE_URL
       --build-arg VITE_WS_URL=$VITE_WS_URL
   only:
     - main
