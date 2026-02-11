@@ -149,13 +149,17 @@ build-django:
 
 build-react:
   stage: build
-  variables:
-    VITE_API_BASE_URL: $VITE_API_BASE_URL
-    VITE_WS_URL: $VITE_WS_URL
   needs: ["lint-frontend", "test-frontend"]
   image:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
+  before_script:
+    # Create .env.production file with GitLab CI variables
+    - |
+      cat <<EOF > frontend/.env.production
+      VITE_API_BASE_URL=$VITE_API_BASE_URL
+      VITE_WS_URL=$VITE_WS_URL
+      EOF
   script:
     - mkdir -p $DOCKER_CONFIG
     - |
@@ -174,8 +178,6 @@ build-react:
       --dockerfile ./frontend/Dockerfile.prod
       --destination $REACT_IMAGE:$CI_COMMIT_SHORT_SHA
       --destination $REACT_IMAGE:latest
-      --build-arg VITE_API_BASE_URL=$VITE_API_BASE_URL
-      --build-arg VITE_WS_URL=$VITE_WS_URL
   only:
     - main
 
