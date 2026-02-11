@@ -183,7 +183,7 @@ build-nginx:
 deploy-prod:
   stage: deploy
   image: alpine:latest
-  needs: ["build-django", "build-react"]
+  needs: ["build-django", "build-nginx"]
   before_script:
     - apk add --no-cache openssh
     - eval $(ssh-agent -s)
