@@ -6,10 +6,10 @@ export const registerUser = async (payload: {
   firstName: string;
   lastName: string;
   email: string;
-  password: string;
-  confirmPassword: string;
+  password1: string;
+  password2: string;
 }): Promise<User> => {
-  const res = await api.post('/users/', payload);
+  const res = await api.post('/auth/registration/', payload);
   return res.data;
 };
 
@@ -33,7 +33,7 @@ export async function fetchUser() {
   const token = localStorage.getItem('access_token');
   if (!token) throw new Error('Not authenticated');
 
-  const res = await api.get('/users/0/', {
+  const res = await api.get('/auth/user/', {
     headers: { Authorization: `Bearer ${token}` },
   });
 

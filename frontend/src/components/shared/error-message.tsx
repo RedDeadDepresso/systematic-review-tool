@@ -1,18 +1,31 @@
+import type { JSX } from 'react';
+
 export function errorMessage(error: any) {
-  if (!error?.response?.data) return null;
+  if (!error) return null;
+
+  if (!error.response) {
+    return <p className="text-red-500">Network error.</p>;
+  }
+
+  const data = error.response.data;
+
+  const renderMessages = (messages: any, prefix = ''): JSX.Element[] => {
+    if (Array.isArray(messages)) {
+      return messages.map((msg, i) => (
+        <li key={`${prefix}-${i}`}>{String(msg)}</li>
+      ));
+    }
+
+    if (typeof messages === 'object' && messages !== null) {
+      return Object.entries(messages).flatMap(([k, v]) =>
+        renderMessages(v, `${prefix}-${k}`)
+      );
+    }
+
+    return [<li key={prefix}>{String(messages)}</li>];
+  };
 
   return (
-    <ul className="text-red-500 text-sm list-disc">
-      {Object.entries(error.response.data).map(
-        ([field, messages]: [string, any], index) =>
-          Array.isArray(messages) ? (
-            messages.map((message: string, i: number) => (
-              <li key={`${field}-${i}`}>{message}</li>
-            ))
-          ) : (
-            <li key={`${field}-${index}`}>{String(messages)}</li>
-          )
-      )}
-    </ul>
+    <ul className="text-red-500 text-sm list-disc">{renderMessages(data)}</ul>
   );
 }
