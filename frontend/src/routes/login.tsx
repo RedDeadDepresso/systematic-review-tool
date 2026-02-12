@@ -1,14 +1,12 @@
-import { createFileRoute, redirect } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { LoginForm } from '@/components/auth/login-form';
 import { useContext, useEffect } from 'react';
 import { AppLayoutContext } from '@/context/app-layout-context';
+import { redirectAuthenticated } from '@/api/auth';
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
-  beforeLoad: async () => {
-    const token = localStorage.getItem('access_token');
-    if (token) throw redirect({ to: '/' });
-  },
+  beforeLoad: redirectAuthenticated,
 });
 
 function LoginPage() {

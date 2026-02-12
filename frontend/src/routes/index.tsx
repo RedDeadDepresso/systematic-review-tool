@@ -1,17 +1,15 @@
-import { createFileRoute, redirect } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { ReviewTable } from '@/components/index/review-table';
 import { useFetchReviews } from '@/hooks/use-review';
 import { useContext, useEffect } from 'react';
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { useFetchInvitations } from '@/hooks/use-invitation';
 import { InvitationTable } from '@/components/index/invitation-table';
+import { redirectUnauthenticated } from '@/api/auth';
 
 export const Route = createFileRoute('/')({
   component: IndexPage,
-  beforeLoad: async () => {
-    const token = localStorage.getItem('access_token');
-    if (!token) throw redirect({ to: '/login' });
-  },
+  beforeLoad: redirectUnauthenticated,
 });
 
 function IndexPage() {

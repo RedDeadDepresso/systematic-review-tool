@@ -9,8 +9,11 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as RequestPasswordResetRouteImport } from './routes/request-password-reset'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ConfirmPasswordResetRouteImport } from './routes/confirm-password-reset'
+import { Route as ChangePasswordRouteImport } from './routes/change-password'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ReviewsReviewIdIndexRouteImport } from './routes/reviews/$reviewId/index'
 import { Route as ReviewsReviewIdScreeningRouteImport } from './routes/reviews/$reviewId/screening'
@@ -20,6 +23,11 @@ import { Route as ReviewsReviewIdFullTextScreeningRouteImport } from './routes/r
 import { Route as ReviewsReviewIdDataExtractionRouteImport } from './routes/reviews/$reviewId/data-extraction'
 import { Route as ReviewsReviewIdCodingThemingRouteImport } from './routes/reviews/$reviewId/coding-theming'
 
+const RequestPasswordResetRoute = RequestPasswordResetRouteImport.update({
+  id: '/request-password-reset',
+  path: '/request-password-reset',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
@@ -28,6 +36,16 @@ const RegisterRoute = RegisterRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfirmPasswordResetRoute = ConfirmPasswordResetRouteImport.update({
+  id: '/confirm-password-reset',
+  path: '/confirm-password-reset',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChangePasswordRoute = ChangePasswordRouteImport.update({
+  id: '/change-password',
+  path: '/change-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -78,8 +96,11 @@ const ReviewsReviewIdCodingThemingRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/change-password': typeof ChangePasswordRoute
+  '/confirm-password-reset': typeof ConfirmPasswordResetRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/request-password-reset': typeof RequestPasswordResetRoute
   '/reviews/$reviewId/coding-theming': typeof ReviewsReviewIdCodingThemingRoute
   '/reviews/$reviewId/data-extraction': typeof ReviewsReviewIdDataExtractionRoute
   '/reviews/$reviewId/full-text-screening': typeof ReviewsReviewIdFullTextScreeningRoute
@@ -90,8 +111,11 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/change-password': typeof ChangePasswordRoute
+  '/confirm-password-reset': typeof ConfirmPasswordResetRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/request-password-reset': typeof RequestPasswordResetRoute
   '/reviews/$reviewId/coding-theming': typeof ReviewsReviewIdCodingThemingRoute
   '/reviews/$reviewId/data-extraction': typeof ReviewsReviewIdDataExtractionRoute
   '/reviews/$reviewId/full-text-screening': typeof ReviewsReviewIdFullTextScreeningRoute
@@ -103,8 +127,11 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/change-password': typeof ChangePasswordRoute
+  '/confirm-password-reset': typeof ConfirmPasswordResetRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/request-password-reset': typeof RequestPasswordResetRoute
   '/reviews/$reviewId/coding-theming': typeof ReviewsReviewIdCodingThemingRoute
   '/reviews/$reviewId/data-extraction': typeof ReviewsReviewIdDataExtractionRoute
   '/reviews/$reviewId/full-text-screening': typeof ReviewsReviewIdFullTextScreeningRoute
@@ -117,8 +144,11 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/change-password'
+    | '/confirm-password-reset'
     | '/login'
     | '/register'
+    | '/request-password-reset'
     | '/reviews/$reviewId/coding-theming'
     | '/reviews/$reviewId/data-extraction'
     | '/reviews/$reviewId/full-text-screening'
@@ -129,8 +159,11 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/change-password'
+    | '/confirm-password-reset'
     | '/login'
     | '/register'
+    | '/request-password-reset'
     | '/reviews/$reviewId/coding-theming'
     | '/reviews/$reviewId/data-extraction'
     | '/reviews/$reviewId/full-text-screening'
@@ -141,8 +174,11 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/change-password'
+    | '/confirm-password-reset'
     | '/login'
     | '/register'
+    | '/request-password-reset'
     | '/reviews/$reviewId/coding-theming'
     | '/reviews/$reviewId/data-extraction'
     | '/reviews/$reviewId/full-text-screening'
@@ -154,8 +190,11 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ChangePasswordRoute: typeof ChangePasswordRoute
+  ConfirmPasswordResetRoute: typeof ConfirmPasswordResetRoute
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
+  RequestPasswordResetRoute: typeof RequestPasswordResetRoute
   ReviewsReviewIdCodingThemingRoute: typeof ReviewsReviewIdCodingThemingRoute
   ReviewsReviewIdDataExtractionRoute: typeof ReviewsReviewIdDataExtractionRoute
   ReviewsReviewIdFullTextScreeningRoute: typeof ReviewsReviewIdFullTextScreeningRoute
@@ -167,6 +206,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/request-password-reset': {
+      id: '/request-password-reset'
+      path: '/request-password-reset'
+      fullPath: '/request-password-reset'
+      preLoaderRoute: typeof RequestPasswordResetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/register': {
       id: '/register'
       path: '/register'
@@ -179,6 +225,20 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/confirm-password-reset': {
+      id: '/confirm-password-reset'
+      path: '/confirm-password-reset'
+      fullPath: '/confirm-password-reset'
+      preLoaderRoute: typeof ConfirmPasswordResetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/change-password': {
+      id: '/change-password'
+      path: '/change-password'
+      fullPath: '/change-password'
+      preLoaderRoute: typeof ChangePasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -242,8 +302,11 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ChangePasswordRoute: ChangePasswordRoute,
+  ConfirmPasswordResetRoute: ConfirmPasswordResetRoute,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
+  RequestPasswordResetRoute: RequestPasswordResetRoute,
   ReviewsReviewIdCodingThemingRoute: ReviewsReviewIdCodingThemingRoute,
   ReviewsReviewIdDataExtractionRoute: ReviewsReviewIdDataExtractionRoute,
   ReviewsReviewIdFullTextScreeningRoute: ReviewsReviewIdFullTextScreeningRoute,

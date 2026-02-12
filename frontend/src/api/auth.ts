@@ -1,5 +1,6 @@
 import type { User } from '@/types/auth';
 import api from './axios';
+import { redirect } from '@tanstack/react-router';
 
 /* ------------------ REGISTER ------------------ */
 export const registerUser = async (payload: {
@@ -80,10 +81,48 @@ export async function refreshAccessToken() {
   }
 }
 
+/* ------------------ CHANGE PASSWORD ------------------ */
+export async function changePassword(payload: {
+  newPassword1: string;
+  newPassword2: string;
+}): Promise<{ detail: string }> {
+  const res = await api.post('/auth/password/change/', payload);
+  return res.data;
+}
+
+/* ------------------ REQUEST PASSWORD RESET ------------------ */
+export async function requestPasswordReset(payload: {
+  email: string;
+}): Promise<{ detail: string }> {
+  const res = await api.post('/auth/password/reset/', payload);
+  return res.data;
+}
+
+/* ------------------ CONFIRM PASSWORD RESET ------------------ */
+export async function confirmPasswordReset(payload: {
+  newPassword1: string;
+  newPassword2: string;
+  uid: string;
+  token: string;
+}): Promise<{ detail: string }> {
+  const res = await api.post('/auth/password/reset/confirm/', payload);
+  return res.data;
+}
+
 /* ------------------ LOGOUT ------------------ */
 export function logoutUser() {
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
   delete api.defaults.headers.common['Authorization'];
   window.location.href = '/login';
+}
+
+export async function redirectAuthenticated() {
+  const token = localStorage.getItem('access_token');
+  if (token) throw redirect({ to: '/' });
+}
+
+export async function redirectUnauthenticated() {
+  const token = localStorage.getItem('access_token');
+  if (!token) throw redirect({ to: '/login' });
 }
