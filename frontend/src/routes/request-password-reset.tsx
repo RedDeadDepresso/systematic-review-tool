@@ -1,19 +1,21 @@
 import { redirectAuthenticated } from '@/api/auth';
-import { RegisterForm } from '@/components/auth/register-form';
+import { RequestPasswordResetForm } from '@/components/auth/request-password-reset-form';
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { createFileRoute } from '@tanstack/react-router';
 import { useContext, useEffect } from 'react';
 
-export const Route = createFileRoute('/register')({
-  component: RegisterPage,
+export const Route = createFileRoute('/request-password-reset')({
+  component: RouteComponent,
   beforeLoad: redirectAuthenticated,
 });
 
-function RegisterPage() {
+function RouteComponent() {
   const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
+
   useEffect(() => {
-    setPageTitle('Register');
+    setPageTitle('Request Password Reset');
     setIsAuthenticated(false);
   }, []);
-  return <RegisterForm />;
+
+  return <RequestPasswordResetForm />;
 }

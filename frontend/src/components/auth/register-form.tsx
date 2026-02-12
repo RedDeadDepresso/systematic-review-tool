@@ -24,8 +24,8 @@ export function RegisterForm() {
     firstName: '',
     lastName: '',
     email: '',
-    password: '',
-    confirmPassword: '',
+    password1: '',
+    password2: '',
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -84,10 +84,10 @@ export function RegisterForm() {
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="password">Password</FieldLabel>
+              <FieldLabel htmlFor="password1">Password</FieldLabel>
               <Input
-                id="password"
-                name="password"
+                id="password1"
+                name="password1"
                 type="password"
                 required
                 onChange={handleChange}
@@ -98,12 +98,10 @@ export function RegisterForm() {
               </FieldDescription>
             </Field>
             <Field>
-              <FieldLabel htmlFor="confirm_password">
-                Confirm Password
-              </FieldLabel>
+              <FieldLabel htmlFor="password2">Confirm Password</FieldLabel>
               <Input
-                id="confirm_password"
-                name="confirm_password"
+                id="password2"
+                name="password2"
                 type="password"
                 required
                 onChange={handleChange}

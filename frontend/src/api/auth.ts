@@ -1,15 +1,16 @@
 import type { User } from '@/types/auth';
 import api from './axios';
+import { redirect } from '@tanstack/react-router';
 
 /* ------------------ REGISTER ------------------ */
 export const registerUser = async (payload: {
   firstName: string;
   lastName: string;
   email: string;
-  password: string;
-  confirmPassword: string;
+  password1: string;
+  password2: string;
 }): Promise<User> => {
-  const res = await api.post('/users/', payload);
+  const res = await api.post('/auth/registration/', payload);
   return res.data;
 };
 
@@ -33,7 +34,7 @@ export async function fetchUser() {
   const token = localStorage.getItem('access_token');
   if (!token) throw new Error('Not authenticated');
 
-  const res = await api.get('/users/0/', {
+  const res = await api.get('/auth/user/', {
     headers: { Authorization: `Bearer ${token}` },
   });
 
@@ -80,10 +81,48 @@ export async function refreshAccessToken() {
   }
 }
 
+/* ------------------ CHANGE PASSWORD ------------------ */
+export async function changePassword(payload: {
+  newPassword1: string;
+  newPassword2: string;
+}): Promise<{ detail: string }> {
+  const res = await api.post('/auth/password/change/', payload);
+  return res.data;
+}
+
+/* ------------------ REQUEST PASSWORD RESET ------------------ */
+export async function requestPasswordReset(payload: {
+  email: string;
+}): Promise<{ detail: string }> {
+  const res = await api.post('/auth/password/reset/', payload);
+  return res.data;
+}
+
+/* ------------------ CONFIRM PASSWORD RESET ------------------ */
+export async function confirmPasswordReset(payload: {
+  newPassword1: string;
+  newPassword2: string;
+  uid: string;
+  token: string;
+}): Promise<{ detail: string }> {
+  const res = await api.post('/auth/password/reset/confirm/', payload);
+  return res.data;
+}
+
 /* ------------------ LOGOUT ------------------ */
 export function logoutUser() {
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
   delete api.defaults.headers.common['Authorization'];
   window.location.href = '/login';
+}
+
+export async function redirectAuthenticated() {
+  const token = localStorage.getItem('access_token');
+  if (token) throw redirect({ to: '/' });
+}
+
+export async function redirectUnauthenticated() {
+  const token = localStorage.getItem('access_token');
+  if (!token) throw redirect({ to: '/login' });
 }
