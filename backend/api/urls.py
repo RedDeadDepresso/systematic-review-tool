@@ -24,6 +24,7 @@ from api.views import (
     ScreeningViewSet,
     SubThemeViewSet,
     UploadedPDFViewSet,
+    UserView,
 )
 
 
@@ -81,6 +82,11 @@ urlpatterns = [
         "review-members/<int:pk>/",
         ReviewMemberRetrieveUpdateDestroyView.as_view(),
         name="review-member-detail",
+    ),
+    path(
+        "auth/user/",
+        UserView.as_view(),
+        name="user",
     ),
     path("", include(router.urls)),
 ]

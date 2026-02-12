@@ -244,6 +244,7 @@ ACCOUNT_SIGNUP_FIELDS = [
     "password1*",
     "password2*",
 ]
+ACCOUNT_CHANGE_EMAIL = True
 
 
 AUTHENTICATION_BACKENDS = [
@@ -257,6 +258,7 @@ FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "localhost:3000")
 
 AUTH_KIT = {
     "USER_SERIALIZER": "api.serializers.UserSerializer",
+    "USER_VIEW": "api.views.UserView",
     "FRONTEND_BASE_URL": FRONTEND_BASE_URL,
     "PASSWORD_RESET_CONFIRM_PATH": os.getenv(
         "PASSWORD_RESET_CONFIRM_PATH", "/confirm-password-reset"
