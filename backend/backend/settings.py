@@ -252,8 +252,15 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "localhost:3000")
+
+
 AUTH_KIT = {
     "USER_SERIALIZER": "api.serializers.UserSerializer",
+    "FRONTEND_BASE_URL": FRONTEND_BASE_URL,
+    "PASSWORD_RESET_CONFIRM_PATH": os.getenv(
+        "PASSWORD_RESET_CONFIRM_PATH", "/confirm-password-reset"
+    ),
 }
 
 
@@ -268,3 +275,23 @@ SPECTACULAR_SETTINGS = {
         "drf_spectacular.hooks.postprocess_schema_enums",
     ],
 }
+
+
+# Email
+
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND", "django.core.mail.backends.filebased.EmailBackend"
+)
+
+if EMAIL_BACKEND == "django.core.mail.backends.filebased.EmailBackend":
+    EMAIL_FILE_PATH = MEDIA_ROOT / "emails"
+    EMAIL_FILE_PATH.mkdir(parents=True, exist_ok=True)
+
+elif EMAIL_BACKEND == "django.core.mail.backends.smtp.EmailBackend":
+    EMAIL_HOST = os.getenv("EMAIL_HOST")
+    EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+    EMAIL_PORT = 587
+    EMAIL_USE_TLS = True
+    EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+
+DEFAULT_FROM_EMAIL = os.getenv("EMAIL_HOST_USER", "webmaster@localhost")
