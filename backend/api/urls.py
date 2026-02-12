@@ -1,6 +1,5 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from api.views import (
     CodeViewSet,
@@ -25,14 +24,12 @@ from api.views import (
     ScreeningViewSet,
     SubThemeViewSet,
     UploadedPDFViewSet,
-    UserViewSet,
 )
 
 
 app_name = "api"
 
 router = DefaultRouter()
-router.register(r"users", UserViewSet, basename="user")
 
 router.register(r"reviews", ReviewViewSet, basename="review")
 router.register(
@@ -80,8 +77,6 @@ router.register(
 router.register(r"extraction", ExtractionTableViewSet, basename="extraction-table")
 
 urlpatterns = [
-    path("auth/login/", TokenObtainPairView.as_view(), name="login"),
-    path("auth/refresh/", TokenRefreshView.as_view(), name="refresh"),
     path(
         "review-members/<int:pk>/",
         ReviewMemberRetrieveUpdateDestroyView.as_view(),

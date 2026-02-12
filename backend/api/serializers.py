@@ -1,5 +1,4 @@
 import os
-from collections import defaultdict
 
 from django.db import models
 from django.db.models import Count, F, Q, Value
@@ -35,90 +34,15 @@ from api.permissions import PERMISSIONS, Permission, permission_denied_message
 
 
 class UserSerializer(serializers.ModelSerializer):
-    # Only for registration / write operations
-    confirm_password = serializers.CharField(write_only=True, required=False)
-    password = serializers.CharField(write_only=True, required=False)
     display_name = serializers.SerializerMethodField()
-
-    def get_display_name(self, obj):
-        return str(obj)
 
     class Meta:
         model = User
-        # Fields for retrieve & update
-        fields = [
-            "id",
-            "first_name",
-            "last_name",
-            "email",
-            "display_name",
-            "password",
-            "confirm_password",
-        ]
-        extra_kwargs = {
-            "password": {"write_only": True, "required": False},
-        }
+        fields = ["id", "email", "first_name", "last_name", "avatar", "display_name"]
+        read_only_fields = ["id"]
 
-    def validate(self, data):
-        """
-        Validate password only if provided.
-        Also validate confirm_password if password is set.
-        """
-        detail = defaultdict(list)
-
-        # Registration: check if password is provided
-        password = data.get("password")
-        confirm_password = data.get("confirm_password")
-        email = data.get("email")
-
-        # Email uniqueness check (only for registration)
-        if (
-            self.instance is None
-            and email
-            and User.objects.filter(email=email).exists()
-        ):
-            detail["email"].append("A user with this email already exists.")
-
-        if password:
-            if len(password) < 8:
-                detail["password"].append(
-                    "Password must be at least 8 characters long."
-                )
-            if password != confirm_password:
-                detail["password"].append("Passwords do not match.")
-
-        if detail:
-            raise serializers.ValidationError(detail)
-
-        return data
-
-    def create(self, validated_data):
-        """
-        Create user with password
-        """
-        validated_data.pop("confirm_password", None)
-        password = validated_data.pop("password", None)
-        user = User.objects.create(**validated_data)
-        if password:
-            user.set_password(password)
-            user.save()
-        return user
-
-    def update(self, instance, validated_data):
-        """
-        Update user fields. Handle password separately.
-        """
-        password = validated_data.pop("password", None)
-        validated_data.pop("confirm_password", None)
-
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-
-        if password:
-            instance.set_password(password)
-
-        instance.save()
-        return instance
+    def get_display_name(self, obj):
+        return str(obj)
 
 
 class ReviewMemberSerializer(serializers.ModelSerializer):

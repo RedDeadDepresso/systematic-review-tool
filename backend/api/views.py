@@ -28,7 +28,7 @@ from rest_framework import generics, mixins, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from api.filters import ReferenceFilter, ReviewFilter
@@ -53,7 +53,6 @@ from api.models import (
     SearchMethod,
     SubTheme,
     UploadedPDF,
-    User,
 )
 from api.permissions import IsReviewOwner, Permission, check_permission
 from api.serializers import (
@@ -87,7 +86,6 @@ from api.serializers import (
     ScreeningCriteriaSerializer,
     SubThemeSerializer,
     UploadedPDFSerializer,
-    UserSerializer,
 )
 from vendor.prisma_flow_diagram.prisma import Prisma2020Diagram, plot_prisma2020_new
 from vendor.prisma_flow_diagram.validation import _human_issue
@@ -98,66 +96,6 @@ ANSI_ESCAPE = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
 
 def strip_ansi(text: str) -> str:
     return ANSI_ESCAPE.sub("", text)
-
-
-class UserViewSet(
-    viewsets.GenericViewSet,
-    viewsets.mixins.CreateModelMixin,
-    viewsets.mixins.RetrieveModelMixin,
-    viewsets.mixins.UpdateModelMixin,
-    viewsets.mixins.DestroyModelMixin,
-):
-    """
-    UserViewSet handles:
-    - Registration (create)
-    - Retrieve current user profile (retrieve)
-    - Update user profile including password (update/partial_update)
-    - Delete account (destroy)
-    """
-
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-
-    def get_permissions(self):
-        """
-        Allow anyone to register, but other actions require authentication.
-        """
-        if self.action == "create":
-            return [AllowAny()]
-        return [IsAuthenticated()]
-
-    def get_object(self):
-        """
-        Ensure all retrieve/update/delete operations are for the current user only.
-        """
-        return self.request.user
-
-    def retrieve(self, request, *args, **kwargs):
-        """
-        Return the current user's profile.
-        """
-        user = self.get_object()
-        data = {
-            "id": user.id,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "email": user.email,
-            "display_name": str(user),
-            "avatar": getattr(
-                user, "avatar", ""
-            ),  # replace with user.avatar.url if using ImageField
-        }
-        return Response(data, status=status.HTTP_200_OK)
-
-    def destroy(self, request, *args, **kwargs):
-        """
-        Delete the current user's account.
-        """
-        user = self.get_object()
-        user.delete()
-        return Response(
-            {"detail": "User account deleted."}, status=status.HTTP_204_NO_CONTENT
-        )
 
 
 class ReviewViewSet(viewsets.ModelViewSet):
