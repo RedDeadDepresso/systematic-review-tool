@@ -28,11 +28,14 @@ describe('auth service', () => {
       firstName: 'Test',
       lastName: 'User',
       email: 'test@test.com',
-      password: 'pass',
-      confirmPassword: 'pass',
+      password1: 'pass',
+      password2: 'pass',
     });
 
-    expect(api.post).toHaveBeenCalledWith('/users/', expect.any(Object));
+    expect(api.post).toHaveBeenCalledWith(
+      '/auth/registration/',
+      expect.any(Object)
+    );
     expect(res).toEqual(mockUser);
   });
 
@@ -76,7 +79,7 @@ describe('auth service', () => {
 
     const res = await fetchUser();
 
-    expect(api.get).toHaveBeenCalledWith('/users/0/', {
+    expect(api.get).toHaveBeenCalledWith('/auth/user/', {
       headers: { Authorization: 'Bearer token' },
     });
     expect(res).toEqual({ id: 1 });
