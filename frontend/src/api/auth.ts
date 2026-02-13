@@ -43,19 +43,39 @@ export async function fetchUser() {
 
 /* ------------------ UPDATE USER ------------------ */
 export async function updateUser(payload: {
+  email?: string;
   firstName?: string;
   lastName?: string;
-  email?: string;
-  password?: string;
-  confirmPassword?: string;
+  avatar?: File | null;
 }): Promise<User> {
-  const res = await api.patch('/users/0/', payload);
+  const formData = new FormData();
+  if (payload.email) {
+    formData.append('email', payload.email);
+  }
+  if (payload.firstName) {
+    formData.append('firstName', payload.firstName);
+  }
+  if (payload.lastName) {
+    formData.append('lastName', payload.lastName);
+  }
+  if (payload.avatar === null) {
+    formData.append('avatar', '');
+  } else if (payload.avatar) {
+    formData.append('avatar', payload.avatar);
+  }
+
+  const res = await api.patch('/auth/user/', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+
   return res.data;
 }
 
 /* ------------------ DELETE ACCOUNT ------------------ */
 export async function deleteUser() {
-  const res = await api.delete('/users/0/');
+  const res = await api.delete('/auth/user/');
   logoutUser();
   return res.data;
 }

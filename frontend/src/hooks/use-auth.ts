@@ -1,12 +1,14 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   changePassword,
   confirmPasswordReset,
+  deleteUser,
   fetchUser,
   loginUser,
   refreshAccessToken,
   registerUser,
   requestPasswordReset,
+  updateUser,
 } from '../api/auth';
 import { useRouter } from '@tanstack/react-router';
 import { toast } from 'sonner';
@@ -96,6 +98,36 @@ export const useConfirmPasswordReset = () => {
         error.response?.data?.detail ||
           'Failed to reset password. Link may be expired.'
       );
+    },
+  });
+};
+
+export const useUpdateUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: updateUser,
+    onSuccess: (data) => {
+      toast.success('Profile updated successfully.');
+      queryClient.setQueryData(['user'], data);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Failed to Edit Profile.');
+    },
+  });
+};
+
+export const useDeleteUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteUser,
+    onSuccess: (_) => {
+      toast.success('Profile deleted successfully.');
+      queryClient.setQueryData(['user'], null);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Failed to Delete Profile.');
     },
   });
 };

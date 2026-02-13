@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as RequestPasswordResetRouteImport } from './routes/request-password-reset'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as EditProfileRouteImport } from './routes/edit-profile'
 import { Route as ConfirmPasswordResetRouteImport } from './routes/confirm-password-reset'
 import { Route as ChangePasswordRouteImport } from './routes/change-password'
 import { Route as IndexRouteImport } from './routes/index'
@@ -36,6 +37,11 @@ const RegisterRoute = RegisterRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EditProfileRoute = EditProfileRouteImport.update({
+  id: '/edit-profile',
+  path: '/edit-profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfirmPasswordResetRoute = ConfirmPasswordResetRouteImport.update({
@@ -98,6 +104,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/change-password': typeof ChangePasswordRoute
   '/confirm-password-reset': typeof ConfirmPasswordResetRoute
+  '/edit-profile': typeof EditProfileRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/request-password-reset': typeof RequestPasswordResetRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/change-password': typeof ChangePasswordRoute
   '/confirm-password-reset': typeof ConfirmPasswordResetRoute
+  '/edit-profile': typeof EditProfileRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/request-password-reset': typeof RequestPasswordResetRoute
@@ -129,6 +137,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/change-password': typeof ChangePasswordRoute
   '/confirm-password-reset': typeof ConfirmPasswordResetRoute
+  '/edit-profile': typeof EditProfileRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/request-password-reset': typeof RequestPasswordResetRoute
@@ -146,6 +155,7 @@ export interface FileRouteTypes {
     | '/'
     | '/change-password'
     | '/confirm-password-reset'
+    | '/edit-profile'
     | '/login'
     | '/register'
     | '/request-password-reset'
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
     | '/'
     | '/change-password'
     | '/confirm-password-reset'
+    | '/edit-profile'
     | '/login'
     | '/register'
     | '/request-password-reset'
@@ -176,6 +187,7 @@ export interface FileRouteTypes {
     | '/'
     | '/change-password'
     | '/confirm-password-reset'
+    | '/edit-profile'
     | '/login'
     | '/register'
     | '/request-password-reset'
@@ -192,6 +204,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChangePasswordRoute: typeof ChangePasswordRoute
   ConfirmPasswordResetRoute: typeof ConfirmPasswordResetRoute
+  EditProfileRoute: typeof EditProfileRoute
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
   RequestPasswordResetRoute: typeof RequestPasswordResetRoute
@@ -225,6 +238,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/edit-profile': {
+      id: '/edit-profile'
+      path: '/edit-profile'
+      fullPath: '/edit-profile'
+      preLoaderRoute: typeof EditProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/confirm-password-reset': {
@@ -304,6 +324,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChangePasswordRoute: ChangePasswordRoute,
   ConfirmPasswordResetRoute: ConfirmPasswordResetRoute,
+  EditProfileRoute: EditProfileRoute,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
   RequestPasswordResetRoute: RequestPasswordResetRoute,

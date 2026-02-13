@@ -1,5 +1,6 @@
 import {
   IconDotsVertical,
+  IconKey,
   IconLogout,
   IconUserCircle,
 } from '@tabler/icons-react';
@@ -21,11 +22,14 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { logoutUser } from '@/api/auth';
+import type { User } from '@/types/auth';
+import { useRouter } from '@tanstack/react-router';
 
-export function NavUser({ user }: any) {
+export function NavUser({ user }: { user: User }) {
   const { isMobile } = useSidebar();
-  const full_name = user?.firstName + ' ' + user?.lastName;
+  const fullName = user?.firstName + ' ' + user?.lastName;
   const initials = user?.firstName?.[0] + user?.lastName?.[0];
+  const router = useRouter();
 
   return (
     <SidebarMenu>
@@ -36,14 +40,14 @@ export function NavUser({ user }: any) {
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <Avatar className="h-8 w-8 rounded-lg grayscale">
-                <AvatarImage src={user?.avatar} alt={full_name} />
+              <Avatar className="h-8 w-8 rounded-lg">
+                <AvatarImage src={user?.avatar || ''} alt={fullName} />
                 <AvatarFallback className="rounded-lg">
                   {initials}
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{full_name}</span>
+                <span className="truncate font-medium">{fullName}</span>
                 <span className="text-muted-foreground truncate text-xs">
                   {user?.email}
                 </span>
@@ -60,13 +64,13 @@ export function NavUser({ user }: any) {
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={user?.avatar} alt={full_name} />
+                  <AvatarImage src={user?.avatar || ''} alt={fullName} />
                   <AvatarFallback className="rounded-lg">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{full_name}</span>
+                  <span className="truncate font-medium">{fullName}</span>
                   <span className="text-muted-foreground truncate text-xs">
                     {user?.email}
                   </span>
@@ -75,9 +79,19 @@ export function NavUser({ user }: any) {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => router.navigate({ to: '/edit-profile' })}
+              >
                 <IconUserCircle />
-                Account
+                Edit Profile
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                onClick={() => router.navigate({ to: '/change-password' })}
+              >
+                <IconKey />
+                Change Password
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

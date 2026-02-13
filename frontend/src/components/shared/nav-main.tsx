@@ -25,6 +25,7 @@ import {
 import { Link, useRouter } from '@tanstack/react-router';
 import { useFetchReviews } from '@/hooks/use-review';
 import type { ReviewRow } from '@/types/review';
+import { IconKey } from '@tabler/icons-react';
 
 export type NavMainItem = {
   title: string;
@@ -120,6 +121,15 @@ export function NavMainUnauthenticated() {
           >
             <UserRoundPlus />
             <span>Register</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            tooltip="Reset Password"
+            onClick={() => router.navigate({ to: '/request-password-reset' })}
+          >
+            <IconKey />
+            <span>Reset Password</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
