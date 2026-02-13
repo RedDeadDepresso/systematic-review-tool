@@ -44,23 +44,34 @@ class UserSerializer(serializers.ModelSerializer):
     def get_display_name(self, obj):
         return str(obj)
 
+    def update(self, instance, validated_data):
+        from allauth.account.models import EmailAddress
+
+        if self.initial_data.get("avatar") == "":
+            instance.avatar = None
+
+        previous_email = instance.email
+
+        updated_instance = super().update(instance, validated_data)
+
+        if previous_email != updated_instance.email:
+            EmailAddress.objects.filter(
+                user=updated_instance, email=previous_email
+            ).delete()
+            EmailAddress.objects.get_or_create(
+                user=updated_instance, email=updated_instance.email
+            )
+
+        return updated_instance
+
 
 class ReviewMemberSerializer(serializers.ModelSerializer):
-    user = serializers.SerializerMethodField()
+    user = UserSerializer(read_only=True)
 
     class Meta:
         model = ReviewMember
         fields = ["id", "role", "user"]
         read_only_fields = ["id", "user"]
-
-    def get_user(self, obj):
-        return {
-            "id": obj.user.id,
-            "first_name": obj.user.first_name,
-            "last_name": obj.user.last_name,
-            "email": obj.user.email,
-            "display_name": str(obj),
-        }
 
     def validate_role(self, new_role):
         """

@@ -7,6 +7,7 @@ from datetime import date
 from urllib.parse import urlencode
 
 import bibtexparser
+from auth_kit.views import UserView as AuthKitUserView
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import (
@@ -23,11 +24,9 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django_filters import rest_framework as filters
-from djangorestframework_camel_case.parser import CamelCaseJSONParser
 from rest_framework import generics, mixins, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -96,6 +95,17 @@ ANSI_ESCAPE = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
 
 def strip_ansi(text: str) -> str:
     return ANSI_ESCAPE.sub("", text)
+
+
+class UserView(AuthKitUserView):
+    def delete(self, request, *args, **kwargs):
+        """
+        Delete the current user's account.
+        """
+        self.request.user.delete()
+        return Response(
+            {"detail": "User account deleted."}, status=status.HTTP_204_NO_CONTENT
+        )
 
 
 class ReviewViewSet(viewsets.ModelViewSet):
@@ -918,7 +928,6 @@ class ReferenceViewSet(viewsets.ModelViewSet):
 
     serializer_class = ReferenceSerializer
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
     filter_backends = [filters.DjangoFilterBackend]
     filterset_fields = ["review"]
 
@@ -978,7 +987,6 @@ class ReferenceViewSet(viewsets.ModelViewSet):
         detail=False,
         methods=["post"],
         url_path="attach-pdfs",
-        parser_classes=[CamelCaseJSONParser],
     )
     def attach_pdfs(self, request):
         """Only owner/collaborator can attach PDFs"""
@@ -1035,7 +1043,6 @@ class ReferenceViewSet(viewsets.ModelViewSet):
         detail=False,
         methods=["post"],
         url_path="assign",
-        parser_classes=[CamelCaseJSONParser],
     )
     def assign(self, request):
         """Only owner can assign references"""
