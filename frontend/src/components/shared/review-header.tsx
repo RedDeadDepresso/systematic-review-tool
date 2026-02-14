@@ -13,6 +13,7 @@ import { useFetchReview, useUpdateReview } from '@/hooks/use-review';
 import InvitationDialog from './invitation-dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { can } from '@/lib/permissions';
+import { ZoteroConfigDialog } from '../review-index/zotero-config-dialog';
 
 interface ReviewHeaderProps {
   reviewId: number;
@@ -112,6 +113,8 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
               }
             />
           </div>
+
+          <ZoteroConfigDialog reviewId={reviewId} />
 
           <ScreeningCriteriaPopover
             reviewId={reviewId}

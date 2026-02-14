@@ -27,6 +27,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { ZoteroSyncPanel } from '@/components/review-index/zotero-sync-panel';
 
 export const Route = createFileRoute('/reviews/$reviewId/')({
   component: ReviewPage,
@@ -295,6 +296,7 @@ function ReviewPage() {
               )}
             </Card>
           </div>
+          <ZoteroSyncPanel reviewId={reviewId} />
         </Card>
 
         {/* Members Section - Collapsible */}
