@@ -29,6 +29,7 @@ from api.models import (
     SubTheme,
     UploadedPDF,
     User,
+    ZoteroSyncLog,
 )
 from api.permissions import PERMISSIONS, Permission, permission_denied_message
 
@@ -258,6 +259,23 @@ class ReviewListSerializer(ModelSerializer):
             "id",
             "user_role",
         ]
+
+
+class ZoteroStatusSerializer(serializers.Serializer):
+    """Read-only serializer for Zotero connection status"""
+
+    is_configured = serializers.BooleanField()
+    library_type = serializers.CharField()
+    last_sync = serializers.DateTimeField(allow_null=True)
+    total_synced_references = serializers.IntegerField()
+    collection_key = serializers.CharField(allow_null=True)
+    collection_name = serializers.CharField(allow_null=True)
+
+
+class ZoteroSyncLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ZoteroSyncLog
+        fields = "__all__"
 
 
 class UploadedPDFSerializer(serializers.ModelSerializer):

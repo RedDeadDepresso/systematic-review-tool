@@ -8,6 +8,7 @@ from urllib.parse import urlencode
 
 import bibtexparser
 from auth_kit.views import UserView as AuthKitUserView
+from celery.result import AsyncResult
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import (
@@ -52,6 +53,7 @@ from api.models import (
     SearchMethod,
     SubTheme,
     UploadedPDF,
+    ZoteroSyncLog,
 )
 from api.permissions import IsReviewOwner, Permission, check_permission
 from api.serializers import (
@@ -85,7 +87,15 @@ from api.serializers import (
     ScreeningCriteriaSerializer,
     SubThemeSerializer,
     UploadedPDFSerializer,
+    ZoteroStatusSerializer,
+    ZoteroSyncLogSerializer,
 )
+from api.tasks import (
+    pull_references_from_zotero_task,
+    push_references_to_zotero_task,
+    sync_single_reference_pdf,
+)
+from api.zotero_service import ZoteroService
 from vendor.prisma_flow_diagram.prisma import Prisma2020Diagram, plot_prisma2020_new
 from vendor.prisma_flow_diagram.validation import _human_issue
 
@@ -287,6 +297,384 @@ class ReviewViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_201_CREATED,
         )
+
+    @action(detail=True, methods=["post"], url_path="configure-zotero")
+    def configure_zotero(self, request, pk=None):
+        """Configure Zotero credentials for a review"""
+        review = self.get_object()
+
+        library_id = request.data.get("library_id")
+        api_key = request.data.get("api_key")
+        library_type = request.data.get("library_type", "user")
+
+        if not library_id or not api_key:
+            return Response(
+                {"error": "library_id and api_key are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        review.zotero_library_id = library_id
+        review.zotero_api_key = api_key
+        review.zotero_library_type = library_type
+        review.save()
+
+        return Response(
+            {
+                "message": "Zotero credentials configured successfully",
+                "library_type": library_type,
+            }
+        )
+
+    @action(detail=True, methods=["post"], url_path="push-to-zotero")
+    def push_to_zotero(self, request, pk=None):
+        """Start async task to push references to Zotero"""
+        review = self.get_object()
+
+        if not review.zotero_library_id or not review.zotero_api_key:
+            return Response(
+                {"error": "Zotero credentials not configured"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Start async task
+        batch_size = request.data.get("batch_size", 50)
+        task = push_references_to_zotero_task.delay(review.id, batch_size)
+
+        return Response(
+            {
+                "message": "Push to Zotero started",
+                "task_id": task.id,
+                "status": "processing",
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    @action(detail=True, methods=["post"], url_path="pull-from-zotero")
+    def pull_from_zotero(self, request, pk=None):
+        """Start async task to pull references from Zotero"""
+        review = self.get_object()
+
+        if not review.zotero_library_id or not review.zotero_api_key:
+            return Response(
+                {"error": "Zotero credentials not configured"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Start async task
+        task = pull_references_from_zotero_task.delay(review.id)
+
+        return Response(
+            {
+                "message": "Pull from Zotero started",
+                "task_id": task.id,
+                "status": "processing",
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    @action(detail=True, methods=["delete"], url_path="remove-zotero")
+    def remove_zotero(self, request, pk=None):
+        """
+        Remove Zotero configuration
+
+        DELETE /api/reviews/{id}/remove_zotero_config/
+        """
+        review = self.get_object()
+
+        review.zotero_library_id = None
+        review.zotero_api_key = None
+        review.zotero_library_type = "user"
+        review.save()
+
+        return Response(
+            {"message": "Zotero configuration removed", "is_configured": False}
+        )
+
+    @action(detail=True, methods=["get"], url_path="zotero-status")
+    def zotero_status(self, request, pk=None):
+        """
+        Get Zotero configuration status (without exposing credentials)
+
+        GET /api/reviews/{id}/zotero_status/
+        """
+        review = self.get_object()
+
+        # Get last sync
+        last_sync_log = (
+            ZoteroSyncLog.objects.filter(review=review, success=True)
+            .order_by("-synced_at")
+            .first()
+        )
+
+        # Count synced references
+        synced_count = Reference.objects.filter(
+            review=review, zotero_key__isnull=False
+        ).count()
+
+        status_data = {
+            "is_configured": bool(review.zotero_library_id and review.zotero_api_key),
+            "library_type": review.zotero_library_type
+            if review.zotero_library_id
+            else None,
+            "last_sync": last_sync_log.synced_at if last_sync_log else None,
+            "total_synced_references": synced_count,
+            "collection_key": review.zotero_collection_key,
+            "collection_name": review.zotero_collection_name,
+        }
+
+        serializer = ZoteroStatusSerializer(status_data)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="task-status/(?P<task_id>[^/.]+)")
+    def task_status(self, request, task_id=None, pk=None):
+        """
+        Check status of an async task
+        GET /api/reviews/task-status/{task_id}/
+        """
+        task = AsyncResult(task_id)
+
+        response_data = {
+            "task_id": task_id,
+            "status": task.state,
+        }
+
+        if task.state == "PENDING":
+            response_data["message"] = "Task is waiting to be processed"
+        elif task.state == "STARTED":
+            response_data["message"] = "Task is processing"
+        elif task.state == "SUCCESS":
+            response_data["result"] = task.result
+            response_data["message"] = "Task completed successfully"
+        elif task.state == "FAILURE":
+            response_data["error"] = str(task.info)
+            response_data["message"] = "Task failed"
+        elif task.state == "RETRY":
+            response_data["message"] = "Task is retrying after failure"
+
+        return Response(response_data)
+
+    @action(detail=True, methods=["get"], url_path="sync-status")
+    def sync_status(self, request, pk=None):
+        """Get sync status and history"""
+        review = self.get_object()
+
+        recent_syncs = ZoteroSyncLog.objects.filter(review=review).order_by(
+            "-synced_at"
+        )[:10]
+
+        all_refs = Reference.objects.filter(review=review)
+        total_refs = all_refs.count()
+
+        # This handles empty string, null, and actual files
+        with_pdfs = all_refs.exclude(file="").exclude(file__isnull=True).count()
+
+        synced_to_zotero = all_refs.filter(zotero_key__isnull=False).count()
+
+        stats = {
+            "total_references": total_refs,
+            "with_pdfs": with_pdfs,
+            "without_pdfs": total_refs - with_pdfs,
+            "synced_to_zotero": synced_to_zotero,
+            "is_zotero_configured": bool(
+                review.zotero_library_id and review.zotero_api_key
+            ),
+            "recent_syncs": ZoteroSyncLogSerializer(recent_syncs, many=True).data,
+        }
+
+        return Response(stats)
+
+    @action(detail=True, methods=["get"], url_path="zotero-collections")
+    def zotero_collections(self, request, pk=None):
+        """
+        Get all collections from the Zotero library
+
+        GET /api/reviews/{id}/zotero_collections/
+        """
+        review = self.get_object()
+
+        if not review.zotero_library_id or not review.zotero_api_key:
+            return Response(
+                {"error": "Zotero not configured"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        zotero = ZoteroService(
+            review.zotero_library_id, review.zotero_api_key, review.zotero_library_type
+        )
+
+        collections = zotero.get_collections()
+
+        # Format collections for frontend
+        formatted_collections = []
+        for col in collections:
+            formatted_collections.append(
+                {
+                    "key": col.get("key"),
+                    "version": col.get("version"),
+                    "data": {
+                        "name": col.get("data", {}).get("name", "Unnamed"),
+                        "parentCollection": col.get("data", {}).get("parentCollection"),
+                    },
+                }
+            )
+
+        return Response({"collections": formatted_collections})
+
+    @action(detail=True, methods=["post"], url_path="set-zotero-collection")
+    def set_zotero_collection(self, request, pk=None):
+        """
+        Set which Zotero collection to sync from
+        """
+        review = self.get_object()
+
+        collection_key = request.data.get("collection_key")
+        collection_name = request.data.get("collection_name")
+
+        # Clear collection filter if key is null
+        if collection_key is None or collection_key == "":
+            review.zotero_collection_key = None
+            review.zotero_collection_name = None
+            review.save()
+
+            return Response(
+                {
+                    "message": "Collection filter removed. Will sync entire library.",
+                    "collectionKey": None,
+                    "collectionName": None,
+                }
+            )
+
+        # Set collection filter
+        review.zotero_collection_key = collection_key
+        review.zotero_collection_name = collection_name or "Selected Collection"
+        review.save()
+
+        return Response(
+            {
+                "message": f"Collection filter set to: {review.zotero_collection_name}",
+                "collectionKey": collection_key,
+                "collectionName": collection_name,
+            }
+        )
+
+    @action(detail=True, methods=["post"])
+    def create_zotero_collection(self, request, pk=None):
+        """
+        Create a new collection in Zotero
+
+        POST /api/reviews/{id}/create_zotero_collection/
+        {
+            "name": "My Systematic Review",
+            "parent_collection": "ABC123"  // optional
+        }
+        """
+        review = self.get_object()
+
+        if not review.zotero_library_id or not review.zotero_api_key:
+            return Response(
+                {"error": "Zotero not configured"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        name = request.data.get("name")
+        parent_collection = request.data.get("parent_collection")
+
+        if not name:
+            return Response(
+                {"error": "Collection name is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        zotero = ZoteroService(
+            review.zotero_library_id, review.zotero_api_key, review.zotero_library_type
+        )
+
+        result = zotero.create_collection(name, parent_collection)
+
+        if result:
+            # Optionally set this as the review's collection
+            if request.data.get("set_as_review_collection", False):
+                review.zotero_collection_key = result.get("key")
+                review.zotero_collection_name = name
+                review.save()
+
+            return Response(
+                {
+                    "message": "Collection created successfully",
+                    "collection": {
+                        "key": result.get("key"),
+                        "name": name,
+                        "version": result.get("version"),
+                    },
+                }
+            )
+        else:
+            return Response(
+                {"error": "Failed to create collection"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    @action(detail=True, methods=["post"])
+    def add_to_collection(self, request, pk=None):
+        """
+        Add existing synced references to a collection
+
+        POST /api/reviews/{id}/add_to_collection/
+        {
+            "collection_key": "ABC123",
+            "reference_ids": [1, 2, 3]  // optional, if not provided adds all synced refs
+        }
+        """
+        review = self.get_object()
+
+        if not review.zotero_library_id or not review.zotero_api_key:
+            return Response(
+                {"error": "Zotero not configured"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        collection_key = request.data.get("collection_key")
+        reference_ids = request.data.get("reference_ids")
+
+        if not collection_key:
+            return Response(
+                {"error": "collection_key is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get references to add
+        if reference_ids:
+            references = Reference.objects.filter(
+                review=review, id__in=reference_ids, zotero_key__isnull=False
+            )
+        else:
+            # Add all synced references
+            references = Reference.objects.filter(
+                review=review, zotero_key__isnull=False
+            )
+
+        if not references.exists():
+            return Response(
+                {"error": "No synced references found to add"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        zotero = ZoteroService(
+            review.zotero_library_id, review.zotero_api_key, review.zotero_library_type
+        )
+
+        item_keys = list(references.values_list("zotero_key", flat=True))
+        success = zotero.add_items_to_collection(item_keys, collection_key)
+
+        if success:
+            return Response(
+                {
+                    "message": f"Added {len(item_keys)} references to collection",
+                    "count": len(item_keys),
+                }
+            )
+        else:
+            return Response(
+                {"error": "Failed to add items to collection"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     @action(detail=True, methods=["get"], url_path="article-counts")
     def article_counts(self, request, pk=None):
@@ -1038,6 +1426,27 @@ class ReferenceViewSet(viewsets.ModelViewSet):
             )
 
         return Response({"updated_references": updated}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["post"])
+    def bulk_sync_pdfs(self, request):
+        """Start bulk PDF sync for multiple references"""
+        reference_ids = request.data.get("reference_ids", [])
+
+        if not reference_ids:
+            return Response(
+                {"error": "No reference IDs provided"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        tasks = []
+        for ref_id in reference_ids:
+            task = sync_single_reference_pdf.delay(ref_id)
+            tasks.append({"reference_id": ref_id, "task_id": task.id})
+
+        return Response(
+            {"message": f"Started sync for {len(tasks)} references", "tasks": tasks},
+            status=status.HTTP_202_ACCEPTED,
+        )
 
     @action(
         detail=False,
