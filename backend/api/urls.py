@@ -25,6 +25,7 @@ from api.views import (
     SubThemeViewSet,
     UploadedPDFViewSet,
     UserView,
+    ZoteroIntegrationViewSet,
 )
 
 
@@ -76,7 +77,9 @@ router.register(
     r"extraction-answers", ExtractionAnswerViewSet, basename="extraction-answer"
 )
 router.register(r"extraction", ExtractionTableViewSet, basename="extraction-table")
-
+router.register(
+    r"zotero-integrations", ZoteroIntegrationViewSet, basename="zotero-integrations"
+)
 urlpatterns = [
     path(
         "review-members/<int:pk>/",

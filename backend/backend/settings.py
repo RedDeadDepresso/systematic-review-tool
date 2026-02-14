@@ -297,3 +297,7 @@ elif EMAIL_BACKEND == "django.core.mail.backends.smtp.EmailBackend":
     EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 
 DEFAULT_FROM_EMAIL = os.getenv("EMAIL_HOST_USER", "webmaster@localhost")
+
+
+# Encryption key to store zotero api keys
+ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
