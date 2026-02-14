@@ -1,4 +1,3 @@
-// src/components/zotero/zotero-collection-selector.tsx
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -22,31 +21,34 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   useZoteroCollections,
   useSetZoteroCollection,
-  useFetchZoteroStatus,
-} from '@/hooks/use-review';
-import { IconFolders } from '@tabler/icons-react';
+  useZoteroIntegration,
+  useCreateZoteroCollection,
+} from '@/hooks/use-zotero';
+import { IconFolders, IconFolderPlus } from '@tabler/icons-react';
 import { useState } from 'react';
-import { CreateCollectionDialog } from './create-collection-dlalog';
+import { Input } from '@/components/ui/input';
 
 interface ZoteroCollectionSelectorProps {
-  reviewId: number;
+  integrationId: number;
 }
 
 export function ZoteroCollectionSelector({
-  reviewId,
+  integrationId,
 }: ZoteroCollectionSelectorProps) {
-  const { data: collections, isLoading } = useZoteroCollections(reviewId);
-  const { data: status } = useFetchZoteroStatus(reviewId);
-  const setCollection = useSetZoteroCollection(reviewId);
+  const { data: integration } = useZoteroIntegration(integrationId);
+  const { data: collections, isLoading } = useZoteroCollections(integrationId);
+  const setCollection = useSetZoteroCollection(integrationId);
+  const createCollection = useCreateZoteroCollection(integrationId);
 
   const [open, setOpen] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedKey, setSelectedKey] = useState<string>('');
+  const [newCollectionName, setNewCollectionName] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (selectedKey === 'all') {
-      // Clear collection filter
       setCollection.mutate(
         { collectionKey: null, collectionName: null },
         {
@@ -56,7 +58,6 @@ export function ZoteroCollectionSelector({
         }
       );
     } else {
-      // Set specific collection
       const selectedCollection = collections?.find(
         (c) => c.key === selectedKey
       );
@@ -74,21 +75,34 @@ export function ZoteroCollectionSelector({
     }
   };
 
-  if (!status?.isConfigured) {
-    return null;
-  }
+  const handleCreateCollection = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    createCollection.mutate(
+      {
+        name: newCollectionName,
+        setAsDefault: true,
+      },
+      {
+        onSuccess: () => {
+          setShowCreateForm(false);
+          setNewCollectionName('');
+          setOpen(false);
+        },
+      }
+    );
+  };
 
   return (
-    <div className="flex gap-2">
-      <CreateCollectionDialog reviewId={reviewId} />
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button variant="outline" size="sm">
-            <IconFolders className="h-4 w-4" />
-            <span className="hidden lg:inline">Select Collection</span>
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="w-full sm:max-w-lg">
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <IconFolders className="h-4 w-4" />
+          <span className="hidden lg:inline">Collection</span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="w-full sm:max-w-lg">
+        {!showCreateForm ? (
           <form onSubmit={handleSubmit}>
             <DialogHeader className="mb-4">
               <DialogTitle>Select Zotero Collection</DialogTitle>
@@ -98,11 +112,11 @@ export function ZoteroCollectionSelector({
             </DialogHeader>
 
             <div className="grid gap-4">
-              {status.collectionName && (
+              {integration?.collectionName && (
                 <Alert>
                   <AlertDescription>
                     Currently syncing from:{' '}
-                    <strong>{status.collectionName}</strong>
+                    <strong>{integration.collectionName}</strong>
                   </AlertDescription>
                 </Alert>
               )}
@@ -152,7 +166,17 @@ export function ZoteroCollectionSelector({
               )}
             </div>
 
-            <DialogFooter className="mt-6">
+            <DialogFooter className="mt-6 flex-col sm:flex-row gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCreateForm(true)}
+                className="sm:mr-auto"
+              >
+                <IconFolderPlus className="h-4 w-4" />
+                New Collection
+              </Button>
               <DialogClose asChild>
                 <Button variant="outline">Cancel</Button>
               </DialogClose>
@@ -166,8 +190,60 @@ export function ZoteroCollectionSelector({
               </Button>
             </DialogFooter>
           </form>
-        </DialogContent>
-      </Dialog>
-    </div>
+        ) : (
+          <form onSubmit={handleCreateCollection}>
+            <DialogHeader className="mb-4">
+              <DialogTitle>Create New Collection</DialogTitle>
+              <DialogDescription>
+                Create a new collection in your Zotero library.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4">
+              <div className="grid gap-3">
+                <Label htmlFor="collectionName">Collection Name</Label>
+                <Input
+                  id="collectionName"
+                  placeholder="e.g., My Systematic Review 2024"
+                  value={newCollectionName}
+                  onChange={(e) => setNewCollectionName(e.target.value)}
+                  disabled={createCollection.isPending}
+                  required
+                />
+              </div>
+
+              <Alert>
+                <AlertDescription className="text-sm">
+                  The new collection will be created in Zotero and automatically
+                  set as the sync source for this review.
+                </AlertDescription>
+              </Alert>
+            </div>
+
+            <DialogFooter className="mt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowCreateForm(false);
+                  setNewCollectionName('');
+                }}
+                disabled={createCollection.isPending}
+              >
+                Back
+              </Button>
+              <Button
+                type="submit"
+                disabled={!newCollectionName || createCollection.isPending}
+              >
+                {createCollection.isPending
+                  ? 'Creating...'
+                  : 'Create & Use Collection'}
+              </Button>
+            </DialogFooter>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

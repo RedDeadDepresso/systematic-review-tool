@@ -20,21 +20,24 @@ import {
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
-  useConfigureZotero,
-  useFetchZoteroStatus,
-  useRemoveZotero,
-} from '@/hooks/use-review';
+  useZoteroIntegration,
+  useCreateZoteroIntegration,
+  useUpdateZoteroIntegration,
+  useDeleteZoteroIntegration,
+} from '@/hooks/use-zotero';
 import { IconSettings, IconExternalLink, IconTrash } from '@tabler/icons-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface ZoteroConfigDialogProps {
   reviewId: number;
 }
 
 export function ZoteroConfigDialog({ reviewId }: ZoteroConfigDialogProps) {
-  const configureZotero = useConfigureZotero(reviewId);
-  const removeZotero = useRemoveZotero(reviewId);
-  const { data: currentStatus } = useFetchZoteroStatus(reviewId);
+  const { data: integration, isLoading: loadingIntegration } =
+    useZoteroIntegration(reviewId);
+  const createIntegration = useCreateZoteroIntegration();
+  const updateIntegration = useUpdateZoteroIntegration(integration?.id || 0);
+  const deleteIntegration = useDeleteZoteroIntegration();
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
@@ -43,27 +46,65 @@ export function ZoteroConfigDialog({ reviewId }: ZoteroConfigDialogProps) {
     libraryType: 'user' as 'user' | 'group',
   });
 
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (open) {
+      setForm({
+        libraryId: '',
+        apiKey: '',
+        libraryType: integration?.libraryType || 'user',
+      });
+    }
+  }, [open, integration]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    configureZotero.mutate(form, {
-      onSuccess: () => {
-        setOpen(false);
-        setForm({ libraryId: '', apiKey: '', libraryType: 'user' });
-      },
-    });
+
+    if (integration) {
+      // Update existing integration
+      updateIntegration.mutate(
+        {
+          libraryId: form.libraryId || undefined,
+          apiKey: form.apiKey || undefined,
+          libraryType: form.libraryType,
+        },
+        {
+          onSuccess: () => {
+            setOpen(false);
+          },
+        }
+      );
+    } else {
+      // Create new integration
+      createIntegration.mutate(
+        {
+          review: reviewId,
+          libraryId: form.libraryId,
+          apiKey: form.apiKey,
+          libraryType: form.libraryType,
+        },
+        {
+          onSuccess: () => {
+            setOpen(false);
+          },
+        }
+      );
+    }
   };
 
   const handleRemove = () => {
+    if (!integration) return;
+
     if (
       confirm(
-        'Are you sure you want to remove Zotero configuration for this review?'
+        'Are you sure you want to remove Zotero integration for this review?'
       )
     ) {
-      removeZotero.mutate(undefined, {
+      deleteIntegration.mutate(integration.id, {
         onSuccess: () => {
           setOpen(false);
         },
@@ -71,20 +112,35 @@ export function ZoteroConfigDialog({ reviewId }: ZoteroConfigDialogProps) {
     }
   };
 
+  const isSubmitting =
+    createIntegration.isPending || updateIntegration.isPending;
+  const isDeleting = deleteIntegration.isPending;
+
+  if (loadingIntegration) {
+    return (
+      <Button variant="outline" size="sm" disabled>
+        <IconSettings className="h-4 w-4" />
+        <span className="hidden lg:inline">Loading...</span>
+      </Button>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
-          <IconSettings />
+          <IconSettings className="h-4 w-4" />
           <span className="hidden lg:inline">
-            {currentStatus?.isConfigured ? 'Update' : 'Configure'} Zotero
+            {integration?.isConfigured ? 'Update' : 'Configure'} Zotero
           </span>
         </Button>
       </DialogTrigger>
       <DialogContent className="w-full sm:max-w-2xl">
         <form onSubmit={handleSubmit}>
           <DialogHeader className="mb-4">
-            <DialogTitle>Configure Zotero Integration</DialogTitle>
+            <DialogTitle>
+              {integration ? 'Update' : 'Configure'} Zotero Integration
+            </DialogTitle>
             <DialogDescription>
               Connect this review to Zotero to automatically fetch PDFs for your
               references.
@@ -92,12 +148,14 @@ export function ZoteroConfigDialog({ reviewId }: ZoteroConfigDialogProps) {
           </DialogHeader>
 
           <div className="grid gap-4">
-            {currentStatus?.isConfigured && (
+            {integration?.isConfigured && (
               <Alert>
                 <AlertDescription>
-                  This review already has Zotero configured (
-                  {currentStatus.libraryType} library). Updating will replace
-                  your current credentials.
+                  This review is already connected to a Zotero{' '}
+                  {integration.libraryType} library.
+                  {form.apiKey || form.libraryId
+                    ? ' Updating will replace your current credentials.'
+                    : ' Leave fields empty to keep current credentials.'}
                 </AlertDescription>
               </Alert>
             )}
@@ -133,7 +191,7 @@ export function ZoteroConfigDialog({ reviewId }: ZoteroConfigDialogProps) {
                 onValueChange={(value: 'user' | 'group') =>
                   setForm({ ...form, libraryType: value })
                 }
-                disabled={configureZotero.isPending}
+                disabled={isSubmitting}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -162,14 +220,16 @@ export function ZoteroConfigDialog({ reviewId }: ZoteroConfigDialogProps) {
                 id="libraryId"
                 name="libraryId"
                 placeholder={
-                  form.libraryType === 'user'
-                    ? 'e.g., 12345678'
-                    : 'e.g., 9876543'
+                  integration
+                    ? 'Leave empty to keep current'
+                    : form.libraryType === 'user'
+                      ? 'e.g., 12345678'
+                      : 'e.g., 9876543'
                 }
                 value={form.libraryId}
                 onChange={handleChange}
-                disabled={configureZotero.isPending}
-                required
+                disabled={isSubmitting}
+                required={!integration}
               />
               <p className="text-sm text-muted-foreground">
                 {form.libraryType === 'user'
@@ -184,25 +244,41 @@ export function ZoteroConfigDialog({ reviewId }: ZoteroConfigDialogProps) {
                 id="apiKey"
                 name="apiKey"
                 type="password"
-                placeholder="Enter your Zotero API key"
+                placeholder={
+                  integration
+                    ? 'Leave empty to keep current key'
+                    : 'Enter your Zotero API key'
+                }
                 value={form.apiKey}
                 onChange={handleChange}
-                disabled={configureZotero.isPending}
-                required
+                disabled={isSubmitting}
+                required={!integration}
               />
               <p className="text-sm text-muted-foreground">
                 Your API key is stored securely and never displayed.
               </p>
             </div>
 
-            {currentStatus?.isConfigured && currentStatus.lastSync && (
+            {integration && (
               <Alert>
                 <AlertDescription>
-                  <strong>Last synced:</strong>{' '}
-                  {new Date(currentStatus.lastSync).toLocaleString()}
+                  <strong>Current configuration:</strong>
                   <br />
-                  <strong>Synced references:</strong>{' '}
-                  {currentStatus.totalSyncedReferences}
+                  Library Type: {integration.libraryType}
+                  <br />
+                  {integration.lastPushAt && (
+                    <>
+                      Last Push:{' '}
+                      {new Date(integration.lastPushAt).toLocaleString()}
+                      <br />
+                    </>
+                  )}
+                  {integration.lastPullAt && (
+                    <>
+                      Last Pull:{' '}
+                      {new Date(integration.lastPullAt).toLocaleString()}
+                    </>
+                  )}
                 </AlertDescription>
               </Alert>
             )}
@@ -210,29 +286,37 @@ export function ZoteroConfigDialog({ reviewId }: ZoteroConfigDialogProps) {
 
           <DialogFooter className="mt-6 flex-col sm:flex-row gap-2">
             <div className="flex-1">
-              {currentStatus?.isConfigured && (
+              {integration && (
                 <Button
                   type="button"
                   variant="destructive"
                   size="sm"
                   onClick={handleRemove}
-                  disabled={removeZotero.isPending}
+                  disabled={isDeleting || isSubmitting}
                 >
                   <IconTrash className="h-4 w-4" />
-                  Remove Config
+                  {isDeleting ? 'Removing...' : 'Remove Integration'}
                 </Button>
               )}
             </div>
             <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
+              <Button variant="outline" disabled={isSubmitting || isDeleting}>
+                Cancel
+              </Button>
             </DialogClose>
             <Button
               type="submit"
               disabled={
-                configureZotero.isPending || !form.libraryId || !form.apiKey
+                isSubmitting ||
+                isDeleting ||
+                (!integration && (!form.libraryId || !form.apiKey))
               }
             >
-              {configureZotero.isPending ? 'Saving...' : 'Save Configuration'}
+              {isSubmitting
+                ? 'Saving...'
+                : integration
+                  ? 'Update Integration'
+                  : 'Configure Integration'}
             </Button>
           </DialogFooter>
         </form>
