@@ -70,6 +70,24 @@ class Review(models.Model):
     reference_duplicate_detected = models.BooleanField(default=False)
     is_blinded = models.BooleanField(default=True)
     prisma_file = models.FileField(upload_to="prisma_diagrams/", blank=True, null=True)
+    zotero_library_id = models.CharField(max_length=100, blank=True, null=True)
+    zotero_api_key = models.CharField(max_length=100, blank=True, null=True)
+    zotero_library_type = models.CharField(
+        max_length=10, choices=[("user", "User"), ("group", "Group")], default="user"
+    )
+    zotero_collection_key = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="Optional: Only sync items from this Zotero collection",
+    )
+    zotero_collection_name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Display name of the selected collection",
+    )
+    zotero_collection_last_synced = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.title
@@ -153,6 +171,10 @@ class Reference(models.Model):
     in_extraction = models.BooleanField(default=False)
     is_extraction_completed = models.BooleanField(default=False)
 
+    zotero_key = models.CharField(max_length=100, blank=True, null=True)
+    zotero_version = models.IntegerField(default=0)
+    last_synced = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         indexes = [
             GinIndex(fields=["search_vector"], name="reference_search_vector_idx"),
@@ -160,6 +182,18 @@ class Reference(models.Model):
                 OpClass(Lower("title"), "gin_trgm_ops"), name="reference_title_trgm_idx"
             ),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["review", "zotero_key"],
+                name="unique_zotero_key_per_review",
+                condition=models.Q(zotero_key__isnull=False),
+            )
+        ]
+
+    @property
+    def has_pdf(self):
+        """Check if reference has a PDF file"""
+        return bool(self.file)
 
     def __str__(self):
         return f"{self.review.id} {self.id}"
@@ -597,3 +631,27 @@ class ScreeningStat(models.Model):
 
     def __str__(self):
         return f"{self.member} - {self.seconds}s ({self.sessions} sessions)"
+
+
+class ZoteroSyncLog(models.Model):
+    """Track sync operations"""
+
+    review = models.ForeignKey(Review, on_delete=models.CASCADE)
+    sync_type = models.CharField(
+        max_length=20,
+        choices=[
+            ("push", "Push to Zotero"),
+            ("pull", "Pull from Zotero"),
+        ],
+    )
+    items_processed = models.IntegerField(default=0)
+    items_with_pdfs = models.IntegerField(default=0)
+    success = models.BooleanField(default=True)
+    error_message = models.TextField(blank=True)
+    synced_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-synced_at"]
+
+    def __str__(self):
+        return f"{self.review.title} - {self.sync_type} - {self.synced_at}"
