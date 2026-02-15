@@ -3,7 +3,9 @@ import re
 import time
 from datetime import datetime
 
+from asgiref.sync import async_to_sync
 from celery import shared_task
+from channels.layers import get_channel_layer
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils import timezone
@@ -17,25 +19,68 @@ from .models import Reference, Review, ZoteroIntegration, ZoteroSyncLog
 logger = logging.getLogger(__name__)
 
 
-# tasks.py
+def send_task_update(
+    task_id: str, status: str, message: str, result=None, error=None, **extra_data
+):
+    """
+    Send task status update to WebSocket clients via channel layer
+
+    Args:
+        task_id: Celery task ID
+        status: Task status (PENDING, STARTED, PROGRESS, SUCCESS, FAILURE)
+        message: Human-readable message
+        result: Task result data (for SUCCESS)
+        error: Error message (for FAILURE)
+        **extra_data: Additional data to include in update
+    """
+    channel_layer = get_channel_layer()
+
+    if not channel_layer:
+        logger.warning("Channel layer not available, cannot send task update")
+        return
+
+    data = {"task_id": task_id, "status": status, "message": message, **extra_data}
+
+    if result is not None:
+        data["result"] = result
+
+    if error is not None:
+        data["error"] = error
+
+    # Send to all WebSocket clients in this task's group
+    async_to_sync(channel_layer.group_send)(
+        f"task_{task_id}", {"type": "task_status_update", "data": data}
+    )
+
+    logger.info(f"Sent task update for {task_id}: {status}")
+
+
 @shared_task(bind=True, max_retries=3)
 def push_references_to_zotero_task(self, review_id: int):
     """
-    Async task to push all unpushed references to Zotero in batches of 50
-
-    Zotero API limit: Maximum 50 items per write request
-    Rate limit: 120 requests per minute
-
-    Args:
-        review_id: ID of the review
+    Push all unpushed references to Zotero in batches of 50
+    Sends real-time progress updates via WebSocket
     """
+    task_id = self.request.id
+
     try:
+        # Send initial status
+        send_task_update(
+            task_id, status="STARTED", message="Starting push to Zotero..."
+        )
+
         review = Review.objects.get(id=review_id)
 
         # Get Zotero integration
         try:
             zotero_integration = review.zotero_integration
         except ZoteroIntegration.DoesNotExist:
+            send_task_update(
+                task_id,
+                status="FAILURE",
+                message="Zotero integration not configured",
+                error="Zotero integration not configured",
+            )
             return {
                 "success": False,
                 "error": "Zotero integration not configured",
@@ -44,6 +89,12 @@ def push_references_to_zotero_task(self, review_id: int):
             }
 
         if not zotero_integration.is_configured:
+            send_task_update(
+                task_id,
+                status="FAILURE",
+                message="Zotero credentials not configured",
+                error="Zotero credentials not configured",
+            )
             return {
                 "success": False,
                 "error": "Zotero credentials not configured",
@@ -59,12 +110,20 @@ def push_references_to_zotero_task(self, review_id: int):
 
         # Get all references to push
         all_references = Reference.objects.filter(
-            review=review, zotero_key__isnull=True
+            review=review,
+            in_full_text=True,
+            zotero_key__isnull=True,
         )
 
         total_count = all_references.count()
 
         if total_count == 0:
+            send_task_update(
+                task_id,
+                status="SUCCESS",
+                message="No references to push",
+                result={"pushed": 0, "failed": 0},
+            )
             return {
                 "success": True,
                 "message": "No references to push",
@@ -72,15 +131,19 @@ def push_references_to_zotero_task(self, review_id: int):
                 "failed": 0,
             }
 
-        # Zotero API limit: 50 items per write request
+        # Batch settings
         batch_size = 50
-        # Rate limit: 120 requests/minute = 2 requests/second
-        # To be safe, we'll do ~1 request per second
         rate_limit_delay = 1.0
 
-        logger.info(
-            f"Pushing {total_count} references in batches of {batch_size} "
-            f"(estimated {((total_count - 1) // batch_size) + 1} batches)"
+        logger.info(f"Pushing {total_count} references in batches of {batch_size}")
+
+        # Send progress update
+        send_task_update(
+            task_id,
+            status="PROGRESS",
+            message=f"Pushing {total_count} references in batches of {batch_size}...",
+            progress=0,
+            total=total_count,
         )
 
         total_pushed = 0
@@ -102,6 +165,17 @@ def push_references_to_zotero_task(self, review_id: int):
 
             if batch_count == 0:
                 break
+
+            # Send batch progress update
+            send_task_update(
+                task_id,
+                status="PROGRESS",
+                message=f"Processing batch {batch_number}/{total_batches} ({batch_count} references)...",
+                progress=offset,
+                total=total_count,
+                batch_number=batch_number,
+                total_batches=total_batches,
+            )
 
             logger.info(
                 f"Processing batch {batch_number}/{total_batches}: "
@@ -134,10 +208,31 @@ def push_references_to_zotero_task(self, review_id: int):
                     f"time={batch_time:.2f}s"
                 )
 
+                # Send batch completion update
+                send_task_update(
+                    task_id,
+                    status="PROGRESS",
+                    message=f"Batch {batch_number}/{total_batches} complete: {batch_pushed} pushed, {batch_failed} failed",
+                    progress=offset + batch_count,
+                    total=total_count,
+                    pushed=total_pushed,
+                    failed=total_failed,
+                )
+
             except Exception as batch_error:
                 logger.error(f"Batch {batch_number} failed: {str(batch_error)}")
                 total_failed += batch_count
                 all_errors.append(f"Batch {batch_number} failed: {str(batch_error)}")
+
+                # Send batch error update
+                send_task_update(
+                    task_id,
+                    status="PROGRESS",
+                    message=f"Batch {batch_number}/{total_batches} failed",
+                    progress=offset + batch_count,
+                    total=total_count,
+                    error=str(batch_error),
+                )
 
             # Move to next batch
             offset += batch_size
@@ -148,9 +243,7 @@ def push_references_to_zotero_task(self, review_id: int):
                 elapsed = time.time() - batch_start_time
                 sleep_time = max(0, rate_limit_delay - elapsed)
                 if sleep_time > 0:
-                    logger.info(
-                        f"Rate limiting: waiting {sleep_time:.2f}s before next batch"
-                    )
+                    logger.info(f"Rate limiting: waiting {sleep_time:.2f}s")
                     time.sleep(sleep_time)
 
         total_time = time.time() - start_time
@@ -160,12 +253,6 @@ def push_references_to_zotero_task(self, review_id: int):
         zotero_integration.save()
 
         # Create log
-        success_message = f"Pushed {total_pushed} references"
-        if total_failed > 0:
-            success_message += f", {total_failed} failed"
-        if total_batches > 1:
-            success_message += f" (in {total_batches} batches, {total_time:.1f}s)"
-
         ZoteroSyncLog.objects.create(
             review=review,
             sync_type="push",
@@ -179,7 +266,7 @@ def push_references_to_zotero_task(self, review_id: int):
             f"batches={total_batches}, time={total_time:.2f}s"
         )
 
-        return {
+        result_data = {
             "success": True,
             "pushed": total_pushed,
             "failed": total_failed,
@@ -190,11 +277,31 @@ def push_references_to_zotero_task(self, review_id: int):
             "errors": all_errors[:20] if all_errors else [],
         }
 
+        # Send final success update
+        send_task_update(
+            task_id,
+            status="SUCCESS",
+            message=f"Push complete: {total_pushed} pushed, {total_failed} failed in {total_time:.1f}s",
+            result=result_data,
+        )
+
+        return result_data
+
     except Review.DoesNotExist:
+        error_msg = "Review not found"
         logger.error(f"Review {review_id} not found")
-        return {"success": False, "error": "Review not found", "pushed": 0, "failed": 0}
+
+        send_task_update(task_id, status="FAILURE", message=error_msg, error=error_msg)
+
+        return {"success": False, "error": error_msg, "pushed": 0, "failed": 0}
+
     except Exception as e:
         logger.exception(f"Push task error: {str(e)}")
+
+        # Send error update
+        send_task_update(
+            task_id, status="FAILURE", message=f"Task failed: {str(e)}", error=str(e)
+        )
 
         # Log failed sync
         try:
@@ -305,16 +412,34 @@ def pull_references_from_zotero_task(self, review_id: int, force: bool = False):
         review_id: ID of the review
         force: If True, pull all items regardless of version
     """
+    task_id = self.request.id
     try:
+        # Send initial status
+        send_task_update(
+            task_id, status="STARTED", message="Starting pull from Zotero..."
+        )
+
         review = Review.objects.get(id=review_id)
 
         # Get Zotero integration
         try:
             zotero_integration = review.zotero_integration
         except ZoteroIntegration.DoesNotExist:
+            send_task_update(
+                task_id,
+                status="FAILURE",
+                message="Zotero integration not configured",
+                error="Zotero integration not configured",
+            )
             return {"success": False, "error": "Zotero integration not configured"}
 
         if not zotero_integration.is_configured:
+            send_task_update(
+                task_id,
+                status="FAILURE",
+                message="Zotero credentials not configured",
+                error="Zotero credentials not configured",
+            )
             return {"success": False, "error": "Zotero credentials not configured"}
 
         # Get credentials
@@ -336,8 +461,12 @@ def pull_references_from_zotero_task(self, review_id: int, force: bool = False):
             max_version = zotero_integration.last_sync_version
             logger.info(f"Incremental pull: fetching items since version {max_version}")
 
-        # Pull from Zotero with pagination
-        # The ZoteroService already handles pagination internally via pyzotero
+        # Send progress update
+        send_task_update(
+            task_id, status="PROGRESS", message="Fetching items from Zotero..."
+        )
+
+        # Pull from Zotero
         result = zotero.pull_references_from_zotero(
             max_version, zotero_integration.collection_key
         )
@@ -346,6 +475,16 @@ def pull_references_from_zotero_task(self, review_id: int, force: bool = False):
             raise self.retry(exc=Exception(result.get("error")), countdown=60)
 
         items = result["items"]
+        total_items = len(items)
+
+        send_task_update(
+            task_id,
+            status="PROGRESS",
+            message=f"Processing {total_items} items from Zotero...",
+            progress=0,
+            total=total_items,
+        )
+
         pdfs_downloaded = 0
         items_updated = 0
         items_created = 0
@@ -355,7 +494,7 @@ def pull_references_from_zotero_task(self, review_id: int, force: bool = False):
 
         # Process items
         with transaction.atomic():
-            for item in items:
+            for idx, item in enumerate(items, 1):
                 try:
                     data = item.get("data", {})
                     item_key = data.get("key")
@@ -452,6 +591,18 @@ def pull_references_from_zotero_task(self, review_id: int, force: bool = False):
                     else:
                         items_updated += 1
 
+                    if idx % 10 == 0 or idx == total_items:
+                        send_task_update(
+                            task_id,
+                            status="PROGRESS",
+                            message=f"Processing item {idx}/{total_items}...",
+                            progress=idx,
+                            total=total_items,
+                            created=items_created,
+                            updated=items_updated,
+                            pdfs=pdfs_downloaded,
+                        )
+
                 except Exception as e:
                     errors.append(f"Item {item_key}: {str(e)}")
                     logger.exception(f"Error processing {item_key}")
@@ -477,7 +628,7 @@ def pull_references_from_zotero_task(self, review_id: int, force: bool = False):
             f"{pdfs_downloaded} PDFs downloaded"
         )
 
-        return {
+        result_data = {
             "success": True,
             "items_updated": items_updated,
             "items_created": items_created,
@@ -486,10 +637,23 @@ def pull_references_from_zotero_task(self, review_id: int, force: bool = False):
             "review_id": review_id,
         }
 
+        # Send final success update
+        send_task_update(
+            task_id,
+            status="SUCCESS",
+            message=f"Pull complete: {items_created} created, {items_updated} updated, {pdfs_downloaded} PDFs",
+            result=result_data,
+        )
+
+        return result_data
+
     except Review.DoesNotExist:
         return {"success": False, "error": "Review not found"}
     except Exception as e:
         logger.exception(f"Pull task error: {str(e)}")
+        send_task_update(
+            task_id, status="FAILURE", message=f"Pull failed: {str(e)}", error=str(e)
+        )
         raise self.retry(exc=e, countdown=60)
 
 

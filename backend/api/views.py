@@ -1219,87 +1219,81 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
 
         return Response({"collections": formatted_collections})
 
-        @action(detail=True, methods=["post"])
-        def set_collection(self, request, pk=None):
-            """Set which collection to sync from with optional sync action"""
-            integration = self.get_object()
+    @action(detail=True, methods=["post"])
+    def set_collection(self, request, pk=None):
+        """Set which collection to sync from with optional sync action"""
+        integration = self.get_object()
 
-            collection_key = request.data.get("collection_key")
-            collection_name = request.data.get("collection_name")
-            sync_action = request.data.get("sync_action", "keep")
+        collection_key = request.data.get("collection_key")
+        collection_name = request.data.get("collection_name")
+        sync_action = request.data.get("sync_action", "keep")
 
-            # Check if collection is actually changing
-            collection_changed = integration.collection_key != collection_key
+        # Check if collection is actually changing
+        collection_changed = integration.collection_key != collection_key
 
-            # Perform sync action if collection changed and action specified
-            if collection_changed and sync_action in ["reset", "unlink"]:
-                count = self._reset_sync_data(integration.review, sync_action)
-                logger.info(
-                    f"Collection changed with action '{sync_action}'. "
-                    f"Affected {count} references."
-                )
-
-            # Update collection
-            integration.collection_key = collection_key
-            integration.collection_name = collection_name
-
-            # Reset sync version on collection change
-            if collection_changed:
-                integration.last_sync_version = 0
-                logger.info("Reset sync version due to collection change")
-
-            integration.save()
-
-            message = (
-                f"Collection filter set to: {collection_name}"
-                if collection_key
-                else "Collection filter removed. Will sync entire library."
+        # Perform sync action if collection changed and action specified
+        if collection_changed and sync_action in ["reset", "unlink"]:
+            count = self._reset_sync_data(integration.review, sync_action)
+            logger.info(
+                f"Collection changed with action '{sync_action}'. "
+                f"Affected {count} references."
             )
 
-            if collection_changed:
-                if sync_action in ["reset", "unlink"]:
-                    message += f" Sync data {sync_action}."
-                message += " Sync version reset - next pull will fetch all items."
+        # Update collection
+        integration.collection_key = collection_key
+        integration.collection_name = collection_name
 
-            return Response(
-                {
-                    "message": message,
-                    "collection_key": integration.collection_key,
-                    "collection_name": integration.collection_name,
-                    "sync_version_reset": collection_changed,
-                    "sync_action_performed": sync_action
-                    if collection_changed
-                    else None,
-                }
-            )
+        # Reset sync version on collection change
+        if collection_changed:
+            integration.last_sync_version = 0
+            logger.info("Reset sync version due to collection change")
 
-        def _reset_sync_data(self, review, action="reset"):
-            """Reset Zotero sync data"""
-            from django.db import transaction
+        integration.save()
 
-            references = Reference.objects.filter(
-                review=review, zotero_key__isnull=False
-            )
+        message = (
+            f"Collection filter set to: {collection_name}"
+            if collection_key
+            else "Collection filter removed. Will sync entire library."
+        )
 
-            count = references.count()
+        if collection_changed:
+            if sync_action in ["reset", "unlink"]:
+                message += f" Sync data {sync_action}."
+            message += " Sync version reset - next pull will fetch all items."
 
-            with transaction.atomic():
-                if action == "reset":
-                    # Clear everything
-                    for ref in references:
-                        ref.zotero_key = None
-                        ref.zotero_version = 0
-                        ref.last_synced = None
-                        ref.file = ""  # Clear file
-                        ref.save()
+        return Response(
+            {
+                "message": message,
+                "collection_key": integration.collection_key,
+                "collection_name": integration.collection_name,
+                "sync_version_reset": collection_changed,
+                "sync_action_performed": sync_action if collection_changed else None,
+            }
+        )
 
-                elif action == "unlink":
-                    # Keep PDFs, clear Zotero metadata
-                    references.update(
-                        zotero_key=None, zotero_version=0, last_synced=None
-                    )
+    def _reset_sync_data(self, review, action="reset"):
+        """Reset Zotero sync data"""
+        from django.db import transaction
 
-            return count
+        references = Reference.objects.filter(review=review, zotero_key__isnull=False)
+
+        count = references.count()
+
+        with transaction.atomic():
+            if action == "reset":
+                # Clear everything
+                for ref in references:
+                    ref.zotero_key = None
+                    ref.zotero_version = 0
+                    ref.last_synced = None
+                    ref.file = ""  # Clear file
+                    ref.save()
+
+            elif action == "unlink":
+                # Keep PDFs, clear Zotero metadata
+                references.update(zotero_key=None, zotero_version=0, last_synced=None)
+
+        return count
 
     @action(detail=True, methods=["post"])
     def create_collection(self, request, pk=None):
