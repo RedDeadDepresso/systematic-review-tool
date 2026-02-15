@@ -22,3 +22,4 @@ django-cleanup==9.0.0
 channels==4.3.2
 channels_redis==4.3.0
 drf-auth-kit==1.1.4
+pyzotero==1.10.0

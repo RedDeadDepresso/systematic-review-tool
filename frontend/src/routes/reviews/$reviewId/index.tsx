@@ -6,11 +6,10 @@ import { createFileRoute, redirect } from '@tanstack/react-router';
 import {
   FileCheck,
   FileText,
-  ChevronDown,
-  ChevronUp,
   CheckCircle2,
   FileX2,
   Trash2,
+  ChevronDownIcon,
 } from 'lucide-react';
 import { useDetectDuplicateReferences } from '@/hooks/use-reference-duplicate';
 import { Spinner } from '@/components/ui/spinner';
@@ -27,6 +26,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { ZoteroSyncPanel } from '@/components/review-index/zotero-sync-panel';
 
 export const Route = createFileRoute('/reviews/$reviewId/')({
   component: ReviewPage,
@@ -44,10 +44,6 @@ function ReviewPage() {
   const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
   const UploadReviewReferences = useUploadReviewReferences();
   const [openUploadDialog, setOpenUploadDialog] = useState(false);
-
-  // Collapsible state
-  const [isMembersOpen, setIsMembersOpen] = useState(false);
-  const [isStatisticsOpen, setIsStatisticsOpen] = useState(false);
 
   useEffect(() => {
     setPageTitle('Overview');
@@ -137,6 +133,7 @@ function ReviewPage() {
           <h2 className="mb-2 text-xl font-semibold text-foreground">
             Data Summary
           </h2>
+          <ZoteroSyncPanel reviewId={reviewId} />
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {/* Imported References Card */}
             <Card className="p-6">
@@ -298,100 +295,100 @@ function ReviewPage() {
         </Card>
 
         {/* Members Section - Collapsible */}
-        <Collapsible open={isMembersOpen} onOpenChange={setIsMembersOpen}>
-          <Card className="p-6">
-            <CollapsibleTrigger className="flex w-full items-center justify-between hover:opacity-80 transition-opacity">
-              <h2 className="text-xl font-semibold text-foreground">
-                Members
-                {!isLoading && data?.members && (
-                  <span className="ml-2 text-sm font-normal text-muted-foreground">
-                    ({data.members.length})
-                  </span>
-                )}
-              </h2>
-              {isMembersOpen ? (
-                <ChevronUp className="h-5 w-5 text-muted-foreground" />
-              ) : (
-                <ChevronDown className="h-5 w-5 text-muted-foreground" />
-              )}
+        <Collapsible>
+          <Card className="py-0">
+            <CollapsibleTrigger asChild>
+              <button className="group flex w-full items-center justify-between p-6 hover:bg-accent/50 transition-colors rounded-t-lg">
+                <h2 className="text-xl font-semibold text-foreground">
+                  Members
+                  {!isLoading && data?.members && (
+                    <span className="ml-2 text-sm font-normal text-muted-foreground">
+                      ({data.members.length})
+                    </span>
+                  )}
+                </h2>
+                <ChevronDownIcon className="h-5 w-5 transition-transform group-data-[state=open]:rotate-180" />
+              </button>
             </CollapsibleTrigger>
-            <CollapsibleContent className="mt-4">
-              {isLoading ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-4">
-                    <Skeleton className="h-10 w-10 rounded-full" />
-                    <div className="flex-1 space-y-2">
-                      <Skeleton className="h-4 w-1/4" />
-                      <Skeleton className="h-3 w-1/3" />
+            <CollapsibleContent>
+              <div className="px-6 pb-6">
+                {isLoading ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-4">
+                      <Skeleton className="h-10 w-10 rounded-full" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-1/4" />
+                        <Skeleton className="h-3 w-1/3" />
+                      </div>
+                      <Skeleton className="h-6 w-20" />
                     </div>
-                    <Skeleton className="h-6 w-20" />
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <Skeleton className="h-10 w-10 rounded-full" />
-                    <div className="flex-1 space-y-2">
-                      <Skeleton className="h-4 w-1/4" />
-                      <Skeleton className="h-3 w-1/3" />
+                    <div className="flex items-center gap-4">
+                      <Skeleton className="h-10 w-10 rounded-full" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-1/4" />
+                        <Skeleton className="h-3 w-1/3" />
+                      </div>
+                      <Skeleton className="h-6 w-20" />
                     </div>
-                    <Skeleton className="h-6 w-20" />
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <Skeleton className="h-10 w-10 rounded-full" />
-                    <div className="flex-1 space-y-2">
-                      <Skeleton className="h-4 w-1/4" />
-                      <Skeleton className="h-3 w-1/3" />
+                    <div className="flex items-center gap-4">
+                      <Skeleton className="h-10 w-10 rounded-full" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-1/4" />
+                        <Skeleton className="h-3 w-1/3" />
+                      </div>
+                      <Skeleton className="h-6 w-20" />
                     </div>
-                    <Skeleton className="h-6 w-20" />
                   </div>
-                </div>
-              ) : (
-                <ReviewTeamTable
-                  data={data?.members || []}
-                  userRole={data?.userRole || 'Viewer'}
-                  reviewId={reviewId}
-                />
-              )}
+                ) : (
+                  <ReviewTeamTable
+                    data={data?.members || []}
+                    userRole={data?.userRole || 'Viewer'}
+                    reviewId={reviewId}
+                  />
+                )}
+              </div>
             </CollapsibleContent>
           </Card>
         </Collapsible>
 
         {/* Statistics Section - Collapsible */}
-        <Collapsible open={isStatisticsOpen} onOpenChange={setIsStatisticsOpen}>
-          <Card className="p-6">
-            <CollapsibleTrigger className="flex w-full items-center justify-between hover:opacity-80 transition-opacity">
-              <h2 className="text-xl font-semibold text-foreground">
-                Statistics
-              </h2>
-              {isStatisticsOpen ? (
-                <ChevronUp className="h-5 w-5 text-muted-foreground" />
-              ) : (
-                <ChevronDown className="h-5 w-5 text-muted-foreground" />
-              )}
+        <Collapsible>
+          <Card className="py-0">
+            <CollapsibleTrigger asChild>
+              <button className="group flex w-full items-center justify-between p-6 hover:bg-accent/50 transition-colors rounded-t-lg">
+                <h2 className="text-xl font-semibold text-foreground">
+                  Statistics
+                </h2>
+                <ChevronDownIcon className="h-5 w-5 transition-transform group-data-[state=open]:rotate-180" />
+              </button>
             </CollapsibleTrigger>
-            <CollapsibleContent className="mt-4">
-              {isLoading ? (
-                <div className="space-y-4">
-                  {/* Tabs skeleton */}
-                  <div className="flex gap-2 border-b">
-                    <Skeleton className="h-10 w-32" />
-                    <Skeleton className="h-10 w-32" />
-                    <Skeleton className="h-10 w-32" />
-                  </div>
-                  {/* Chart skeleton */}
+            <CollapsibleContent>
+              <div className="px-6 pb-6">
+                {isLoading ? (
                   <div className="space-y-4">
-                    <div className="flex gap-6">
-                      <Skeleton className="h-16 w-32" />
-                      <Skeleton className="h-16 w-32" />
+                    {/* Tabs skeleton */}
+                    <div className="flex gap-2 border-b">
+                      <Skeleton className="h-10 w-32" />
+                      <Skeleton className="h-10 w-32" />
+                      <Skeleton className="h-10 w-32" />
                     </div>
-                    <Skeleton className="h-[400px] w-full" />
+                    {/* Chart skeleton */}
+                    <div className="space-y-4">
+                      <div className="flex gap-4">
+                        <Skeleton className="h-16 w-32" />
+                        <Skeleton className="h-16 w-32" />
+                      </div>
+                      <Skeleton className="h-[400px] w-full" />
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <StatsTabs
-                  screeningStats={data?.screeningStats || []}
-                  screeningOpinions={data?.screeningOpinions || []}
-                  fullTextOpinions={data?.fullTextOpinions || []}
-                />
-              )}
+                ) : (
+                  <StatsTabs
+                    screeningStats={data?.screeningStats || []}
+                    screeningOpinions={data?.screeningOpinions || []}
+                    fullTextOpinions={data?.fullTextOpinions || []}
+                  />
+                )}
+              </div>
             </CollapsibleContent>
           </Card>
         </Collapsible>

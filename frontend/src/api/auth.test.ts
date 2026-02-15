@@ -90,9 +90,13 @@ describe('auth service', () => {
 
     const res = await updateUser({ firstName: 'Updated' });
 
-    expect(api.patch).toHaveBeenCalledWith('/users/0/', {
-      firstName: 'Updated',
-    });
+    expect(api.patch).toHaveBeenCalledTimes(1);
+
+    const [, formData] = (api.patch as any).mock.calls[0];
+
+    expect(formData).toBeInstanceOf(FormData);
+    expect(formData.get('firstName')).toBe('Updated');
+
     expect(res.id).toBe(1);
   });
 
@@ -102,7 +106,7 @@ describe('auth service', () => {
 
     await deleteUser();
 
-    expect(api.delete).toHaveBeenCalledWith('/users/0/');
+    expect(api.delete).toHaveBeenCalledWith('/auth/user/');
     expect(localStorage.removeItem).toHaveBeenCalledWith('access_token');
     expect(localStorage.removeItem).toHaveBeenCalledWith('refresh_token');
     expect(spy).toHaveBeenCalledWith('/login');

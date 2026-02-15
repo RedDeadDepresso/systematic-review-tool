@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 from asgiref.sync import sync_to_async
+from celery.result import AsyncResult
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.core.cache import cache
 from django.utils import timezone
@@ -10,6 +11,89 @@ from api.models import ReviewMember, ScreeningStat
 
 
 logger = logging.getLogger(__name__)
+
+
+class TaskStatusConsumer(AsyncJsonWebsocketConsumer):
+    """
+    WebSocket consumer for real-time Celery task status updates
+    """
+
+    async def connect(self):
+        self.task_id = self.scope["url_route"]["kwargs"]["task_id"]
+        self.group_name = f"task_{self.task_id}"
+
+        # Join task-specific group
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+
+        await self.accept()
+
+        logger.info(
+            f"WebSocket connected for task {self.task_id}, joined group {self.group_name}"
+        )
+
+        # Send initial status
+        await self.send_initial_status()
+
+    async def disconnect(self, close_code):
+        # Leave task group
+        await self.channel_layer.group_discard(self.group_name, self.channel_name)
+
+        logger.info(
+            f"WebSocket disconnected for task {self.task_id}, code: {close_code}"
+        )
+
+    async def send_initial_status(self):
+        """Send current task status when client connects"""
+        import asyncio
+
+        # Get current task status
+        task_status = await asyncio.get_event_loop().run_in_executor(
+            None, self.get_task_status
+        )
+
+        await self.send_json(task_status)
+
+    def get_task_status(self):
+        """Get current Celery task status (sync method)"""
+        task = AsyncResult(self.task_id)
+
+        response_data = {
+            "task_id": self.task_id,
+            "status": task.state,
+        }
+
+        if task.state == "PENDING":
+            response_data["message"] = "Task is waiting to be processed"
+        elif task.state == "STARTED":
+            response_data["message"] = "Task is processing"
+        elif task.state == "SUCCESS":
+            response_data["result"] = task.result
+            response_data["message"] = "Task completed successfully"
+        elif task.state == "FAILURE":
+            response_data["error"] = str(task.info)
+            response_data["message"] = "Task failed"
+        elif task.state == "RETRY":
+            response_data["message"] = "Task is retrying after failure"
+
+        return response_data
+
+    # Handler for task status updates sent from Celery
+    async def task_status_update(self, event):
+        """
+        Receive task status updates from Celery tasks via channel layer
+        """
+        data = event["data"]
+
+        # Send the status update to WebSocket client
+        await self.send_json(data)
+
+        logger.info(f"Sent status update for task {self.task_id}: {data['status']}")
+
+        # Close WebSocket connection after task completes
+        if data["status"] in ["SUCCESS", "FAILURE", "ERROR"]:
+            logger.info(f"Task {self.task_id} completed, closing WebSocket")
+            # Send close frame with normal closure code
+            await self.close(code=1000)
 
 
 class ScreeningStatConsumer(AsyncJsonWebsocketConsumer):
