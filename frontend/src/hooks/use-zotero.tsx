@@ -200,10 +200,19 @@ export const usePushToZotero = (integrationId: number) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (batchSize?: number) => pushToZotero(integrationId, batchSize),
-    onSuccess: () => {
-      toast.success('Push to Zotero started');
-      // Optimistically invalidate status to show task is running
+    mutationFn: (confirm?: boolean) => pushToZotero(integrationId, confirm),
+    onSuccess: (data) => {
+      if (data.warning) {
+        // Show warning, don't show success toast yet
+        return;
+      }
+
+      const message =
+        data.estimatedBatches && data.estimatedBatches > 1
+          ? `Pushing ${data.totalUnpushed} references in ${data.estimatedBatches} batches`
+          : `Pushing ${data.totalUnpushed} references to Zotero`;
+
+      toast.success(message);
       queryClient.invalidateQueries({
         queryKey: ['zotero-status', integrationId],
       });

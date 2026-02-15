@@ -52,14 +52,32 @@ export function ZoteroSyncPanel({ reviewId }: ZoteroSyncPanelProps) {
     }
   }, [taskStatus?.status, refetchStatus]);
 
-  const handlePush = () => {
+  const handlePush = async () => {
     if (!integration) return;
 
-    pushMutation.mutate(undefined, {
-      onSuccess: (data) => {
-        setCurrentTaskId(data.taskId);
-      },
-    });
+    try {
+      const result = await pushMutation.mutateAsync(false);
+
+      // Check if warning (needs confirmation)
+      if (result.warning) {
+        if (
+          confirm(
+            `${result.warning}\n\n` +
+              `This will take approximately ${result.estimatedTimeMinutes} minutes.\n\n` +
+              `Continue?`
+          )
+        ) {
+          // User confirmed, retry with confirmation
+          const confirmedResult = await pushMutation.mutateAsync(true);
+          setCurrentTaskId(confirmedResult.taskId);
+        }
+      } else {
+        // No warning, proceed
+        setCurrentTaskId(result.taskId);
+      }
+    } catch (error) {
+      // Error already handled by mutation
+    }
   };
 
   const handlePull = () => {

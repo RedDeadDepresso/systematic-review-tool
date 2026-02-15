@@ -181,15 +181,20 @@ export const createZoteroCollection = async (
 
 export const pushToZotero = async (
   integrationId: number,
-  batchSize?: number
+  confirm?: boolean
 ) => {
   const res = await api.post<{
     message: string;
     taskId: string;
     status: string;
-  }>(`/zotero-integrations/${integrationId}/push/`, {
-    batchSize,
-  });
+    totalUnpushed: number;
+    estimatedBatches?: number;
+    warning?: string;
+    estimatedTimeMinutes?: number;
+  }>(
+    `/zotero-integrations/${integrationId}/push/`,
+    confirm ? { confirm: true } : {}
+  );
   return res.data;
 };
 
