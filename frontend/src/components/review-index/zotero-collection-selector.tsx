@@ -47,7 +47,7 @@ export function ZoteroCollectionSelector({
   const [selectedKey, setSelectedKey] = useState<string>('');
   const [newCollectionName, setNewCollectionName] = useState('');
   const [syncAction, setSyncAction] = useState<'keep' | 'reset' | 'unlink'>(
-    'reset'
+    'unlink'
   );
 
   // Check if collection is changing
