@@ -13,7 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { useCreateZoteroCollection } from '@/hooks/use-review';
+import { useCreateZoteroCollection } from '@/hooks/use-zotero';
 import { IconFolderPlus } from '@tabler/icons-react';
 import { useState } from 'react';
 
@@ -35,7 +35,7 @@ export function CreateCollectionDialog({
     createCollection.mutate(
       {
         name,
-        setAsReviewCollection: setAsDefault,
+        setAsDefault,
       },
       {
         onSuccess: () => {
@@ -69,7 +69,7 @@ export function CreateCollectionDialog({
               <Label htmlFor="name">Collection Name</Label>
               <Input
                 id="name"
-                placeholder="e.g., My Systematic Review 2024"
+                placeholder="e.g., My Systematic Review 2026"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 disabled={createCollection.isPending}

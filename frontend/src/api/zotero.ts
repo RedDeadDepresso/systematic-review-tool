@@ -65,23 +65,60 @@ export const createZoteroIntegration = async (payload: {
 
 export const updateZoteroIntegration = async (
   integrationId: number,
-  payload: Partial<{
-    libraryId: string;
-    apiKey: string;
-    libraryType: 'user' | 'group';
-    collectionKey: string | null;
-    collectionName: string | null;
-  }>
+  payload: {
+    libraryId?: string;
+    apiKey?: string;
+    libraryType?: 'user' | 'group';
+    syncAction?: 'keep' | 'reset' | 'unlink';
+  }
 ) => {
   const res = await api.put<ZoteroIntegration>(
     `/zotero-integrations/${integrationId}/`,
-    payload
+    {
+      library_id: payload.libraryId,
+      api_key: payload.apiKey,
+      library_type: payload.libraryType,
+      sync_action: payload.syncAction,
+    }
   );
   return res.data;
 };
 
-export const deleteZoteroIntegration = async (integrationId: number) => {
-  await api.delete(`/zotero-integrations/${integrationId}/`);
+export const resetSyncData = async (
+  integrationId: number,
+  action: 'reset' | 'unlink',
+  confirm: boolean = true
+) => {
+  const res = await api.post(
+    `/zotero-integrations/${integrationId}/reset_sync_data/`,
+    {
+      action,
+      confirm,
+    }
+  );
+  return res.data;
+};
+
+export const deleteZoteroIntegration = async (
+  integrationId: number,
+  action: 'keep' | 'unlink' | 'reset' = 'keep',
+  confirm: boolean = false
+) => {
+  const params = new URLSearchParams();
+  params.append('action', action);
+  if (confirm) params.append('confirm', 'true');
+
+  const res = await api.delete(
+    `/zotero-integrations/${integrationId}/?${params.toString()}`
+  );
+  return res.data;
+};
+
+export const getDeletionPreview = async (integrationId: number) => {
+  const res = await api.get(
+    `/zotero-integrations/${integrationId}/deletion_preview/`
+  );
+  return res.data;
 };
 
 // ============================================================================
@@ -105,16 +142,17 @@ export const getZoteroCollections = async (integrationId: number) => {
 export const setZoteroCollection = async (
   integrationId: number,
   collectionKey: string | null,
-  collectionName: string | null
+  collectionName: string | null,
+  syncAction?: 'keep' | 'unlink' | 'reset'
 ) => {
-  const res = await api.post<{
-    message: string;
-    collectionKey: string | null;
-    collectionName: string | null;
-  }>(`/zotero-integrations/${integrationId}/set_collection/`, {
-    collectionKey,
-    collectionName,
-  });
+  const res = await api.post(
+    `/zotero-integrations/${integrationId}/set_collection/`,
+    {
+      collection_key: collectionKey,
+      collection_name: collectionName,
+      sync_action: syncAction,
+    }
+  );
   return res.data;
 };
 

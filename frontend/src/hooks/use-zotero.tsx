@@ -11,6 +11,7 @@ import {
   pushToZotero,
   pullFromZotero,
   getTaskStatus,
+  getDeletionPreview,
 } from '@/api/zotero';
 import { toast } from 'sonner';
 
@@ -73,14 +74,23 @@ export const useDeleteZoteroIntegration = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: deleteZoteroIntegration,
-    onSuccess: (_, integrationId) => {
+    mutationFn: (params: {
+      integrationId: number;
+      action?: 'keep' | 'unlink' | 'reset';
+      confirm?: boolean;
+    }) =>
+      deleteZoteroIntegration(
+        params.integrationId,
+        params.action,
+        params.confirm
+      ),
+    onSuccess: (_, variables) => {
       toast.success('Zotero integration removed');
       queryClient.invalidateQueries({
         queryKey: ['zotero-integration'],
       });
       queryClient.removeQueries({
-        queryKey: ['zotero-integration', integrationId],
+        queryKey: ['zotero-integration', variables.integrationId],
       });
     },
     onError: (error: any) => {
@@ -88,6 +98,14 @@ export const useDeleteZoteroIntegration = () => {
         error.response?.data?.error || 'Failed to remove Zotero integration'
       );
     },
+  });
+};
+
+export const useDeletionPreview = (integrationId: number | null) => {
+  return useQuery({
+    queryKey: ['zotero-deletion-preview', integrationId],
+    queryFn: () => getDeletionPreview(integrationId!),
+    enabled: !!integrationId,
   });
 };
 
@@ -122,11 +140,13 @@ export const useSetZoteroCollection = (integrationId: number) => {
     mutationFn: (params: {
       collectionKey: string | null;
       collectionName: string | null;
+      syncAction?: 'keep' | 'unlink' | 'reset';
     }) =>
       setZoteroCollection(
         integrationId,
         params.collectionKey,
-        params.collectionName
+        params.collectionName,
+        params.syncAction
       ),
     onSuccess: (data) => {
       toast.success(data.message);
