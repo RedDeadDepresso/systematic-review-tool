@@ -1,5 +1,6 @@
 import csv
 import json
+import logging
 import os
 import re
 import tempfile
@@ -100,6 +101,9 @@ from api.tasks import (
 from api.zotero_service import ZoteroService
 from vendor.prisma_flow_diagram.prisma import Prisma2020Diagram, plot_prisma2020_new
 from vendor.prisma_flow_diagram.validation import _human_issue
+
+
+logger = logging.getLogger(__name__)
 
 
 ANSI_ESCAPE = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
@@ -982,30 +986,169 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
         )
 
     def update(self, request, *args, **kwargs):
-        """
-        Update Zotero integration
-        """
+        """Update Zotero integration"""
         integration = self.get_object()
-        serializer = ZoteroConfigSerializer(data=request.data, partial=True)
 
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        library_id = request.data.get("library_id")
+        api_key = request.data.get("api_key")
+        library_type = request.data.get("library_type")
+        sync_action = request.data.get("sync_action", "keep")
+
+        # Check if library is changing
+        library_changing = (library_id and library_id != integration.library_id) or (
+            library_type and library_type != integration.library_type
+        )
+
+        if library_changing:
+            # Library change detected - require explicit action
+            if sync_action not in ["reset", "unlink", "keep"]:
+                return Response(
+                    {
+                        "error": "Library configuration is changing",
+                        "message": (
+                            'You must specify sync_action: "reset" (clear all data), '
+                            '"unlink" (keep PDFs, clear keys), or "keep" (no changes)'
+                        ),
+                        "current_library_id": integration.library_id,
+                        "new_library_id": library_id,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if sync_action in ["reset", "unlink"]:
+                count = self._reset_sync_data(integration.review, sync_action)
+                logger.info(f"Reset {count} references with action '{sync_action}'")
 
         # Update fields
-        if "library_id" in serializer.validated_data:
-            integration.library_id = serializer.validated_data["library_id"]
-        if "api_key" in serializer.validated_data:
-            integration.api_key = serializer.validated_data["api_key"]
-        if "library_type" in serializer.validated_data:
-            integration.library_type = serializer.validated_data["library_type"]
-        if "collection_key" in serializer.validated_data:
-            integration.collection_key = serializer.validated_data["collection_key"]
-        if "collection_name" in serializer.validated_data:
-            integration.collection_name = serializer.validated_data["collection_name"]
+        if library_id:
+            integration.library_id = library_id
+        if api_key:
+            integration.api_key = api_key
+        if library_type:
+            integration.library_type = library_type
 
         integration.save()
 
-        return Response(ZoteroIntegrationSerializer(integration).data)
+        return Response(
+            {
+                "message": "Integration updated successfully",
+                "library_changed": library_changing,
+                "sync_action_performed": sync_action if library_changing else None,
+                "data": ZoteroIntegrationSerializer(integration).data,
+            }
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete Zotero integration with configurable reference handling
+        """
+        integration = self.get_object()
+        action = request.query_params.get("action", "keep")
+        confirm = request.query_params.get("confirm", "false").lower() == "true"
+
+        # Validate action
+        if action not in ["keep", "unlink", "reset"]:
+            return Response(
+                {
+                    "error": "Invalid action",
+                    "valid_actions": ["keep", "unlink", "reset"],
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Require confirmation for destructive actions
+        if action in ["unlink", "reset"] and not confirm:
+            references_count = Reference.objects.filter(
+                review=integration.review, zotero_key__isnull=False
+            ).count()
+
+            return Response(
+                {
+                    "error": "Confirmation required",
+                    "message": f"This action will affect {references_count} synced references.",
+                    "actions": {
+                        "keep": "Keep all Zotero data and PDFs (safest)",
+                        "unlink": f"Remove Zotero keys from {references_count} references, keep PDFs",
+                        "reset": f"Remove Zotero keys AND PDFs from {references_count} references (destructive)",
+                    },
+                    "confirm": "Add ?confirm=true to proceed",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Perform action on references
+        affected_count = 0
+        if action != "keep":
+            affected_count = self._reset_sync_data(integration.review, action)
+            logger.info(
+                f"Integration {integration.id} deleted with action '{action}'. "
+                f"Affected {affected_count} references."
+            )
+
+        # Delete sync logs
+        ZoteroSyncLog.objects.filter(review=integration.review).delete()
+
+        # Delete integration
+        integration.delete()
+
+        return Response(
+            {
+                "message": "Zotero integration removed successfully",
+                "action_performed": action,
+                "references_affected": affected_count,
+                "details": {
+                    "keep": "All data kept intact",
+                    "unlink": f"Unlinked {affected_count} references, kept PDFs",
+                    "reset": f"Reset {affected_count} references, removed PDFs",
+                }.get(action),
+            }
+        )
+
+    @action(detail=True, methods=["get"])
+    def deletion_preview(self, request, pk=None):
+        """
+        Preview what will happen when deleting this integration
+        """
+        integration = self.get_object()
+
+        synced_refs = Reference.objects.filter(
+            review=integration.review, zotero_key__isnull=False
+        )
+
+        synced_count = synced_refs.count()
+        refs_with_pdfs = synced_refs.exclude(file="").exclude(file__isnull=True).count()
+
+        return Response(
+            {
+                "integration_id": integration.id,
+                "review_id": integration.review.id,
+                "synced_references": synced_count,
+                "references_with_pdfs": refs_with_pdfs,
+                "collection": {
+                    "key": integration.collection_key,
+                    "name": integration.collection_name,
+                }
+                if integration.collection_key
+                else None,
+                "actions": {
+                    "keep": {
+                        "description": "Keep all Zotero data and PDFs (safest)",
+                        "affected_references": 0,
+                        "pdfs_lost": 0,
+                    },
+                    "unlink": {
+                        "description": "Remove Zotero keys but keep PDFs",
+                        "affected_references": synced_count,
+                        "pdfs_lost": 0,
+                    },
+                    "reset": {
+                        "description": "Remove Zotero keys AND PDFs (destructive)",
+                        "affected_references": synced_count,
+                        "pdfs_lost": refs_with_pdfs,
+                    },
+                },
+            }
+        )
 
     @action(detail=True, methods=["get"])
     def status(self, request, pk=None):
@@ -1076,34 +1219,87 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
 
         return Response({"collections": formatted_collections})
 
-    @action(detail=True, methods=["post"])
-    def set_collection(self, request, pk=None):
-        """
-        Set which collection to sync from
-        """
-        integration = self.get_object()
+        @action(detail=True, methods=["post"])
+        def set_collection(self, request, pk=None):
+            """Set which collection to sync from with optional sync action"""
+            integration = self.get_object()
 
-        collection_key = request.data.get("collection_key")
-        collection_name = request.data.get("collection_name")
+            collection_key = request.data.get("collection_key")
+            collection_name = request.data.get("collection_name")
+            sync_action = request.data.get("sync_action", "keep")
 
-        if collection_key:
+            # Check if collection is actually changing
+            collection_changed = integration.collection_key != collection_key
+
+            # Perform sync action if collection changed and action specified
+            if collection_changed and sync_action in ["reset", "unlink"]:
+                count = self._reset_sync_data(integration.review, sync_action)
+                logger.info(
+                    f"Collection changed with action '{sync_action}'. "
+                    f"Affected {count} references."
+                )
+
+            # Update collection
             integration.collection_key = collection_key
             integration.collection_name = collection_name
-            message = f"Collection filter set to: {collection_name}"
-        else:
-            integration.collection_key = None
-            integration.collection_name = None
-            message = "Collection filter removed. Will sync entire library."
 
-        integration.save()
+            # Reset sync version on collection change
+            if collection_changed:
+                integration.last_sync_version = 0
+                logger.info("Reset sync version due to collection change")
 
-        return Response(
-            {
-                "message": message,
-                "collection_key": integration.collection_key,
-                "collection_name": integration.collection_name,
-            }
-        )
+            integration.save()
+
+            message = (
+                f"Collection filter set to: {collection_name}"
+                if collection_key
+                else "Collection filter removed. Will sync entire library."
+            )
+
+            if collection_changed:
+                if sync_action in ["reset", "unlink"]:
+                    message += f" Sync data {sync_action}."
+                message += " Sync version reset - next pull will fetch all items."
+
+            return Response(
+                {
+                    "message": message,
+                    "collection_key": integration.collection_key,
+                    "collection_name": integration.collection_name,
+                    "sync_version_reset": collection_changed,
+                    "sync_action_performed": sync_action
+                    if collection_changed
+                    else None,
+                }
+            )
+
+        def _reset_sync_data(self, review, action="reset"):
+            """Reset Zotero sync data"""
+            from django.db import transaction
+
+            references = Reference.objects.filter(
+                review=review, zotero_key__isnull=False
+            )
+
+            count = references.count()
+
+            with transaction.atomic():
+                if action == "reset":
+                    # Clear everything
+                    for ref in references:
+                        ref.zotero_key = None
+                        ref.zotero_version = 0
+                        ref.last_synced = None
+                        ref.file = ""  # Clear file
+                        ref.save()
+
+                elif action == "unlink":
+                    # Keep PDFs, clear Zotero metadata
+                    references.update(
+                        zotero_key=None, zotero_version=0, last_synced=None
+                    )
+
+            return count
 
     @action(detail=True, methods=["post"])
     def create_collection(self, request, pk=None):
@@ -1134,10 +1330,21 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
         result = zotero.create_collection(name, parent_collection)
 
         if result:
-            # Optionally set as default collection
+            # Set as default collection if requested
             if set_as_default:
+                # Check if collection is changing
+                collection_changed = integration.collection_key != result.get("key")
+
                 integration.collection_key = result.get("key")
                 integration.collection_name = name
+
+                # Reset sync version on collection change
+                if collection_changed:
+                    integration.last_sync_version = 0
+                    logger.info(
+                        f"Collection changed to newly created '{name}'. Reset sync version."
+                    )
+
                 integration.save()
 
             return Response(
@@ -1148,6 +1355,8 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
                         "name": name,
                         "version": result.get("version"),
                     },
+                    "set_as_default": set_as_default,
+                    "sync_version_reset": set_as_default,
                 }
             )
         else:

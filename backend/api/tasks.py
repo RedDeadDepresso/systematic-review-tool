@@ -286,13 +286,6 @@ def pull_references_from_zotero_task(self, review_id: int, force: bool = False):
                     children = children_result["children"]
                     logger.info(f"Item {item_key} has {len(children)} children")
 
-                    # Debug: Log all children
-                    for child in children:
-                        child_data = child.get("data", {})
-                        logger.info(
-                            f"  Child: {child_data.get('itemType')} - {child_data.get('contentType')} - {child_data.get('title', 'No title')}"
-                        )
-
                     # Look for PDF attachments
                     pdf_found = False
                     for child in children:
