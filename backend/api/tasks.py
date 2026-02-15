@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 from datetime import datetime
 
 from celery import shared_task
@@ -16,14 +17,17 @@ from .models import Reference, Review, ZoteroIntegration, ZoteroSyncLog
 logger = logging.getLogger(__name__)
 
 
+# tasks.py
 @shared_task(bind=True, max_retries=3)
-def push_references_to_zotero_task(self, review_id: int, batch_size: int = 50):
+def push_references_to_zotero_task(self, review_id: int):
     """
-    Async task to push references to Zotero
+    Async task to push all unpushed references to Zotero in batches of 50
+
+    Zotero API limit: Maximum 50 items per write request
+    Rate limit: 120 requests per minute
 
     Args:
         review_id: ID of the review
-        batch_size: Number of references to push at once
     """
     try:
         review = Review.objects.get(id=review_id)
@@ -50,12 +54,17 @@ def push_references_to_zotero_task(self, review_id: int, batch_size: int = 50):
         # Get credentials
         library_id, api_key, library_type = zotero_integration.get_credentials()
 
-        # Get references to push
-        references = Reference.objects.filter(review=review, zotero_key__isnull=True)[
-            :batch_size
-        ]
+        # Initialize Zotero service
+        zotero = ZoteroService(library_id, api_key, library_type)
 
-        if not references.exists():
+        # Get all references to push
+        all_references = Reference.objects.filter(
+            review=review, zotero_key__isnull=True
+        )
+
+        total_count = all_references.count()
+
+        if total_count == 0:
             return {
                 "success": True,
                 "message": "No references to push",
@@ -63,42 +72,153 @@ def push_references_to_zotero_task(self, review_id: int, batch_size: int = 50):
                 "failed": 0,
             }
 
-        # Push to Zotero
-        zotero = ZoteroService(library_id, api_key, library_type)
-        result = zotero.push_references_to_zotero(
-            list(references), zotero_integration.collection_key
+        # Zotero API limit: 50 items per write request
+        batch_size = 50
+        # Rate limit: 120 requests/minute = 2 requests/second
+        # To be safe, we'll do ~1 request per second
+        rate_limit_delay = 1.0
+
+        logger.info(
+            f"Pushing {total_count} references in batches of {batch_size} "
+            f"(estimated {((total_count - 1) // batch_size) + 1} batches)"
         )
 
-        created_count = result.get("created", 0)
-        failed_count = result.get("failed", 0)
+        total_pushed = 0
+        total_failed = 0
+        all_errors = []
 
-        # Update integration timestamp
+        # Process in batches
+        offset = 0
+        batch_number = 1
+        start_time = time.time()
+        total_batches = ((total_count - 1) // batch_size) + 1
+
+        while offset < total_count:
+            batch_start_time = time.time()
+
+            # Get next batch
+            batch_references = all_references[offset : offset + batch_size]
+            batch_count = batch_references.count()
+
+            if batch_count == 0:
+                break
+
+            logger.info(
+                f"Processing batch {batch_number}/{total_batches}: "
+                f"{batch_count} references (offset: {offset})"
+            )
+
+            # Push this batch
+            try:
+                result = zotero.push_references_to_zotero(
+                    list(batch_references), zotero_integration.collection_key
+                )
+
+                batch_pushed = result.get("created", 0)
+                batch_failed = result.get("failed", 0)
+
+                total_pushed += batch_pushed
+                total_failed += batch_failed
+
+                # Collect errors
+                if result.get("errors"):
+                    for idx, error in result["errors"].items():
+                        all_errors.append(
+                            f"Batch {batch_number}, Item {idx}: {error.get('message', 'Unknown')}"
+                        )
+
+                batch_time = time.time() - batch_start_time
+                logger.info(
+                    f"Batch {batch_number} complete: "
+                    f"pushed={batch_pushed}, failed={batch_failed}, "
+                    f"time={batch_time:.2f}s"
+                )
+
+            except Exception as batch_error:
+                logger.error(f"Batch {batch_number} failed: {str(batch_error)}")
+                total_failed += batch_count
+                all_errors.append(f"Batch {batch_number} failed: {str(batch_error)}")
+
+            # Move to next batch
+            offset += batch_size
+            batch_number += 1
+
+            # Rate limiting between batches (skip for last batch)
+            if offset < total_count and rate_limit_delay > 0:
+                elapsed = time.time() - batch_start_time
+                sleep_time = max(0, rate_limit_delay - elapsed)
+                if sleep_time > 0:
+                    logger.info(
+                        f"Rate limiting: waiting {sleep_time:.2f}s before next batch"
+                    )
+                    time.sleep(sleep_time)
+
+        total_time = time.time() - start_time
+
+        # Update integration
         zotero_integration.last_push_at = timezone.now()
         zotero_integration.save()
 
-        # Log the sync
+        # Create log
+        success_message = f"Pushed {total_pushed} references"
+        if total_failed > 0:
+            success_message += f", {total_failed} failed"
+        if total_batches > 1:
+            success_message += f" (in {total_batches} batches, {total_time:.1f}s)"
+
         ZoteroSyncLog.objects.create(
             review=review,
             sync_type="push",
-            items_processed=created_count,
-            success=created_count > 0,
-            error_message=f"Created: {created_count}, Failed: {failed_count}"
-            if failed_count > 0
-            else "",
+            items_processed=total_pushed,
+            success=total_pushed > 0,
+            error_message="; ".join(all_errors[:10]) if all_errors else "",
+        )
+
+        logger.info(
+            f"Push complete: pushed={total_pushed}, failed={total_failed}, "
+            f"batches={total_batches}, time={total_time:.2f}s"
         )
 
         return {
             "success": True,
-            "pushed": created_count,
-            "failed": failed_count,
+            "pushed": total_pushed,
+            "failed": total_failed,
+            "total_attempted": total_count,
+            "batches_processed": total_batches,
+            "total_time_seconds": round(total_time, 2),
             "review_id": review_id,
+            "errors": all_errors[:20] if all_errors else [],
         }
 
     except Review.DoesNotExist:
-        return {"success": False, "error": "Review not found"}
+        logger.error(f"Review {review_id} not found")
+        return {"success": False, "error": "Review not found", "pushed": 0, "failed": 0}
     except Exception as e:
-        logger.exception(f"Error in push task: {str(e)}")
-        raise self.retry(exc=e, countdown=60)
+        logger.exception(f"Push task error: {str(e)}")
+
+        # Log failed sync
+        try:
+            review = Review.objects.get(id=review_id)
+            ZoteroSyncLog.objects.create(
+                review=review,
+                sync_type="push",
+                items_processed=0,
+                success=False,
+                error_message=str(e),
+            )
+        except Exception as e:
+            logger.error(f"Error pushing to zotero: {e}")
+
+        # Retry on failure
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=e, countdown=60)
+        else:
+            return {
+                "success": False,
+                "error": f"Failed after {self.max_retries} retries: {str(e)}",
+                "pushed": 0,
+                "failed": 0,
+            }
 
 
 def zotero_type_to_pub_type(zotero_type: str) -> str:
@@ -175,7 +295,16 @@ def get_or_create_zotero_search_method(review):
 
 @shared_task(bind=True, max_retries=3)
 def pull_references_from_zotero_task(self, review_id: int, force: bool = False):
-    """Pull references and PDFs from Zotero"""
+    """
+    Pull references and PDFs from Zotero
+
+    Zotero API limit: Maximum 100 items per read request
+    Rate limit: 120 requests per minute
+
+    Args:
+        review_id: ID of the review
+        force: If True, pull all items regardless of version
+    """
     try:
         review = Review.objects.get(id=review_id)
 
@@ -197,14 +326,18 @@ def pull_references_from_zotero_task(self, review_id: int, force: bool = False):
         # Determine max_version for incremental sync
         if force:
             max_version = 0
+            logger.info("Force pull: fetching all items")
         elif zotero_integration.collection_key:
-            # For collections, always get all items (collection membership doesn't change version)
+            # For collections, always get all items
             max_version = 0
+            logger.info("Collection pull: fetching all items from collection")
         else:
             # For entire library, use incremental sync
             max_version = zotero_integration.last_sync_version
+            logger.info(f"Incremental pull: fetching items since version {max_version}")
 
-        # Pull from Zotero
+        # Pull from Zotero with pagination
+        # The ZoteroService already handles pagination internally via pyzotero
         result = zotero.pull_references_from_zotero(
             max_version, zotero_integration.collection_key
         )
@@ -220,6 +353,7 @@ def pull_references_from_zotero_task(self, review_id: int, force: bool = False):
 
         logger.info(f"Processing {len(items)} top-level items from Zotero")
 
+        # Process items
         with transaction.atomic():
             for item in items:
                 try:
@@ -230,16 +364,12 @@ def pull_references_from_zotero_task(self, review_id: int, force: bool = False):
                     if not item_key:
                         continue
 
-                    # Extra safety: skip if somehow an attachment got through
+                    # Skip attachments, notes, annotations
                     if item_type in ["attachment", "note", "annotation"]:
-                        logger.warning(
-                            f"Skipping {item_type} that shouldn't be in top-level items: {item_key}"
-                        )
+                        logger.warning(f"Skipping {item_type}: {item_key}")
                         continue
 
-                    logger.info(
-                        f"Processing item {item_key} ({item_type}): {data.get('title', 'No title')[:50]}"
-                    )
+                    logger.info(f"Processing item {item_key} ({item_type})")
 
                     # Find or create reference
                     reference, is_new = Reference.objects.get_or_create(
@@ -272,9 +402,7 @@ def pull_references_from_zotero_task(self, review_id: int, force: bool = False):
                     children_result = zotero.get_item_with_children(item_key)
 
                     if not children_result["success"]:
-                        logger.error(
-                            f"Failed to get children for {item_key}: {children_result.get('error')}"
-                        )
+                        logger.error(f"Failed to get children for {item_key}")
                         errors.append(f"Item {item_key}: Failed to get attachments")
                         reference.save()
                         if is_new:
@@ -287,47 +415,35 @@ def pull_references_from_zotero_task(self, review_id: int, force: bool = False):
                     logger.info(f"Item {item_key} has {len(children)} children")
 
                     # Look for PDF attachments
-                    pdf_found = False
-                    for child in children:
-                        child_data = child.get("data", {})
+                    if not reference.file or not reference.file.name:
+                        for child in children:
+                            child_data = child.get("data", {})
 
-                        if (
-                            child_data.get("itemType") == "attachment"
-                            and child_data.get("contentType") == "application/pdf"
-                        ):
-                            if reference.file and reference.file.name:
+                            if (
+                                child_data.get("itemType") == "attachment"
+                                and child_data.get("contentType") == "application/pdf"
+                            ):
+                                attachment_key = child_data.get("key")
                                 logger.info(
-                                    f"Reference {item_key} already has PDF, skipping"
-                                )
-                                break
-
-                            attachment_key = child_data.get("key")
-                            logger.info(
-                                f"Downloading PDF attachment {attachment_key} for {item_key}"
-                            )
-
-                            pdf_content = zotero.download_pdf_file(attachment_key)
-
-                            if pdf_content:
-                                filename = f"{item_key}.pdf"
-                                reference.file.save(
-                                    filename, ContentFile(pdf_content), save=False
-                                )
-                                pdfs_downloaded += 1
-                                pdf_found = True
-                                logger.info(
-                                    f"Successfully downloaded PDF for {item_key} ({len(pdf_content)} bytes)"
-                                )
-                                break
-                            else:
-                                logger.warning(
-                                    f"PDF download returned empty content for {attachment_key}"
+                                    f"Downloading PDF attachment {attachment_key}"
                                 )
 
-                    if not pdf_found and len(children) > 0:
-                        logger.info(
-                            f"No PDF found for {item_key} among {len(children)} children"
-                        )
+                                pdf_content = zotero.download_pdf_file(attachment_key)
+
+                                if pdf_content and len(pdf_content) > 0:
+                                    filename = f"{item_key}.pdf"
+                                    reference.file.save(
+                                        filename, ContentFile(pdf_content), save=False
+                                    )
+                                    pdfs_downloaded += 1
+                                    logger.info(
+                                        f"Downloaded PDF for {item_key} ({len(pdf_content)} bytes)"
+                                    )
+                                    break
+                                else:
+                                    logger.warning(
+                                        f"PDF download returned empty content for {attachment_key}"
+                                    )
 
                     reference.save()
 

@@ -12,6 +12,10 @@ logger = logging.getLogger(__name__)
 class ZoteroService:
     """Handle all Zotero API interactions using Pyzotero"""
 
+    # Zotero API limits
+    MAX_WRITE_BATCH_SIZE = 50  # Maximum items per write request
+    MAX_READ_BATCH_SIZE = 100  # Maximum items per read request
+
     def __init__(self, library_id: str, api_key: str, library_type: str = "user"):
         self.library_id = library_id
         self.library_type = library_type
@@ -37,10 +41,13 @@ class ZoteroService:
             return None
 
     def push_references_to_zotero(
-        self, references: List[Reference], collection_key: str = None
+        self, references: List["Reference"], collection_key: str = None
     ) -> Dict:
         """
         Push references from your app to Zotero
+
+        WARNING: Zotero API limit is 50 items per request. This method should only
+        be called with batches of 50 or fewer items.
 
         Args:
             references: List of Reference objects to push
@@ -48,6 +55,14 @@ class ZoteroService:
         """
         if not references:
             return {"success": True, "created": 0, "failed": 0, "items": []}
+
+        # Safety check
+        if len(references) > self.MAX_WRITE_BATCH_SIZE:
+            logger.warning(
+                f"Batch size {len(references)} exceeds Zotero limit of {self.MAX_WRITE_BATCH_SIZE}. "
+                f"Only processing first {self.MAX_WRITE_BATCH_SIZE} items."
+            )
+            references = references[: self.MAX_WRITE_BATCH_SIZE]
 
         items = []
 
@@ -80,7 +95,7 @@ class ZoteroService:
             items.append(item)
 
         logger.info(
-            f"Attempting to create {len(items)} items in Zotero"
+            f"Pushing {len(items)} items to Zotero"
             + (f" in collection {collection_key}" if collection_key else "")
         )
 

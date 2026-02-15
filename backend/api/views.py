@@ -1367,9 +1367,7 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def push(self, request, pk=None):
-        """
-        Push references to Zotero (async task)
-        """
+        """Push all unpushed references to Zotero (async task)"""
         integration = self.get_object()
 
         if not integration.is_configured:
@@ -1378,16 +1376,45 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        batch_size = request.data.get("batch_size", 50)
+        # Get count of references to push
+        unpushed_count = Reference.objects.filter(
+            review=integration.review, zotero_key__isnull=True
+        ).count()
+
+        if unpushed_count == 0:
+            return Response({"message": "No references to push", "total_unpushed": 0})
+
+        # Calculate estimates based on 50 items per batch
+        estimated_batches = ((unpushed_count - 1) // 50) + 1
+        # ~1 second per batch = ~50 items per minute
+        estimated_time_minutes = round(unpushed_count / 50)
+
+        # Warn for very large batches
+        if unpushed_count > 500:
+            confirm = request.data.get("confirm", False)
+            if not confirm:
+                return Response(
+                    {
+                        "warning": f"You are about to push {unpushed_count} references in {estimated_batches} batches.",
+                        "message": 'Add "confirm": true to proceed',
+                        "total_unpushed": unpushed_count,
+                        "estimated_time_minutes": estimated_time_minutes,
+                        "estimated_batches": estimated_batches,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         # Start async task
-        task = push_references_to_zotero_task.delay(integration.review.id, batch_size)
+        task = push_references_to_zotero_task.delay(integration.review.id)
 
         return Response(
             {
-                "message": "Push to Zotero started",
+                "message": f"Pushing {unpushed_count} references to Zotero",
                 "task_id": task.id,
                 "status": "processing",
+                "total_unpushed": unpushed_count,
+                "estimated_batches": estimated_batches,
+                "estimated_time_minutes": estimated_time_minutes,
             },
             status=status.HTTP_202_ACCEPTED,
         )
