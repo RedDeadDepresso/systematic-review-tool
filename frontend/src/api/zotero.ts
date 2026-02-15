@@ -211,14 +211,3 @@ export const pullFromZotero = async (
   });
   return res.data;
 };
-
-export const getTaskStatus = async (taskId: string) => {
-  const res = await api.get<{
-    taskId: string;
-    status: string;
-    message: string;
-    result?: any;
-    error?: string;
-  }>(`/zotero-integrations/task-status/${taskId}/`);
-  return res.data;
-};

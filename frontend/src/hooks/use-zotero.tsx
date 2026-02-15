@@ -10,7 +10,6 @@ import {
   createZoteroCollection,
   pushToZotero,
   pullFromZotero,
-  getTaskStatus,
   getDeletionPreview,
 } from '@/api/zotero';
 import { toast } from 'sonner';
@@ -244,37 +243,6 @@ export const usePullFromZotero = (integrationId: number) => {
 // ============================================================================
 // Task Status Monitoring
 // ============================================================================
-
-export const useTaskStatus = (taskId: string | null) => {
-  const queryClient = useQueryClient();
-
-  return useQuery({
-    queryKey: ['task-status', taskId],
-    queryFn: () => getTaskStatus(taskId!),
-    enabled: !!taskId,
-    refetchInterval: (data) => {
-      // Stop polling when task is complete
-      if (data?.status === 'SUCCESS' || data?.status === 'FAILURE') {
-        return false;
-      }
-      return 2000; // Poll every 2 seconds
-    },
-    onSuccess: (data) => {
-      // Invalidate status when task completes
-      if (data.status === 'SUCCESS') {
-        queryClient.invalidateQueries({
-          queryKey: ['zotero-status'],
-        });
-        queryClient.invalidateQueries({
-          queryKey: ['zotero-integration'],
-        });
-        queryClient.invalidateQueries({
-          queryKey: ['references'],
-        });
-      }
-    },
-  });
-};
 
 /**
  * Hook for checking if Zotero is configured for a review
