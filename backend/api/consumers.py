@@ -3,11 +3,13 @@ import logging
 
 from asgiref.sync import sync_to_async
 from celery.result import AsyncResult
+from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from django.conf import settings
 from django.core.cache import cache
 from django.utils import timezone
 
-from api.models import ReviewMember, ScreeningStat
+from api.models import ReviewChatMessage, ReviewMember, ScreeningStat
 
 
 logger = logging.getLogger(__name__)
@@ -96,33 +98,11 @@ class TaskStatusConsumer(AsyncJsonWebsocketConsumer):
             await self.close(code=1000)
 
 
-class ScreeningStatConsumer(AsyncJsonWebsocketConsumer):
-    HEARTBEAT_INTERVAL = 30  # seconds
-    MAX_IDLE_TIME = 60  # seconds without heartbeat = disconnect
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.start_time = None
-        self.is_on_break = False
-        self.is_tracking = False
-        self.last_heartbeat = None
-        self.heartbeat_task = None
-        self.connection_id = None
-        self.member = None
-
-    async def connect(self):
-        self.user = self.scope["user"]
-        self.review_id = self.scope["url_route"]["kwargs"]["review_id"]
-
-        self.connection_id = (
-            f"{self.user.id}_{self.review_id}_{timezone.now().timestamp()}"
-        )
-
-        if not self.user.is_authenticated:
-            await self.close(code=4001)
-            return
-
+class AuthenticateReviewMemberMixin:
+    async def authenticate(self):
         try:
+            self.review_id = self.scope["url_route"]["kwargs"]["review_id"]
+            self.user = self.scope.get("user")
             has_access = await sync_to_async(
                 ReviewMember.objects.filter(
                     review_id=self.review_id, user_id=self.user.id
@@ -146,6 +126,222 @@ class ScreeningStatConsumer(AsyncJsonWebsocketConsumer):
             return
 
         await self.accept()
+
+
+class ReviewGroupConsumer(AsyncJsonWebsocketConsumer, AuthenticateReviewMemberMixin):
+    """
+    WebSocket consumer for review group communications
+    All members of a review can receive real-time updates
+    """
+
+    async def connect(self):
+        await self.authenticate()
+
+        self.group_name = f"review_{self.review_id}"
+
+        # Join review group
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+
+        logger.info(
+            f"User {self.user.id} ({self.user.email}) joined review group {self.review_id}"
+        )
+
+        # Send recent messages to newly connected user
+        recent_messages = await self.get_recent_messages()
+        await self.send_json({"type": "message_history", "messages": recent_messages})
+
+    async def disconnect(self, close_code):
+        # Leave review group
+        if hasattr(self, "group_name"):
+            await self.channel_layer.group_discard(self.group_name, self.channel_name)
+
+        logger.info(
+            f"User {self.user.id if self.user else 'Unknown'} "
+            f"left review group {self.review_id} (code: {close_code})"
+        )
+
+    @database_sync_to_async
+    def get_recent_messages(self, limit=50):
+        """Get recent chat messages"""
+        messages = (
+            ReviewChatMessage.objects.filter(review_id=self.review_id)
+            .select_related("member__user")
+            .order_by("-created_at")[:limit]
+        )
+
+        result = []
+        for msg in reversed(messages):
+            avatar_url = None
+            if msg.member and msg.member.user.avatar:
+                # Build absolute URL
+                avatar_url = f"{settings.SITE_URL}{settings.MEDIA_URL}{msg.member.user.avatar.name}"
+
+            message_data = {
+                "message_id": msg.id,
+                "member_id": msg.member_id,
+                "user_id": msg.member.user_id if msg.member else None,
+                "user_name": msg.user_name,
+                "avatar_url": avatar_url,
+                "message": msg.message,
+                "is_system_message": msg.is_system_message,
+                "metadata": msg.metadata,
+                "created_at": msg.created_at.isoformat(),
+            }
+            result.append(message_data)
+        return result
+
+    @database_sync_to_async
+    def save_chat_message(self, message):
+        """Save chat message to database"""
+        try:
+            chat_message = ReviewChatMessage.objects.create(
+                review_id=self.review_id,
+                member=self.member,
+                message=message,
+                is_system_message=False,
+            )
+
+            avatar_url = None
+            if self.member.user.avatar:
+                avatar_url = f"{settings.SITE_URL}{settings.MEDIA_URL}{self.member.user.avatar.name}"
+
+            return {
+                "id": chat_message.id,
+                "user_name": chat_message.user_name,
+                "avatar_url": avatar_url,
+                "created_at": chat_message.created_at.isoformat(),
+            }
+        except Exception as e:
+            logger.exception(f"Error saving chat message: {str(e)}")
+            return None
+
+    # Update chat_message handler
+    async def handle_chat_message(self, content):
+        """Handle chat message from user"""
+        message = content.get("message", "").strip()
+
+        if not message:
+            logger.warning(f"Empty message from user {self.user.id}")
+            return
+
+        # Validate message length
+        if len(message) > 5000:
+            await self.send_json(
+                {"type": "error", "message": "Message too long (max 5000 characters)"}
+            )
+            return
+
+        # Save message to database
+        chat_message = await self.save_chat_message(message)
+
+        if not chat_message:
+            await self.send_json({"type": "error", "message": "Failed to save message"})
+            return
+
+        # Broadcast to all group members
+        await self.channel_layer.group_send(
+            self.group_name,
+            {
+                "type": "chat_message",
+                "message_id": chat_message["id"],
+                "member_id": self.member.id,
+                "user_id": self.user.id,
+                "user_name": chat_message["user_name"],
+                "avatar_url": chat_message["avatar_url"],
+                "message": message,
+                "is_system_message": False,
+                "metadata": None,
+                "created_at": chat_message["created_at"],
+            },
+        )
+
+    # Update chat_message broadcast handler
+    async def chat_message(self, event):
+        """
+        Broadcast chat message to all members
+        Called from Django/Celery via channel layer
+        """
+        await self.send_json(
+            {
+                "type": "chat_message",
+                "message_id": event.get("message_id"),
+                "member_id": event.get("member_id"),
+                "user_id": event.get("user_id"),
+                "user_name": event.get("user_name"),
+                "avatar_url": event.get("avatar_url"),
+                "message": event.get("message"),
+                "is_system_message": event.get("is_system_message", False),
+                "metadata": event.get("metadata"),
+                "created_at": event.get("created_at"),
+            }
+        )
+
+    async def receive_json(self, content):
+        """Handle incoming messages from client"""
+        message_type = content.get("type")
+
+        if message_type == "chat_message":
+            await self.handle_chat_message(content)
+        elif message_type == "typing":
+            # Optional: handle typing indicators
+            await self.handle_typing(content)
+        else:
+            logger.warning(
+                f"Unknown message type from user {self.user.id}: {message_type}"
+            )
+
+    async def handle_typing(self, content):
+        """Handle typing indicator"""
+        is_typing = content.get("is_typing", True)
+
+        # Broadcast typing indicator to others (not to self)
+        await self.channel_layer.group_send(
+            self.group_name,
+            {
+                "type": "user_typing",
+                "user_id": self.user.id,
+                "user_name": f"{self.user.first_name} {self.user.last_name}".strip()
+                or self.user.email,
+                "is_typing": is_typing,
+            },
+        )
+
+    async def user_typing(self, event):
+        """
+        Broadcast typing indicator
+        Don't send to self
+        """
+        if event.get("user_id") != self.user.id:
+            await self.send_json(
+                {
+                    "type": "user_typing",
+                    "user_id": event.get("user_id"),
+                    "user_name": event.get("user_name"),
+                    "is_typing": event.get("is_typing", True),
+                }
+            )
+
+
+class ScreeningStatConsumer(AsyncJsonWebsocketConsumer, AuthenticateReviewMemberMixin):
+    HEARTBEAT_INTERVAL = 30  # seconds
+    MAX_IDLE_TIME = 60  # seconds without heartbeat = disconnect
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.start_time = None
+        self.is_on_break = False
+        self.is_tracking = False
+        self.last_heartbeat = None
+        self.heartbeat_task = None
+        self.connection_id = None
+        self.member = None
+
+    async def connect(self):
+        await self.authenticate()
+
+        self.connection_id = (
+            f"{self.user.id}_{self.review_id}_{timezone.now().timestamp()}"
+        )
 
         self.last_heartbeat = timezone.now()
 
