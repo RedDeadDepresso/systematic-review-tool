@@ -14,6 +14,9 @@ import InvitationDialog from './invitation-dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { can } from '@/lib/permissions';
 import { ZoteroConfigDialog } from '../review-index/zotero-config-dialog';
+import { ChatDrawer } from './chat-drawer';
+import { ChatButton } from './chat-button';
+import { useReviewChat } from '@/hooks/use-review-chat';
 
 interface ReviewHeaderProps {
   reviewId: number;
@@ -28,6 +31,19 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
 
   const fetchReview = useFetchReview(reviewId);
   const updateReview = useUpdateReview();
+  const {
+    unreadCount,
+    isDrawerOpen,
+    setIsDrawerOpen,
+    messages,
+    isConnected,
+    typingUsers,
+    sendTyping,
+    sendMessage,
+  } = useReviewChat({
+    reviewId,
+    enabled: true,
+  });
 
   const tabs = [
     { label: 'Overview', path: `/reviews/${reviewId}` },
@@ -145,6 +161,23 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
               }
             />
           )}
+
+          <ChatButton
+            onClick={() => setIsDrawerOpen(true)}
+            unreadCount={unreadCount}
+          />
+
+          {/* Chat Drawer */}
+          <ChatDrawer
+            reviewId={reviewId}
+            open={isDrawerOpen}
+            onClose={() => setIsDrawerOpen(false)}
+            messages={messages}
+            isConnected={isConnected}
+            sendMessage={sendMessage}
+            typingUsers={typingUsers}
+            sendTyping={sendTyping}
+          />
         </div>
       </div>
     </header>
