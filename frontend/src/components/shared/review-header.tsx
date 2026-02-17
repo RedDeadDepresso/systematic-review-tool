@@ -76,8 +76,8 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
       path: `/reviews/${reviewId}/coding-theming`,
     },
     {
-      label: 'Analytics',
-      path: `/reviews/${reviewId}/analytics`,
+      label: 'Charts',
+      path: `/reviews/${reviewId}/charts`,
     },
     {
       label: 'PRISMA',
@@ -86,7 +86,7 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
   ];
 
   return (
-    <header className="border-b border-border bg-card">
+    <header className="sticky top-0 z-50 border-b border-border bg-card">
       {/* Single Row - Tabs + Actions */}
       <div className="flex items-center justify-between gap-2 px-2 sm:px-4">
         {/* Navigation Tabs */}

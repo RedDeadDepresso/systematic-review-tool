@@ -7,9 +7,10 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { useContext } from 'react';
 import { AppLayoutContext } from '@/context/app-layout-context';
+import { cn } from '@/lib/utils';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { pageTitle } = useContext(AppLayoutContext);
+  const { pageTitle, scroll } = useContext(AppLayoutContext);
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -24,7 +25,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             {pageTitle}
           </div>
         </header>
-        <div className="@container/main flex-1 overflow-y-auto px-4 lg:px-6">
+        <div
+          className={cn(
+            '@container/main flex-1 px-4 lg:px-6',
+            scroll ? 'overflow-y-auto' : 'overflow-hidden'
+          )}
+        >
           {children}
         </div>
       </SidebarInset>

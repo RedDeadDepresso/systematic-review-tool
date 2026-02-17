@@ -10,11 +10,13 @@ export const Route = createFileRoute('/request-password-reset')({
 });
 
 function RouteComponent() {
-  const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
+  const { setPageTitle, setIsAuthenticated, setScroll } =
+    useContext(AppLayoutContext);
 
   useEffect(() => {
     setPageTitle('Request Password Reset');
     setIsAuthenticated(false);
+    setScroll(true);
   }, []);
 
   return <RequestPasswordResetForm />;

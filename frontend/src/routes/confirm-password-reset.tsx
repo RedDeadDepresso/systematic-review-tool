@@ -21,12 +21,14 @@ export const Route = createFileRoute('/confirm-password-reset')({
 });
 
 function RouteComponent() {
-  const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
+  const { setPageTitle, setIsAuthenticated, setScroll } =
+    useContext(AppLayoutContext);
   const { uid, token } = Route.useSearch();
 
   useEffect(() => {
     setPageTitle('Confirm Password Reset');
     setIsAuthenticated(false);
+    setScroll(true);
   }, []);
 
   return <ConfirmPasswordResetForm uid={uid} token={token} />;

@@ -19,7 +19,8 @@ export const Route = createFileRoute('/reviews/$reviewId/data-extraction')({
 
 function RouteComponent() {
   const reviewId = Number(Route.useParams().reviewId);
-  const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
+  const { setPageTitle, setIsAuthenticated, setScroll } =
+    useContext(AppLayoutContext);
   const fetchReview = useFetchReview(reviewId);
   const { data, isLoading, error } = useFetchExtractionTableData(reviewId);
   const queryClient = useQueryClient();
@@ -43,6 +44,7 @@ function RouteComponent() {
   useEffect(() => {
     setPageTitle('Data Extraction');
     setIsAuthenticated(true);
+    setScroll(false);
   }, []);
 
   if (isLoading) {
@@ -85,6 +87,7 @@ function RouteComponent() {
         open={fileUpload.openUploadPDFDialog}
         onOpenChange={fileUpload.setOpenUploadPDFDialog}
         onUpload={fileUpload.handleUploadPDF}
+        onAllSuccess={() => fileUpload.setOpenMatchDialog(true)}
       />
       {fileUpload.openMatchDialog && (
         <MatchPDFDialog
@@ -123,6 +126,7 @@ function RouteComponent() {
           })
         }
         onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
+        onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
       />
     </div>
   );

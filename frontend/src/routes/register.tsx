@@ -10,10 +10,12 @@ export const Route = createFileRoute('/register')({
 });
 
 function RegisterPage() {
-  const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
+  const { setPageTitle, setIsAuthenticated, setScroll } =
+    useContext(AppLayoutContext);
   useEffect(() => {
     setPageTitle('Register');
     setIsAuthenticated(false);
+    setScroll(true);
   }, []);
   return <RegisterForm />;
 }

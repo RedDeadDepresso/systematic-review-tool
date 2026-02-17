@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Paperclip,
   Tag,
   Send,
   CircleUser,
@@ -12,6 +11,9 @@ import {
   ChevronDown,
   ChevronUp,
   MessageSquareText,
+  FileText,
+  Upload,
+  FileSymlink,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +26,12 @@ import type { ReviewRole } from '@/types/review';
 import { can } from '@/lib/permissions';
 import { useBulkUpdateExtractionStatus } from '@/hooks/use-extraction-table';
 import { ReasonPopover } from './reason-popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
 
 export interface ReviewDataFooterProps {
   reviewId: number;
@@ -31,6 +39,7 @@ export interface ReviewDataFooterProps {
   selectedReferenceIds: number[];
   highlightedReferenceId: number | null;
   onAttachPDF?: () => void;
+  onMatchPDF?: () => void;
   onLabelsApplied?: () => void;
 }
 
@@ -111,8 +120,8 @@ interface ActionButtonsProps {
   userRole: ReviewRole;
   selectedRefs: number[];
   onAttachPDF?: () => void;
+  onMatchPDF?: () => void;
   onLabelsApplied?: () => void;
-  showAttachFirst?: boolean;
 }
 
 function ActionButtons({
@@ -120,20 +129,33 @@ function ActionButtons({
   userRole,
   selectedRefs,
   onAttachPDF,
+  onMatchPDF,
   onLabelsApplied,
-  showAttachFirst = false,
 }: ActionButtonsProps) {
   const attachButton = can('uploadFiles', userRole) && (
-    <Button
-      variant="outline"
-      size="sm"
-      className="flex-1 gap-2 bg-transparent"
-      onClick={onAttachPDF}
-      disabled={selectedRefs.length === 0}
-    >
-      <Paperclip className="h-4 w-4" />
-      <span className="hidden sm:inline">Attach PDF</span>
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 gap-2 text-primary border-primary bg-transparent"
+          disabled={selectedRefs.length === 0}
+        >
+          <FileText className="h-4 w-4" />
+          <span className="hidden sm:inline">PDF</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56" align="start">
+        <DropdownMenuItem onClick={onAttachPDF}>
+          <Upload className="h-3 w-3" />
+          Upload
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onMatchPDF}>
+          <FileSymlink className="h-3 w-3" />
+          Match
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 
   const labelButton = (
@@ -176,19 +198,11 @@ function ActionButtons({
 
   return (
     <>
-      {showAttachFirst ? (
-        <>
-          {attachButton}
-          {labelButton}
-          {assignButton}
-        </>
-      ) : (
-        <>
-          {labelButton}
-          {assignButton}
-          {attachButton}
-        </>
-      )}
+      <>
+        {labelButton}
+        {assignButton}
+        {attachButton}
+      </>
     </>
   );
 }
@@ -240,6 +254,7 @@ export function ReviewDataFooter({
   selectedReferenceIds,
   highlightedReferenceId,
   onAttachPDF,
+  onMatchPDF,
   onLabelsApplied,
 }: ReviewDataFooterProps) {
   const selectedRefs = useSelectedRefs(
@@ -256,8 +271,8 @@ export function ReviewDataFooter({
           userRole={userRole}
           selectedRefs={selectedRefs}
           onAttachPDF={onAttachPDF}
+          onMatchPDF={onMatchPDF}
           onLabelsApplied={onLabelsApplied}
-          showAttachFirst
         />
       </div>
       <NoteInput
@@ -280,6 +295,7 @@ export function ScreeningFooter({
   selectedReferenceIds,
   highlightedReferenceId,
   onAttachPDF,
+  onMatchPDF,
   onLabelsApplied,
   onOpinionApplied,
 }: ScreeningFooterProps) {
@@ -349,6 +365,7 @@ export function ScreeningFooter({
           userRole={userRole}
           selectedRefs={selectedRefs}
           onAttachPDF={onAttachPDF}
+          onMatchPDF={onMatchPDF}
           onLabelsApplied={onLabelsApplied}
         />
       </div>
@@ -372,6 +389,7 @@ export function ExtractionFooter({
   selectedReferenceIds,
   highlightedReferenceId,
   onAttachPDF,
+  onMatchPDF,
   onLabelsApplied,
 }: ReviewDataFooterProps) {
   const selectedRefs = useSelectedRefs(
@@ -422,6 +440,7 @@ export function ExtractionFooter({
           userRole={userRole}
           selectedRefs={selectedRefs}
           onAttachPDF={onAttachPDF}
+          onMatchPDF={onMatchPDF}
           onLabelsApplied={onLabelsApplied}
         />
       </div>

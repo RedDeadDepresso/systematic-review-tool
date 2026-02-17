@@ -73,11 +73,13 @@ function RouteComponent() {
   const reviewId = Number(Route.useParams().reviewId);
   const { data, isLoading, error } = useCreateReviewPrisma(reviewId);
   const [copied, setCopied] = useState(false);
-  const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
+  const { setPageTitle, setIsAuthenticated, setScroll } =
+    useContext(AppLayoutContext);
 
   useEffect(() => {
     setPageTitle('PRISMA');
     setIsAuthenticated(true);
+    setScroll(true);
   }, []);
 
   if (isLoading) {
