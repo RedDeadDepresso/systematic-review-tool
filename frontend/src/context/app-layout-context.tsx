@@ -1,4 +1,3 @@
-// src/context/ThemeContext.jsx
 import { createContext, useState, type ReactNode } from 'react';
 
 export const AppLayoutContext = createContext({

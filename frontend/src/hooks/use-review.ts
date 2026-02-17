@@ -21,10 +21,11 @@ export const useFetchReviews = (params: { isActive: boolean }) => {
   });
 };
 
-export const useFetchReview = (id: number) => {
+export const useFetchReview = (id: number | null) => {
   return useQuery({
     queryKey: ['reviews', id],
-    queryFn: () => fetchReview(id),
+    queryFn: () => fetchReview(id!),
+    enabled: !!id,
   });
 };
 

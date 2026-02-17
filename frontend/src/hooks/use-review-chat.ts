@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 const VITE_WS_URL = import.meta.env.VITE_WS_URL;
 
@@ -81,6 +82,7 @@ export interface ChatMember {
 
 interface UseReviewChatOptions {
   reviewId: number | null;
+  userMemberId: number | null;
   enabled?: boolean;
 }
 
@@ -101,6 +103,7 @@ export function camelCaseMessage(data) {
 
 export function useReviewChat({
   reviewId,
+  userMemberId,
   enabled = true,
 }: UseReviewChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -120,10 +123,15 @@ export function useReviewChat({
   const typingTimeoutsRef = useRef<Map<number, NodeJS.Timeout>>(new Map());
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const isDrawerOpenRef = useRef(isDrawerOpen);
+  const userMemberIdRef = useRef(userMemberId);
 
   useEffect(() => {
     isDrawerOpenRef.current = isDrawerOpen;
   }, [isDrawerOpen]);
+
+  useEffect(() => {
+    userMemberIdRef.current = userMemberId;
+  }, [userMemberId]);
 
   const queryClient = useQueryClient();
 
@@ -237,6 +245,11 @@ export function useReviewChat({
               console.log('New unread count:', newCount);
               return newCount;
             });
+            if (
+              newMessage.isSystemMessage &&
+              newMessage.memberId === userMemberIdRef
+            )
+              toast.success(newMessage.message);
           }
 
           if (data.is_system_message && data.metadata?.action) {

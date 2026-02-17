@@ -31,6 +31,7 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
 
   const fetchReview = useFetchReview(reviewId);
   const updateReview = useUpdateReview();
+
   const {
     unreadCount,
     isDrawerOpen,
@@ -42,6 +43,7 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
     sendMessage,
   } = useReviewChat({
     reviewId,
+    userMemberId: fetchReview.data?.userMemberId || null,
     enabled: true,
   });
 
