@@ -1,7 +1,6 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
-  DialogTrigger,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -19,13 +18,17 @@ import EmailChipsInput from '@/components/review-index/email-chip-input';
 import { useSendInvitations } from '@/hooks/use-invitation';
 import type { InvitationRole } from '@/types/invitation';
 
+export interface InvitationDialogProps {
+  reviewId: number;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
 export default function InvitationDialog({
   reviewId,
-  trigger,
-}: {
-  reviewId: number;
-  trigger: ReactNode;
-}) {
+  open,
+  onOpenChange,
+}: InvitationDialogProps) {
   const [emails, setEmails] = useState<string[]>([]);
   const [role, setRole] = useState<InvitationRole>('Reviewer');
 
@@ -48,9 +51,7 @@ export default function InvitationDialog({
   };
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
-
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Send Invitations</DialogTitle>

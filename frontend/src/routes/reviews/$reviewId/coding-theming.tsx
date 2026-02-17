@@ -18,7 +18,6 @@ import type { Code } from '@/types/code';
 import { PDFDialog } from '@/components/shared/pdf-dialog';
 import React from 'react';
 import { ExportDropdown } from '@/components/coding-theming/export-dropdown';
-import { ReviewHeader } from '@/components/shared/review-header';
 import { useFetchReview } from '@/hooks/use-review';
 import { can } from '@/lib/permissions';
 
@@ -186,7 +185,6 @@ function RouteComponent() {
             userRole={fetchReview.data?.userRole || 'Viewer'}
           />
         )}
-      <ReviewHeader reviewId={reviewId} />
       <div className="flex w-full justify-end my-4">
         <ExportDropdown reviewId={reviewId} />
       </div>

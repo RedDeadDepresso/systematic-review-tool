@@ -336,7 +336,7 @@ export function useReviewChat({
   }, [reviewId, enabled, isDrawerOpen, queryClient]);
 
   useEffect(() => {
-    if (reviewId && enabled) {
+    if (reviewId && userMemberId && enabled) {
       connect();
     }
 
@@ -345,7 +345,7 @@ export function useReviewChat({
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [reviewId, enabled, connect]);
+  }, [reviewId, userMemberId, enabled, connect]);
 
   useEffect(() => {
     return () => {

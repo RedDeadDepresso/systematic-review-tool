@@ -2,7 +2,6 @@ import { AppLayoutContext } from '@/context/app-layout-context';
 import { useFetchScreening } from '@/hooks/use-reference';
 import { createFileRoute } from '@tanstack/react-router';
 import { useContext, useState, useEffect, useCallback } from 'react';
-import { ReviewHeader } from '@/components/shared/review-header';
 import { ReferencesTable } from '@/components/shared/references-table';
 import { FiltersSidebar } from '@/components/shared/filters-sidebar';
 import { ScreeningReferenceDrawer } from '@/components/shared/reference-drawer';
@@ -199,7 +198,6 @@ function RouteComponent() {
       )}
 
       {/* Header */}
-      <ReviewHeader reviewId={reviewId} />
 
       <div className="flex flex-1 overflow-hidden">
         <div className="flex flex-col flex-1">

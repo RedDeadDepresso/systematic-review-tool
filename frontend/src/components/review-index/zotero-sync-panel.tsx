@@ -140,20 +140,33 @@ export function ZoteroSyncPanel({ reviewId }: ZoteroSyncPanelProps) {
 
   if (!integration?.isConfigured) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Zotero Integration</CardTitle>
-          <CardDescription>Configure Zotero to sync PDFs</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Alert>
-            <AlertDescription>
+      <Collapsible>
+        <Card className="py-0">
+          <CollapsibleTrigger asChild>
+            <div className="group flex w-full items-center py-2 justify-between hover:bg-accent/50 transition-colors rounded-t-lg">
+              <CardHeader className="w-full">
+                <div className="flex items-center justify-between">
+                  <div className="text-start">
+                    <CardTitle>Zotero Sync</CardTitle>
+                    <CardDescription>
+                      Sync references and PDFs with your Zotero library
+                    </CardDescription>
+                  </div>
+                  <div className="flex gap-4 items-center">
+                    <ChevronDownIcon className="h-5 w-5 transition-transform group-data-[state=open]:rotate-180" />
+                  </div>
+                </div>
+              </CardHeader>
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="space-y-4 px-6 pb-6 text-sm text-muted-foreground">
               Zotero is not configured for this review. Please configure it
               first.
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
     );
   }
 
