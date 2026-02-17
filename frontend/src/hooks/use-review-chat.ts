@@ -86,7 +86,7 @@ interface UseReviewChatOptions {
   enabled?: boolean;
 }
 
-export function camelCaseMessage(data) {
+export function camelCaseMessage(data: any) {
   const newMessage: ChatMessage = {
     id: data.message_id,
     memberId: data.member_id,
@@ -247,7 +247,8 @@ export function useReviewChat({
             });
             if (
               newMessage.isSystemMessage &&
-              newMessage.memberId === userMemberIdRef
+              userMemberIdRef.current != null &&
+              newMessage.memberId === userMemberIdRef.current
             )
               toast.success(newMessage.message);
           }
