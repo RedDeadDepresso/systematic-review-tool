@@ -10,10 +10,17 @@ from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils import timezone
 
-from api.models import SearchMethod
+from api.models import ReferenceDuplicatePair, ReviewMember, SearchMethod
 from api.zotero_service import ZoteroService
+from backend import settings
 
-from .models import Reference, Review, ZoteroIntegration, ZoteroSyncLog
+from .models import (
+    Reference,
+    Review,
+    ReviewChatMessage,
+    ZoteroIntegration,
+    ZoteroSyncLog,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -723,3 +730,232 @@ def sync_single_reference_pdf(self, reference_id: int):
     except Exception as e:
         logger.exception(f"Error syncing PDF for reference {reference_id}: {str(e)}")
         raise self.retry(exc=e, countdown=30)
+
+
+def send_review_chat_message(
+    review_id, member, message, is_system_message=False, metadata=None
+):
+    """
+    Send a chat message to review and broadcast via WebSocket
+    """
+    # Save message to database
+    chat_message = ReviewChatMessage.objects.create(
+        review_id=review_id,
+        member=member,
+        message=message,
+        is_system_message=is_system_message,
+        metadata=metadata,
+    )
+
+    # Broadcast via WebSocket
+    channel_layer = get_channel_layer()
+
+    if not channel_layer:
+        logger.warning("Channel layer not available, cannot broadcast message")
+        return chat_message
+
+    user_name = "System"
+    user_id = None
+    member_id = None
+    avatar_url = None
+
+    if member:
+        user = member.user
+        user_name = f"{user.first_name} {user.last_name}".strip() or user.email
+        user_id = user.id
+        member_id = member.id
+        if user.avatar:
+            avatar_url = f"{settings.SITE_URL}{settings.MEDIA_URL}{user.avatar.name}"
+
+    async_to_sync(channel_layer.group_send)(
+        f"review_{review_id}",
+        {
+            "type": "chat_message",
+            "message_id": chat_message.id,
+            "member_id": member_id,
+            "user_id": user_id,
+            "user_name": user_name,
+            "avatar_url": avatar_url,
+            "message": message,
+            "is_system_message": is_system_message,
+            "metadata": metadata,
+            "created_at": chat_message.created_at.isoformat(),
+        },
+    )
+
+    logger.info(f"Sent message to review {review_id}: {message[:50]}")
+
+    return chat_message
+
+
+@shared_task(bind=True, max_retries=3)
+def auto_deduplicate_task(
+    self,
+    review_id: int,
+    member_id: int = None,
+    confidence_threshold: float = 0.9,
+    create_pairs_first: bool = True,
+):
+    """
+    Auto-detect and resolve duplicate references
+
+    Args:
+        review_id: Review ID
+        member_id: ID of ReviewMember who triggered the task
+        confidence_threshold: Similarity threshold for auto-resolution
+        create_pairs_first: Whether to detect pairs first before resolving
+    """
+    try:
+        review = Review.objects.get(id=review_id)
+        member = (
+            ReviewMember.objects.select_related("user").get(id=member_id)
+            if member_id
+            else None
+        )
+        user_name = member.user_name if member else "System"
+
+        # Send start message
+        send_review_chat_message(
+            review_id=review_id,
+            member=member,
+            message=f"🔄 {user_name} started automatic deduplication (threshold: {int(confidence_threshold * 100)}%)...",
+            is_system_message=True,
+            metadata={
+                "action": "deduplication_started",
+                "confidence_threshold": confidence_threshold,
+            },
+        )
+
+        pairs_created = 0
+
+        # Step 1: Find duplicate pairs (if requested)
+        if create_pairs_first:
+            logger.info(f"Finding duplicate pairs for review {review_id}")
+
+            from .models import Reference
+
+            references = Reference.objects.filter(review=review)
+            total_references = references.count()
+
+            # Detect pairs
+            pairs_created = ReferenceDuplicatePair.create_pairs(
+                review,
+                references,
+                threshold=0.5,  # Lower threshold to catch more potential duplicates
+            )
+
+            logger.info(f"Found {pairs_created} duplicate pairs")
+
+            if pairs_created > 0:
+                send_review_chat_message(
+                    review_id=review_id,
+                    member=member,
+                    message=f"📊 Found {pairs_created} duplicate pairs",
+                    is_system_message=True,
+                    metadata={"action": "pairs_detected", "pairs_found": pairs_created},
+                )
+
+        # Step 2: Auto-resolve high-confidence pairs
+        logger.info(
+            f"Auto-resolving high-confidence pairs (threshold: {confidence_threshold})"
+        )
+
+        result = ReferenceDuplicatePair.auto_resolve_duplicates(
+            review, confidence_threshold
+        )
+
+        auto_resolved = result["auto_resolved"]
+        kept_count = len(result["kept_references"])
+        removed_count = len(result["removed_references"])
+
+        logger.info(
+            f"Auto-resolved {auto_resolved} pairs: "
+            f"kept {kept_count}, removed {removed_count}"
+        )
+
+        # Update review flag
+        if create_pairs_first and pairs_created > 0:
+            review.reference_duplicate_detected = True
+            review.save()
+
+        # Send completion message
+        if auto_resolved > 0:
+            send_review_chat_message(
+                review_id=review_id,
+                member=member,
+                message=(
+                    f"✅ Auto-resolution complete!\n"
+                    f"• Auto-resolved {auto_resolved} high-confidence duplicates\n"
+                    f"• Kept {kept_count} references, marked {removed_count} as duplicates\n"
+                    f"• Confidence threshold: {int(confidence_threshold * 100)}%"
+                ),
+                is_system_message=True,
+                metadata={
+                    "action": "deduplication_completed",
+                    "pairs_found": pairs_created,
+                    "auto_resolved": auto_resolved,
+                    "kept_references": result["kept_references"],
+                    "removed_references": result["removed_references"],
+                    "confidence_threshold": confidence_threshold,
+                },
+            )
+        else:
+            send_review_chat_message(
+                review_id=review_id,
+                member=member,
+                message=(
+                    f"⚠️ No high-confidence duplicates found\n"
+                    f"• Confidence threshold: {int(confidence_threshold * 100)}%\n"
+                    f"• Try lowering the threshold or resolve manually"
+                ),
+                is_system_message=True,
+                metadata={
+                    "action": "deduplication_completed",
+                    "pairs_found": pairs_created,
+                    "auto_resolved": 0,
+                    "confidence_threshold": confidence_threshold,
+                },
+            )
+
+        return {
+            "success": True,
+            "pairs_found": pairs_created,
+            "auto_resolved": auto_resolved,
+            "kept_references": kept_count,
+            "removed_references": removed_count,
+        }
+
+    except Review.DoesNotExist:
+        error_msg = f"Review {review_id} not found"
+        logger.error(error_msg)
+
+        send_review_chat_message(
+            review_id=review_id,
+            member=None,
+            message="❌ Auto-resolution failed: Review not found",
+            is_system_message=True,
+            metadata={"action": "deduplication_failed", "error": error_msg},
+        )
+
+        return {"success": False, "error": error_msg}
+
+    except Exception as e:
+        logger.exception(f"Auto-deduplication task error: {str(e)}")
+
+        # Send failure message
+        send_review_chat_message(
+            review_id=review_id,
+            member=member if "member" in locals() else None,
+            message=f"❌ Auto-resolution failed: {str(e)}",
+            is_system_message=True,
+            metadata={"action": "deduplication_failed", "error": str(e)},
+        )
+
+        # Retry on failure
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=e, countdown=60)
+        else:
+            return {
+                "success": False,
+                "error": f"Failed after {self.max_retries} retries: {str(e)}",
+            }

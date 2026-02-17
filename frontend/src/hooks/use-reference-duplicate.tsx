@@ -7,6 +7,11 @@ import type { Review } from '@/types/review';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AxiosError } from 'axios';
 import { toast } from 'sonner';
+import {
+  getAutoResolvePreview,
+  autoResolveDuplicates,
+  type AutoResolveRequest,
+} from '@/api/reference-duplicate';
 
 export const useDetectDuplicateReferences = () => {
   const queryClient = useQueryClient();
@@ -89,6 +94,45 @@ export const useResolveDuplicateReferences = () => {
           ? (axiosError.response.data as { error?: string }).error
           : undefined;
       if (message) toast.error(message);
+    },
+  });
+};
+
+export const useAutoResolvePreview = (
+  reviewId: number,
+  confidenceThreshold: number,
+  enabled: boolean = true
+) => {
+  return useQuery({
+    queryKey: ['auto-resolve-preview', reviewId, confidenceThreshold],
+    queryFn: () => getAutoResolvePreview(reviewId, confidenceThreshold),
+    enabled: enabled && !!reviewId,
+  });
+};
+
+export const useAutoResolveDuplicates = (reviewId: number) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (settings: AutoResolveRequest) =>
+      autoResolveDuplicates(reviewId, settings),
+    onSuccess: (data) => {
+      toast.success(
+        `Auto-resolution started with ${Math.round(data.confidenceThreshold * 100)}% confidence threshold`
+      );
+
+      // Invalidate duplicate queries
+      queryClient.invalidateQueries({
+        queryKey: ['duplicate-references', reviewId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['auto-resolve-preview', reviewId],
+      });
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.error || 'Failed to start auto-resolution'
+      );
     },
   });
 };

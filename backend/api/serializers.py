@@ -22,6 +22,7 @@ from api.models import (
     ReferenceLabel,
     ReferenceOpinion,
     Review,
+    ReviewChatMessage,
     ReviewInvitation,
     ReviewMember,
     ScreeningCriteria,
@@ -99,6 +100,14 @@ class ReviewMemberSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("You cannot assign the Owner role.")
 
         return new_role
+
+
+class ReviewChatMessageSerializer(serializers.ModelSerializer):
+    member = ReviewMemberSerializer()
+
+    class Meta:
+        model = ReviewChatMessage
+        fields = "__all__"
 
 
 class ScreeningStatSerializer(serializers.ModelSerializer):

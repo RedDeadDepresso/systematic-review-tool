@@ -94,6 +94,7 @@ from api.serializers import (
     ZoteroSyncLogSerializer,
 )
 from api.tasks import (
+    auto_deduplicate_task,
     pull_references_from_zotero_task,
     push_references_to_zotero_task,
     sync_single_reference_pdf,
@@ -245,6 +246,18 @@ class ReviewViewSet(viewsets.ModelViewSet):
         )
 
     # === Custom Actions ===
+    @action(detail=True, methods=["get"])
+    def members(self, request, pk=None):
+        """
+        Get all members of a review
+        """
+        review = self.get_object()
+
+        members = ReviewMember.objects.filter(review=review).select_related("user")
+        members_data = ReviewMemberSerializer(
+            members, many=True, context={"request": request}
+        ).data
+        return Response(members_data)
 
     @action(detail=True, methods=["post"], url_path="upload-references")
     def upload_references(self, request, pk=None):
@@ -715,6 +728,121 @@ class ReviewViewSet(viewsets.ModelViewSet):
                     review=review, user=request.user
                 ).count(),
                 "format": export_format,
+            }
+        )
+
+    @action(detail=True, methods=["post"])
+    def auto_resolve_duplicates(self, request, pk=None):
+        """
+        Start automatic duplicate resolution
+        """
+        review = self.get_object()
+
+        # Check user permission (at least Reviewer role)
+        try:
+            member = ReviewMember.objects.get(review=review, user=request.user)
+
+            if member.role not in [
+                ReviewMember.Role.OWNER,
+                ReviewMember.Role.COLLABORATOR,
+                ReviewMember.Role.REVIEWER,
+            ]:
+                return Response(
+                    {"error": "You do not have permission to auto-resolve duplicates"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        except ReviewMember.DoesNotExist:
+            return Response(
+                {"error": "You are not a member of this review"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Get settings from request
+        confidence_threshold = request.data.get("confidence_threshold", 0.9)
+        create_pairs_first = request.data.get("create_pairs_first", True)
+
+        # Validate confidence threshold
+        try:
+            confidence_threshold = float(confidence_threshold)
+            if not (0.0 <= confidence_threshold <= 1.0):
+                raise ValueError
+        except (ValueError, TypeError):
+            return Response(
+                {"error": "confidence_threshold must be a number between 0.0 and 1.0"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check if there are any unresolved pairs
+        if create_pairs_first:
+            # Will create pairs in the task
+            pass
+        else:
+            unresolved_count = ReferenceDuplicatePair.objects.filter(
+                review=review, resolved=False
+            ).count()
+
+            if unresolved_count == 0:
+                return Response(
+                    {
+                        "error": "No unresolved duplicate pairs found",
+                        "message": "Please run duplicate detection first or enable create_pairs_first",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # Start async task
+        task = auto_deduplicate_task.delay(
+            review_id=review.id,
+            member_id=member.id,
+            confidence_threshold=confidence_threshold,
+            create_pairs_first=create_pairs_first,
+        )
+
+        return Response(
+            {
+                "message": "Auto-resolution started",
+                "task_id": task.id,
+                "confidence_threshold": confidence_threshold,
+                "status": "processing",
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    @action(detail=True, methods=["get"])
+    def auto_resolve_preview(self, request, pk=None):
+        """
+        Preview how many pairs would be auto-resolved
+
+        """
+        review = self.get_object()
+
+        confidence_threshold = request.query_params.get("confidence_threshold", 0.9)
+
+        try:
+            confidence_threshold = float(confidence_threshold)
+            if not (0.0 <= confidence_threshold <= 1.0):
+                raise ValueError
+        except (ValueError, TypeError):
+            return Response(
+                {"error": "confidence_threshold must be a number between 0.0 and 1.0"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Count pairs that would be auto-resolved
+        high_confidence_pairs = ReferenceDuplicatePair.objects.filter(
+            review=review, resolved=False, similarity_score__gte=confidence_threshold
+        ).count()
+
+        total_unresolved = ReferenceDuplicatePair.objects.filter(
+            review=review, resolved=False
+        ).count()
+
+        return Response(
+            {
+                "total_unresolved": total_unresolved,
+                "would_auto_resolve": high_confidence_pairs,
+                "confidence_threshold": confidence_threshold,
+                "remaining_after": total_unresolved - high_confidence_pairs,
             }
         )
 

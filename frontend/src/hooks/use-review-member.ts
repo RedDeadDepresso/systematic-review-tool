@@ -1,7 +1,16 @@
 import { deleteReviewMember, updateReviewMember } from '@/api/review-member';
 import type { Review, ReviewMember, ReviewRole } from '@/types/review';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { getReviewMembers } from '@/api/review-member';
+
+export const useReviewMembers = (reviewId: number | null) => {
+  return useQuery({
+    queryKey: ['review-members', reviewId],
+    queryFn: () => getReviewMembers(reviewId!),
+    enabled: !!reviewId,
+  });
+};
 
 export const useUpdateReviewMember = () => {
   const queryClient = useQueryClient();
