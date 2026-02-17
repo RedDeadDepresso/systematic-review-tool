@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 const VITE_WS_URL = import.meta.env.VITE_WS_URL;
 
@@ -81,10 +82,11 @@ export interface ChatMember {
 
 interface UseReviewChatOptions {
   reviewId: number | null;
+  userMemberId: number | null;
   enabled?: boolean;
 }
 
-export function camelCaseMessage(data) {
+export function camelCaseMessage(data: any) {
   const newMessage: ChatMessage = {
     id: data.message_id,
     memberId: data.member_id,
@@ -101,6 +103,7 @@ export function camelCaseMessage(data) {
 
 export function useReviewChat({
   reviewId,
+  userMemberId,
   enabled = true,
 }: UseReviewChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -120,10 +123,15 @@ export function useReviewChat({
   const typingTimeoutsRef = useRef<Map<number, NodeJS.Timeout>>(new Map());
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const isDrawerOpenRef = useRef(isDrawerOpen);
+  const userMemberIdRef = useRef(userMemberId);
 
   useEffect(() => {
     isDrawerOpenRef.current = isDrawerOpen;
   }, [isDrawerOpen]);
+
+  useEffect(() => {
+    userMemberIdRef.current = userMemberId;
+  }, [userMemberId]);
 
   const queryClient = useQueryClient();
 
@@ -237,6 +245,12 @@ export function useReviewChat({
               console.log('New unread count:', newCount);
               return newCount;
             });
+            if (
+              newMessage.isSystemMessage &&
+              userMemberIdRef.current != null &&
+              newMessage.memberId === userMemberIdRef.current
+            )
+              toast.success(newMessage.message);
           }
 
           if (data.is_system_message && data.metadata?.action) {
@@ -323,7 +337,7 @@ export function useReviewChat({
   }, [reviewId, enabled, isDrawerOpen, queryClient]);
 
   useEffect(() => {
-    if (reviewId && enabled) {
+    if (reviewId && userMemberId && enabled) {
       connect();
     }
 
@@ -332,7 +346,7 @@ export function useReviewChat({
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [reviewId, enabled, connect]);
+  }, [reviewId, userMemberId, enabled, connect]);
 
   useEffect(() => {
     return () => {

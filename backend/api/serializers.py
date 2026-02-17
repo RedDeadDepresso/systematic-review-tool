@@ -143,6 +143,7 @@ class OpinionStatsSerializer(serializers.Serializer):
 
 class ReviewSerializer(serializers.ModelSerializer):
     user_role = serializers.SerializerMethodField()
+    user_member_id = serializers.IntegerField()
 
     # annotated counts from queryset
     reference_count = serializers.IntegerField(read_only=True)
@@ -171,6 +172,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             "date_created",
             "is_blinded",
             "user_role",
+            "user_member_id",
             "members",
             "screening_stats",
             "screening_opinions",
@@ -371,6 +373,8 @@ class AttachPDFsSerializer(serializers.Serializer):
 
 
 class BaseReferenceSerializer(serializers.ModelSerializer):
+    search_method = serializers.StringRelatedField()
+
     class Meta:
         model = Reference
         fields = "__all__"
@@ -386,6 +390,7 @@ class BaseReferenceSerializer(serializers.ModelSerializer):
             "doi",
             "publication_date",
             "duplicate_status",
+            "pages",
         ]
 
 

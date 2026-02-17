@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { ReviewHeader } from '@/components/shared/review-header';
 import { useCreateReviewPrisma } from '@/hooks/use-review';
 import { createFileRoute } from '@tanstack/react-router';
 import { useContext, useEffect, useState, type ReactNode } from 'react';
@@ -112,7 +111,6 @@ function RouteComponent() {
 
   return (
     <>
-      <ReviewHeader reviewId={reviewId} />
       <div className="space-y-6">
         {/* Validation Issues Top Banner */}
         {data?.validationIssues && (

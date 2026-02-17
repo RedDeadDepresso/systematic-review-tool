@@ -42,6 +42,16 @@ export interface AutoResolvePreview {
 export interface AutoResolveRequest {
   confidenceThreshold?: number;
   createPairsFirst?: boolean;
+  textNormalization?: boolean;
+  preferredSearchMethodId?: number | null;
+  criteria?: {
+    authors: boolean;
+    title: boolean;
+    journal: boolean;
+    year: boolean;
+    pages: boolean;
+    doi: boolean;
+  };
 }
 
 export interface AutoResolveResponse {

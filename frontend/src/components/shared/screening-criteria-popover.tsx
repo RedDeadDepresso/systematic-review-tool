@@ -38,14 +38,17 @@ interface ScreeningCriteriaPopoverProps {
   reviewId: number;
   userRole: ReviewRole;
   trigger: React.ReactNode;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 export function ScreeningCriteriaPopover({
   trigger,
   reviewId,
   userRole,
+  open,
+  onOpenChange,
 }: ScreeningCriteriaPopoverProps) {
-  const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'inclusion' | 'exclusion'>(
     'inclusion'
   );
@@ -70,12 +73,12 @@ export function ScreeningCriteriaPopover({
       if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const target = e.target as HTMLElement;
         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-        setOpen((prev) => !prev);
+        onOpenChange(!open);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [open, onOpenChange]);
 
   // Focus edit input when editing starts
   useEffect(() => {
@@ -97,7 +100,7 @@ export function ScreeningCriteriaPopover({
       // Don't close if we want it to stay open
       return;
     }
-    setOpen(newOpen);
+    onOpenChange(newOpen);
   };
 
   const inclusionCriteria = fetchCriteria.data
@@ -185,7 +188,12 @@ export function ScreeningCriteriaPopover({
 
   return (
     <>
-      <Popover open={open} onOpenChange={handleOpenChange}>
+      <Popover
+        open={open}
+        onOpenChange={(val) => {
+          if (val) onOpenChange(true);
+        }}
+      >
         <PopoverTrigger asChild>{trigger}</PopoverTrigger>
         <PopoverContent
           className="w-full sm:w-[500px] p-0 max-h-[90vh] flex flex-col"
@@ -205,7 +213,7 @@ export function ScreeningCriteriaPopover({
               variant="ghost"
               size="sm"
               className="h-6 w-6 p-0"
-              onClick={() => setOpen(false)}
+              onClick={() => handleOpenChange(false)}
             >
               <X className="h-4 w-4" />
             </Button>

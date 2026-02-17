@@ -15,6 +15,7 @@ export type Review = {
   isActive: boolean;
   referenceCount: number;
   userRole: ReviewRole;
+  userMemberId: number;
   members: ReviewMember[];
   isBlinded: boolean;
   screeningStats: ScreeningStat[];

@@ -7,7 +7,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,9 +31,15 @@ import { DeleteIntegrationDialog } from './delete-integration-dialog';
 
 interface ZoteroConfigDialogProps {
   reviewId: number;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
-export function ZoteroConfigDialog({ reviewId }: ZoteroConfigDialogProps) {
+export function ZoteroConfigDialog({
+  reviewId,
+  open,
+  onOpenChange,
+}: ZoteroConfigDialogProps) {
   const { data: integration, isLoading: loadingIntegration } =
     useZoteroIntegration(reviewId);
   const createIntegration = useCreateZoteroIntegration();
@@ -44,7 +49,6 @@ export function ZoteroConfigDialog({ reviewId }: ZoteroConfigDialogProps) {
     'unlink'
   );
 
-  const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     libraryId: '',
     apiKey: '',
@@ -80,7 +84,7 @@ export function ZoteroConfigDialog({ reviewId }: ZoteroConfigDialogProps) {
         },
         {
           onSuccess: () => {
-            setOpen(false);
+            onOpenChange(false);
           },
         }
       );
@@ -95,7 +99,7 @@ export function ZoteroConfigDialog({ reviewId }: ZoteroConfigDialogProps) {
         },
         {
           onSuccess: () => {
-            setOpen(false);
+            onOpenChange(false);
           },
         }
       );
@@ -116,15 +120,7 @@ export function ZoteroConfigDialog({ reviewId }: ZoteroConfigDialogProps) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <IconSettings className="h-4 w-4" />
-          <span className="hidden lg:inline">
-            {integration?.isConfigured ? 'Update' : 'Configure'} Zotero
-          </span>
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-full sm:max-w-2xl max-h-[85vh] p-0 gap-0 overflow-hidden">
         <form
           onSubmit={handleSubmit}
@@ -331,7 +327,7 @@ export function ZoteroConfigDialog({ reviewId }: ZoteroConfigDialogProps) {
                 {integration && (
                   <DeleteIntegrationDialog
                     integrationId={integration.id}
-                    onSuccess={() => setOpen(false)}
+                    onSuccess={() => onOpenChange(false)}
                   />
                 )}
               </div>

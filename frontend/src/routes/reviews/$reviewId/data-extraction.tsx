@@ -3,7 +3,6 @@ import { PDFDialog } from '@/components/shared/pdf-dialog';
 import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
 import { MatchPDFDialog } from '@/components/shared/match-pdf-dialog';
 import { ExtractionFooter } from '@/components/shared/references-table-footer';
-import { ReviewHeader } from '@/components/shared/review-header';
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { useFetchExtractionTableData } from '@/hooks/use-extraction-table';
 import { useFileUpload } from '@/hooks/use-reference-file-upload';
@@ -96,7 +95,6 @@ function RouteComponent() {
           onImport={fileUpload.handleMatch}
         />
       )}
-      <ReviewHeader reviewId={reviewId} />
       <DataExtractionTable
         reviewId={reviewId}
         references={ui.sortedReferences}

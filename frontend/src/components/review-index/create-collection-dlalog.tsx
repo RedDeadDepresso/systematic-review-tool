@@ -1,4 +1,3 @@
-// src/components/zotero/create-collection-dialog.tsx
 import { Button } from '@/components/ui/button';
 import {
   Dialog,

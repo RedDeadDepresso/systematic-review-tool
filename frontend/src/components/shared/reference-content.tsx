@@ -52,6 +52,7 @@ export interface ReferenceContentProps {
   side?: 'left' | 'right';
   highlightDifference?: boolean;
   showNotes?: boolean;
+  noScroll?: boolean;
 }
 
 function diffClass(
@@ -84,9 +85,15 @@ export function ReferenceContent({
   highlightIncludeKeywords = [],
   highlightExcludeKeywords = [],
   showNotes = false,
+  noScroll = false,
 }: ReferenceContentProps) {
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-4">
+    <div
+      className={cn(
+        'flex-1 py-4',
+        !noScroll && 'overflow-y-auto px-6' // Conditionally apply scroll
+      )}
+    >
       <div className="space-y-0">
         <DetailSection
           icon={FileText}
@@ -154,6 +161,7 @@ export function ReferenceContent({
             highlightIncludeKeywords,
             highlightExcludeKeywords
           )}
+          {reference.pages && `, pp. ${reference.pages}`}
           {reference.publicationDate &&
             ` - published ${reference.publicationDate}`}
         </DetailSection>

@@ -793,8 +793,11 @@ def auto_deduplicate_task(
     self,
     review_id: int,
     member_id: int = None,
-    confidence_threshold: float = 0.9,
+    confidence_threshold: float = 0.90,
     create_pairs_first: bool = True,
+    criteria: dict = None,
+    text_normalization: bool = False,
+    preferred_search_method_id: int = None,
 ):
     """
     Auto-detect and resolve duplicate references
@@ -814,15 +817,51 @@ def auto_deduplicate_task(
         )
         user_name = member.user_name if member else "System"
 
+        # Parse criteria
+        criteria = criteria or {}
+        criteria_text = []
+        if criteria.get("authors"):
+            criteria_text.append("Authors")
+        if criteria.get("title"):
+            criteria_text.append("Title")
+        if criteria.get("journal"):
+            criteria_text.append("Journal")
+        if criteria.get("year"):
+            criteria_text.append("Year")
+        if criteria.get("doi"):
+            criteria_text.append("DOI")
+        if criteria.get("pages"):
+            criteria_text.append("Pages")
+
+        criteria_str = ", ".join(criteria_text) if criteria_text else "similarity only"
+
+        # Get preferred search method name
+        preferred_source = "any source"
+        if preferred_search_method_id:
+            try:
+                search_method = SearchMethod.objects.get(id=preferred_search_method_id)
+                preferred_source = search_method.name
+            except SearchMethod.DoesNotExist:
+                pass
+
         # Send start message
         send_review_chat_message(
             review_id=review_id,
             member=member,
-            message=f"🔄 {user_name} started automatic deduplication (threshold: {int(confidence_threshold * 100)}%)...",
+            message=(
+                f"🔄 {user_name} started systematic auto-resolution\n"
+                f"• Threshold: {int(confidence_threshold * 100)}%\n"
+                f"• Criteria: {criteria_str}\n"
+                f"• Preferred source: {preferred_source}\n"
+                f"• Text normalization: {'enabled' if text_normalization else 'disabled'}"
+            ),
             is_system_message=True,
             metadata={
                 "action": "deduplication_started",
                 "confidence_threshold": confidence_threshold,
+                "criteria": criteria,
+                "text_normalization": text_normalization,
+                "preferred_search_method_id": preferred_search_method_id,
             },
         )
 
@@ -835,13 +874,9 @@ def auto_deduplicate_task(
             from .models import Reference
 
             references = Reference.objects.filter(review=review)
-            total_references = references.count()
 
-            # Detect pairs
             pairs_created = ReferenceDuplicatePair.create_pairs(
-                review,
-                references,
-                threshold=0.5,  # Lower threshold to catch more potential duplicates
+                review, references, threshold=0.5
             )
 
             logger.info(f"Found {pairs_created} duplicate pairs")
@@ -850,28 +885,29 @@ def auto_deduplicate_task(
                 send_review_chat_message(
                     review_id=review_id,
                     member=member,
-                    message=f"📊 Found {pairs_created} duplicate pairs",
+                    message=f"📊 Found {pairs_created} potential duplicate pairs",
                     is_system_message=True,
                     metadata={"action": "pairs_detected", "pairs_found": pairs_created},
                 )
 
-        # Step 2: Auto-resolve high-confidence pairs
+        # Step 2: Auto-resolve high-confidence pairs with criteria
         logger.info(
-            f"Auto-resolving high-confidence pairs (threshold: {confidence_threshold})"
+            f"Auto-resolving pairs (threshold: {confidence_threshold}, criteria: {criteria})"
         )
 
         result = ReferenceDuplicatePair.auto_resolve_duplicates(
-            review, confidence_threshold
+            review,
+            confidence_threshold,
+            criteria=criteria,
+            text_normalization=text_normalization,
+            preferred_search_method_id=preferred_search_method_id,
         )
 
         auto_resolved = result["auto_resolved"]
         kept_count = len(result["kept_references"])
         removed_count = len(result["removed_references"])
 
-        logger.info(
-            f"Auto-resolved {auto_resolved} pairs: "
-            f"kept {kept_count}, removed {removed_count}"
-        )
+        logger.info(f"Auto-resolved {auto_resolved} pairs")
 
         # Update review flag
         if create_pairs_first and pairs_created > 0:
@@ -885,9 +921,10 @@ def auto_deduplicate_task(
                 member=member,
                 message=(
                     f"✅ Auto-resolution complete!\n"
-                    f"• Auto-resolved {auto_resolved} high-confidence duplicates\n"
-                    f"• Kept {kept_count} references, marked {removed_count} as duplicates\n"
-                    f"• Confidence threshold: {int(confidence_threshold * 100)}%"
+                    f"• Resolved: {auto_resolved} duplicates\n"
+                    f"• Kept: {kept_count} references\n"
+                    f"• Removed: {removed_count} duplicates\n"
+                    f"• Criteria: {criteria_str}"
                 ),
                 is_system_message=True,
                 metadata={
@@ -897,6 +934,7 @@ def auto_deduplicate_task(
                     "kept_references": result["kept_references"],
                     "removed_references": result["removed_references"],
                     "confidence_threshold": confidence_threshold,
+                    "criteria": criteria,
                 },
             )
         else:
@@ -904,9 +942,10 @@ def auto_deduplicate_task(
                 review_id=review_id,
                 member=member,
                 message=(
-                    f"⚠️ No high-confidence duplicates found\n"
-                    f"• Confidence threshold: {int(confidence_threshold * 100)}%\n"
-                    f"• Try lowering the threshold or resolve manually"
+                    f"⚠️ No duplicates matched your criteria\n"
+                    f"• Threshold: {int(confidence_threshold * 100)}%\n"
+                    f"• Criteria: {criteria_str}\n"
+                    f"Try adjusting settings or resolve manually"
                 ),
                 is_system_message=True,
                 metadata={
@@ -914,6 +953,7 @@ def auto_deduplicate_task(
                     "pairs_found": pairs_created,
                     "auto_resolved": 0,
                     "confidence_threshold": confidence_threshold,
+                    "criteria": criteria,
                 },
             )
 
@@ -925,24 +965,9 @@ def auto_deduplicate_task(
             "removed_references": removed_count,
         }
 
-    except Review.DoesNotExist:
-        error_msg = f"Review {review_id} not found"
-        logger.error(error_msg)
-
-        send_review_chat_message(
-            review_id=review_id,
-            member=None,
-            message="❌ Auto-resolution failed: Review not found",
-            is_system_message=True,
-            metadata={"action": "deduplication_failed", "error": error_msg},
-        )
-
-        return {"success": False, "error": error_msg}
-
     except Exception as e:
         logger.exception(f"Auto-deduplication task error: {str(e)}")
 
-        # Send failure message
         send_review_chat_message(
             review_id=review_id,
             member=member if "member" in locals() else None,
@@ -951,7 +976,6 @@ def auto_deduplicate_task(
             metadata={"action": "deduplication_failed", "error": str(e)},
         )
 
-        # Retry on failure
         if self.request.retries < self.max_retries:
             raise self.retry(exc=e, countdown=60)
         else:

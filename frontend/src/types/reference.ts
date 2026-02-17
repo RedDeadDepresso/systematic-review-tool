@@ -35,6 +35,7 @@ export type Reference = {
   doi?: string;
   url?: string;
   assignee: ReviewMember | null;
+  pages?: string;
 };
 
 // Reference Table

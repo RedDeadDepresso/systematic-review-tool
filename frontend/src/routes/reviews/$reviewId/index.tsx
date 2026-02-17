@@ -17,7 +17,6 @@ import { useContext, useEffect, useState } from 'react';
 import { ResolveDuplicatesDialog } from '@/components/shared/resolve-duplicates-dialog';
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
-import { ReviewHeader } from '@/components/shared/review-header';
 import { ReviewTeamTable } from '@/components/review-index/review-team-table';
 import { can } from '@/lib/permissions';
 import { StatsTabs } from '@/components/review-index/stats-tabs';
@@ -79,7 +78,6 @@ function ReviewPage() {
           onClose={() => setIsOpen(false)}
         />
       )}
-      <ReviewHeader reviewId={reviewId} />
       <div className="space-y-6">
         {/* Review Info Section */}
         <Card className="p-6">

@@ -57,7 +57,13 @@ from api.models import (
     ZoteroIntegration,
     ZoteroSyncLog,
 )
-from api.permissions import IsReviewOwner, Permission, check_permission
+from api.permissions import (
+    PERMISSIONS,
+    IsReviewOwner,
+    Permission,
+    check_permission,
+    permission_denied_message,
+)
 from api.serializers import (
     AddDataSerializer,
     ArticleCountSerializer,
@@ -184,6 +190,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 ),
                 owner_email=Subquery(owner_membership.values("user__email")[:1]),
                 user_role=Subquery(user_membership.values("role")[:1]),
+                user_member_id=Subquery(user_membership.values("id")[:1]),
                 reference_count=Count("reference", distinct=True),
                 duplicate_resolved_count=Count(
                     "reference",
@@ -292,7 +299,9 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        add_id = SearchMethod.objects.filter(name=uploaded_file.name).exists()
+        add_id = SearchMethod.objects.filter(
+            name=uploaded_file.name, review=review
+        ).exists()
         search_method = SearchMethod.objects.create(
             name=uploaded_file.name, review=review
         )
@@ -738,19 +747,11 @@ class ReviewViewSet(viewsets.ModelViewSet):
         """
         review = self.get_object()
 
-        # Check user permission (at least Reviewer role)
+        # Check user permission
         try:
             member = ReviewMember.objects.get(review=review, user=request.user)
-
-            if member.role not in [
-                ReviewMember.Role.OWNER,
-                ReviewMember.Role.COLLABORATOR,
-                ReviewMember.Role.REVIEWER,
-            ]:
-                return Response(
-                    {"error": "You do not have permission to auto-resolve duplicates"},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
+            if not member.role not in PERMISSIONS[Permission.MANAGE_DUPLICATES]:
+                permission_denied_message(Permission.MANAGE_DUPLICATES)
         except ReviewMember.DoesNotExist:
             return Response(
                 {"error": "You are not a member of this review"},
@@ -758,8 +759,11 @@ class ReviewViewSet(viewsets.ModelViewSet):
             )
 
         # Get settings from request
-        confidence_threshold = request.data.get("confidence_threshold", 0.9)
+        confidence_threshold = request.data.get("confidence_threshold", 0.90)
         create_pairs_first = request.data.get("create_pairs_first", True)
+        criteria = request.data.get("criteria", {})
+        text_normalization = request.data.get("text_normalization", False)
+        preferred_search_method_id = request.data.get("preferred_search_method_id")
 
         # Validate confidence threshold
         try:
@@ -772,21 +776,13 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Check if there are any unresolved pairs
-        if create_pairs_first:
-            # Will create pairs in the task
-            pass
-        else:
-            unresolved_count = ReferenceDuplicatePair.objects.filter(
-                review=review, resolved=False
-            ).count()
-
-            if unresolved_count == 0:
+        # Validate search method if provided
+        if preferred_search_method_id:
+            try:
+                SearchMethod.objects.get(id=preferred_search_method_id, review=review)
+            except SearchMethod.DoesNotExist:
                 return Response(
-                    {
-                        "error": "No unresolved duplicate pairs found",
-                        "message": "Please run duplicate detection first or enable create_pairs_first",
-                    },
+                    {"error": "Invalid search method"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -796,6 +792,9 @@ class ReviewViewSet(viewsets.ModelViewSet):
             member_id=member.id,
             confidence_threshold=confidence_threshold,
             create_pairs_first=create_pairs_first,
+            criteria=criteria,
+            text_normalization=text_normalization,
+            preferred_search_method_id=preferred_search_method_id,
         )
 
         return Response(
@@ -803,9 +802,33 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 "message": "Auto-resolution started",
                 "task_id": task.id,
                 "confidence_threshold": confidence_threshold,
+                "criteria": criteria,
+                "text_normalization": text_normalization,
+                "preferred_search_method_id": preferred_search_method_id,
                 "status": "processing",
             },
             status=status.HTTP_202_ACCEPTED,
+        )
+
+    @action(detail=True, methods=["get"])
+    def search_methods(self, request, pk=None):
+        """
+        Get all search methods for a review
+
+        GET /api/reviews/{id}/search_methods/
+        """
+        review = self.get_object()
+
+        search_methods = SearchMethod.objects.filter(review=review)
+
+        return Response(
+            [
+                {
+                    "id": method.id,
+                    "name": method.name,
+                }
+                for method in search_methods
+            ]
         )
 
     @action(detail=True, methods=["get"])
@@ -914,6 +937,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
             doi=doi,
             url=url,
             publication_date=publication_date,
+            pages=entry.get("pages", ""),
         )
 
     def _generate_theme_table_latex(
@@ -1659,14 +1683,18 @@ class ReferenceViewSet(viewsets.ModelViewSet):
             opinions_qs = ReferenceOpinion.objects.select_related("member__user")
 
         # Prefetch and return
-        return queryset.prefetch_related(
-            Prefetch(
-                "referenceopinion_set",
-                queryset=opinions_qs,
-                to_attr="prefetched_opinions",
-            ),
-            "labels",
-        ).distinct()
+        return (
+            queryset.prefetch_related(
+                Prefetch(
+                    "referenceopinion_set",
+                    queryset=opinions_qs,
+                    to_attr="prefetched_opinions",
+                ),
+                "labels",
+            )
+            .distinct()
+            .select_related("search_method")
+        )
 
     def perform_update(self, serializer):
         """

@@ -166,6 +166,7 @@ class Reference(models.Model):
     zotero_key = models.CharField(max_length=100, blank=True, null=True)
     zotero_version = models.IntegerField(default=0)
     last_synced = models.DateTimeField(null=True, blank=True)
+    pages = models.CharField(max_length=50, blank=True, default="")
 
     class Meta:
         indexes = [
@@ -336,49 +337,94 @@ class ReferenceDuplicatePair(models.Model):
         return created_count
 
     @classmethod
-    def auto_resolve_duplicates(cls, review, confidence_threshold=0.9):
+    def auto_resolve_duplicates(
+        cls,
+        review,
+        confidence_threshold=0.90,
+        criteria=None,
+        text_normalization=False,
+        preferred_search_method_id=None,
+    ):
         """
-        Auto-resolve duplicate pairs with very high similarity scores
-        Similar to Rayyan's auto-resolver
-
-        Args:
-            review: Review instance
-            confidence_threshold: Similarity threshold for auto-resolution (0.0-1.0)
-
-        Returns:
-            dict with counts of auto-resolved pairs
+        Auto-resolve duplicate pairs with high similarity and matching criteria
+        Uses PostgreSQL for text normalization
         """
+        criteria = criteria or {}
+
         # Get unresolved pairs with high confidence
         high_confidence_pairs = cls.objects.filter(
             review=review, resolved=False, similarity_score__gte=confidence_threshold
-        ).select_related("reference1", "reference2")
+        ).select_related(
+            "reference1",
+            "reference2",
+            "reference1__search_method",
+            "reference2__search_method",
+        )
 
         auto_resolved_count = 0
         kept_references = []
         removed_references = []
 
         for pair in high_confidence_pairs:
-            # Auto-resolution logic: keep the one with more complete data
             ref1 = pair.reference1
             ref2 = pair.reference2
 
-            # Calculate completeness score
-            ref1_score = cls._calculate_completeness(ref1)
-            ref2_score = cls._calculate_completeness(ref2)
-
-            if ref1_score >= ref2_score:
-                kept = ref1
-                removed = ref2
+            # Check additional criteria using PostgreSQL if text normalization is enabled
+            if text_normalization and any(
+                [
+                    criteria.get("authors"),
+                    criteria.get("title"),
+                    criteria.get("journal"),
+                    criteria.get("doi"),
+                    criteria.get("pages"),
+                ]
+            ):
+                # Build SQL query to check criteria using PostgreSQL normalization
+                criteria_match = cls._check_normalized_criteria(ref1, ref2, criteria)
             else:
-                kept = ref2
-                removed = ref1
+                # Check criteria without normalization
+                criteria_match = cls._check_criteria(ref1, ref2, criteria)
 
-            # Mark the less complete one as duplicate
-            removed.duplicate_status = "Duplicate"
+            if not criteria_match:
+                continue
+
+            # Determine which reference to keep
+            kept = None
+            removed = None
+
+            # Priority 1: Preferred search method
+            if preferred_search_method_id:
+                if (
+                    ref1.search_method_id == preferred_search_method_id
+                    and ref2.search_method_id != preferred_search_method_id
+                ):
+                    kept = ref1
+                    removed = ref2
+                elif (
+                    ref2.search_method_id == preferred_search_method_id
+                    and ref1.search_method_id != preferred_search_method_id
+                ):
+                    kept = ref2
+                    removed = ref1
+
+            # Priority 2: Completeness score (if search method didn't determine)
+            if not kept:
+                ref1_score = cls._calculate_completeness(ref1)
+                ref2_score = cls._calculate_completeness(ref2)
+
+                if ref1_score >= ref2_score:
+                    kept = ref1
+                    removed = ref2
+                else:
+                    kept = ref2
+                    removed = ref1
+
+            # Mark the removed one as duplicate
+            removed.duplicate_status = Reference.DuplicateStatus.DELETED
             removed.save()
 
-            # Mark the better one as unique
-            kept.duplicate_status = "Unique"
+            # Mark the kept one as unique
+            kept.duplicate_status = Reference.DuplicateStatus.RESOLVED
             kept.save()
 
             # Mark pair as auto-resolved
@@ -395,6 +441,85 @@ class ReferenceDuplicatePair(models.Model):
             "kept_references": kept_references,
             "removed_references": removed_references,
         }
+
+    @classmethod
+    def _check_normalized_criteria(cls, ref1, ref2, criteria):
+        """
+        Check criteria using PostgreSQL's normalize_text function
+        """
+        with connection.cursor() as cursor:
+            conditions = []
+            params = []
+
+            if criteria.get("authors"):
+                conditions.append("normalize_text(%s) = normalize_text(%s)")
+                params.extend([ref1.authors or "", ref2.authors or ""])
+
+            if criteria.get("title"):
+                conditions.append("normalize_text(%s) = normalize_text(%s)")
+                params.extend([ref1.title or "", ref2.title or ""])
+
+            if criteria.get("journal"):
+                conditions.append("normalize_text(%s) = normalize_text(%s)")
+                params.extend([ref1.journal or "", ref2.journal or ""])
+
+            if criteria.get("doi"):
+                conditions.append("normalize_text(%s) = normalize_text(%s)")
+                params.extend([ref1.doi or "", ref2.doi or ""])
+
+            if criteria.get("pages"):
+                conditions.append("normalize_text(%s) = normalize_text(%s)")
+                params.extend([ref1.pages or "", ref2.pages or ""])
+
+            if criteria.get("year"):
+                year1 = ref1.publication_date.year if ref1.publication_date else None
+                year2 = ref2.publication_date.year if ref2.publication_date else None
+                if year1 != year2:
+                    return False
+
+            # If no text conditions, return True
+            if not conditions:
+                return True
+
+            # Check all conditions in single query
+            sql = f"SELECT {' AND '.join(conditions)}"
+            cursor.execute(sql, params)
+            result = cursor.fetchone()
+
+            return result[0] if result else False
+
+    @classmethod
+    def _check_criteria(cls, ref1, ref2, criteria):
+        """
+        Check criteria without normalization (exact match)
+        """
+        if criteria.get("authors"):
+            if (ref1.authors or "") != (ref2.authors or ""):
+                return False
+
+        if criteria.get("title"):
+            if (ref1.title or "") != (ref2.title or ""):
+                return False
+
+        if criteria.get("journal"):
+            if (ref1.journal or "") != (ref2.journal or ""):
+                return False
+
+        if criteria.get("year"):
+            year1 = ref1.publication_date.year if ref1.publication_date else None
+            year2 = ref2.publication_date.year if ref2.publication_date else None
+            if year1 != year2:
+                return False
+
+        if criteria.get("doi"):
+            if (ref1.doi or "") != (ref2.doi or ""):
+                return False
+
+        if criteria.get("pages"):
+            if (ref1.pages or "") != (ref2.pages or ""):
+                return False
+
+        return True
 
     @staticmethod
     def _calculate_completeness(reference):
@@ -434,6 +559,11 @@ class ReferenceDuplicatePair(models.Model):
         max_score += 1.0
         if reference.publication_date:
             score += 1.0
+
+        # Pages
+        max_score += 0.5
+        if reference.pages:
+            score += 0.5
 
         # PDF file
         max_score += 1.0
