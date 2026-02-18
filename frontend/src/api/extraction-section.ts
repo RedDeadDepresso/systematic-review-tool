@@ -1,4 +1,7 @@
-import { type ExtractionSection } from '@/types/extraction';
+import {
+  type ExtractionFormData,
+  type ExtractionSection,
+} from '@/types/extraction';
 import api from './axios';
 
 /* ------------------ FETCH EXTRACTION SECTIONS ------------------ */
@@ -41,5 +44,15 @@ export const updateExtractionSection = async (
 /* ------------------ DELETE EXTRACTION SECTION ------------------ */
 export const deleteExtractionSection = async (sectionId: number) => {
   const res = await api.delete(`/extraction-sections/${sectionId}/`);
+  return res.data;
+};
+
+export const fetchExtractionFormData = async (
+  referenceId: number,
+  reviewId: number
+): Promise<ExtractionFormData> => {
+  const res = await api.get('/extraction-form/form-data/', {
+    params: { referenceId, reviewId },
+  });
   return res.data;
 };

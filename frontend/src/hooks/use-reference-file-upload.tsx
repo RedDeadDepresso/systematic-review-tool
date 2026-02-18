@@ -29,7 +29,6 @@ export function useFileUpload(
           file,
           review: reviewId,
         });
-        setOpenMatchDialog(true);
         return true;
       } catch (error) {
         return false;

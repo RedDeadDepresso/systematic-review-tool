@@ -40,13 +40,15 @@ function ReviewPage() {
   const { data, isLoading } = useFetchReview(reviewId);
   const { mutate, isPending } = useDetectDuplicateReferences();
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
+  const { setPageTitle, setIsAuthenticated, setScroll } =
+    useContext(AppLayoutContext);
   const UploadReviewReferences = useUploadReviewReferences();
   const [openUploadDialog, setOpenUploadDialog] = useState(false);
 
   useEffect(() => {
     setPageTitle('Overview');
     setIsAuthenticated(true);
+    setScroll(true);
   }, []);
 
   const handleDetectDuplicates = () => {

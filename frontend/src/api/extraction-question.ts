@@ -1,12 +1,18 @@
-import { type ExtractionQuestion } from '@/types/extraction';
+import { type ExtractionQuestion, type QuestionType } from '@/types/extraction';
 import api from './axios';
 
 /* ------------------ FETCH EXTRACTION QUESTIONS ------------------ */
 export const fetchExtractionQuestions = async (params: {
+  reviewId: number;
   sectionId?: number;
+  type?: QuestionType[];
 }) => {
   const res = await api.get<ExtractionQuestion[]>('/extraction-questions/', {
-    params: params.sectionId ? { section: params.sectionId } : undefined,
+    params: {
+      section__review: params.reviewId,
+      ...(params.sectionId && { section: params.sectionId }),
+      ...(params.type && { type: params.type }),
+    },
   });
   return res.data;
 };

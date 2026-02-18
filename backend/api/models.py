@@ -830,12 +830,18 @@ class ExtractionQuestion(models.Model):
 
 class ExtractionAnswer(models.Model):
     reference = models.ForeignKey(
-        Reference, on_delete=models.CASCADE, related_name="extraction_answers"
+        "Reference",
+        on_delete=models.CASCADE,
+        related_name="extraction_answers",
     )
     question = models.ForeignKey(
-        ExtractionQuestion, on_delete=models.CASCADE, related_name="answers"
+        "ExtractionQuestion",
+        on_delete=models.CASCADE,
+        related_name="answers",
+        db_index=True,
     )
     value = models.TextField(blank=True, default="")
+    value_number = models.FloatField(null=True, blank=True, db_index=True)
 
     class Meta:
         constraints = [

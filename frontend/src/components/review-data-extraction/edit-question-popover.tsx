@@ -4,7 +4,7 @@
 import React from 'react';
 
 import { useState, useEffect } from 'react';
-import { X, HelpCircle } from 'lucide-react';
+import { X, HelpCircle, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -74,6 +74,9 @@ export function EditQuestionPopover({
   const [questionType, setQuestionType] = useState<QuestionType>(question.type);
   const [columnTitle, setColumnTitle] = useState(question.columnTitle);
   const [required, setRequired] = useState(question.required);
+  const [options, setOptions] = useState<string[]>(
+    question.options && question.options.length > 0 ? question.options : ['']
+  );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const updateQuestionMutation = useUpdateExtractionQuestion();
@@ -87,11 +90,50 @@ export function EditQuestionPopover({
       setQuestionType(question.type);
       setColumnTitle(question.columnTitle);
       setRequired(question.required);
+      setOptions(
+        question.options && question.options.length > 0
+          ? question.options
+          : ['']
+      );
     }
   }, [open, question]);
 
+  const handleAddOption = () => {
+    setOptions([...options, '']);
+  };
+
+  const handleRemoveOption = (index: number) => {
+    if (options.length > 1) {
+      setOptions(options.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleOptionChange = (index: number, value: string) => {
+    const newOptions = [...options];
+    newOptions[index] = value;
+    setOptions(newOptions);
+  };
+
+  const handleTypeChange = (newType: QuestionType) => {
+    setQuestionType(newType);
+    // Initialize options array when switching to select types
+    if (
+      (newType === 'single-select' || newType === 'multi-select') &&
+      options.length === 0
+    ) {
+      setOptions(['']);
+    }
+  };
+
   const handleSave = async () => {
     if (!sectionId || !questionText.trim() || !columnTitle.trim()) return;
+
+    // Validate options for select types
+    const needsOptions =
+      questionType === 'single-select' || questionType === 'multi-select';
+    const validOptions = options.filter((opt) => opt.trim().length > 0);
+
+    if (needsOptions && validOptions.length === 0) return;
 
     updateQuestionMutation.mutate(
       {
@@ -102,6 +144,7 @@ export function EditQuestionPopover({
           columnTitle: columnTitle.trim(),
           type: questionType,
           required,
+          ...(needsOptions && { options: validOptions }),
         },
       },
       {
@@ -129,15 +172,21 @@ export function EditQuestionPopover({
     );
   };
 
+  const needsOptions =
+    questionType === 'single-select' || questionType === 'multi-select';
+  const validOptions = options.filter((opt) => opt.trim().length > 0);
   const isValid =
-    sectionId !== null && questionText.trim() && columnTitle.trim();
+    sectionId !== null &&
+    questionText.trim() &&
+    columnTitle.trim() &&
+    (!needsOptions || validOptions.length > 0);
 
   return (
     <TooltipProvider>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>{trigger}</PopoverTrigger>
         <PopoverContent className="w-80 p-0" align="start">
-          <div className="flex flex-col">
+          <div className="flex flex-col max-h-[600px]">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-border">
               <div className="flex items-center gap-2">
@@ -153,7 +202,7 @@ export function EditQuestionPopover({
             </div>
 
             {/* Form */}
-            <div className="p-4 space-y-4">
+            <div className="p-4 space-y-4 overflow-y-auto">
               {/* Section */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -217,7 +266,7 @@ export function EditQuestionPopover({
                 </div>
                 <Select
                   value={questionType}
-                  onValueChange={(val) => setQuestionType(val as QuestionType)}
+                  onValueChange={(val) => handleTypeChange(val as QuestionType)}
                 >
                   <SelectTrigger className="bg-transparent">
                     <SelectValue />
@@ -231,6 +280,59 @@ export function EditQuestionPopover({
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Options (for select types) */}
+              {needsOptions && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-foreground">
+                      Options <span className="text-destructive">*</span>
+                    </label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>List of choices for this question</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <div className="space-y-2">
+                    {options.map((option, index) => (
+                      <div key={index} className="flex gap-2">
+                        <Input
+                          value={option}
+                          onChange={(e) =>
+                            handleOptionChange(index, e.target.value)
+                          }
+                          placeholder={`Option ${index + 1}`}
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveOption(index)}
+                          disabled={options.length === 1}
+                          className="shrink-0"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddOption}
+                      className="w-full"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Option
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {/* Column Title */}
               <div className="space-y-2">

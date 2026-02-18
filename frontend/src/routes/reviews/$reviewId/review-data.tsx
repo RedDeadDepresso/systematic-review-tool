@@ -22,7 +22,7 @@ import { useFileUpload } from '@/hooks/use-reference-file-upload';
 import { useQueryClient } from '@tanstack/react-query';
 import { ReferencesTableBody } from '@/components/shared/references-table-body';
 import { ReviewDataFooter } from '@/components/shared/references-table-footer';
-import { TableBottomHeader } from '@/components/shared/references-table-bottom-header';
+import { TableSubHeader } from '@/components/shared/references-table-sub-header';
 import { PDFDialog } from '@/components/shared/pdf-dialog';
 import { useFetchReview } from '@/hooks/use-review';
 import { Spinner } from '@/components/ui/spinner';
@@ -34,12 +34,14 @@ export const Route = createFileRoute('/reviews/$reviewId/review-data')({
 
 function RouteComponent() {
   const reviewId = Number(Route.useParams().reviewId);
-  const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
+  const { setPageTitle, setIsAuthenticated, setScroll } =
+    useContext(AppLayoutContext);
   const queryClient = useQueryClient();
 
   useEffect(() => {
     setPageTitle('Review Data');
     setIsAuthenticated(true);
+    setScroll(false);
   }, []);
 
   // Feature flags - all enabled
@@ -166,6 +168,7 @@ function RouteComponent() {
         open={fileUpload.openUploadPDFDialog}
         onOpenChange={fileUpload.setOpenUploadPDFDialog}
         onUpload={fileUpload.handleUploadPDF}
+        onAllSuccess={() => fileUpload.setOpenMatchDialog(true)}
       />
       {fileUpload.openMatchDialog && (
         <MatchPDFDialog
@@ -229,7 +232,7 @@ function RouteComponent() {
           <div className="flex flex-1 overflow-hidden">
             {/* References Table */}
             <ReferencesTable viewLayout={articleViewLayout}>
-              <TableBottomHeader
+              <TableSubHeader
                 allSelected={ui.allSelected}
                 onSelectAll={ui.handleSelectAllReferences}
                 sortField={ui.sortField}
@@ -261,6 +264,7 @@ function RouteComponent() {
                     })
                   }
                   onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
+                  onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
                 />
               )}
             </ReferencesTable>
@@ -286,6 +290,7 @@ function RouteComponent() {
                   })
                 }
                 onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
+                onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
               />
             )}
 
@@ -407,6 +412,7 @@ function RouteComponent() {
             })
           }
           onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
+          onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
         />
       )}
     </div>

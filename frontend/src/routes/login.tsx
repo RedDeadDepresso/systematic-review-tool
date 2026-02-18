@@ -10,11 +10,13 @@ export const Route = createFileRoute('/login')({
 });
 
 function LoginPage() {
-  const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
+  const { setPageTitle, setIsAuthenticated, setScroll } =
+    useContext(AppLayoutContext);
 
   useEffect(() => {
     setPageTitle('Login');
     setIsAuthenticated(false);
+    setScroll(true);
   }, []);
 
   return <LoginForm />;

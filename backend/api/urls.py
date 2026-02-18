@@ -2,8 +2,11 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from api.views import (
+    BarChartViewSet,
     CodeViewSet,
+    EvidenceGapMapViewSet,
     ExtractionAnswerViewSet,
+    ExtractionFormViewSet,
     ExtractionQuestionViewSet,
     ExtractionSectionViewSet,
     ExtractionTableViewSet,
@@ -11,6 +14,7 @@ from api.views import (
     LabelViewSet,
     MainThemeViewSet,
     NoteViewSet,
+    PublicationTimelineViewSet,
     ReasonViewSet,
     ReferenceDuplicatePairViewSet,
     ReferenceOpinionViewSet,
@@ -19,6 +23,7 @@ from api.views import (
     ReviewInvitationViewSet,
     ReviewMemberRetrieveUpdateDestroyView,
     ReviewViewSet,
+    ScatterPlotViewSet,
     ScreeningCriteriaViewSet,
     ScreeningFullTextViewSet,
     ScreeningViewSet,
@@ -76,7 +81,14 @@ router.register(
 router.register(
     r"extraction-answers", ExtractionAnswerViewSet, basename="extraction-answer"
 )
+router.register(r"extraction-form", ExtractionFormViewSet, basename="extraction-form")
 router.register(r"extraction", ExtractionTableViewSet, basename="extraction-table")
+
+router.register(r"charts", BarChartViewSet, basename="charts-bar")
+router.register(r"charts", ScatterPlotViewSet, basename="charts-scatter")
+router.register(r"charts", EvidenceGapMapViewSet, basename="charts-egm")
+router.register(r"charts", PublicationTimelineViewSet, basename="charts-timeline")
+
 router.register(
     r"zotero-integrations", ZoteroIntegrationViewSet, basename="zotero-integrations"
 )

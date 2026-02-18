@@ -1,7 +1,7 @@
 from django.contrib.postgres.search import SearchQuery
 from django_filters import rest_framework as filters
 
-from api.models import Reference, Review
+from api.models import ExtractionQuestion, Reference, Review
 
 
 class ReviewFilter(filters.FilterSet):
@@ -94,3 +94,11 @@ class ReferenceFilter(filters.FilterSet):
             return queryset.exclude(file="")
         else:
             return queryset.filter(file="")
+
+
+class ExtractionQuestionFilter(filters.FilterSet):
+    type = filters.BaseInFilter(field_name="type", lookup_expr="in")
+
+    class Meta:
+        model = ExtractionQuestion
+        fields = ["section", "section__review", "type"]

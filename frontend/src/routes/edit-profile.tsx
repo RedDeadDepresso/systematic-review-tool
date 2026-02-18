@@ -10,11 +10,13 @@ export const Route = createFileRoute('/edit-profile')({
 });
 
 function RouteComponent() {
-  const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
+  const { setPageTitle, setIsAuthenticated, setScroll } =
+    useContext(AppLayoutContext);
 
   useEffect(() => {
     setPageTitle('Edit Profile');
     setIsAuthenticated(true);
+    setScroll(true);
   }, []);
 
   return <EditProfileForm />;

@@ -26,7 +26,8 @@ export const Route = createFileRoute('/reviews/$reviewId/coding-theming')({
 });
 
 function RouteComponent() {
-  const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
+  const { setPageTitle, setIsAuthenticated, setScroll } =
+    useContext(AppLayoutContext);
   const reviewId = Number(Route.useParams()['reviewId']);
   const fetchReview = useFetchReview(reviewId);
   const {
@@ -74,6 +75,7 @@ function RouteComponent() {
   useEffect(() => {
     setPageTitle('Coding & Theming');
     setIsAuthenticated(true);
+    setScroll(false);
   }, []);
 
   const handleJumpToCode = (code: Code) => {

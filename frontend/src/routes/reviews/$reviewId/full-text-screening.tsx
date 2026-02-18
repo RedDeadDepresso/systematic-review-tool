@@ -20,7 +20,7 @@ import { useFileUpload } from '@/hooks/use-reference-file-upload';
 import { useQueryClient } from '@tanstack/react-query';
 import { ReferencesTableBody } from '@/components/shared/references-table-body';
 import { ScreeningFooter } from '@/components/shared/references-table-footer';
-import { TableBottomHeader } from '@/components/shared/references-table-bottom-header';
+import { TableSubHeader } from '@/components/shared/references-table-sub-header';
 import { useBulkUpsertReferenceOpinions } from '@/hooks/use-reference-opinion';
 import { PDFDialog } from '@/components/shared/pdf-dialog';
 import { useFetchReview } from '@/hooks/use-review';
@@ -35,7 +35,8 @@ export const Route = createFileRoute('/reviews/$reviewId/full-text-screening')({
 
 function RouteComponent() {
   const reviewId = Number(Route.useParams().reviewId);
-  const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
+  const { setPageTitle, setIsAuthenticated, setScroll } =
+    useContext(AppLayoutContext);
   const queryClient = useQueryClient();
 
   // Auto-track when on this page
@@ -47,6 +48,7 @@ function RouteComponent() {
   useEffect(() => {
     setPageTitle('Full Text Screening');
     setIsAuthenticated(true);
+    setScroll(false);
   }, []);
 
   // Feature flags - all enabled
@@ -189,6 +191,7 @@ function RouteComponent() {
         open={fileUpload.openUploadPDFDialog}
         onOpenChange={fileUpload.setOpenUploadPDFDialog}
         onUpload={fileUpload.handleUploadPDF}
+        onAllSuccess={() => fileUpload.setOpenMatchDialog(true)}
       />
       {fileUpload.openMatchDialog && (
         <MatchPDFDialog
@@ -236,7 +239,7 @@ function RouteComponent() {
           <div className="flex flex-1 overflow-hidden">
             {/* References Table */}
             <ReferencesTable viewLayout={articleViewLayout}>
-              <TableBottomHeader
+              <TableSubHeader
                 allSelected={ui.allSelected}
                 onSelectAll={ui.handleSelectAllReferences}
                 sortField={ui.sortField}
@@ -264,6 +267,7 @@ function RouteComponent() {
                   highlightedReferenceId={ui.highlightedReferenceId}
                   onLabelsApplied={invalidateQuery}
                   onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
+                  onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
                   onOpinionApplied={handleOpinionApplied}
                 />
               )}
@@ -286,6 +290,7 @@ function RouteComponent() {
                 highlightExcludeKeywords={keywords.highlightExcludeKeywords}
                 onLabelsApplied={invalidateQuery}
                 onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
+                onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
                 onOpinionApplied={handleOpinionApplied}
               />
             )}
@@ -404,6 +409,7 @@ function RouteComponent() {
           highlightedReferenceId={ui.highlightedReferenceId}
           onLabelsApplied={invalidateQuery}
           onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
+          onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
           onOpinionApplied={handleOpinionApplied}
         />
       )}

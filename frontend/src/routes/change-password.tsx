@@ -10,11 +10,13 @@ export const Route = createFileRoute('/change-password')({
 });
 
 function RouteComponent() {
-  const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
+  const { setPageTitle, setIsAuthenticated, setScroll } =
+    useContext(AppLayoutContext);
 
   useEffect(() => {
     setPageTitle('Change Password');
     setIsAuthenticated(true);
+    setScroll(true);
   }, []);
 
   return <ChangePasswordForm />;

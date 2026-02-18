@@ -65,7 +65,7 @@ function SortDropdown({
   );
 }
 
-interface TableBottomHeaderProps {
+interface TableSubHeaderProps {
   allSelected: boolean;
   onSelectAll: () => void;
   sortField: SortField | null;
@@ -74,14 +74,14 @@ interface TableBottomHeaderProps {
   viewLayout: ArticleViewLayout;
 }
 
-export function TableBottomHeader({
+export function TableSubHeader({
   allSelected,
   onSelectAll,
   sortField,
   sortDirection,
   onSortChange,
   viewLayout,
-}: TableBottomHeaderProps) {
+}: TableSubHeaderProps) {
   return (
     <div className="flex items-center px-3 sm:px-6 py-3 border-b border-border bg-muted/50 text-sm font-medium text-muted-foreground">
       <div className="flex items-center gap-3 w-10">

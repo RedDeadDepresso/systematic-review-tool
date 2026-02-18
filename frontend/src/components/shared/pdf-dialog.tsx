@@ -25,7 +25,7 @@ import {
   exportPdf,
 } from 'react-pdf-highlighter-plus';
 import { type CommentedHighlight, type Code } from '@/types/code';
-import '@/styles/pdf-viewer.css';
+import '@/styles/pdf-dialog.css';
 import { CodingThemingSidebar } from '../review-full-text-screening/coding-theming-sidebar';
 import {
   useCreateCode,

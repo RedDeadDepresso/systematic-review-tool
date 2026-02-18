@@ -33,25 +33,14 @@ export interface FileUploadDialogProps {
   /** File type label for UI text (e.g., "PDF", "Image") */
   fileTypeLabel?: string;
   /** Custom upload function - receives file and should return success boolean */
-  onUpload?: (file: File) => Promise<boolean>;
+  onUpload: (file: File) => Promise<boolean>;
+  /** Custom function to run when all file uploaded successfully */
+  onAllSuccess?: () => void;
   /** Initial files to display */
   initialFiles?: { name: string }[];
   /** Icon to display in the header */
   icon?: React.ReactNode;
 }
-
-const defaultUpload = async (): Promise<boolean> => {
-  // Simulate POST request with 80% success rate
-  return new Promise((resolve) => {
-    setTimeout(
-      () => {
-        const success = Math.random() > 0.2;
-        resolve(success);
-      },
-      800 + Math.random() * 500
-    );
-  });
-};
 
 export function FileUploadDialog({
   open = true,
@@ -61,7 +50,8 @@ export function FileUploadDialog({
   acceptedFormats = '.pdf,application/pdf',
   acceptedMimeTypes = ['application/pdf'],
   fileTypeLabel = 'PDF',
-  onUpload = defaultUpload,
+  onUpload,
+  onAllSuccess,
   initialFiles = [],
   icon,
 }: FileUploadDialogProps) {
@@ -182,11 +172,7 @@ export function FileUploadDialog({
       let success = false;
       if (fileItem.file) {
         success = await onUpload(fileItem.file);
-      } else {
-        // For initial files without actual File objects, use default behavior
-        success = await defaultUpload();
       }
-
       // Update file status based on result
       setFiles((prev) =>
         prev.map((f) =>
@@ -206,6 +192,7 @@ export function FileUploadDialog({
     setFiles((currentFiles) => {
       const allSuccess = currentFiles.every((f) => f.status === 'success');
       if (allSuccess && onOpenChange) {
+        onAllSuccess?.();
         setTimeout(() => onOpenChange(false), 500);
       }
       return currentFiles;

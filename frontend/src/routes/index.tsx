@@ -24,11 +24,13 @@ function IndexPage() {
   const { data: invitations = [], isLoading: isLoadingInvitations } =
     useFetchInvitations();
 
-  const { setPageTitle, setIsAuthenticated } = useContext(AppLayoutContext);
+  const { setPageTitle, setIsAuthenticated, setScroll } =
+    useContext(AppLayoutContext);
 
   useEffect(() => {
     setPageTitle('Home');
     setIsAuthenticated(true);
+    setScroll(true);
   }, []);
 
   return (

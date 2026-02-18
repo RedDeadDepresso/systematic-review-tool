@@ -3,7 +3,7 @@
 import React from 'react';
 
 import { useState } from 'react';
-import { X, HelpCircle } from 'lucide-react';
+import { X, HelpCircle, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -56,6 +56,7 @@ export function AddQuestionPopover({
   const [questionType, setQuestionType] = useState<QuestionType>('free-text');
   const [columnTitle, setColumnTitle] = useState('');
   const [required, setRequired] = useState(false);
+  const [options, setOptions] = useState<string[]>(['']);
 
   const createQuestionMutation = useCreateExtractionQuestion();
 
@@ -65,6 +66,7 @@ export function AddQuestionPopover({
     setQuestionType('free-text');
     setColumnTitle('');
     setRequired(false);
+    setOptions(['']);
   };
 
   const handleOpenChange = (isOpen: boolean) => {
@@ -74,8 +76,42 @@ export function AddQuestionPopover({
     }
   };
 
+  const handleAddOption = () => {
+    setOptions([...options, '']);
+  };
+
+  const handleRemoveOption = (index: number) => {
+    if (options.length > 1) {
+      setOptions(options.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleOptionChange = (index: number, value: string) => {
+    const newOptions = [...options];
+    newOptions[index] = value;
+    setOptions(newOptions);
+  };
+
+  const handleTypeChange = (newType: QuestionType) => {
+    setQuestionType(newType);
+    // Initialize options array when switching to select types
+    if (
+      (newType === 'single-select' || newType === 'multi-select') &&
+      options.length === 0
+    ) {
+      setOptions(['']);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!sectionId || !question.trim() || !columnTitle.trim()) return;
+
+    // Validate options for select types
+    const needsOptions =
+      questionType === 'single-select' || questionType === 'multi-select';
+    const validOptions = options.filter((opt) => opt.trim().length > 0);
+
+    if (needsOptions && validOptions.length === 0) return;
 
     createQuestionMutation.mutate(
       {
@@ -84,6 +120,7 @@ export function AddQuestionPopover({
         columnTitle: columnTitle.trim(),
         type: questionType,
         required,
+        ...(needsOptions && { options: validOptions }),
       },
       {
         onSuccess: () => {
@@ -95,14 +132,21 @@ export function AddQuestionPopover({
     );
   };
 
-  const isValid = sectionId !== null && question.trim() && columnTitle.trim();
+  const needsOptions =
+    questionType === 'single-select' || questionType === 'multi-select';
+  const validOptions = options.filter((opt) => opt.trim().length > 0);
+  const isValid =
+    sectionId !== null &&
+    question.trim() &&
+    columnTitle.trim() &&
+    (!needsOptions || validOptions.length > 0);
 
   return (
     <TooltipProvider>
       <Popover open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>{trigger}</PopoverTrigger>
         <PopoverContent className="w-80 p-0" align="end">
-          <div className="flex flex-col">
+          <div className="flex flex-col max-h-[600px]">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-border">
               <div className="flex items-center gap-2">
@@ -118,7 +162,7 @@ export function AddQuestionPopover({
             </div>
 
             {/* Form */}
-            <div className="p-4 space-y-4">
+            <div className="p-4 space-y-4 overflow-y-auto">
               {/* Section */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -182,7 +226,7 @@ export function AddQuestionPopover({
                 </div>
                 <Select
                   value={questionType}
-                  onValueChange={(val) => setQuestionType(val as QuestionType)}
+                  onValueChange={(val) => handleTypeChange(val as QuestionType)}
                 >
                   <SelectTrigger className="bg-transparent">
                     <SelectValue />
@@ -196,6 +240,59 @@ export function AddQuestionPopover({
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Options (for select types) */}
+              {needsOptions && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-foreground">
+                      Options <span className="text-destructive">*</span>
+                    </label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>List of choices for this question</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <div className="space-y-2">
+                    {options.map((option, index) => (
+                      <div key={index} className="flex gap-2">
+                        <Input
+                          value={option}
+                          onChange={(e) =>
+                            handleOptionChange(index, e.target.value)
+                          }
+                          placeholder={`Option ${index + 1}`}
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveOption(index)}
+                          disabled={options.length === 1}
+                          className="shrink-0"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddOption}
+                      className="w-full"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Option
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {/* Column Title */}
               <div className="space-y-2">
