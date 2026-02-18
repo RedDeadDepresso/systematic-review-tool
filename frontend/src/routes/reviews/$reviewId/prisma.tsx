@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useCreateReviewPrisma } from '@/hooks/use-review';
 import { createFileRoute } from '@tanstack/react-router';
 import { useContext, useEffect, useState, type ReactNode } from 'react';
@@ -9,7 +10,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Spinner } from '@/components/ui/spinner';
 import { AppLayoutContext } from '@/context/app-layout-context';
 
 export const Route = createFileRoute('/reviews/$reviewId/prisma')({
@@ -69,6 +69,45 @@ function severityStyles(severity = '') {
   return 'border-muted bg-muted/40';
 }
 
+function PrismaSkeletonLoader() {
+  return (
+    <div className="space-y-6">
+      {/* Diagram Card Skeleton */}
+      <Card className="overflow-hidden">
+        <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <Skeleton className="h-6 w-40" />
+          <div className="flex gap-2">
+            <Skeleton className="h-8 w-32" />
+            <Skeleton className="h-8 w-24" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="mx-auto aspect-[2670/2370] max-h-[700px] rounded-xl" />
+        </CardContent>
+      </Card>
+
+      {/* Stats Grid Skeleton */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i} className="rounded-2xl shadow-sm">
+            <CardHeader>
+              <Skeleton className="h-5 w-28" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {Array.from({ length: i === 2 ? 3 : 2 }).map((_, j) => (
+                <div key={j} className="flex justify-between py-1">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-6" />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function RouteComponent() {
   const reviewId = Number(Route.useParams().reviewId);
   const { data, isLoading, error } = useCreateReviewPrisma(reviewId);
@@ -83,16 +122,7 @@ function RouteComponent() {
   }, []);
 
   if (isLoading) {
-    return (
-      <div className="h-full flex items-center justify-center text-muted-foreground">
-        <div className="flex flex-col gap-2">
-          <span>Loading prisma diagram...</span>
-          <div className="flex items-center justify-center w-full">
-            <Spinner />
-          </div>
-        </div>
-      </div>
-    );
+    return <PrismaSkeletonLoader />;
   }
 
   if (error || !data) {

@@ -4,21 +4,24 @@ import {
   fetchExtractionQuestions,
   updateExtractionQuestion,
 } from '@/api/extraction-question';
-import type { ExtractionQuestion } from '@/types/extraction';
+import type { ExtractionQuestion, QuestionType } from '@/types/extraction';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 /* ------------------ FETCH EXTRACTION QUESTIONS ------------------ */
 export const useFetchExtractionQuestions = ({
+  reviewId,
   sectionId,
+  type,
 }: {
+  reviewId: number;
   sectionId?: number;
+  type?: QuestionType[];
 }) => {
   return useQuery({
-    queryKey: sectionId
-      ? ['extraction-sections', sectionId, 'questions']
-      : ['extraction-questions'],
-    queryFn: () => fetchExtractionQuestions({ sectionId }),
+    queryKey: ['extraction-questions', reviewId, sectionId, type],
+    queryFn: () => fetchExtractionQuestions({ reviewId, sectionId, type }),
+    enabled: !!reviewId,
   });
 };
 

@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Collapsible,
@@ -16,22 +17,35 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
   ChevronDown,
   ChevronRight,
   FileText,
   Info,
   Save,
   CheckCircle2,
+  CalendarIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { useQuery } from '@tanstack/react-query';
 import type { ExtractionQuestion } from '@/types/extraction';
-import { useFetchExtractionQuestions } from '@/hooks/use-extraction-question';
-import { useFetchExtractionSections } from '@/hooks/use-extraction-section';
-import {
-  useFetchExtractionAnswers,
-  useBulkSaveAnswers,
-} from '@/hooks/use-extraction-answer';
+import { useBulkSaveAnswers } from '@/hooks/use-extraction-answer';
 import { useBulkUpdateExtractionStatus } from '@/hooks/use-extraction-table';
+import { fetchExtractionFormData } from '@/api/extraction-section';
 
 interface ExtractionFormSidebarProps {
   referenceId: number;
@@ -39,16 +53,268 @@ interface ExtractionFormSidebarProps {
   isOpen: boolean;
 }
 
+// Question input component based on type
+function QuestionInput({
+  question,
+  value,
+  onChange,
+  hasChanged,
+}: {
+  question: ExtractionQuestion;
+  value: string;
+  onChange: (value: string) => void;
+  hasChanged: boolean;
+}) {
+  const [date, setDate] = useState<Date | undefined>(
+    value ? new Date(value) : undefined
+  );
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+
+  // Single Select
+  if (question.type === 'single-select' && question.options) {
+    return (
+      <div className="relative">
+        <Select
+          value={value || '__clear__'}
+          onValueChange={(val) => onChange(val === '__clear__' ? '' : val)}
+        >
+          <SelectTrigger
+            className={cn(
+              'h-9 text-sm',
+              hasChanged && 'border-amber-500 bg-amber-50/50'
+            )}
+          >
+            <SelectValue placeholder="Select..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__clear__">
+              <span className="text-muted-foreground italic">Clear</span>
+            </SelectItem>
+            {question.options.map((option) => (
+              <SelectItem key={option} value={option}>
+                {option}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {hasChanged && (
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+            <div className="h-2 w-2 rounded-full bg-amber-500" />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Multi Select
+  if (question.type === 'multi-select' && question.options) {
+    const selectedOptions = value ? value.split(',').map((s) => s.trim()) : [];
+
+    return (
+      <div className="space-y-2">
+        <div
+          className={cn(
+            'rounded-md border p-2 min-h-[36px]',
+            hasChanged && 'border-amber-500 bg-amber-50/50'
+          )}
+        >
+          {selectedOptions.length === 0 ? (
+            <span className="text-sm text-muted-foreground">
+              Select options...
+            </span>
+          ) : (
+            <div className="flex flex-wrap gap-1">
+              {selectedOptions.map((option, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary"
+                >
+                  {option}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="w-full h-8 text-xs">
+              Select Options
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-64 p-2" align="start">
+            <div className="space-y-2">
+              {question.options.map((option) => (
+                <div
+                  key={option}
+                  className="flex items-center space-x-2 cursor-pointer hover:bg-muted p-1 rounded"
+                  onClick={() => {
+                    const newOptions = selectedOptions.includes(option)
+                      ? selectedOptions.filter((o) => o !== option)
+                      : [...selectedOptions, option];
+                    onChange(newOptions.join(', '));
+                  }}
+                >
+                  <Checkbox checked={selectedOptions.includes(option)} />
+                  <span className="text-sm">{option}</span>
+                </div>
+              ))}
+              {selectedOptions.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => onChange('')}
+                >
+                  Clear All
+                </Button>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
+    );
+  }
+
+  // Boolean
+  if (question.type === 'boolean') {
+    return (
+      <div className="relative">
+        <Select
+          value={value || '__clear__'}
+          onValueChange={(val) => onChange(val === '__clear__' ? '' : val)}
+        >
+          <SelectTrigger
+            className={cn(
+              'h-9 text-sm',
+              hasChanged && 'border-amber-500 bg-amber-50/50'
+            )}
+          >
+            <SelectValue placeholder="Select..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__clear__">
+              <span className="text-muted-foreground italic">Clear</span>
+            </SelectItem>
+            <SelectItem value="true">Yes</SelectItem>
+            <SelectItem value="false">No</SelectItem>
+          </SelectContent>
+        </Select>
+        {hasChanged && (
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+            <div className="h-2 w-2 rounded-full bg-amber-500" />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Number
+  if (question.type === 'number') {
+    return (
+      <div className="relative">
+        <Input
+          type="number"
+          placeholder="Enter number"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={cn(
+            'h-9 text-sm',
+            hasChanged && 'border-amber-500 bg-amber-50/50'
+          )}
+        />
+        {hasChanged && (
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+            <div className="h-2 w-2 rounded-full bg-amber-500" />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Date
+  if (question.type === 'date') {
+    return (
+      <div className="space-y-1">
+        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                'h-9 text-sm justify-start text-left font-normal w-full',
+                !date && 'text-muted-foreground',
+                hasChanged && 'border-amber-500 bg-amber-50/50'
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {date ? format(date, 'PPP') : <span>Pick a date</span>}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={date}
+              onSelect={(newDate) => {
+                setDate(newDate);
+                if (newDate) {
+                  onChange(format(newDate, 'yyyy-MM-dd'));
+                  setIsCalendarOpen(false);
+                } else {
+                  onChange('');
+                }
+              }}
+              initialFocus
+            />
+            <div className="p-3 border-t">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  setDate(undefined);
+                  onChange('');
+                  setIsCalendarOpen(false);
+                }}
+              >
+                Clear
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
+    );
+  }
+
+  // Free Text (default)
+  return (
+    <div className="relative">
+      <Textarea
+        placeholder="Enter your answer"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn(
+          'min-h-[72px] text-sm resize-y',
+          hasChanged && 'border-amber-500 bg-amber-50/50'
+        )}
+      />
+      {hasChanged && (
+        <div className="absolute right-2 top-2 pointer-events-none">
+          <div className="h-2 w-2 rounded-full bg-amber-500" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ExtractionFormSidebar({
   referenceId,
   reviewId,
   isOpen,
 }: ExtractionFormSidebarProps) {
-  // Fetch data
-  const { data: questions = [] } = useFetchExtractionQuestions({});
-  const { data: sections = [] } = useFetchExtractionSections({ reviewId });
-  const { data: answers = [] } = useFetchExtractionAnswers({
-    referenceId: referenceId,
+  // Fetch form data using the optimized endpoint
+  const { data, isLoading } = useQuery({
+    queryKey: ['extraction-form-data', referenceId, reviewId],
+    queryFn: () => fetchExtractionFormData(referenceId, reviewId),
+    enabled: isOpen && !!referenceId && !!reviewId,
   });
 
   const bulkSaveMutation = useBulkSaveAnswers();
@@ -64,40 +330,32 @@ export function ExtractionFormSidebar({
   const [initialAnswers, setInitialAnswers] = useState<Record<number, string>>(
     {}
   );
-  const [hasInitialized, setHasInitialized] = useState(false);
 
-  // Initialize local answers when data loads - ONLY ONCE
+  // Initialize local answers when data loads
   useEffect(() => {
-    if (questions.length > 0 && answers.length >= 0 && !hasInitialized) {
+    if (data?.sections) {
       const initial: Record<number, string> = {};
 
-      for (const q of questions) {
-        const existingAnswer = answers.find(
-          (a) => a.question === q.id && a.reference === referenceId
-        );
-        initial[q.id] = existingAnswer?.value || '';
+      for (const section of data.sections) {
+        for (const question of section.questions) {
+          initial[question.id] = question.answer?.value || '';
+        }
       }
 
       setLocalAnswers(initial);
       setInitialAnswers(initial);
-      setHasInitialized(true);
-    }
-  }, [questions, answers, referenceId, hasInitialized]);
 
-  // Reset initialization when referenceId changes
+      // Auto-expand all sections
+      setExpandedSections(new Set(data.sections.map((s) => s.id)));
+    }
+  }, [data]);
+
+  // Reset state when reference changes
   useEffect(() => {
-    setHasInitialized(false);
     setLocalAnswers({});
     setInitialAnswers({});
     setExpandedSections(new Set());
   }, [referenceId]);
-
-  // Initialize expanded sections when sections load
-  useEffect(() => {
-    if (sections.length > 0 && expandedSections.size === 0) {
-      setExpandedSections(new Set(sections.map((s) => s.id)));
-    }
-  }, [sections, expandedSections.size]);
 
   // Track which answers have changed
   const changedAnswers = useMemo(() => {
@@ -117,15 +375,6 @@ export function ExtractionFormSidebar({
 
   const hasChanges = Object.keys(changedAnswers).length > 0;
 
-  // Group questions by section
-  const questionsBySection = useMemo(() => {
-    const grouped: Record<number, ExtractionQuestion[]> = {};
-    for (const section of sections) {
-      grouped[section.id] = questions.filter((q) => q.section === section.id);
-    }
-    return grouped;
-  }, [sections, questions]);
-
   // Handlers
   const handleToggleSection = useCallback((sectionId: number) => {
     setExpandedSections((prev) => {
@@ -137,8 +386,10 @@ export function ExtractionFormSidebar({
   }, []);
 
   const handleExpandAll = useCallback(() => {
-    setExpandedSections(new Set(sections.map((s) => s.id)));
-  }, [sections]);
+    if (data?.sections) {
+      setExpandedSections(new Set(data.sections.map((s) => s.id)));
+    }
+  }, [data]);
 
   const handleCollapseAll = useCallback(() => {
     setExpandedSections(new Set());
@@ -155,9 +406,7 @@ export function ExtractionFormSidebar({
   );
 
   const handleSave = useCallback(() => {
-    if (!hasChanges) {
-      return;
-    }
+    if (!hasChanges) return;
 
     bulkSaveMutation.mutate(
       {
@@ -201,12 +450,28 @@ export function ExtractionFormSidebar({
     hasChanges,
     changedAnswers,
     referenceId,
+    localAnswers,
     bulkSaveMutation,
     bulkUpdateStatusMutation,
   ]);
 
   const isSaving =
     bulkSaveMutation.isPending || bulkUpdateStatusMutation.isPending;
+
+  if (isLoading) {
+    return (
+      <div
+        className={cn(
+          'flex h-full flex-col border-l bg-background transition-all duration-300',
+          isOpen ? 'w-sm' : 'w-0 overflow-hidden'
+        )}
+      >
+        <div className="flex items-center justify-center h-full">
+          <div className="text-sm text-muted-foreground">Loading...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -239,8 +504,7 @@ export function ExtractionFormSidebar({
       {/* Sections */}
       <ScrollArea className="flex-1">
         <div className="p-3 space-y-2">
-          {sections.map((section) => {
-            const sectionQuestions = questionsBySection[section.id] || [];
+          {data?.sections.map((section) => {
             const isExpanded = expandedSections.has(section.id);
 
             return (
@@ -265,7 +529,7 @@ export function ExtractionFormSidebar({
                         {section.name}
                       </span>
                       <span className="text-xs text-muted-foreground ml-1">
-                        ({sectionQuestions.length})
+                        ({section.questions.length})
                       </span>
                     </Button>
                   </CollapsibleTrigger>
@@ -273,7 +537,7 @@ export function ExtractionFormSidebar({
 
                 <CollapsibleContent className="mt-2">
                   <div className="space-y-3 pl-4 py-2">
-                    {sectionQuestions.map((question) => {
+                    {section.questions.map((question) => {
                       const hasChanged =
                         changedAnswers[question.id] !== undefined;
 
@@ -303,24 +567,14 @@ export function ExtractionFormSidebar({
                             </TooltipProvider>
                           </div>
 
-                          <div className="relative">
-                            <Input
-                              placeholder="Enter your answer"
-                              value={localAnswers[question.id] || ''}
-                              onChange={(e) =>
-                                handleAnswerChange(question.id, e.target.value)
-                              }
-                              className={cn(
-                                'h-9 text-sm',
-                                hasChanged && 'border-amber-500 bg-amber-50/50'
-                              )}
-                            />
-                            {hasChanged && (
-                              <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                                <div className="h-2 w-2 rounded-full bg-amber-500" />
-                              </div>
-                            )}
-                          </div>
+                          <QuestionInput
+                            question={question}
+                            value={localAnswers[question.id] || ''}
+                            onChange={(value) =>
+                              handleAnswerChange(question.id, value)
+                            }
+                            hasChanged={hasChanged}
+                          />
 
                           {hasChanged && (
                             <span className="text-xs text-amber-600">
@@ -342,7 +596,7 @@ export function ExtractionFormSidebar({
       <div className="flex-shrink-0 border-t p-3 space-y-2">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs text-muted-foreground">
-            {sections.length} section(s)
+            {data?.sections.length || 0} section(s)
           </span>
           <div className="flex gap-1">
             <Button

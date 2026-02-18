@@ -1,3 +1,4 @@
+import { ExtractionChartsDashboard } from '@/components/charts/extraction-charts-dashboard';
 import { createFileRoute } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/reviews/$reviewId/charts')({
@@ -5,5 +6,6 @@ export const Route = createFileRoute('/reviews/$reviewId/charts')({
 });
 
 function RouteComponent() {
-  return <div>Hello "/reviews/$reviewId/analysis"!</div>;
+  const reviewId = Number(Route.useParams()['reviewId']);
+  return <ExtractionChartsDashboard reviewId={reviewId} />;
 }

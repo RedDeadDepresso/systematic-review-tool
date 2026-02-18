@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   XCircle,
   FileText,
+  CalendarIcon,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
@@ -20,7 +21,21 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
 import { AddQuestionPopover } from '@/components/review-data-extraction/add-question-popover';
 import type {
   ExtractionQuestion,
@@ -61,6 +76,293 @@ const statusLabels: Record<ExtractionStatus, string> = {
   completed: 'Completed',
 };
 
+// Cell editor component for different question types
+function CellEditor({
+  question,
+  value,
+  onSave,
+  onCancel,
+}: {
+  question: ExtractionQuestion;
+  value: string;
+  onSave: (value: string) => void;
+  onCancel: () => void;
+}) {
+  const [editValue, setEditValue] = useState(value);
+  const [date, setDate] = useState<Date | undefined>(
+    value ? new Date(value) : undefined
+  );
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+
+  const handleSave = () => {
+    if (question.type === 'date' && date) {
+      onSave(format(date, 'yyyy-MM-dd'));
+    } else {
+      onSave(editValue);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSave();
+    }
+    if (e.key === 'Escape') {
+      onCancel();
+    }
+  };
+
+  // Single Select
+  if (question.type === 'single-select' && question.options) {
+    return (
+      <Select
+        value={editValue || '__clear__'}
+        onValueChange={(val) => {
+          const newValue = val === '__clear__' ? '' : val;
+          setEditValue(newValue);
+          onSave(newValue);
+        }}
+        open
+        onOpenChange={(open) => !open && onCancel()}
+      >
+        <SelectTrigger className="h-8 text-sm">
+          <SelectValue placeholder="Select..." />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__clear__">
+            <span className="text-muted-foreground italic">Clear</span>
+          </SelectItem>
+          {question.options.map((option) => (
+            <SelectItem key={option} value={option}>
+              {option}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+
+  // Multi Select
+  if (question.type === 'multi-select' && question.options) {
+    const selectedOptions = editValue
+      ? editValue.split(',').map((s) => s.trim())
+      : [];
+
+    return (
+      <div className="space-y-1">
+        <Select
+          value="__placeholder__"
+          onValueChange={(val) => {
+            if (val === '__clear__') {
+              setEditValue('');
+              onSave('');
+              return;
+            }
+            const newOptions = selectedOptions.includes(val)
+              ? selectedOptions.filter((o) => o !== val)
+              : [...selectedOptions, val];
+            const newValue = newOptions.join(', ');
+            setEditValue(newValue);
+            onSave(newValue);
+          }}
+          open
+          onOpenChange={(open) => !open && onCancel()}
+        >
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue
+              placeholder={
+                selectedOptions.length > 0
+                  ? selectedOptions.join(', ')
+                  : 'Select...'
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__clear__">
+              <span className="text-muted-foreground italic">Clear all</span>
+            </SelectItem>
+            {question.options.map((option) => (
+              <SelectItem key={option} value={option}>
+                <div className="flex items-center gap-2">
+                  <Checkbox checked={selectedOptions.includes(option)} />
+                  {option}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
+
+  // Boolean (Yes/No)
+  if (question.type === 'boolean') {
+    return (
+      <Select
+        value={editValue || '__clear__'}
+        onValueChange={(val) => {
+          const newValue = val === '__clear__' ? '' : val;
+          setEditValue(newValue);
+          onSave(newValue);
+        }}
+        open
+        onOpenChange={(open) => !open && onCancel()}
+      >
+        <SelectTrigger className="h-8 text-sm">
+          <SelectValue placeholder="Select..." />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__clear__">
+            <span className="text-muted-foreground italic">Clear</span>
+          </SelectItem>
+          <SelectItem value="true">Yes</SelectItem>
+          <SelectItem value="false">No</SelectItem>
+        </SelectContent>
+      </Select>
+    );
+  }
+
+  // Number
+  if (question.type === 'number') {
+    return (
+      <Input
+        type="number"
+        value={editValue}
+        onChange={(e) => setEditValue(e.target.value)}
+        onBlur={handleSave}
+        onKeyDown={handleKeyDown}
+        autoFocus
+        className="h-8 text-sm"
+      />
+    );
+  }
+
+  // Date
+  if (question.type === 'date') {
+    return (
+      <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className={cn(
+              'h-8 text-sm justify-start text-left font-normal w-full',
+              !date && 'text-muted-foreground'
+            )}
+            onClick={() => setIsCalendarOpen(true)}
+          >
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            {date ? format(date, 'PPP') : <span>Pick a date</span>}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="single"
+            selected={date}
+            onSelect={(newDate) => {
+              setDate(newDate);
+              if (newDate) {
+                onSave(format(newDate, 'yyyy-MM-dd'));
+                setIsCalendarOpen(false);
+              }
+            }}
+            initialFocus
+          />
+          <div className="p-3 border-t">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full"
+              onClick={() => {
+                setDate(undefined);
+                onSave('');
+                setIsCalendarOpen(false);
+              }}
+            >
+              Clear
+            </Button>
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  }
+
+  // Free Text (default)
+  return (
+    <Input
+      value={editValue}
+      onChange={(e) => setEditValue(e.target.value)}
+      onBlur={handleSave}
+      onKeyDown={handleKeyDown}
+      autoFocus
+      className="h-8 text-sm"
+    />
+  );
+}
+
+// Display component for cell values
+function CellDisplay({
+  question,
+  value,
+}: {
+  question: ExtractionQuestion;
+  value: string;
+}) {
+  if (!value) {
+    return <span className="text-muted-foreground/50">Click to add</span>;
+  }
+
+  // Boolean display
+  if (question.type === 'boolean') {
+    return (
+      <span>{value === 'true' ? 'Yes' : value === 'false' ? 'No' : value}</span>
+    );
+  }
+
+  // Date display
+  if (question.type === 'date') {
+    try {
+      const date = new Date(value);
+      return <span>{format(date, 'PPP')}</span>;
+    } catch {
+      return <span>{value}</span>;
+    }
+  }
+
+  // Multi-select display with badges
+  if (question.type === 'multi-select') {
+    const options = value
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (options.length === 0) {
+      return <span className="text-muted-foreground/50">Click to add</span>;
+    }
+    return (
+      <div className="flex flex-wrap gap-1">
+        {options.map((option, i) => (
+          <span
+            key={i}
+            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary"
+          >
+            {option}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  // Default display
+  return <span>{value}</span>;
+}
+
+// Helper function to generate consistent color from question ID
+const getQuestionColor = (questionId: number) => {
+  // Simple hash function for consistent colors
+  const hash = questionId * 2654435761;
+  const hue = hash % 360;
+  return `hsl(${hue}, 70%, 50%)`;
+};
+
 export function DataExtractionTable({
   reviewId,
   questions,
@@ -82,7 +384,6 @@ export function DataExtractionTable({
     referenceId: number;
     questionId: number;
   } | null>(null);
-  const [editValue, setEditValue] = useState('');
   const [isAddDataDialogOpen, setIsAddDataDialogOpen] =
     useState<boolean>(false);
   const queryClient = useQueryClient();
@@ -120,35 +421,23 @@ export function DataExtractionTable({
   };
 
   const handleCellClick = (referenceId: number, questionId: number) => {
-    const answer = references.find((r) => r.id === referenceId)?.answers[
-      questionId
-    ];
     setEditingCell({ referenceId, questionId });
-    setEditValue(answer?.value || '');
   };
 
-  const handleCellBlur = async () => {
+  const handleCellSave = async (value: string) => {
     if (!editingCell) return;
 
     saveAnswerMutation.mutate({
       reference: editingCell.referenceId,
       question: editingCell.questionId,
-      value: editValue,
+      value: value,
     });
 
     setEditingCell(null);
-    setEditValue('');
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleCellBlur();
-    }
-    if (e.key === 'Escape') {
-      setEditingCell(null);
-      setEditValue('');
-    }
+  const handleCellCancel = () => {
+    setEditingCell(null);
   };
 
   const statusCounts = useMemo(() => {
@@ -164,7 +453,9 @@ export function DataExtractionTable({
     if (
       target.closest('[data-checkbox-area]') ||
       target.closest('button') ||
-      target.closest('input')
+      target.closest('input') ||
+      target.closest('[role="combobox"]') ||
+      target.closest('[data-radix-popper-content-wrapper]')
     ) {
       return;
     }
@@ -176,7 +467,9 @@ export function DataExtractionTable({
     if (
       target.closest('[data-checkbox-area]') ||
       target.closest('button') ||
-      target.closest('input')
+      target.closest('input') ||
+      target.closest('[role="combobox"]') ||
+      target.closest('[data-radix-popper-content-wrapper]')
     ) {
       return;
     }
@@ -295,7 +588,7 @@ export function DataExtractionTable({
         </DropdownMenu>
       </div>
 
-      {/* Table */}
+      {/* Table - see next message for table content */}
       <div className="flex-1 overflow-auto">
         <table className="w-full border-collapse min-w-max">
           <thead className="sticky top-0 bg-card z-10">
@@ -332,14 +625,8 @@ export function DataExtractionTable({
                           className="flex items-center gap-2 w-full px-4 py-3 text-left hover:bg-muted/50 transition-colors cursor-pointer"
                         >
                           <div
-                            className={cn(
-                              'w-2 h-2 rounded-full shrink-0',
-                              q.section === 1
-                                ? 'bg-amber-500'
-                                : q.section === 2
-                                  ? 'bg-blue-500'
-                                  : 'bg-green-500'
-                            )}
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ backgroundColor: getQuestionColor(q.id) }}
                           />
                           <span className="truncate">{q.columnTitle}</span>
                           {q.required && (
@@ -438,24 +725,23 @@ export function DataExtractionTable({
                       <td
                         key={q.id}
                         className="px-4 py-3 border-l border-border"
-                        onClick={() => handleCellClick(ref.id, q.id)}
+                        onClick={() =>
+                          !isEditing && handleCellClick(ref.id, q.id)
+                        }
                       >
                         {isEditing ? (
-                          <Input
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            onBlur={handleCellBlur}
-                            onKeyDown={handleKeyDown}
-                            autoFocus
-                            className="h-8 text-sm"
+                          <CellEditor
+                            question={q}
+                            value={answer?.value || ''}
+                            onSave={handleCellSave}
+                            onCancel={handleCellCancel}
                           />
                         ) : (
                           <div className="text-sm text-foreground cursor-pointer min-h-[32px] flex items-center">
-                            {answer?.value || (
-                              <span className="text-muted-foreground/50">
-                                Click to add
-                              </span>
-                            )}
+                            <CellDisplay
+                              question={q}
+                              value={answer?.value || ''}
+                            />
                           </div>
                         )}
                       </td>
@@ -494,17 +780,6 @@ export function DataExtractionTable({
           </tbody>
         </table>
       </div>
-
-      {/* PDF Extraction Dialog */}
-      {/* {openPdfReference && (
-        <PdfExtractionDialog
-          reference={openPdfReference}
-          onClose={() => setOpenPdfReferenceId(null)}
-          onNavigate={handleNavigatePdf}
-          hasPrev={currentPdfIndex > 0}
-          hasNext={currentPdfIndex < filteredReferences.length - 1}
-        />
-      )} */}
 
       {/* Add Data Dialog */}
       <AddDataDialog

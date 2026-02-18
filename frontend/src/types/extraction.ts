@@ -21,6 +21,7 @@ export type ExtractionQuestion = {
   columnTitle: string;
   type: QuestionType;
   required: boolean;
+  options: string[] | null;
 };
 
 export type ExtractionAnswer = {
@@ -43,7 +44,19 @@ export interface ExtractionTableData {
 export type ExtractionStatus = 'in-progress' | 'completed';
 
 export interface ExtractionFormData {
-  [questionId: number]: string | string[]; // Support both single and multi-value
+  sections: Array<{
+    id: number;
+    name: string;
+    order: number;
+    questions: Array<
+      ExtractionQuestion & {
+        answer: {
+          id: number;
+          value: string;
+        } | null;
+      }
+    >;
+  }>;
 }
 
 export interface ExtractionChanges {
