@@ -1,4 +1,5 @@
 import os
+from datetime import date
 
 from django.db import models
 from django.db.models import Count, F, Q, Value
@@ -143,7 +144,7 @@ class OpinionStatsSerializer(serializers.Serializer):
 
 class ReviewSerializer(serializers.ModelSerializer):
     user_role = serializers.SerializerMethodField()
-    user_member_id = serializers.IntegerField()
+    user_member_id = serializers.IntegerField(read_only=True)
 
     # annotated counts from queryset
     reference_count = serializers.IntegerField(read_only=True)
@@ -673,6 +674,75 @@ class AssignLabelsSerializer(serializers.Serializer):
         return data
 
 
+def _validate_value_for_question(
+    value: str, question: ExtractionQuestion
+) -> float | None:
+    """
+    Validate *value* against *question.type*.
+    Returns the numeric float when type == "number", else None.
+    Raises serializers.ValidationError on any constraint violation.
+    """
+    qt = question.type
+    v = (value or "").strip()
+
+    if qt == ExtractionQuestion.QuestionType.FREE_TEXT:
+        return None
+
+    if qt == ExtractionQuestion.QuestionType.NUMBER:
+        if v == "":
+            return None
+        try:
+            return float(v)
+        except ValueError:
+            raise serializers.ValidationError(
+                {"value": f"'{v}' is not a valid number for this question."}
+            )
+
+    if qt == ExtractionQuestion.QuestionType.DATE:
+        if v == "":
+            return None
+        try:
+            date.fromisoformat(v)
+        except ValueError:
+            raise serializers.ValidationError(
+                {"value": f"'{v}' is not a valid ISO-8601 date (YYYY-MM-DD)."}
+            )
+        return None
+
+    if qt == ExtractionQuestion.QuestionType.SINGLE_SELECT:
+        if v == "":
+            return None
+        options = question.options or []
+        if v not in options:
+            raise serializers.ValidationError(
+                {"value": f"'{v}' is not a valid option. Allowed: {options}"}
+            )
+        return None
+
+    if qt == ExtractionQuestion.QuestionType.MULTI_SELECT:
+        if v == "":
+            return None
+        options = set(question.options or [])
+        chosen = [token.strip() for token in v.split(",") if token.strip()]
+        invalid = [c for c in chosen if c not in options]
+        if invalid:
+            raise serializers.ValidationError(
+                {"value": (f"Invalid option(s): {invalid}. Allowed: {sorted(options)}")}
+            )
+        return None
+
+    if qt == ExtractionQuestion.QuestionType.BOOLEAN:
+        if v == "":
+            return None
+        if v.lower() not in ("true", "false"):
+            raise serializers.ValidationError(
+                {"value": "Boolean questions only accept 'true' or 'false'."}
+            )
+        return None
+
+    return None
+
+
 class ExtractionSectionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExtractionSection
@@ -680,30 +750,19 @@ class ExtractionSectionSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
     def validate(self, data):
-        """
-        Check for duplicate names within the same review
-        """
         review = data.get("review")
         name = data.get("name", "").strip()
-
-        # For updates, exclude the current instance
         queryset = ExtractionSection.objects.filter(review=review, name__iexact=name)
-
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)
-
         if queryset.exists():
             raise serializers.ValidationError(
                 {"name": "A section with this name already exists for this review."}
             )
-
         return data
 
     def create(self, validated_data):
-        # Trim the name
         validated_data["name"] = validated_data["name"].strip()
-
-        # Set order if not provided
         if "order" not in validated_data:
             max_order = (
                 ExtractionSection.objects.filter(
@@ -712,7 +771,6 @@ class ExtractionSectionSerializer(serializers.ModelSerializer):
                 or 0
             )
             validated_data["order"] = max_order + 1
-
         return super().create(validated_data)
 
 
@@ -732,29 +790,22 @@ class ExtractionQuestionSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
     def validate_question(self, value):
-        """Trim whitespace from question"""
         return value.strip() if value else value
 
     def validate_column_title(self, value):
-        """Trim whitespace from column title"""
         return value.strip() if value else value
 
     def validate(self, data):
-        """Additional validation"""
         question_type = data.get("type")
         options = data.get("options")
-
-        # Validate that select types have options
         if question_type in ["single-select", "multi-select"]:
             if not options or not isinstance(options, list) or len(options) == 0:
                 raise serializers.ValidationError(
                     {"options": "Options are required for select type questions."}
                 )
-
         return data
 
     def create(self, validated_data):
-        # Set order if not provided
         if "order" not in validated_data:
             section = validated_data["section"]
             max_order = (
@@ -764,7 +815,6 @@ class ExtractionQuestionSerializer(serializers.ModelSerializer):
                 or 0
             )
             validated_data["order"] = max_order + 1
-
         return super().create(validated_data)
 
 
@@ -774,28 +824,72 @@ class ExtractionAnswerSerializer(serializers.ModelSerializer):
         fields = ["id", "reference", "question", "value"]
         read_only_fields = ["id"]
 
+    def validate(self, data):
+        """Enforce type constraints and populate value_number."""
+        question = data.get("question") or (
+            self.instance.question if self.instance else None
+        )
+        value = data.get("value", "")
+
+        if question is None:
+            return data
+
+        # Run type validation; returns float | None
+        numeric = _validate_value_for_question(value, question)
+        # Stash for create/update
+        data["_value_number"] = numeric
+        return data
+
     def create(self, validated_data):
-        """
-        Create or update answer if it already exists for the reference-question pair
-        """
+        value_number = validated_data.pop("_value_number", None)
         reference = validated_data["reference"]
         question = validated_data["question"]
         value = validated_data.get("value", "")
 
-        # Try to get existing answer
         answer, _ = ExtractionAnswer.objects.update_or_create(
-            reference=reference, question=question, defaults={"value": value}
+            reference=reference,
+            question=question,
+            defaults={"value": value, "value_number": value_number},
         )
-
         return answer
 
     def update(self, instance, validated_data):
-        """
-        Update existing answer
-        """
+        value_number = validated_data.pop("_value_number", None)
         instance.value = validated_data.get("value", instance.value)
+        instance.value_number = value_number
         instance.save()
         return instance
+
+
+class ExtractionAnswerBulkSerializer(serializers.Serializer):
+    reference_id = serializers.IntegerField()
+    answers = serializers.DictField(child=serializers.CharField(allow_blank=True))
+
+    def validate(self, data):
+        """Validate each answer value against its question type."""
+        answers_dict = data["answers"]
+
+        errors = {}
+        question_ids = [int(k) for k in answers_dict.keys()]
+        questions_map = {
+            q.id: q for q in ExtractionQuestion.objects.filter(id__in=question_ids)
+        }
+
+        for q_id_str, value in answers_dict.items():
+            q_id = int(q_id_str)
+            question = questions_map.get(q_id)
+            if question is None:
+                errors[q_id_str] = f"Question {q_id} does not exist."
+                continue
+            try:
+                _validate_value_for_question(value, question)
+            except serializers.ValidationError as exc:
+                errors[q_id_str] = exc.detail
+
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        return data
 
 
 class ExtractionQuestionTableSerializer(serializers.ModelSerializer):
@@ -814,6 +908,7 @@ class ExtractionQuestionTableSerializer(serializers.ModelSerializer):
             "type",
             "required",
             "order",
+            "options",
         ]
 
 
@@ -885,6 +980,48 @@ class ExtractionTableDataSerializer(serializers.Serializer):
     references = ReferenceTableSerializer(many=True)
 
 
+class ExtractionAnswerNestedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExtractionAnswer
+        fields = ["id", "question", "value"]
+
+
+class ExtractionQuestionWithAnswerSerializer(serializers.ModelSerializer):
+    answer = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ExtractionQuestion
+        fields = [
+            "id",
+            "section",
+            "question",
+            "column_title",
+            "type",
+            "options",
+            "required",
+            "order",
+            "answer",
+        ]
+
+    def get_answer(self, obj):
+        # The answer will be prefetched and attached to the question object
+        answer = getattr(obj, "user_answer", None)
+        if answer:
+            return {
+                "id": answer.id,
+                "value": answer.value,
+            }
+        return None
+
+
+class ExtractionSectionWithQuestionsSerializer(serializers.ModelSerializer):
+    questions = ExtractionQuestionWithAnswerSerializer(many=True)
+
+    class Meta:
+        model = ExtractionSection
+        fields = ["id", "name", "order", "questions"]
+
+
 class BatchAnswerSerializer(serializers.Serializer):
     """Serializer for batch answer updates"""
 
@@ -900,16 +1037,6 @@ class BulkUpdateExtractionStatusSerializer(serializers.Serializer):
         child=serializers.IntegerField(), min_length=1
     )
     is_extraction_completed = serializers.BooleanField()
-
-
-class ExtractionAnswerBulkSerializer(serializers.Serializer):
-    """Serializer for bulk answer updates for a single reference"""
-
-    reference_id = serializers.IntegerField()
-    answers = serializers.DictField(
-        child=serializers.CharField(allow_blank=True),
-        help_text="Dict mapping question_id to answer value",
-    )
 
 
 class LabelCountSerializer(serializers.Serializer):
