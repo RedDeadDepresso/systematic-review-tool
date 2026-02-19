@@ -74,7 +74,7 @@ services:
   nginx:
     build:
       context: .
-      dockerfile: ./compose/production/nginx/Dockerfile
+      dockerfile: ./backend/compose/production/nginx/Dockerfile
     image: slrt_project_production_nginx
     depends_on:
       - django
