@@ -88,9 +88,8 @@ test-backend:
     DJANGO_SETTINGS_MODULE: config.settings.test
   before_script:
     - apk add --no-cache build-base libpq
-    - pip install uv pytest pytest-django pytest-cov
     - cd backend
-    - uv sync --no-install-project --frozen
+    - uv sync --frozen
   script:
     - pytest --cov=. --cov-report=xml
   artifacts:
