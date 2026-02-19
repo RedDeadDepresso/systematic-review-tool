@@ -1,0 +1,102 @@
+volumes:
+  slrt_project_local_postgres_data: {}
+  slrt_project_local_postgres_data_backups: {}
+  slrt_project_local_redis_data: {}
+
+services:
+  django: &django
+    build:
+      context: ./backend
+      dockerfile: ./compose/local/django/Dockerfile
+    image: slrt_project_local_django
+    container_name: slrt_project_local_django
+    depends_on:
+      - postgres
+      - redis
+      - mailpit
+    volumes:
+      - /app/.venv
+      - ./backend:/app:z
+    env_file:
+      - ./backend/.envs/.local/.django
+      - ./backend/.envs/.local/.postgres
+      - ./.env.development
+    ports:
+      - "8000:8000"
+    command: /start
+
+  postgres:
+    build:
+      context: ./backend
+      dockerfile: ./compose/production/postgres/Dockerfile
+    image: slrt_project_production_postgres
+    container_name: slrt_project_local_postgres
+    volumes:
+      - slrt_project_local_postgres_data:/var/lib/postgresql/18/docker
+      - slrt_project_local_postgres_data_backups:/backups
+    env_file:
+      - ./backend/.envs/.local/.postgres
+
+  mailpit:
+    image: docker.io/axllent/mailpit:latest
+    container_name: slrt_project_local_mailpit
+    ports:
+      - "8025:8025"
+
+  redis:
+    image: docker.io/redis:7.2
+    container_name: slrt_project_local_redis
+    volumes:
+      - slrt_project_local_redis_data:/data
+
+  celeryworker:
+    <<: *django
+    image: slrt_project_local_celeryworker
+    container_name: slrt_project_local_celeryworker
+    depends_on:
+      - redis
+      - postgres
+      - mailpit
+    ports: []
+    command: /start-celeryworker
+
+  # celerybeat:
+  #   <<: *django
+  #   image: slrt_project_local_celerybeat
+  #   container_name: slrt_project_local_celerybeat
+  #   depends_on:
+  #     - redis
+  #     - postgres
+  #     - mailpit
+  #   ports: []
+  #   command: /start-celerybeat
+
+  flower:
+    <<: *django
+    image: slrt_project_local_flower
+    container_name: slrt_project_local_flower
+    ports:
+      - "5555:5555"
+    command: /start-flower
+
+  react:
+    build: ./frontend
+    image: slrt_project_local_react
+    container_name: slrt_project_local_react
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/public:/frontend/public
+      - ./frontend/src:/frontend/src
+      - ./frontend/index.html:/frontend/index.html
+      - ./frontend/package.json:/frontend/package.json
+      - ./frontend/pnpm-lock.yaml:/frontend/pnpm-lock.yaml
+      - ./frontend/tsconfig.json:/frontend/tsconfig.json
+      - ./frontend/vite.config.ts:/frontend/vite.config.ts
+      - /frontend/node_modules/
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - CI=true
+    command: sh -c "pnpm dev"
+    env_file:
+      - ./.env.development

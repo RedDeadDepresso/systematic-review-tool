@@ -1,0 +1,202 @@
+# ==== pytest ====
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "--ds=config.settings.test --reuse-db --import-mode=importlib"
+python_files = [
+    "tests.py",
+    "test_*.py",
+]
+
+# ==== Coverage ====
+[tool.coverage.run]
+include = ["slrt_project/**"]
+omit = ["*/migrations/*", "*/tests/*"]
+plugins = ["django_coverage_plugin"]
+
+# ==== mypy ====
+[tool.mypy]
+python_version = "3.13"
+check_untyped_defs = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+plugins = [
+    "mypy_django_plugin.main",
+    "mypy_drf_plugin.main",
+]
+
+[[tool.mypy.overrides]]
+# Django migrations should not produce any errors:
+module = "*.migrations.*"
+ignore_errors = true
+
+[tool.django-stubs]
+django_settings_module = "config.settings.test"
+
+# ==== djLint ====
+[tool.djlint]
+blank_line_after_tag = "load,extends"
+close_void_tags = true
+format_css = true
+format_js = true
+# TODO: remove T002 when fixed https://github.com/djlint/djLint/issues/687
+ignore = "H006,H030,H031,T002"
+include = "H017,H035"
+indent = 2
+max_line_length = 119
+profile = "django"
+
+[tool.djlint.css]
+indent_size = 2
+
+[tool.djlint.js]
+indent_size = 2
+
+[tool.ruff]
+# Exclude a variety of commonly ignored directories.
+extend-exclude = [
+    "*/migrations/*.py",
+    "staticfiles/*",
+    "vendor/*",
+]
+
+[tool.ruff.lint]
+select = [
+    "F",
+    "E",
+    "W",
+    "C90",
+    "I",
+    "N",
+    "UP",
+    "YTT",
+    # "ANN", # flake8-annotations: we should support this in the future but 100+ errors atm
+    "ASYNC",
+    "S",
+    "BLE",
+    "FBT",
+    "B",
+    "A",
+    "COM",
+    "C4",
+    "DTZ",
+    "T10",
+    "DJ",
+    "EM",
+    "EXE",
+    "FA",
+    'ISC',
+    "ICN",
+    "G",
+    'INP',
+    'PIE',
+    "T20",
+    'PYI',
+    'PT',
+    "Q",
+    "RSE",
+    "RET",
+    "SLF",
+    "SLOT",
+    "SIM",
+    "TID",
+    "TC",
+    "INT",
+    # "ARG", # Unused function argument
+    "PTH",
+    "ERA",
+    "PD",
+    "PGH",
+    "PL",
+    "TRY",
+    "FLY",
+    # "NPY",
+    # "AIR",
+    "PERF",
+    # "FURB",
+    # "LOG",
+    "RUF",
+]
+ignore = [
+    "S101", # Use of assert detected https://docs.astral.sh/ruff/rules/assert/
+    "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`
+    "SIM102", # sometimes it's better to nest
+    # of types for comparison.
+    # Deactivated because it can make the code slow:
+    # https://github.com/astral-sh/ruff/issues/7871
+]
+
+[tool.ruff.lint.isort]
+force-single-line = true
+
+[dependency-groups]
+dev = [
+    "coverage==7.13.4",
+    "django-coverage-plugin==3.2.0",
+    "django-debug-toolbar==6.2.0",
+    "django-extensions==4.1",
+    "django-stubs[compatible-mypy]==5.2.9",
+    "djangorestframework-stubs==3.16.8",
+    "djlint==1.36.4",
+    "factory-boy==3.3.2",
+    "ipdb==0.13.13",
+    "mypy==1.19.1",
+    "pre-commit==4.5.1",
+    "psycopg[c]==3.3.2",
+    "pytest==9.0.2",
+    "pytest-django==4.12.0",
+    "pytest-sugar==1.1.1",
+    "ruff==0.15.1",
+    "sphinx==9.1.0",
+    "sphinx-autobuild==2025.8.25",
+    "watchfiles==1.1.1",
+    "werkzeug[watchdog]==3.1.5",
+]
+
+[project]
+name = "slrt_project"
+version = "0.1.0"
+description = "Behold My Awesome Project!"
+readme = "README.md"
+
+license = { text = "Not open source" }
+authors = [
+  { name = "Nabeel Rahman", email = "2739548r@student.gla.ac.uk" },
+]
+requires-python = "==3.13.*"
+dependencies = [
+    "argon2-cffi==25.1.0",
+    "celery==5.6.2",
+    "django==5.2.11",
+    "django-allauth==65.14.3",
+    "django-anymail==14.0",
+    # "django-celery-beat==2.8.1",
+    "django-cors-headers==4.9.0",
+    "django-environ==0.12.1",
+    "django-model-utils==5.0.0",
+    "django-redis==6.0.0",
+    "djangorestframework==3.16.1",
+    "djangorestframework_simplejwt==5.5.1",
+    "drf-spectacular==0.29.0",
+    "flower==2.0.1",
+    "gunicorn==25.1.0",
+    "hiredis==3.3.0",
+    "pillow==12.1.1",
+    "psycopg[c]==3.3.2",
+    "python-slugify==8.0.4",
+    "redis==7.2.0",
+    "sentry-sdk==2.53.0",
+    "uvicorn-worker==0.4.0",
+    "uvicorn[standard]==0.41.0",
+    "whitenoise==6.11.0",
+    "djangorestframework-camel-case==1.4.2",
+    "drf-auth-kit==1.1.4",
+    "django-filter==25.2",
+    "matplotlib==3.10.8",
+    "django-cleanup==9.0.0",
+    "pyzotero==1.10.0",
+    "bibtexparser==1.4.4",
+    "channels==4.3.2",
+    "channels_redis==4.3.0"
+]

@@ -1,0 +1,292 @@
+from django.db.models import Count, F, Q, Value
+from django.db.models.functions import Concat
+from rest_framework import serializers
+
+from slrt_project.integrations.models import ZoteroIntegration
+from slrt_project.references.models import ReferenceOpinion
+from slrt_project.reviews.models import (
+    Review,
+    ReviewChatMessage,
+    ReviewInvitation,
+    ReviewMember,
+    ScreeningCriteria,
+    ScreeningStat,
+)
+from slrt_project.users.api.serializers import UserSerializer
+
+
+class ReviewMemberSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = ReviewMember
+        fields = ["id", "role", "user"]
+        read_only_fields = ["id", "user"]
+
+    def validate_role(self, new_role):
+        """
+        Enforce role rules:
+        - Owner role cannot be changed
+        - No one can be promoted to Owner
+        """
+        instance = self.instance  # existing ReviewMember
+
+        if not instance:
+            return new_role
+
+        current_role = instance.role
+
+        #  Cannot modify an existing Owner
+        if current_role == ReviewMember.Role.OWNER:
+            raise serializers.ValidationError(
+                "You cannot change the role of the review owner."
+            )
+
+        # Cannot promote someone to Owner
+        if new_role == ReviewMember.Role.OWNER:
+            raise serializers.ValidationError("You cannot assign the Owner role.")
+
+        return new_role
+
+
+class ReviewChatMessageSerializer(serializers.ModelSerializer):
+    member = ReviewMemberSerializer()
+
+    class Meta:
+        model = ReviewChatMessage
+        fields = "__all__"
+
+
+class ScreeningStatSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+    user_email = serializers.SerializerMethodField()
+    hours = serializers.SerializerMethodField()
+
+    def get_user_name(self, obj):
+        return f"{obj.member.user.first_name} {obj.member.user.last_name}".strip()
+
+    def get_user_email(self, obj):
+        return obj.member.user.email
+
+    def get_hours(self, obj):
+        return round(obj.seconds / 3600, 2)
+
+    class Meta:
+        model = ScreeningStat
+        fields = ["id", "user_name", "user_email", "seconds", "hours", "sessions"]
+
+
+class OpinionStatsSerializer(serializers.Serializer):
+    """Serializer for aggregated opinion statistics per member"""
+
+    member_id = serializers.IntegerField()
+    user_name = serializers.CharField()
+    user_email = serializers.EmailField()
+    excluded = serializers.IntegerField()
+    maybe = serializers.IntegerField()
+    included = serializers.IntegerField()
+    total = serializers.IntegerField()
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    user_role = serializers.SerializerMethodField()
+    user_member_id = serializers.IntegerField(read_only=True)
+
+    # annotated counts from queryset
+    reference_count = serializers.IntegerField(read_only=True)
+    duplicate_resolved_count = serializers.IntegerField(read_only=True)
+    duplicate_not_duplicate_count = serializers.IntegerField(read_only=True)
+    duplicate_deleted_count = serializers.IntegerField(read_only=True)
+    duplicate_pairs_count = serializers.IntegerField(read_only=True)
+    duplicate_pairs_unresolved_count = serializers.IntegerField(read_only=True)
+
+    members = ReviewMemberSerializer(many=True, read_only=True)
+
+    screening_stats = serializers.SerializerMethodField()
+    screening_opinions = serializers.SerializerMethodField()
+    full_text_opinions = serializers.SerializerMethodField()
+
+    date_created = serializers.DateTimeField(format="%d %b %Y", read_only=True)
+
+    class Meta:
+        model = Review
+        fields = [
+            "id",
+            "title",
+            "description",
+            "is_active",
+            "reference_count",
+            "date_created",
+            "is_blinded",
+            "user_role",
+            "user_member_id",
+            "members",
+            "screening_stats",
+            "screening_opinions",
+            "full_text_opinions",
+            "duplicate_resolved_count",
+            "duplicate_not_duplicate_count",
+            "duplicate_deleted_count",
+            "duplicate_pairs_unresolved_count",
+            "duplicate_pairs_count",
+        ]
+
+    def get_user_role(self, obj):
+        return getattr(obj, "user_role", None)
+
+    def _get_user(self):
+        return self.context.get("request").user
+
+    def get_screening_stats(self, obj):
+        user = self._get_user()
+
+        qs = ScreeningStat.objects.filter(member__review=obj).select_related(
+            "member__user"
+        )
+
+        if obj.is_blinded:
+            qs = qs.filter(member__user=user)
+
+        return ScreeningStatSerializer(qs.order_by("-seconds"), many=True).data
+
+    def get_screening_opinions(self, obj):
+        user = self._get_user()
+        data = self.compute_opinion_stats(obj, ReferenceOpinion.Stage.SCREENING, user)
+        return OpinionStatsSerializer(data, many=True).data
+
+    def get_full_text_opinions(self, obj):
+        user = self._get_user()
+        data = self.compute_opinion_stats(obj, ReferenceOpinion.Stage.FULL_TEXT, user)
+        return OpinionStatsSerializer(data, many=True).data
+
+    def compute_opinion_stats(self, review, stage, user=None):
+        """Optimised single-query aggregation for opinion stats."""
+
+        qs = ReferenceOpinion.objects.filter(
+            member__review=review,
+            stage=stage,
+        ).select_related("member__user")
+
+        if review.is_blinded and user:
+            qs = qs.filter(member__user=user)
+
+        stats = (
+            qs.values(
+                "member_id",
+                user_name=Concat(
+                    F("member__user__first_name"),
+                    Value(" "),
+                    F("member__user__last_name"),
+                ),
+                user_email=F("member__user__email"),
+            )
+            .annotate(
+                excluded=Count("id", filter=Q(status=ReferenceOpinion.Status.EXCLUDED)),
+                maybe=Count("id", filter=Q(status=ReferenceOpinion.Status.MAYBE)),
+                included=Count("id", filter=Q(status=ReferenceOpinion.Status.INCLUDED)),
+                total=Count("id"),
+            )
+            .order_by("-total")
+        )
+
+        return list(stats)
+
+    def get_has_zotero_integration(self, obj):
+        """Check if review has Zotero integration"""
+        try:
+            return obj.zotero_integration.is_configured
+        except ZoteroIntegration.DoesNotExist:
+            return False
+
+
+class ReviewListSerializer(serializers.ModelSerializer):
+    user_role = serializers.SerializerMethodField()
+    date_created = serializers.DateTimeField(format="%d %b %Y")
+    owner = serializers.StringRelatedField()
+    reference_count = serializers.IntegerField(read_only=True)
+    owner = serializers.SerializerMethodField()
+
+    def get_user_role(self, obj):
+        return getattr(obj, "user_role", None)
+
+    def get_owner(self, obj):
+        if not obj.owner_email:
+            return None
+
+        return f"{obj.owner_first_name} {obj.owner_last_name} ({obj.owner_email})"
+
+    class Meta:
+        model = Review
+        fields = [
+            "title",
+            "date_created",
+            "owner",
+            "reference_count",
+            "id",
+            "user_role",
+        ]
+
+
+class ReviewInvitationCreateSerializer(serializers.Serializer):
+    review = serializers.IntegerField()
+    emails = serializers.ListField(child=serializers.EmailField(), allow_empty=False)
+
+
+class ReviewInvitationSerializer(serializers.ModelSerializer):
+    review = serializers.StringRelatedField()
+    invited_by = serializers.StringRelatedField()
+    created_at = serializers.DateTimeField(format="%d %b %Y")
+
+    class Meta:
+        model = ReviewInvitation
+        fields = "__all__"
+        read_only_fields = ["created_at"]
+
+
+class ScreeningCriteriaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ScreeningCriteria
+        fields = ["id", "review", "name", "description", "kind"]
+        read_only_fields = ["id"]
+
+
+class LabelCountSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    color = serializers.CharField(allow_null=True)
+    count = serializers.IntegerField()
+
+
+class ArticleCountSerializer(serializers.Serializer):
+    included = serializers.IntegerField()
+    maybe = serializers.IntegerField()
+    labeled = serializers.IntegerField()
+    labels = LabelCountSerializer(many=True)
+
+
+class AddDataSerializer(serializers.Serializer):
+    data_source = serializers.ChoiceField(
+        choices=["screening", "full-text"],
+    )
+    data_sink = serializers.ChoiceField(
+        choices=["full-text", "extraction"],
+    )
+    article_types = serializers.ListField(
+        child=serializers.ChoiceField(choices=["included", "maybe", "labeled"]),
+    )
+    label_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        default=list,
+    )
+
+    def validate(self, attrs):
+        source = attrs["data_source"]
+        sink = attrs["data_sink"]
+
+        if source == "full-text" and sink == "full-text":
+            raise serializers.ValidationError(
+                "Source and destination cannot both be full-text."
+            )
+
+        return attrs

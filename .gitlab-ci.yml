@@ -6,7 +6,7 @@ stages:
 
 variables:
   # -------------------------
-  # Docker / Registry
+  # Docker Registry
   # -------------------------
   GHCR_REGISTRY: ghcr.io
   DJANGO_IMAGE: ghcr.io/$GHCR_USERNAME/slrt-django
@@ -32,7 +32,8 @@ variables:
 cache:
   key:
     files:
-      - backend/requirements.txt
+      - backend/pyproject.toml
+      - backend/uv.lock
       - frontend/pnpm-lock.yaml
     prefix: $CI_COMMIT_REF_SLUG
   paths:
@@ -45,12 +46,12 @@ cache:
 
 lint-backend:
   stage: lint
-  image: python:3.14-alpine
+  image: python:3.13-alpine
   before_script:
     - apk add --no-cache build-base
     - pip install ruff
-  script:
     - cd backend
+  script:
     - ruff check .
     - ruff format --check .
 
@@ -72,7 +73,7 @@ lint-frontend:
 
 test-backend:
   stage: test
-  image: python:3.14-alpine
+  image: python:3.13-alpine
   services:
     - name: postgres:18.0-alpine3.22
       alias: db
@@ -86,10 +87,11 @@ test-backend:
     DJANGO_SETTINGS_MODULE: backend.test
   before_script:
     - apk add --no-cache build-base
-    - pip install -r backend/requirements.txt
+    - pip install uv
+    - cd backend
+    - uv sync --no-install-project  # installs dependencies from uv.lock
     - pip install pytest pytest-django psycopg2-binary pytest-cov
   script:
-    - cd backend
     - pytest --cov=. --cov-report=term --cov-report=xml
   artifacts:
     when: always
@@ -142,6 +144,7 @@ build-django:
     - /kaniko/executor
       --context ./backend
       --dockerfile ./backend/Dockerfile
+      --dockerfile ./backend/compose/production/django/Dockerfile \
       --destination $DJANGO_IMAGE:$CI_COMMIT_SHORT_SHA
       --destination $DJANGO_IMAGE:latest
   only:
@@ -196,8 +199,8 @@ deploy-prod:
       ssh $DEPLOY_USER@$DEPLOY_HOST "
         echo '$GHCR_TOKEN' | docker login ghcr.io -u $GHCR_USERNAME --password-stdin &&
         cd $DEPLOY_PATH &&
-        docker compose -f docker-compose-prod.yml pull &&
-        docker compose -f docker-compose-prod.yml up -d
+        docker compose -f docker-compose.production.yml pull &&
+        docker compose -f docker-compose.production.yml up -d
       "
   only:
     - main
