@@ -27,7 +27,7 @@ variables:
 
 lint-backend:
   stage: lint
-  image: python:3.13-slim
+  image: python:3.13-alpine
   cache:
     key:
       files:
@@ -72,7 +72,7 @@ lint-frontend:
 
 test-backend:
   stage: test
-  image: python:3.13-slim
+  image: python:3.13-alpine
   services:
     - name: postgres:18-alpine
       alias: db
