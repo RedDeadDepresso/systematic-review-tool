@@ -74,8 +74,16 @@ test-backend:
   stage: test
   image: python:3.13-alpine
   services:
-    - name: postgres:18-alpine
+    - name: postgres:18.0-alpine3.22
       alias: db
+  variables:
+    POSTGRES_DB: test_db
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+    POSTGRES_HOST: db
+    POSTGRES_PORT: 5432
+    DATABASE_URL: postgres://postgres:postgres@db:5432/test_db
+    DJANGO_SETTINGS_MODULE: config.settings.test
   cache:
     key:
       files:
@@ -83,16 +91,14 @@ test-backend:
         - backend/uv.lock
     paths:
       - .cache/uv/
-  variables:
-    DATABASE_URL: postgres://postgres:postgres@db:5432/test_db
-    DJANGO_SETTINGS_MODULE: config.settings.test
   before_script:
     - apk add --no-cache build-base libpq
     - pip install uv
     - cd backend
     - uv sync --frozen
+    - . .venv/bin/activate
   script:
-    - pytest --cov=. --cov-report=xml
+    - pytest --cov=slrt_project --cov-report=xml --cov-report=term
   artifacts:
     when: always
     reports:
@@ -145,13 +151,7 @@ build-django:
         }
       }
       EOF
-    - /kaniko/executor \
-        --context ./backend \
-        --dockerfile ./backend/compose/production/django/Dockerfile \
-        --destination $DJANGO_IMAGE:$CI_COMMIT_SHORT_SHA \
-        --destination $DJANGO_IMAGE:latest \
-        --cache=true \
-        --cache-repo=$DJANGO_IMAGE-cache
+    - /kaniko/executor --context ./backend --dockerfile ./backend/compose/production/django/Dockerfile --destination $DJANGO_IMAGE:$CI_COMMIT_SHORT_SHA --destination $DJANGO_IMAGE:latest --cache=true --cache-repo=$DJANGO_IMAGE-cache
   only:
     - main
 
@@ -178,17 +178,7 @@ build-nginx:
         }
       }
       EOF
-    - /kaniko/executor \
-        --context . \
-        --dockerfile nginx/Dockerfile \
-        --destination $NGINX_IMAGE:$CI_COMMIT_SHORT_SHA \
-        --destination $NGINX_IMAGE:latest \
-        --cache=true \
-        --cache-repo=$NGINX_IMAGE-cache \
-        --build-arg VITE_API_BASE_URL=$VITE_API_BASE_URL \
-        --build-arg VITE_WS_URL=$VITE_WS_URL
-  only:
-    - main
+    - /kaniko/executor --context ./backend --dockerfile ./backend/compose/production/nginx/Dockerfile --destination $NGINX_IMAGE:$CI_COMMIT_SHORT_SHA --destination $NGINX_IMAGE:latest --cache=true --cache-repo=$NGINX_IMAGE-cache --build-arg VITE_API_BASE_URL=$VITE_API_BASE_URL --build-arg VITE_WS_URL=$VITE_WS_URL
 
 # =====================================================
 # DEPLOY
