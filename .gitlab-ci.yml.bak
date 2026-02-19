@@ -1,6 +1,7 @@
 stages:
   - lint
   - test
+  - build
   - deploy
 
 # =====================================================
@@ -66,6 +67,46 @@ lint-frontend:
     - pnpm format
 
 # =====================================================
+# BACKEND TEST
+# =====================================================
+
+test-backend:
+  stage: test
+  image: python:3.13-alpine
+  services:
+    - name: postgres:18.0-alpine3.22
+      alias: db
+  variables:
+    POSTGRES_DB: test_db
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+    POSTGRES_HOST: db
+    POSTGRES_PORT: 5432
+    DATABASE_URL: postgres://postgres:postgres@db:5432/test_db
+    DJANGO_SETTINGS_MODULE: config.settings.test
+  cache:
+    key:
+      files:
+        - backend/pyproject.toml
+        - backend/uv.lock
+    paths:
+      - .cache/uv/
+  before_script:
+    - apk add --no-cache build-base libpq
+    - pip install uv
+    - cd backend
+    - uv sync --frozen
+    - . .venv/bin/activate
+  script:
+    - pytest --cov=slrt_project --cov-report=xml --cov-report=term
+  artifacts:
+    when: always
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: backend/coverage.xml
+
+# =====================================================
 # FRONTEND TEST
 # =====================================================
 
@@ -88,13 +129,67 @@ test-frontend:
     - pnpm test --coverage
 
 # =====================================================
+# BUILD DJANGO IMAGE
+# =====================================================
+
+build-django:
+  stage: build
+  needs: ["lint-backend", "test-backend"]
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  script:
+    - mkdir -p $DOCKER_CONFIG
+    - |
+      cat <<EOF > $DOCKER_CONFIG/config.json
+      {
+        "auths": {
+          "ghcr.io": {
+            "username": "$GHCR_USERNAME",
+            "password": "$GHCR_TOKEN"
+          }
+        }
+      }
+      EOF
+    - /kaniko/executor --context ./backend --dockerfile ./backend/compose/production/django/Dockerfile --destination $DJANGO_IMAGE:$CI_COMMIT_SHORT_SHA --destination $DJANGO_IMAGE:latest --cache=true --cache-repo=$DJANGO_IMAGE-cache
+  only:
+    - main
+
+# =====================================================
+# BUILD NGINX/FRONTEND IMAGE
+# =====================================================
+
+build-nginx:
+  stage: build
+  needs: ["lint-frontend", "test-frontend"]
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  script:
+    - mkdir -p $DOCKER_CONFIG
+    - |
+      cat <<EOF > $DOCKER_CONFIG/config.json
+      {
+        "auths": {
+          "ghcr.io": {
+            "username": "$GHCR_USERNAME",
+            "password": "$GHCR_TOKEN"
+          }
+        }
+      }
+      EOF
+    - /kaniko/executor --context ./backend --dockerfile ./backend/compose/production/nginx/Dockerfile --destination $NGINX_IMAGE:$CI_COMMIT_SHORT_SHA --destination $NGINX_IMAGE:latest --cache=true --cache-repo=$NGINX_IMAGE-cache --build-arg VITE_API_BASE_URL=$VITE_API_BASE_URL --build-arg VITE_WS_URL=$VITE_WS_URL
+  only:
+    - main
+
+# =====================================================
 # DEPLOY
 # =====================================================
 
 deploy-prod:
   stage: deploy
   image: alpine:latest
-  needs: ["lint-backend", "test-frontend"]
+  needs: ["build-django", "build-nginx"]
   before_script:
     - apk add --no-cache openssh docker-cli-compose
     - eval $(ssh-agent -s)
@@ -106,7 +201,6 @@ deploy-prod:
       ssh $DEPLOY_USER@$DEPLOY_HOST "
         echo '$GHCR_TOKEN' | docker login ghcr.io -u $GHCR_USERNAME --password-stdin &&
         cd $DEPLOY_PATH &&
-        git pull &&
         docker compose -f docker-compose.production.yml pull &&
         docker compose -f docker-compose.production.yml up -d --remove-orphans
       "

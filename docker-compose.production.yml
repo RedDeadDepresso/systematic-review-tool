@@ -6,7 +6,6 @@ volumes:
   production_django_static: {}
 
   production_redis_data: {}
-  
 
 services:
   django: &django
@@ -55,7 +54,7 @@ services:
     image: docker.io/redis:7.2
 
     volumes:
-      - production_redis_data:/data    
+      - production_redis_data:/data
 
   celeryworker:
     <<: *django
@@ -74,7 +73,7 @@ services:
 
   nginx:
     build:
-      context: ./backend
+      context: .
       dockerfile: ./compose/production/nginx/Dockerfile
     image: slrt_project_production_nginx
     depends_on:
