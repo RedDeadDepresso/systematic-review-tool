@@ -29,16 +29,22 @@ variables:
 # -------------------------
 # Global cache
 # -------------------------
-cache:
-  key:
-    files:
-      - backend/pyproject.toml
-      - backend/uv.lock
-      - frontend/pnpm-lock.yaml
-    prefix: $CI_COMMIT_REF_SLUG
-  paths:
-    - .cache/pip
-    - .pnpm-store
+backend-cache:
+  cache:
+    key:
+      files:
+        - backend/pyproject.toml
+        - backend/uv.lock
+    paths:
+      - backend/.venv/
+
+frontend-cache:
+  cache:
+    key:
+      files:
+        - frontend/pnpm-lock.yaml
+    paths:
+      - frontend/node_modules/
 
 # =====================================================
 # LINT

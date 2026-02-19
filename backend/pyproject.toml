@@ -198,5 +198,6 @@ dependencies = [
     "pyzotero==1.10.0",
     "bibtexparser==1.4.4",
     "channels==4.3.2",
-    "channels_redis==4.3.0"
+    "channels_redis==4.3.0",
+    "cryptography>=46.0.5",
 ]
