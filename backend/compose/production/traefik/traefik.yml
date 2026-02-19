@@ -1,0 +1,140 @@
+log:
+  level: INFO
+
+entryPoints:
+  web:
+    # http
+    address: ':80'
+    http:
+      # https://doc.traefik.io/traefik/routing/entrypoints/#entrypoint
+      redirections:
+        entryPoint:
+          to: web-secure
+
+  web-secure:
+    # https
+    address: ':443'
+
+  flower:
+    address: ':5555'
+
+certificatesResolvers:
+  letsencrypt:
+    # https://doc.traefik.io/traefik/https/acme/#lets-encrypt
+    acme:
+      email: '2739548r@student.gla.ac.uk'
+      storage: /etc/traefik/acme/acme.json
+      # https://doc.traefik.io/traefik/https/acme/#httpchallenge
+      httpChallenge:
+        entryPoint: web
+
+http:
+  routers:
+    # Django API
+    api-router:
+      rule: "Host(`slrt.duckdns.org`) && PathPrefix(`/api/`)"
+      entryPoints:
+        - web-secure
+      service: django
+      tls:
+        certResolver: letsencrypt
+
+    # Django Admin
+    admin-router:
+      rule: "Host(`slrt.duckdns.org`) && PathPrefix(`/admin/`)"
+      entryPoints:
+        - web-secure
+      service: django
+      tls:
+        # https://doc.traefik.io/traefik/routing/routers/#certresolver
+        certResolver: letsencrypt
+
+    # Django WebSockets (ASGI)
+    ws-router:
+      rule: "Host(`slrt.duckdns.org`) && PathPrefix(`/ws/`)"
+      entryPoints:
+        - web-secure
+      service: django
+      tls:
+        # https://doc.traefik.io/traefik/master/routing/routers/#certresolver
+        certResolver: letsencrypt
+
+    # Media via Nginx
+    media-router:
+      rule: "Host(`slrt.duckdns.org`) && PathPrefix(`/media/`)"
+      entryPoints:
+        - web-secure
+      service: django-media
+      tls:
+        certResolver: letsencrypt
+
+    # Static via Nginx
+    static-router:
+      rule: "Host(`slrt.duckdns.org`) && PathPrefix(`/static/`)"
+      entryPoints:
+        - web-secure
+      service: django-static
+      tls:
+        certResolver: letsencrypt
+
+    # Flower monitoring
+    flower-router:
+      rule: "Host(`slrt.duckdns.org`) && PathPrefix(`/flower/`)"
+      entryPoints:
+        - flower
+      service: flower
+      tls:
+        certResolver: letsencrypt
+
+    # React Frontend (catch-all)
+    react-router:
+      rule: "Host(`slrt.duckdns.org`) && PathPrefix(`/`)"
+      entryPoints:
+        - web-secure
+      service: react-nginx
+      tls:
+        certResolver: letsencrypt
+
+  middlewares:
+    csrf:
+      # https://doc.traefik.io/traefik/master/middlewares/http/headers/#hostsproxyheaders
+      # https://docs.djangoproject.com/en/dev/ref/csrf/#ajax
+      headers:
+        hostsProxyHeaders: ['X-CSRFToken']
+
+  services:
+    # Django ASGI (API, admin, WebSockets)
+    django:
+      loadBalancer:
+        servers:
+          - url: "http://django:8000"
+
+    # Django media served via Nginx
+    django-media:
+      loadBalancer:
+        servers:
+          - url: "http://nginx:80"
+
+    # Django static served via Nginx
+    django-static:
+      loadBalancer:
+        servers:
+          - url: "http://nginx:80"
+
+    # React static frontend via Nginx
+    react-nginx:
+      loadBalancer:
+        servers:
+          - url: "http://nginx:80"
+
+    # Flower monitoring
+    flower:
+      loadBalancer:
+        servers:
+          - url: "http://flower:5555"
+
+providers:
+  # https://doc.traefik.io/traefik/master/providers/file/
+  file:
+    filename: /etc/traefik/traefik.yml
+    watch: true

@@ -4,75 +4,75 @@ stages:
   - build
   - deploy
 
+# =====================================================
+# GLOBAL VARIABLES
+# =====================================================
+
 variables:
-  # -------------------------
-  # Docker / Registry
-  # -------------------------
   GHCR_REGISTRY: ghcr.io
   DJANGO_IMAGE: ghcr.io/$GHCR_USERNAME/slrt-django
-  REACT_IMAGE: ghcr.io/$GHCR_USERNAME/slrt-react
+  NGINX_IMAGE: ghcr.io/$GHCR_USERNAME/slrt-nginx
   DOCKER_CONFIG: /kaniko/.docker
 
-  # -------------------------
-  # Deployment
-  # -------------------------
   DEPLOY_USER: ubuntu
   DEPLOY_HOST: $EC2_HOST
   DEPLOY_PATH: /srv/app
 
-  # -------------------------
-  # Python / pnpm caching
-  # -------------------------
-  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
   PNPM_STORE_PATH: "$CI_PROJECT_DIR/.pnpm-store"
 
-# -------------------------
-# Global cache
-# -------------------------
-cache:
-  key:
-    files:
-      - backend/requirements.txt
-      - frontend/pnpm-lock.yaml
-    prefix: $CI_COMMIT_REF_SLUG
-  paths:
-    - .cache/pip
-    - .pnpm-store
-
 # =====================================================
-# LINT
+# BACKEND LINT
 # =====================================================
 
 lint-backend:
   stage: lint
-  image: python:3.14-alpine
+  image: python:3.13-alpine
+  cache:
+    key:
+      files:
+        - backend/pyproject.toml
+        - backend/uv.lock
+    paths:
+      - .cache/uv/
   before_script:
     - apk add --no-cache build-base
-    - pip install ruff
+    - pip install uv ruff
   script:
     - cd backend
     - ruff check .
     - ruff format --check .
 
+# =====================================================
+# FRONTEND LINT
+# =====================================================
+
 lint-frontend:
   stage: lint
   image: node:24-alpine
+  cache:
+    key:
+      files:
+        - frontend/pnpm-lock.yaml
+    paths:
+      - .pnpm-store/
   before_script:
     - corepack enable
     - corepack prepare pnpm@latest --activate
+    - pnpm config set store-dir $PNPM_STORE_PATH
+  script:
     - cd frontend
     - pnpm install --frozen-lockfile
-  script:
     - pnpm lint
     - pnpm format
 
 # =====================================================
-# TEST + COVERAGE
+# BACKEND TEST
 # =====================================================
 
 test-backend:
   stage: test
-  image: python:3.14-alpine
+  image: python:3.13-alpine
   services:
     - name: postgres:18.0-alpine3.22
       alias: db
@@ -83,14 +83,22 @@ test-backend:
     POSTGRES_HOST: db
     POSTGRES_PORT: 5432
     DATABASE_URL: postgres://postgres:postgres@db:5432/test_db
-    DJANGO_SETTINGS_MODULE: backend.test
+    DJANGO_SETTINGS_MODULE: config.settings.test
+  cache:
+    key:
+      files:
+        - backend/pyproject.toml
+        - backend/uv.lock
+    paths:
+      - .cache/uv/
   before_script:
-    - apk add --no-cache build-base
-    - pip install -r backend/requirements.txt
-    - pip install pytest pytest-django psycopg2-binary pytest-cov
-  script:
+    - apk add --no-cache build-base libpq
+    - pip install uv
     - cd backend
-    - pytest --cov=. --cov-report=term --cov-report=xml
+    - uv sync --frozen
+    - . .venv/bin/activate
+  script:
+    - pytest --cov=slrt_project --cov-report=xml --cov-report=term
   artifacts:
     when: always
     reports:
@@ -98,26 +106,30 @@ test-backend:
         coverage_format: cobertura
         path: backend/coverage.xml
 
+# =====================================================
+# FRONTEND TEST
+# =====================================================
+
 test-frontend:
   stage: test
   image: node:24-alpine
-  coverage: '/All files[^|]*\|\s+(\d+(\.\d+)?)/'
+  cache:
+    key:
+      files:
+        - frontend/pnpm-lock.yaml
+    paths:
+      - .pnpm-store/
   before_script:
     - corepack enable
     - corepack prepare pnpm@latest --activate
+    - pnpm config set store-dir $PNPM_STORE_PATH
+  script:
     - cd frontend
     - pnpm install --frozen-lockfile
-  script:
     - pnpm test --coverage
-  artifacts:
-    when: always
-    reports:
-      coverage_report:
-        coverage_format: cobertura
-        path: coverage/cobertura-coverage.xml
 
 # =====================================================
-# BUILD (only if lint + test pass)
+# BUILD DJANGO IMAGE
 # =====================================================
 
 build-django:
@@ -139,13 +151,13 @@ build-django:
         }
       }
       EOF
-    - /kaniko/executor
-      --context ./backend
-      --dockerfile ./backend/Dockerfile
-      --destination $DJANGO_IMAGE:$CI_COMMIT_SHORT_SHA
-      --destination $DJANGO_IMAGE:latest
+    - /kaniko/executor --context ./backend --dockerfile ./backend/compose/production/django/Dockerfile --destination $DJANGO_IMAGE:$CI_COMMIT_SHORT_SHA --destination $DJANGO_IMAGE:latest --cache=true --cache-repo=$DJANGO_IMAGE-cache
   only:
     - main
+
+# =====================================================
+# BUILD NGINX/FRONTEND IMAGE
+# =====================================================
 
 build-nginx:
   stage: build
@@ -166,13 +178,7 @@ build-nginx:
         }
       }
       EOF
-    - /kaniko/executor
-      --context .
-      --dockerfile nginx/Dockerfile
-      --destination ghcr.io/$GHCR_USERNAME/slrt-nginx:$CI_COMMIT_SHORT_SHA
-      --destination ghcr.io/$GHCR_USERNAME/slrt-nginx:latest
-      --build-arg VITE_API_BASE_URL=$VITE_API_BASE_URL
-      --build-arg VITE_WS_URL=$VITE_WS_URL
+    - /kaniko/executor --context ./backend --dockerfile ./backend/compose/production/nginx/Dockerfile --destination $NGINX_IMAGE:$CI_COMMIT_SHORT_SHA --destination $NGINX_IMAGE:latest --cache=true --cache-repo=$NGINX_IMAGE-cache --build-arg VITE_API_BASE_URL=$VITE_API_BASE_URL --build-arg VITE_WS_URL=$VITE_WS_URL
   only:
     - main
 
@@ -185,19 +191,18 @@ deploy-prod:
   image: alpine:latest
   needs: ["build-django", "build-nginx"]
   before_script:
-    - apk add --no-cache openssh
+    - apk add --no-cache openssh docker-cli-compose
     - eval $(ssh-agent -s)
     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
     - ssh-keyscan -H $DEPLOY_HOST >> ~/.ssh/known_hosts
   script:
     - |
       ssh $DEPLOY_USER@$DEPLOY_HOST "
         echo '$GHCR_TOKEN' | docker login ghcr.io -u $GHCR_USERNAME --password-stdin &&
         cd $DEPLOY_PATH &&
-        docker compose -f docker-compose-prod.yml pull &&
-        docker compose -f docker-compose-prod.yml up -d
+        docker compose -f docker-compose.production.yml pull &&
+        docker compose -f docker-compose.production.yml up -d --remove-orphans
       "
   only:
     - main
