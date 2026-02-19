@@ -11,7 +11,7 @@ python_files = [
 [tool.coverage.run]
 include = ["slrt_project/**"]
 omit = ["*/migrations/*", "*/tests/*"]
-plugins = ["django_coverage_plugin"]
+# plugins = ["django_coverage_plugin"]
 
 # ==== mypy ====
 [tool.mypy]

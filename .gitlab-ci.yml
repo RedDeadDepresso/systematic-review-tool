@@ -87,11 +87,11 @@ test-backend:
     DATABASE_URL: postgres://postgres:postgres@db:5432/test_db
     DJANGO_SETTINGS_MODULE: config.settings.test
   before_script:
-    - apk add --no-cache build-base
-    - pip install uv pytest pytest-django psycopg2-binary pytest-cov
-  script:
+    - apk add --no-cache build-base libpq
+    - pip install uv pytest pytest-django pytest-cov
     - cd backend
-    - uv sync --frozen
+    - uv sync --no-install-project --frozen
+  script:
     - pytest --cov=. --cov-report=xml
   artifacts:
     when: always
@@ -152,6 +152,8 @@ build-django:
         --destination $DJANGO_IMAGE:latest \
         --cache=true \
         --cache-repo=$DJANGO_IMAGE-cache
+  only:
+    - main
 
 # =====================================================
 # BUILD NGINX/FRONTEND IMAGE
@@ -185,6 +187,8 @@ build-nginx:
         --cache-repo=$NGINX_IMAGE-cache \
         --build-arg VITE_API_BASE_URL=$VITE_API_BASE_URL \
         --build-arg VITE_WS_URL=$VITE_WS_URL
+  only:
+    - main
 
 # =====================================================
 # DEPLOY
