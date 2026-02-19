@@ -88,6 +88,7 @@ test-backend:
     DJANGO_SETTINGS_MODULE: config.settings.test
   before_script:
     - apk add --no-cache build-base libpq
+    - pip install uv
     - cd backend
     - uv sync --frozen
   script:
