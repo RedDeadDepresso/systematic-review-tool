@@ -5,46 +5,17 @@ stages:
   - deploy
 
 variables:
-  # -------------------------
-  # Docker Registry
-  # -------------------------
   GHCR_REGISTRY: ghcr.io
   DJANGO_IMAGE: ghcr.io/$GHCR_USERNAME/slrt-django
   REACT_IMAGE: ghcr.io/$GHCR_USERNAME/slrt-react
   DOCKER_CONFIG: /kaniko/.docker
 
-  # -------------------------
-  # Deployment
-  # -------------------------
   DEPLOY_USER: ubuntu
   DEPLOY_HOST: $EC2_HOST
   DEPLOY_PATH: /srv/app
 
-  # -------------------------
-  # Python / pnpm caching
-  # -------------------------
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   PNPM_STORE_PATH: "$CI_PROJECT_DIR/.pnpm-store"
-
-# -------------------------
-# Global cache
-# -------------------------
-backend-cache:
-  cache:
-    key:
-      files:
-        - backend/pyproject.toml
-        - backend/uv.lock
-    paths:
-      - backend/.venv/
-
-frontend-cache:
-  cache:
-    key:
-      files:
-        - frontend/pnpm-lock.yaml
-    paths:
-      - frontend/node_modules/
 
 # =====================================================
 # LINT
@@ -53,6 +24,14 @@ frontend-cache:
 lint-backend:
   stage: lint
   image: python:3.13-alpine
+  cache:
+    key:
+      files:
+        - backend/pyproject.toml
+        - backend/uv.lock
+    paths:
+      - backend/.venv/
+      - .cache/pip/
   before_script:
     - apk add --no-cache build-base
     - pip install ruff
@@ -64,6 +43,13 @@ lint-backend:
 lint-frontend:
   stage: lint
   image: node:24-alpine
+  cache:
+    key:
+      files:
+        - frontend/pnpm-lock.yaml
+    paths:
+      - frontend/node_modules/
+      - .pnpm-store/
   before_script:
     - corepack enable
     - corepack prepare pnpm@latest --activate
@@ -74,29 +60,31 @@ lint-frontend:
     - pnpm format
 
 # =====================================================
-# TEST + COVERAGE
+# TEST
 # =====================================================
 
 test-backend:
   stage: test
   image: python:3.13-alpine
   services:
-    - name: postgres:18.0-alpine3.22
+    - name: postgres:18-alpine
       alias: db
+  cache:
+    key:
+      files:
+        - backend/pyproject.toml
+        - backend/uv.lock
+    paths:
+      - backend/.venv/
+      - .cache/pip/
   variables:
-    POSTGRES_DB: test_db
-    POSTGRES_USER: postgres
-    POSTGRES_PASSWORD: postgres
-    POSTGRES_HOST: db
-    POSTGRES_PORT: 5432
     DATABASE_URL: postgres://postgres:postgres@db:5432/test_db
     DJANGO_SETTINGS_MODULE: backend.test
   before_script:
     - apk add --no-cache build-base
-    - pip install uv
+    - pip install uv pytest pytest-django psycopg2-binary pytest-cov
     - cd backend
-    - uv sync --no-install-project  # installs dependencies from uv.lock
-    - pip install pytest pytest-django psycopg2-binary pytest-cov
+    - uv sync --no-install-project
   script:
     - pytest --cov=. --cov-report=term --cov-report=xml
   artifacts:
@@ -109,7 +97,13 @@ test-backend:
 test-frontend:
   stage: test
   image: node:24-alpine
-  coverage: '/All files[^|]*\|\s+(\d+(\.\d+)?)/'
+  cache:
+    key:
+      files:
+        - frontend/pnpm-lock.yaml
+    paths:
+      - frontend/node_modules/
+      - .pnpm-store/
   before_script:
     - corepack enable
     - corepack prepare pnpm@latest --activate
@@ -125,7 +119,7 @@ test-frontend:
         path: coverage/cobertura-coverage.xml
 
 # =====================================================
-# BUILD (only if lint + test pass)
+# BUILD
 # =====================================================
 
 build-django:
@@ -147,11 +141,10 @@ build-django:
         }
       }
       EOF
-    - /kaniko/executor
-      --context ./backend
-      --dockerfile ./backend/Dockerfile
+    - /kaniko/executor \
+      --context ./backend \
       --dockerfile ./backend/compose/production/django/Dockerfile \
-      --destination $DJANGO_IMAGE:$CI_COMMIT_SHORT_SHA
+      --destination $DJANGO_IMAGE:$CI_COMMIT_SHORT_SHA \
       --destination $DJANGO_IMAGE:latest
   only:
     - main
@@ -175,12 +168,12 @@ build-nginx:
         }
       }
       EOF
-    - /kaniko/executor
-      --context .
-      --dockerfile nginx/Dockerfile
-      --destination ghcr.io/$GHCR_USERNAME/slrt-nginx:$CI_COMMIT_SHORT_SHA
-      --destination ghcr.io/$GHCR_USERNAME/slrt-nginx:latest
-      --build-arg VITE_API_BASE_URL=$VITE_API_BASE_URL
+    - /kaniko/executor \
+      --context . \
+      --dockerfile nginx/Dockerfile \
+      --destination ghcr.io/$GHCR_USERNAME/slrt-nginx:$CI_COMMIT_SHORT_SHA \
+      --destination ghcr.io/$GHCR_USERNAME/slrt-nginx:latest \
+      --build-arg VITE_API_BASE_URL=$VITE_API_BASE_URL \
       --build-arg VITE_WS_URL=$VITE_WS_URL
   only:
     - main
