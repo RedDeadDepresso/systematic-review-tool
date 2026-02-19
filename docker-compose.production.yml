@@ -81,3 +81,5 @@ services:
     volumes:
       - production_django_media:/usr/share/nginx/media:ro
       - production_django_static:/usr/share/nginx/staticfiles:ro
+    env_file:
+      - ./.env.production
