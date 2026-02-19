@@ -4,8 +4,8 @@ FROM node:24-alpine AS frontend-build
 WORKDIR /frontend
 RUN corepack enable
 
-# Copy only frontend code (from sibling directory of backend)
-COPY ../../../frontend/ ./
+# Correct path (relative to repo root)
+COPY frontend/ ./
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
@@ -28,12 +28,4 @@ RUN apk add --no-cache gettext
 # Copy built React app
 COPY --from=frontend-build /frontend/dist /usr/share/nginx/html
 
-# Copy custom boot script (if you use runtime env substitution)
-COPY ./backend/compose/production/nginx/boot.sh /home/docker/scripts/boot.sh
-
-# Normalize line endings and make the boot script executable
-RUN sed -i 's/\r$//' /home/docker/scripts/boot.sh && \
-    chmod +x /home/docker/scripts/boot.sh
-
-# Copy Nginx config
-COPY ./backend/compose/production/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY backend/compose/production/nginx/default.conf /etc/nginx/conf.d/default.conf
