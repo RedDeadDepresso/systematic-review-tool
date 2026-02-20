@@ -201,4 +201,5 @@ dependencies = [
     "channels_redis==4.3.0",
     "cryptography>=46.0.5",
     "pytest-cov>=7.0.0",
+    "typing-extensions>=4.15.0",
 ]
