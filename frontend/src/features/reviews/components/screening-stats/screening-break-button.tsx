@@ -5,7 +5,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '../../../../components/ui/tooltip';
+} from '@/components/ui/tooltip';
 
 interface ScreeningBreakButtonProps {
   reviewId: number;

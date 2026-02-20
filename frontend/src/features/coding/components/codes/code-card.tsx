@@ -12,9 +12,9 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
-import { EditItemDialog } from '../edit-item-dialog';
-import { ItemActionsDropdown } from '../item-actions-dropdown';
-import { DeleteConfirmationDialog } from '../delete-confirmation-dialog';
+import { EditItemDialog } from '@/features/coding/components/edit-item-dialog';
+import { ItemActionsDropdown } from '@/features/coding/components/item-actions-dropdown';
+import { DeleteConfirmationDialog } from '@/features/coding/components/delete-confirmation-dialog';
 import type { Code } from '@/features/coding/types/codes';
 import { can } from '@/lib/permissions';
 import type { ReviewRole } from '@/features/reviews/types/reviews';

@@ -5,10 +5,10 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BarChartPanel } from './bar-chart-panel';
-import { ScatterPlotPanel } from './scatter-plot-panel';
-import { EvidenceGapMapPanel } from './evidence-gap-map-panel';
-import { PublicationTimelinePanel } from './publication-timeline-panel';
+import { BarChartPanel } from '@/features/extraction/components/charts/bar-chart-panel';
+import { ScatterPlotPanel } from '@/features/extraction/components/charts/scatter-plot-panel';
+import { EvidenceGapMapPanel } from '@/features/extraction/components/charts/evidence-gap-map-panel';
+import { PublicationTimelinePanel } from '@/features/extraction/components/charts/publication-timeline-panel';
 
 interface ExtractionChartsDashboardProps {
   reviewId: number;

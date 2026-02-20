@@ -6,7 +6,7 @@ import {
   NavigationMenu,
   NavigationMenuItem,
   NavigationMenuList,
-} from '../ui/navigation-menu';
+} from '@/components/ui/navigation-menu';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,11 +21,11 @@ import {
   useFetchReview,
   useUpdateReview,
 } from '@/features/reviews/hooks/use-reviews';
-import InvitationDialog from '../../features/reviews/components/review-invitations/invitation-dialog';
+import InvitationDialog from '@/features/reviews/components/review-invitations/invitation-dialog';
 import { can } from '@/lib/permissions';
-import { ZoteroConfigDialog } from '../../features/integrations/components/zotero/zotero-config-dialog';
-import { ChatDrawer } from '../../features/reviews/components/review-chat/chat-drawer';
-import { ChatButton } from '../../features/reviews/components/review-chat/chat-button';
+import { ZoteroConfigDialog } from '@/features/integrations/components/zotero/zotero-config-dialog';
+import { ChatDrawer } from '@/features/reviews/components/review-chat/chat-drawer';
+import { ChatButton } from '@/features/reviews/components/review-chat/chat-button';
 import { useReviewChat } from '@/features/reviews/hooks/use-review-chat';
 import { useState } from 'react';
 

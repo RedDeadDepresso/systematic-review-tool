@@ -15,7 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useConfirmPasswordReset } from '@/features/users/hooks/use-auth';
 import { useState } from 'react';
-import { errorMessage } from '../../../components/shared/error-message';
+import { errorMessage } from '@/components/shared/error-message';
 
 interface ConfirmPasswordResetFormProps {
   uid: string;

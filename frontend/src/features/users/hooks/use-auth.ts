@@ -9,7 +9,7 @@ import {
   registerUser,
   requestPasswordReset,
   updateUser,
-} from '../api/auth';
+} from '@/features/users/api/auth';
 import { useRouter } from '@tanstack/react-router';
 import { toast } from 'sonner';
 

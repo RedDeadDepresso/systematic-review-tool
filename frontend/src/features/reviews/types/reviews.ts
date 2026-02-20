@@ -1,5 +1,8 @@
-import type { User } from '../../users/types/auth';
-import type { OpinionStats, ScreeningStat } from './screening-stats';
+import type { User } from '@/features/users/types/auth';
+import type {
+  OpinionStats,
+  ScreeningStat,
+} from '@/features/reviews/types/screening-stats';
 
 export type ReviewRole = 'Owner' | 'Collaborator' | 'Reviewer' | 'Viewer';
 

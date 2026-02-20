@@ -12,8 +12,8 @@ import {
   ScreeningFooter,
   type ReviewDataFooterProps,
   type ScreeningFooterProps,
-} from './references-table-footer';
-import { ReferenceContent } from './reference-content';
+} from '@/features/references/components/references/references-table-footer';
+import { ReferenceContent } from '@/features/references/components/references/reference-content';
 
 interface ReferenceDrawerProps {
   reference: Reference;
@@ -125,8 +125,7 @@ export function ReferenceDrawer({
 }
 
 export interface ReviewDataReferenceDrawerProps
-  extends ReferenceDrawerProps,
-    ReviewDataFooterProps {}
+  extends ReferenceDrawerProps, ReviewDataFooterProps {}
 
 export function ReviewDataReferenceDrawer(
   props: ReviewDataReferenceDrawerProps
@@ -137,8 +136,7 @@ export function ReviewDataReferenceDrawer(
 }
 
 export interface ScreeningeferenceDrawerProps
-  extends ReferenceDrawerProps,
-    ScreeningFooterProps {}
+  extends ReferenceDrawerProps, ScreeningFooterProps {}
 
 export function ScreeningReferenceDrawer(props: ScreeningeferenceDrawerProps) {
   return (

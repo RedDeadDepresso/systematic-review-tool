@@ -1,5 +1,5 @@
 import type { User } from '@/features/users/types/auth';
-import api from '../../../api/client';
+import api from '@/api/client';
 import { redirect } from '@tanstack/react-router';
 
 /* ------------------ REGISTER ------------------ */

@@ -7,19 +7,19 @@ import {
   useDeleteCode,
   useFetchCodes,
   useUpdateCode,
-} from './use-codes';
+} from '@/features/coding/hooks/use-codes';
 import {
   useCreateSubTheme,
   useDeleteSubTheme,
   useFetchSubThemes,
   useUpdateSubTheme,
-} from './use-sub-themes';
+} from '@/features/coding/hooks/use-sub-themes';
 import {
   useCreateMainTheme,
   useDeleteMainTheme,
   useFetchMainThemes,
   useUpdateMainTheme,
-} from './use-main-themes';
+} from '@/features/coding/hooks/use-main-themes';
 
 export function useCodingTheming(reviewId: number) {
   const fetchCodes = useFetchCodes(reviewId);

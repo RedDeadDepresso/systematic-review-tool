@@ -2,7 +2,7 @@
 
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
-import { ExpandCollapseButtons } from './expand-collapse-buttons';
+import { ExpandCollapseButtons } from '@/features/coding/components/expand-collapse-buttons';
 
 interface SectionSearchProps {
   value: string;

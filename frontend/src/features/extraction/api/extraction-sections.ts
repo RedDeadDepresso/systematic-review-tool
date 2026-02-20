@@ -2,7 +2,7 @@ import {
   type ExtractionFormData,
   type ExtractionSection,
 } from '@/features/extraction/types/extraction';
-import api from '../../../api/client';
+import api from '@/api/client';
 
 /* ------------------ FETCH EXTRACTION SECTIONS ------------------ */
 export const fetchExtractionSections = async (params: { reviewId: number }) => {

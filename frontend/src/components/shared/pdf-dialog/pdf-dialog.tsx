@@ -29,7 +29,7 @@ import {
   type Code,
 } from '@/features/coding/types/codes';
 import '@/styles/pdf-dialog.css';
-import { CodingThemingSidebar } from '../../../features/coding/components/coding-theming-sidebar';
+import { CodingThemingSidebar } from '@/features/coding/components/coding-theming-sidebar';
 import {
   useCreateCode,
   useDeleteCode,
@@ -41,8 +41,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '../../ui/dialog';
-import { ExtractionFormSidebar } from '../../../features/extraction/components/data-extraction/extraction-sidebar';
+} from '@/components/ui/dialog';
+import { ExtractionFormSidebar } from '@/features/extraction/components/data-extraction/extraction-sidebar';
 import type { ReviewRole } from '@/features/reviews/types/reviews';
 import { can } from '@/lib/permissions';
 

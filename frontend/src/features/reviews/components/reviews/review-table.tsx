@@ -50,7 +50,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { ArrowUpDown } from 'lucide-react';
-import { ReviewForm } from './review-form';
+import { ReviewForm } from '@/features/reviews/components/reviews/review-form';
 import {
   useDeleteReview,
   useUpdateReview,

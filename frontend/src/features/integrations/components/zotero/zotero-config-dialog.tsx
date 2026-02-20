@@ -26,11 +26,8 @@ import {
 } from '@/features/integrations/hooks/use-zotero';
 import { IconSettings, IconExternalLink } from '@tabler/icons-react';
 import { useState, useEffect } from 'react';
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from '../../../../components/ui/radio-group';
-import { DeleteIntegrationDialog } from './delete-integration-dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { DeleteIntegrationDialog } from '@/features/integrations/components/zotero/delete-integration-dialog';
 
 interface ZoteroConfigDialogProps {
   reviewId: number;

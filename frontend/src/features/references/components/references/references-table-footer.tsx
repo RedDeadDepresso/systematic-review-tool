@@ -19,19 +19,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { LabelPopover } from '@/features/references/components/labels/label-popover';
-import { AssigneePopover } from './assignee-popover';
+import { AssigneePopover } from '@/features/references/components/references/assignee-popover';
 import type { OpinionStatus } from '@/features/references/types/references';
 import { useBulkCreateNote } from '@/features/references/hooks/use-notes';
 import type { ReviewRole } from '@/features/reviews/types/reviews';
 import { can } from '@/lib/permissions';
 import { useBulkUpdateExtractionStatus } from '@/features/extraction/hooks/use-extraction-table';
-import { ReasonPopover } from '../reasons/reason-popover';
+import { ReasonPopover } from '@/features/references/components/reasons/reason-popover';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../../../../components/ui/dropdown-menu';
+} from '@/components/ui/dropdown-menu';
 
 export interface ReviewDataFooterProps {
   reviewId: number;

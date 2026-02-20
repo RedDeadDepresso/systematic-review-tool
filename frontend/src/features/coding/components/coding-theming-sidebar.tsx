@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
-import { MainThemeCard } from './main-themes/main-theme-card';
-import { SubThemeCard } from './sub-themes/sub-theme-card';
-import { CodeCard } from './codes/code-card';
-import { CreateItemDialog } from './create-item-dialog';
-import { SectionSearch } from './section-search';
+import { MainThemeCard } from '@/features/coding/components/main-themes/main-theme-card';
+import { SubThemeCard } from '@/features/coding/components/sub-themes/sub-theme-card';
+import { CodeCard } from '@/features/coding/components/codes/code-card';
+import { CreateItemDialog } from '@/features/coding/components/create-item-dialog';
+import { SectionSearch } from '@/features/coding/components/section-search';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -17,7 +17,7 @@ import {
 import { Plus, ChevronDown, ChevronRight, Network } from 'lucide-react';
 import { useCodingTheming } from '@/features/coding/hooks/use-coding-theming';
 import { cn } from '@/lib/utils';
-import { ScrollArea } from '../../../components/ui/scroll-area';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Code } from '@/features/coding/types/codes';
 import { useFetchReview } from '@/features/reviews/hooks/use-reviews';
 

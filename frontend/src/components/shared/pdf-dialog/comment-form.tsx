@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '../../ui/checkbox';
-import { Textarea } from '../../ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 import type { Content } from 'react-pdf-highlighter-plus';
 
 interface CommentFormProps {

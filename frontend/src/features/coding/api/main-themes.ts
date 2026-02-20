@@ -1,4 +1,4 @@
-import api from '../../../api/client';
+import api from '@/api/client';
 import type { MainTheme } from '@/features/coding/types/main-themes';
 
 export async function fetchMainThemes(reviewId: number): Promise<MainTheme[]> {

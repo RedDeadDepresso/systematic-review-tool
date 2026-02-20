@@ -1,4 +1,4 @@
-import type { ReviewMember } from '../../reviews/types/reviews';
+import type { ReviewMember } from '@/features/reviews/types/reviews';
 
 export interface Note {
   id: number;

@@ -20,12 +20,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Button } from '../../../../components/ui/button';
+import { Button } from '@/components/ui/button';
 import { useEffect, useRef, useState } from 'react';
-import { Input } from '../../../../components/ui/input';
+import { Input } from '@/components/ui/input';
 import { can } from '@/lib/permissions';
 import type { ReviewRole } from '@/features/reviews/types/reviews';
-import { ScreeningBreakButton } from '../../../reviews/components/screening-stats/screening-break-button';
+import { ScreeningBreakButton } from '@/features/reviews/components/screening-stats/screening-break-button';
 
 export type ExportType = 'all' | 'filtered';
 

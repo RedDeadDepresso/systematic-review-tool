@@ -11,7 +11,7 @@ import {
   MessageSquare,
   Users,
 } from 'lucide-react';
-import { NotesList } from '../notes/note';
+import { NotesList } from '@/features/references/components/notes/note';
 
 function DetailSection({
   icon: Icon,

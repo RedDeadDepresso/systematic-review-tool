@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import api from '../../../api/client';
+import api from '@/api/client';
 
 import {
   registerUser,
@@ -9,7 +9,7 @@ import {
   deleteUser,
   refreshAccessToken,
   logoutUser,
-} from './auth';
+} from '@/features/users/api/auth';
 
 vi.mock('@/api/client');
 

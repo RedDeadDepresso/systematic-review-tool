@@ -13,8 +13,8 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '../../../../components/ui/tooltip';
-import { Button } from '../../../../components/ui/button';
+} from '@/components/ui/tooltip';
+import { Button } from '@/components/ui/button';
 import type { ReviewMember } from '@/features/reviews/types/reviews';
 
 interface OpinionBadgeProps {

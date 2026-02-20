@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useFetchUser } from '@/features/users/hooks/use-auth';
 import { BookOpenCheck } from 'lucide-react';
-import { NavTheme } from './nav-theme';
+import { NavTheme } from '@/components/shared/app-layout/nav-theme';
 import { useContext } from 'react';
 import { AppLayoutContext } from '@/context/app-layout-context';
 

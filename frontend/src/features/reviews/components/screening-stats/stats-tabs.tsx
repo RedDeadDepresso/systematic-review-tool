@@ -1,8 +1,8 @@
 'use client';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ReviewScreeningStatsChart } from './screening-stats-chart';
-import { ReviewOpinionStatsChart } from './opinion-stats-chart';
+import { ReviewScreeningStatsChart } from '@/features/reviews/components/screening-stats/screening-stats-chart';
+import { ReviewOpinionStatsChart } from '@/features/reviews/components/screening-stats/opinion-stats-chart';
 import type {
   ScreeningStat,
   OpinionStats,

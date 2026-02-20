@@ -24,7 +24,7 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { useState } from 'react';
-import { ZoteroCollectionSelector } from './zotero-collection-selector';
+import { ZoteroCollectionSelector } from '@/features/integrations/components/zotero/zotero-collection-selector';
 import { ChevronDownIcon } from 'lucide-react';
 import {
   Collapsible,

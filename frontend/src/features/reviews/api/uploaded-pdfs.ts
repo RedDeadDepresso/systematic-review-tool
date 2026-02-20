@@ -1,5 +1,5 @@
 import type { UploadedPDF } from '@/features/references/types/uploaded-pdfs';
-import api from '../../../api/client';
+import api from '@/api/client';
 
 export async function fetchUploadedPDFs(
   reviewId: number

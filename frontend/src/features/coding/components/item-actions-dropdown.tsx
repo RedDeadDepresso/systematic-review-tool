@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, Pencil, Trash2, ArrowUpRight } from 'lucide-react';
-import { EditItemDialog } from './edit-item-dialog';
+import { EditItemDialog } from '@/features/coding/components/edit-item-dialog';
 
 interface ItemActionsDropdownProps {
   type: 'code' | 'subTheme' | 'mainTheme';

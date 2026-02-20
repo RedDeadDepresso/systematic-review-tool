@@ -2,7 +2,7 @@ import type {
   Reference,
   ReferencePDFMapping,
 } from '@/features/references/types/references';
-import api from '../../../api/client';
+import api from '@/api/client';
 import type { Keyword } from '@/features/references/types/keywords';
 
 /* ------------------ FETCH REFERENCES (LIST) ------------------ */

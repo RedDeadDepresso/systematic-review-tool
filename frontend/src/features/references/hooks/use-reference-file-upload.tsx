@@ -3,7 +3,7 @@ import {
   useFetchUploadedPDFs,
   useUploadPDF,
 } from '@/features/references/hooks/use-uploaded-pdfs';
-import { useAttachPDFsToReferences } from './use-references';
+import { useAttachPDFsToReferences } from '@/features/references/hooks/use-references';
 import { useDetectDuplicateReferences } from '@/features/references/hooks/use-reference-duplicates';
 import { useUploadReviewReferences } from '@/features/reviews/hooks/use-reviews';
 import type {

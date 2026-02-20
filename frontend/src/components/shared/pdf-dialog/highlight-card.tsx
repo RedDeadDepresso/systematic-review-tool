@@ -22,7 +22,11 @@ import { Button } from '@/components/ui/button';
 import { type CommentedHighlight } from '@/features/coding/types/codes';
 import { type HighlightType } from 'react-pdf-highlighter-plus';
 import { cn } from '@/lib/utils';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface HighlightCardProps {
   highlight: CommentedHighlight;

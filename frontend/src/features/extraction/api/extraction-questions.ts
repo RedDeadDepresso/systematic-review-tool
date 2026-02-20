@@ -2,7 +2,7 @@ import {
   type ExtractionQuestion,
   type QuestionType,
 } from '@/features/extraction/types/extraction';
-import api from '../../../api/client';
+import api from '@/api/client';
 
 /* ------------------ FETCH EXTRACTION QUESTIONS ------------------ */
 export const fetchExtractionQuestions = async (params: {

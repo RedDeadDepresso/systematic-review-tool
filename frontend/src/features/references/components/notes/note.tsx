@@ -18,13 +18,13 @@ import {
 } from '@/features/references/hooks/use-notes';
 import { useState } from 'react';
 import { useFetchUser } from '@/features/users/hooks/use-auth';
-import { Button } from '../../../../components/ui/button';
+import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { Textarea } from '../../../../components/ui/textarea';
+import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from '../../../../components/ui/dropdown-menu';
+} from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,7 +37,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 import {
   AlertDialogFooter,
   AlertDialogHeader,
-} from '../../../../components/ui/alert-dialog';
+} from '@/components/ui/alert-dialog';
 import type { User } from '@/features/users/types/auth';
 import {
   Tooltip,

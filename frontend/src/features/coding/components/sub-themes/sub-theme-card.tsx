@@ -13,10 +13,10 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
-import { CodeCard } from '../codes/code-card';
-import { EditItemDialog } from '../edit-item-dialog';
-import { ItemActionsDropdown } from '../item-actions-dropdown';
-import { DeleteConfirmationDialog } from '../delete-confirmation-dialog';
+import { CodeCard } from '@/features/coding/components/codes/code-card';
+import { EditItemDialog } from '@/features/coding/components/edit-item-dialog';
+import { ItemActionsDropdown } from '@/features/coding/components/item-actions-dropdown';
+import { DeleteConfirmationDialog } from '@/features/coding/components/delete-confirmation-dialog';
 import type { SubTheme } from '@/features/coding/types/sub-themes';
 import type { Code } from '@/features/coding/types/codes';
 import type { ReviewRole } from '@/features/reviews/types/reviews';

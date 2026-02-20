@@ -1,4 +1,4 @@
-import type { Reference } from '../../references/types/references';
+import type { Reference } from '@/features/references/types/references';
 
 // Data extraction types
 export type QuestionType =

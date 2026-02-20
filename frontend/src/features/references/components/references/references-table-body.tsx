@@ -6,7 +6,7 @@ import {
   ReferenceRowTitleAbstract,
   ReferenceRowTitleFile,
   ReferenceRowTitleOnly,
-} from './references-table-row';
+} from '@/features/references/components/references/references-table-row';
 
 interface ReferenceTableBody {
   references: Reference[];

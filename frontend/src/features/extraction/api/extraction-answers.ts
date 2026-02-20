@@ -1,5 +1,5 @@
 import { type ExtractionAnswer } from '@/features/extraction/types/extraction';
-import api from '../../../api/client';
+import api from '@/api/client';
 
 /* ------------------ FETCH EXTRACTION ANSWERS ------------------ */
 export const fetchExtractionAnswers = async (params: {

@@ -13,9 +13,9 @@ import {
   useFetchDuplicateReferences,
   useResolveDuplicateReferences,
 } from '@/features/references/hooks/use-reference-duplicates';
-import { ReferenceContent } from '../references/reference-content';
-import { Badge } from '../../../../components/ui/badge';
-import { AutoResolverForm } from './auto-resolver-form';
+import { ReferenceContent } from '@/features/references/components/references/reference-content';
+import { Badge } from '@/components/ui/badge';
+import { AutoResolverForm } from '@/features/references/components/reference-duplicates/auto-resolver-form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface ResolveDuplicatesDialogProps {

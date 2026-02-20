@@ -2,13 +2,13 @@ import { type ReactNode } from 'react';
 import { X, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { Reference } from '@/features/references/types/references';
-import { ReferenceContent } from './reference-content';
+import { ReferenceContent } from '@/features/references/components/references/reference-content';
 import {
   ReviewDataFooter,
   ScreeningFooter,
   type ReviewDataFooterProps,
   type ScreeningFooterProps,
-} from './references-table-footer';
+} from '@/features/references/components/references/references-table-footer';
 
 interface ReferenceDetailPanelProps {
   reference: Reference | null;
@@ -72,8 +72,7 @@ export function ReferenceDetailPanel({
 }
 
 interface ReviewDataReferenceDetailPanelProps
-  extends ReferenceDetailPanelProps,
-    ReviewDataFooterProps {}
+  extends ReferenceDetailPanelProps, ReviewDataFooterProps {}
 
 export function ReviewDataReferenceDetailPanel(
   props: ReviewDataReferenceDetailPanelProps
@@ -87,8 +86,7 @@ export function ReviewDataReferenceDetailPanel(
 }
 
 interface ScreeningReferenceDetailPanelProps
-  extends ReferenceDetailPanelProps,
-    ScreeningFooterProps {}
+  extends ReferenceDetailPanelProps, ScreeningFooterProps {}
 
 export function ScreeningReferenceDetailPanel(
   props: ScreeningReferenceDetailPanelProps
