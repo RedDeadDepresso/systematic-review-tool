@@ -107,8 +107,7 @@ deploy-prod:
         echo '$GHCR_TOKEN' | docker login ghcr.io -u $GHCR_USERNAME --password-stdin &&
         cd $DEPLOY_PATH &&
         git pull &&
-        docker compose -f docker-compose.production.yml pull &&
-        docker compose -f docker-compose.production.yml up -d --remove-orphans
+        docker compose -f docker-compose.production.yml up --build -d --remove-orphans
       "
   only:
     - main
