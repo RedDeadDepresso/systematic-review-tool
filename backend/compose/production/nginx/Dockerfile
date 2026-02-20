@@ -10,13 +10,7 @@ COPY frontend/ ./
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# Build-time env vars for Vite
-ARG VITE_API_BASE_URL
-ARG VITE_WS_URL
-
-RUN VITE_API_BASE_URL=$VITE_API_BASE_URL \
-    VITE_WS_URL=$VITE_WS_URL \
-    pnpm build
+RUN pnpm build
 
 
 # ---------- Final nginx image ----------
