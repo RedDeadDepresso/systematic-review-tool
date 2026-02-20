@@ -11,8 +11,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 
 interface DeleteConfirmationDialogProps {
   open: boolean;
@@ -91,7 +89,7 @@ export function DeleteConfirmationDialog({
           <AlertDialogDescription>{getDescription()}</AlertDialogDescription>
         </AlertDialogHeader>
 
-        {type === 'subTheme' && (
+        {/* {type === 'subTheme' && (
           <div className="flex items-center gap-2 py-2">
             <Checkbox
               id="delete-codes"
@@ -136,7 +134,7 @@ export function DeleteConfirmationDialog({
               </Label>
             </div>
           </div>
-        )}
+        )} */}
 
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>

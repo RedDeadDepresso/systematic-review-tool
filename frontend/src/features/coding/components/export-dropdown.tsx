@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
+import { Upload } from 'lucide-react';
 
 // Copy LaTeX to clipboard
 export const copyLatexToClipboard = async (
@@ -76,7 +77,14 @@ export function ExportDropdown({ reviewId }: { reviewId: number }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button>Export</Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2 bg-transparent hidden sm:flex"
+        >
+          <Upload className="h-4 w-4" />
+          Export
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="start">
         <DropdownMenuItem onSelect={handleCopyJson}>Copy JSON</DropdownMenuItem>

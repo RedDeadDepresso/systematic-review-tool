@@ -192,26 +192,31 @@ export function useReferenceUI<T extends ReferenceType>(references: T[]) {
       ? sortedReferences.findIndex((r) => r.id === openPDFId)
       : -1;
 
-  const hasOpenPDFReferencePrev = currentPDFIndex > 0;
-  const hasOpenPDFReferenceNext =
-    currentPDFIndex !== -1 && currentPDFIndex < sortedReferences.length - 1;
+  const prevPDFReference = useMemo(() => {
+    if (currentPDFIndex === -1) return null;
+    for (let i = currentPDFIndex - 1; i >= 0; i--) {
+      if (sortedReferences[i].file) return sortedReferences[i];
+    }
+    return null;
+  }, [currentPDFIndex, sortedReferences]);
+
+  const nextPDFReference = useMemo(() => {
+    if (currentPDFIndex === -1) return null;
+    for (let i = currentPDFIndex + 1; i < sortedReferences.length; i++) {
+      if (sortedReferences[i].file) return sortedReferences[i];
+    }
+    return null;
+  }, [currentPDFIndex, sortedReferences]);
+
+  const hasOpenPDFReferencePrev = prevPDFReference !== null;
+  const hasOpenPDFReferenceNext = nextPDFReference !== null;
 
   const handleOpenPDFNavigate = useCallback(
     (direction: 'prev' | 'next') => {
-      if (openPDFId === null) return;
-      const currentIndex = sortedReferences.findIndex(
-        (r) => r.id === openPDFId
-      );
-      if (currentIndex === -1) return;
-
-      const newIndex =
-        direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
-
-      if (newIndex >= 0 && newIndex < sortedReferences.length) {
-        setOpenPDFId(sortedReferences[newIndex].id);
-      }
+      const target = direction === 'prev' ? prevPDFReference : nextPDFReference;
+      if (target) setOpenPDFId(target.id);
     },
-    [sortedReferences, openPDFId]
+    [prevPDFReference, nextPDFReference]
   );
 
   const total = references?.length ?? 0;

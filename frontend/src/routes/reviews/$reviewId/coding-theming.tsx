@@ -195,8 +195,10 @@ function RouteComponent() {
             onPendingHighlightConsumed={() => setPendingHighlightId(null)}
           />
         )}
-      <div className="flex w-full justify-end my-4">
-        <ExportDropdown reviewId={reviewId} />
+      <div className="flex items-center justify-end px-4 sm:px-6 py-3 border-border bg-card">
+        <div className="flex items-center gap-2">
+          <ExportDropdown reviewId={reviewId} />
+        </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Codes Column */}

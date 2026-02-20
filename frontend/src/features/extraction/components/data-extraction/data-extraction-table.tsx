@@ -528,21 +528,21 @@ export function DataExtractionTable({
             variant="outline"
             size="sm"
             className="gap-2 bg-transparent hidden sm:flex"
-            onClick={handleExtractData}
-            disabled={!firstIncompleteReference}
-          >
-            <FileText className="h-4 w-4" />
-            Extract data
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 bg-transparent hidden sm:flex"
             onClick={handleExportCSV}
             disabled={exportCSVMutation.isPending}
           >
             <Download className="h-4 w-4" />
             {exportCSVMutation.isPending ? 'Exporting...' : 'Export'}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 bg-transparent hidden sm:flex"
+            onClick={handleExtractData}
+            disabled={!firstIncompleteReference}
+          >
+            <FileText className="h-4 w-4" />
+            Extract data
           </Button>
         </div>
       </div>
