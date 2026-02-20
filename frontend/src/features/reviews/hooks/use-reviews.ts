@@ -1,0 +1,126 @@
+import {
+  createReview,
+  deleteReview,
+  updateReview,
+  fetchReview,
+  fetchReviews,
+  UploadReviewReferences,
+  fetchArticleCounts,
+  addData,
+  createReviewPrisma,
+} from '@/features/reviews/api/reviews';
+import type { Review } from '@/features/reviews/types/reviews';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { type Stage } from '@/features/references/types/references';
+
+export const useFetchReviews = (params: { isActive: boolean }) => {
+  return useQuery({
+    queryKey: ['reviews', params],
+    queryFn: () => fetchReviews(params),
+  });
+};
+
+export const useFetchReview = (id: number | null) => {
+  return useQuery({
+    queryKey: ['reviews', id],
+    queryFn: () => fetchReview(id!),
+    enabled: !!id,
+  });
+};
+
+export const useCreateReviewPrisma = (id: number) => {
+  return useQuery({
+    queryKey: ['reviews', id, 'prisma'],
+    queryFn: () => createReviewPrisma(id),
+  });
+};
+
+export const useFetchArticleCounts = (
+  reviewId: number,
+  params?: { stage?: Stage }
+) => {
+  return useQuery({
+    queryKey: ['articleCounts', reviewId, params],
+    queryFn: () => fetchArticleCounts(reviewId, params),
+  });
+};
+
+export const useAddData = (reviewId: number) => {
+  return useMutation({
+    mutationFn: (payload: {
+      dataSource: string;
+      dataSink: string;
+      articleTypes: string[];
+      labelIds: number[];
+    }) => addData(reviewId, payload),
+  });
+};
+
+export const useCreateReview = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createReview,
+    onSuccess: (data) => {
+      toast.success('Review has been created.');
+      queryClient.setQueryData(
+        ['reviews', { isActive: true }],
+        (oldData: Review[] = []) => {
+          if (!oldData) return [data];
+          return [...oldData, data];
+        }
+      );
+    },
+  });
+};
+
+export const useUpdateReview = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updateReview,
+    onSuccess: (data, variables) => {
+      // Update the review object
+      queryClient.setQueryData(['reviews', variables.id], data);
+
+      // Invalidate references if needed
+      if (variables.payload?.isBlinded !== undefined) {
+        queryClient.invalidateQueries({
+          queryKey: ['reviews', variables.id, 'references'],
+        });
+      }
+    },
+  });
+};
+
+export const useUploadReviewReferences = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: UploadReviewReferences,
+    onSuccess: (
+      { uploadedReferenceCount }: { uploadedReferenceCount: number },
+      { reviewId }: { reviewId: number; formData: FormData }
+    ) => {
+      toast.success(`${uploadedReferenceCount} References have been uploaded.`);
+      queryClient.setQueryData(['reviews', reviewId], (oldData: Review) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          referenceCount: oldData.referenceCount + uploadedReferenceCount,
+        };
+      });
+    },
+  });
+};
+
+export const useDeleteReview = () => {
+  return useMutation({
+    mutationFn: deleteReview,
+    onSuccess: () => {
+      toast.success('Review deleted successfully.');
+    },
+    onError: () => {
+      toast.error('Delete failed.');
+    },
+  });
+};

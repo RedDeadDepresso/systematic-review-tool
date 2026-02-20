@@ -5,11 +5,15 @@ from slrt_project.coding.models import Code, MainTheme, SubTheme
 
 class CodeSerializer(serializers.ModelSerializer):
     reference_file_url = serializers.SerializerMethodField()
+    reference_title = serializers.SerializerMethodField()
 
     class Meta:
         model = Code
         fields = "__all__"
         read_only_fields = ["id", "member"]
+
+    def get_reference_title(self, obj):
+        return obj.reference.title
 
     def get_reference_file_url(self, obj):
         request = self.context.get("request")

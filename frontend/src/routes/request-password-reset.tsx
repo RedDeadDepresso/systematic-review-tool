@@ -1,5 +1,5 @@
-import { redirectAuthenticated } from '@/api/auth';
-import { RequestPasswordResetForm } from '@/components/auth/request-password-reset-form';
+import { redirectAuthenticated } from '@/features/users/api/auth';
+import { RequestPasswordResetForm } from '@/features/users/components/request-password-reset-form';
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { createFileRoute } from '@tanstack/react-router';
 import { useContext, useEffect } from 'react';

@@ -1,5 +1,5 @@
-import { redirectUnauthenticated } from '@/api/auth';
-import { EditProfileForm } from '@/components/auth/edit-profile-form';
+import { redirectUnauthenticated } from '@/features/users/api/auth';
+import { EditProfileForm } from '@/features/users/components/edit-profile-form';
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { createFileRoute } from '@tanstack/react-router';
 import { useContext, useEffect } from 'react';

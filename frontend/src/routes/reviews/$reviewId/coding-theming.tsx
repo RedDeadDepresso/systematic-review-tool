@@ -1,11 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { SubThemeCard } from '@/components/coding-theming/sub-theme-card';
+import { SubThemeCard } from '@/features/coding/components/sub-themes/sub-theme-card';
 import { useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { AppLayoutContext } from '@/context/app-layout-context';
-import { MainThemeCard } from '@/components/coding-theming/main-theme-card';
-import { CodeCard } from '@/components/coding-theming/code-card';
-import { CreateItemDialog } from '@/components/coding-theming/create-item-dialog';
-import { SectionSearch } from '@/components/coding-theming/section-search';
+import { MainThemeCard } from '@/features/coding/components/main-themes/main-theme-card';
+import { CodeCard } from '@/features/coding/components/codes/code-card';
+import { CreateItemDialog } from '@/features/coding/components/create-item-dialog';
+import { SectionSearch } from '@/features/coding/components/section-search';
 import { Button } from '@/components/ui/button';
 import {
   Collapsible,
@@ -13,12 +13,12 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Plus, ChevronDown, ChevronRight } from 'lucide-react';
-import { useCodingTheming } from '@/hooks/use-coding-theming';
-import type { Code } from '@/types/code';
-import { PDFDialog } from '@/components/shared/pdf-dialog';
+import { useCodingTheming } from '@/features/coding/hooks/use-coding-theming';
+import type { Code } from '@/features/coding/types/codes';
+import { PDFDialog } from '@/components/shared/pdf-dialog/pdf-dialog';
 import React from 'react';
-import { ExportDropdown } from '@/components/coding-theming/export-dropdown';
-import { useFetchReview } from '@/hooks/use-review';
+import { ExportDropdown } from '@/features/coding/components/export-dropdown';
+import { useFetchReview } from '@/features/reviews/hooks/use-reviews';
 import { can } from '@/lib/permissions';
 
 export const Route = createFileRoute('/reviews/$reviewId/coding-theming')({
@@ -71,6 +71,9 @@ function RouteComponent() {
   );
   const [openPdfDialog, setOpenPdfDialog] = React.useState(false);
   const [selectedCode, setSelectedCode] = useState<Code | null>(null);
+  const [pendingHighlightId, setPendingHighlightId] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     setPageTitle('Coding & Theming');
@@ -81,8 +84,8 @@ function RouteComponent() {
   const handleJumpToCode = (code: Code) => {
     if (code.reference && code.referenceFileUrl) {
       setSelectedCode(code);
+      setPendingHighlightId(code.id.toString());
       setOpenPdfDialog(true);
-      document.location.hash = `highlight-${code.id}`;
     }
   };
 
@@ -181,14 +184,21 @@ function RouteComponent() {
             referenceId={selectedCode.reference}
             open={!!openPdfDialog}
             onOpenChange={(open) => !open && setOpenPdfDialog(false)}
-            title=""
+            title={selectedCode?.referenceTitle || ''}
             fileUrl={selectedCode.referenceFileUrl}
             readOnly={false}
             userRole={fetchReview.data?.userRole || 'Viewer'}
+            hasNext={false}
+            hasPrev={false}
+            onNavigate={(_val: 'prev' | 'next') => {}}
+            pendingHighlightId={pendingHighlightId}
+            onPendingHighlightConsumed={() => setPendingHighlightId(null)}
           />
         )}
-      <div className="flex w-full justify-end my-4">
-        <ExportDropdown reviewId={reviewId} />
+      <div className="flex items-center justify-end px-4 sm:px-6 py-3 border-border bg-card">
+        <div className="flex items-center gap-2">
+          <ExportDropdown reviewId={reviewId} />
+        </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Codes Column */}

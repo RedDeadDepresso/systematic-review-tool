@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCreateReviewPrisma } from '@/hooks/use-review';
+import { useCreateReviewPrisma } from '@/features/reviews/hooks/use-reviews';
 import { createFileRoute } from '@tanstack/react-router';
 import { useContext, useEffect, useState, type ReactNode } from 'react';
 import {

@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useContext, useEffect } from 'react';
 import { AppLayoutContext } from '@/context/app-layout-context';
-import { redirectAuthenticated } from '@/api/auth';
-import { ConfirmPasswordResetForm } from '@/components/auth/confirm-password-reset-form';
+import { redirectAuthenticated } from '@/features/users/api/auth';
+import { ConfirmPasswordResetForm } from '@/features/users/components/confirm-password-reset-form';
 
 type PasswordResetConfirmSearch = {
   uid: string;

@@ -1,5 +1,5 @@
-import { redirectAuthenticated } from '@/api/auth';
-import { RegisterForm } from '@/components/auth/register-form';
+import { redirectAuthenticated } from '@/features/users/api/auth';
+import { RegisterForm } from '@/features/users/components/register-form';
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { createFileRoute } from '@tanstack/react-router';
 import { useContext, useEffect } from 'react';

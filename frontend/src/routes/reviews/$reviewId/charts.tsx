@@ -1,4 +1,4 @@
-import { ExtractionChartsDashboard } from '@/components/charts/extraction-charts-dashboard';
+import { ExtractionChartsDashboard } from '@/features/extraction/components/charts/extraction-charts-dashboard';
 import { createFileRoute } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/reviews/$reviewId/charts')({

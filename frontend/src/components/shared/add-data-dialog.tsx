@@ -21,8 +21,11 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Plus, X, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAddData, useFetchArticleCounts } from '@/hooks/use-review';
-import type { Stage } from '@/types/reference';
+import {
+  useAddData,
+  useFetchArticleCounts,
+} from '@/features/reviews/hooks/use-reviews';
+import type { Stage } from '@/features/references/types/references';
 
 type ArticleType = 'included' | 'maybe' | 'labeled';
 
