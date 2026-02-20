@@ -1,11 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { SubThemeCard } from '@/components/coding-theming/sub-theme-card';
+import { SubThemeCard } from '@/features/coding/components/sub-themes/sub-theme-card';
 import { useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { AppLayoutContext } from '@/context/app-layout-context';
-import { MainThemeCard } from '@/components/coding-theming/main-theme-card';
-import { CodeCard } from '@/components/coding-theming/code-card';
-import { CreateItemDialog } from '@/components/coding-theming/create-item-dialog';
-import { SectionSearch } from '@/components/coding-theming/section-search';
+import { MainThemeCard } from '@/features/coding/components/main-themes/main-theme-card';
+import { CodeCard } from '@/features/coding/components/codes/code-card';
+import { CreateItemDialog } from '@/features/coding/components/create-item-dialog';
+import { SectionSearch } from '@/features/coding/components/section-search';
 import { Button } from '@/components/ui/button';
 import {
   Collapsible,
@@ -13,12 +13,12 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Plus, ChevronDown, ChevronRight } from 'lucide-react';
-import { useCodingTheming } from '@/hooks/use-coding-theming';
-import type { Code } from '@/types/code';
-import { PDFDialog } from '@/components/shared/pdf-dialog';
+import { useCodingTheming } from '@/features/coding/hooks/use-coding-theming';
+import type { Code } from '@/features/coding/types/codes';
+import { PDFDialog } from '@/components/shared/pdf-dialog/pdf-dialog';
 import React from 'react';
-import { ExportDropdown } from '@/components/coding-theming/export-dropdown';
-import { useFetchReview } from '@/hooks/use-review';
+import { ExportDropdown } from '@/features/coding/components/export-dropdown';
+import { useFetchReview } from '@/features/reviews/hooks/use-reviews';
 import { can } from '@/lib/permissions';
 
 export const Route = createFileRoute('/reviews/$reviewId/coding-theming')({

@@ -1,11 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { ReviewTable } from '@/components/index/review-table';
-import { useFetchReviews } from '@/hooks/use-review';
+import { ReviewTable } from '@/features/reviews/components/reviews/review-table';
+import { useFetchReviews } from '@/features/reviews/hooks/use-reviews';
 import { useContext, useEffect } from 'react';
 import { AppLayoutContext } from '@/context/app-layout-context';
-import { useFetchInvitations } from '@/hooks/use-invitation';
-import { InvitationTable } from '@/components/index/invitation-table';
-import { redirectUnauthenticated } from '@/api/auth';
+import { useFetchInvitations } from '@/features/reviews/hooks/use-invitations';
+import { InvitationTable } from '@/features/reviews/components/review-invitations/invitation-table';
+import { redirectUnauthenticated } from '@/features/users/api/auth';
 
 export const Route = createFileRoute('/')({
   component: IndexPage,

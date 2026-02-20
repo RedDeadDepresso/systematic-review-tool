@@ -1,32 +1,35 @@
 import { AppLayoutContext } from '@/context/app-layout-context';
-import { useFetchScreening } from '@/hooks/use-reference';
+import { useFetchScreening } from '@/features/references/hooks/use-references';
 import { createFileRoute } from '@tanstack/react-router';
 import { useContext, useState, useEffect, useCallback } from 'react';
-import { ReferencesTable } from '@/components/shared/references-table';
-import { FiltersSidebar } from '@/components/shared/filters-sidebar';
-import { ScreeningReferenceDrawer } from '@/components/shared/reference-drawer';
-import { ScreeningReferenceDetailPanel } from '@/components/shared/reference-panel';
+import { ReferencesTable } from '@/features/references/components/references/references-table';
+import { FiltersSidebar } from '@/features/references/components/references/filters-sidebar';
+import { ScreeningReferenceDrawer } from '@/features/references/components/references/reference-drawer';
+import { ScreeningReferenceDetailPanel } from '@/features/references/components/references/reference-panel';
 import {
   TableTopHeader,
   type ExportType,
-} from '@/components/shared/references-table-top-header';
+} from '@/features/references/components/references/references-table-top-header';
 import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
-import { MatchPDFDialog } from '@/components/shared/match-pdf-dialog';
-import type { ArticleViewLayout, OpinionStatus } from '@/types/reference';
-import { useReferenceFilters } from '@/hooks/use-reference-filters';
-import { useReferenceUI } from '@/hooks/use-reference-ui';
-import { useKeywordManagement } from '@/hooks/use-keyword-management';
-import { useFileUpload } from '@/hooks/use-reference-file-upload';
+import { MatchPDFDialog } from '@/features/references/components/uploaded-pdfs/match-pdf-dialog';
+import type {
+  ArticleViewLayout,
+  OpinionStatus,
+} from '@/features/references/types/references';
+import { useReferenceFilters } from '@/features/references/hooks/use-reference-filters';
+import { useReferenceUI } from '@/features/references/hooks/use-reference-ui';
+import { useKeywordManagement } from '@/features/references/hooks/use-keyword-management';
+import { useFileUpload } from '@/features/references/hooks/use-reference-file-upload';
 import { useQueryClient } from '@tanstack/react-query';
-import { ReferencesTableBody } from '@/components/shared/references-table-body';
-import { ScreeningFooter } from '@/components/shared/references-table-footer';
-import { TableSubHeader } from '@/components/shared/references-table-sub-header';
-import { useBulkUpsertReferenceOpinions } from '@/hooks/use-reference-opinion';
-import { PDFDialog } from '@/components/shared/pdf-dialog';
-import { useFetchReview } from '@/hooks/use-review';
+import { ReferencesTableBody } from '@/features/references/components/references/references-table-body';
+import { ScreeningFooter } from '@/features/references/components/references/references-table-footer';
+import { TableSubHeader } from '@/features/references/components/references/references-table-sub-header';
+import { useBulkUpsertReferenceOpinions } from '@/features/references/hooks/use-reference-opinions';
+import { PDFDialog } from '@/components/shared/pdf-dialog/pdf-dialog';
+import { useFetchReview } from '@/features/reviews/hooks/use-reviews';
 import { Spinner } from '@/components/ui/spinner';
-import { exportScreening } from '@/api/reference';
-import { useScreeningStats } from '@/hooks/use-screening-stats';
+import { exportScreening } from '@/features/references/api/references';
+import { useScreeningStats } from '@/features/reviews/hooks/use-screening-stats';
 
 export const Route = createFileRoute('/reviews/$reviewId/screening')({
   component: RouteComponent,

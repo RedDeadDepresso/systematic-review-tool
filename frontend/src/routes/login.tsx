@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { LoginForm } from '@/components/auth/login-form';
+import { LoginForm } from '@/features/users/components/login-form';
 import { useContext, useEffect } from 'react';
 import { AppLayoutContext } from '@/context/app-layout-context';
-import { redirectAuthenticated } from '@/api/auth';
+import { redirectAuthenticated } from '@/features/users/api/auth';
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,

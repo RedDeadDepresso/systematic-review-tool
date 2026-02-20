@@ -1,7 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useFetchReview, useUploadReviewReferences } from '@/hooks/use-review';
+import {
+  useFetchReview,
+  useUploadReviewReferences,
+} from '@/features/reviews/hooks/use-reviews';
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import {
   FileCheck,
@@ -11,21 +14,21 @@ import {
   Trash2,
   ChevronDownIcon,
 } from 'lucide-react';
-import { useDetectDuplicateReferences } from '@/hooks/use-reference-duplicate';
+import { useDetectDuplicateReferences } from '@/features/references/hooks/use-reference-duplicates';
 import { Spinner } from '@/components/ui/spinner';
 import { useContext, useEffect, useState } from 'react';
-import { ResolveDuplicatesDialog } from '@/components/shared/resolve-duplicates-dialog';
+import { ResolveDuplicatesDialog } from '@/features/references/components/reference-duplicates/resolve-duplicates-dialog';
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
-import { ReviewTeamTable } from '@/components/review-index/review-team-table';
+import { ReviewTeamTable } from '@/features/reviews/components/review-members/review-team-table';
 import { can } from '@/lib/permissions';
-import { StatsTabs } from '@/components/review-index/stats-tabs';
+import { StatsTabs } from '@/features/reviews/components/screening-stats/stats-tabs';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { ZoteroSyncPanel } from '@/components/review-index/zotero-sync-panel';
+import { ZoteroSyncPanel } from '@/features/integrations/components/zotero/zotero-sync-panel';
 
 export const Route = createFileRoute('/reviews/$reviewId/')({
   component: ReviewPage,

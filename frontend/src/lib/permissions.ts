@@ -1,4 +1,4 @@
-import type { ReviewRole } from '@/types/review';
+import type { ReviewRole } from '@/features/reviews/types/reviews';
 
 /**
  * All available permissions as a type

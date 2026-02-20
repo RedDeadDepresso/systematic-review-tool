@@ -1,32 +1,32 @@
 import { AppLayoutContext } from '@/context/app-layout-context';
-import { useFetchReviewData } from '@/hooks/use-reference';
+import { useFetchReviewData } from '@/features/references/hooks/use-references';
 import { createFileRoute } from '@tanstack/react-router';
 import { useContext, useState, useEffect, useCallback } from 'react';
-import { SourcesSidebar } from '@/components/review-data/sources-sidebar';
-import { ReferencesTable } from '@/components/shared/references-table';
-import { FiltersSidebar } from '@/components/shared/filters-sidebar';
-import { ReviewDataReferenceDrawer } from '@/components/shared/reference-drawer';
-import { ReviewDataReferenceDetailPanel } from '@/components/shared/reference-panel';
+import { SourcesSidebar } from '@/features/references/components/references/sources-sidebar';
+import { ReferencesTable } from '@/features/references/components/references/references-table';
+import { FiltersSidebar } from '@/features/references/components/references/filters-sidebar';
+import { ReviewDataReferenceDrawer } from '@/features/references/components/references/reference-drawer';
+import { ReviewDataReferenceDetailPanel } from '@/features/references/components/references/reference-panel';
 import {
   TableTopHeader,
   type ExportType,
-} from '@/components/shared/references-table-top-header';
-import { ResolveDuplicatesDialog } from '@/components/shared/resolve-duplicates-dialog';
+} from '@/features/references/components/references/references-table-top-header';
+import { ResolveDuplicatesDialog } from '@/features/references/components/reference-duplicates/resolve-duplicates-dialog';
 import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
-import { MatchPDFDialog } from '@/components/shared/match-pdf-dialog';
-import type { ArticleViewLayout } from '@/types/reference';
-import { useReferenceFilters } from '@/hooks/use-reference-filters';
-import { useReferenceUI } from '@/hooks/use-reference-ui';
-import { useKeywordManagement } from '@/hooks/use-keyword-management';
-import { useFileUpload } from '@/hooks/use-reference-file-upload';
+import { MatchPDFDialog } from '@/features/references/components/uploaded-pdfs/match-pdf-dialog';
+import type { ArticleViewLayout } from '@/features/references/types/references';
+import { useReferenceFilters } from '@/features/references/hooks/use-reference-filters';
+import { useReferenceUI } from '@/features/references/hooks/use-reference-ui';
+import { useKeywordManagement } from '@/features/references/hooks/use-keyword-management';
+import { useFileUpload } from '@/features/references/hooks/use-reference-file-upload';
 import { useQueryClient } from '@tanstack/react-query';
-import { ReferencesTableBody } from '@/components/shared/references-table-body';
-import { ReviewDataFooter } from '@/components/shared/references-table-footer';
-import { TableSubHeader } from '@/components/shared/references-table-sub-header';
-import { PDFDialog } from '@/components/shared/pdf-dialog';
-import { useFetchReview } from '@/hooks/use-review';
+import { ReferencesTableBody } from '@/features/references/components/references/references-table-body';
+import { ReviewDataFooter } from '@/features/references/components/references/references-table-footer';
+import { TableSubHeader } from '@/features/references/components/references/references-table-sub-header';
+import { PDFDialog } from '@/components/shared/pdf-dialog/pdf-dialog';
+import { useFetchReview } from '@/features/reviews/hooks/use-reviews';
 import { Spinner } from '@/components/ui/spinner';
-import { exportReviewData } from '@/api/reference';
+import { exportReviewData } from '@/features/references/api/references';
 
 export const Route = createFileRoute('/reviews/$reviewId/review-data')({
   component: RouteComponent,
