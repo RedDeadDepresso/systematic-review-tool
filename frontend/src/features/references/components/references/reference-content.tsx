@@ -1,4 +1,4 @@
-import { highlightText } from '@/lib/reference';
+import { highlightText } from '@/lib/highlight-text';
 import { cn } from '@/lib/utils';
 import type { Reference } from '@/features/references/types/references';
 import {

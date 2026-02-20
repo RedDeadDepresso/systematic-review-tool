@@ -1,5 +1,5 @@
 import type { Keyword } from '@/features/references/types/keywords';
-import api from '../../../api/axios';
+import api from '../../../api/client';
 
 /* ------------------ FETCH KEYWORDS ------------------ */
 export const fetchKeywords = async (params: {

@@ -1,5 +1,5 @@
 import type { SubTheme } from '@/features/coding/types/sub-themes';
-import api from '../../../api/axios';
+import api from '../../../api/client';
 
 export async function fetchSubThemes(reviewId: number): Promise<SubTheme[]> {
   const response = await api.get<SubTheme[]>('/sub-themes/', {

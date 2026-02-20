@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { highlightText } from '@/lib/reference';
+import { highlightText } from '@/lib/highlight-text';
 import type { Reference } from '@/features/references/types/references';
 import {
   ExtractionFooter,

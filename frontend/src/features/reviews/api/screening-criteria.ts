@@ -2,7 +2,7 @@ import {
   type ScreeningCriteria,
   type ScreeningCriteriaKind,
 } from '@/features/reviews/types/screening-criteria';
-import api from '../../../api/axios';
+import api from '../../../api/client';
 
 /* ------------------ FETCH SCREENING CRITERIA ------------------ */
 export const fetchScreeningCriteria = async (params: { reviewId: number }) => {

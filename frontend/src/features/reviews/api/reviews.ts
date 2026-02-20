@@ -5,7 +5,7 @@ import type {
   ReviewRow,
   ValidationIssue,
 } from '@/features/reviews/types/reviews';
-import api from '../../../api/axios';
+import api from '../../../api/client';
 import type { Stage } from '@/features/references/types/references';
 
 export const createReview = async (payload: {

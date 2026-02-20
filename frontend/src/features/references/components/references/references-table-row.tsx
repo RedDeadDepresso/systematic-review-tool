@@ -8,7 +8,7 @@ import type {
   Label,
   Opinion,
 } from '@/features/references/types/references';
-import { highlightText } from '@/lib/reference';
+import { highlightText } from '@/lib/highlight-text';
 import {
   Tooltip,
   TooltipContent,

@@ -1,5 +1,5 @@
 import type { Reason } from '@/features/references/types/reasons';
-import api from '../../../api/axios';
+import api from '../../../api/client';
 
 /* ------------------ FETCH REASONS ------------------ */
 export const fetchReasons = async (params: { reviewId: number }) => {

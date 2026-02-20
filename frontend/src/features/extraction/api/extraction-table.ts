@@ -1,4 +1,4 @@
-import api from '../../../api/axios';
+import api from '../../../api/client';
 import type { ExtractionTableData } from '@/features/extraction/types/extraction';
 
 /* ------------------ FETCH TABLE DATA ------------------ */

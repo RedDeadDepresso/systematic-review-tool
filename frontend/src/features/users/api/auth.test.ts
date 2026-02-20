@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import api from '../../../api/axios';
+import api from '../../../api/client';
 
 import {
   registerUser,
@@ -11,7 +11,7 @@ import {
   logoutUser,
 } from './auth';
 
-vi.mock('./axios');
+vi.mock('@/api/client');
 
 describe('auth service', () => {
   beforeEach(() => {

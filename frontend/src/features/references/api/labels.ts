@@ -1,5 +1,5 @@
 import type { Label } from '@/features/references/types/labels';
-import api from '../../../api/axios';
+import api from '../../../api/client';
 
 /**
  * Fetch all labels for a review/user

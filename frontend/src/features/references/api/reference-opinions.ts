@@ -2,7 +2,7 @@ import type {
   OpinionStatus,
   Stage,
 } from '@/features/references/types/references';
-import api from '../../../api/axios';
+import api from '../../../api/client';
 
 /* ------------------ CREATE OR UPDATE OPINION ------------------ */
 export const bulkUpsertReferenceOpinions = async (payload: {

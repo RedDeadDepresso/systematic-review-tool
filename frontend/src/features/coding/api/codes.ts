@@ -1,5 +1,5 @@
 import type { Code } from '@/features/coding/types/codes';
-import api from '../../../api/axios';
+import api from '../../../api/client';
 import type { Content, ScaledPosition } from 'react-pdf-highlighter-plus';
 
 export async function fetchCodes(reviewId: number): Promise<Code[]> {

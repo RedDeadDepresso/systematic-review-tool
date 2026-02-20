@@ -1,4 +1,4 @@
-import api from '../../../api/axios';
+import api from '../../../api/client';
 
 /* ------------------ FETCH NOTES ------------------ */
 export const fetchNotes = async (params: { referenceId: number }) => {

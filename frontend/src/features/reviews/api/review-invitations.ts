@@ -2,7 +2,7 @@ import type {
   Invitation,
   InvitationRole,
 } from '@/features/reviews/types/invitations';
-import api from '../../../api/axios';
+import api from '../../../api/client';
 
 /* ------------------ SEND INVITATIONS ------------------ */
 export async function sendInvitations(payload: {

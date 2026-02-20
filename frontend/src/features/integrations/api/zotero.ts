@@ -1,4 +1,4 @@
-import api from '../../../api/axios';
+import api from '../../../api/client';
 
 export interface ZoteroIntegration {
   id: number;
