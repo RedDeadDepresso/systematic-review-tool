@@ -71,7 +71,12 @@ type PDFDialogProps = {
   userRole: ReviewRole;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onNavigate: (direction: 'prev' | 'next') => void;
+  hasPrev: boolean;
+  hasNext: boolean;
   readOnly?: boolean;
+  pendingHighlightId?: string | null;
+  onPendingHighlightConsumed?: () => void;
 };
 
 export const PDFDialog = ({
@@ -81,8 +86,13 @@ export const PDFDialog = ({
   fileUrl,
   open,
   onOpenChange,
+  onNavigate,
+  hasPrev,
+  hasNext,
   readOnly = true,
   userRole,
+  pendingHighlightId,
+  onPendingHighlightConsumed,
 }: PDFDialogProps) => {
   readOnly = readOnly || !can('modifyThemesCodes', userRole);
   const [referenceId, setReferenceId] = useState<number>(initialReferenceId);
@@ -94,6 +104,7 @@ export const PDFDialog = ({
   );
   const [highlightPen, setHighlightPen] = useState<boolean>(false);
   const [areaMode, setAreaMode] = useState<boolean>(false);
+  const pendingHighlightIdRef = useRef<string | null>(null);
 
   // HighLightSidebar state
   const [highlightSidebarOpen, setHighlightSidebarOpen] =
@@ -107,8 +118,9 @@ export const PDFDialog = ({
   // Left panel state
   const [leftPanelOpen, setLeftPanelOpen] = useState<boolean>(false);
   // Dark mode state
-  const [darkMode, setDarkMode] = useState<boolean>(false);
-
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    return localStorage.getItem('pdf-dialog-dark-mode') === 'true';
+  });
   // Refs for PdfHighlighter utilities
   const highlighterUtilsRef = useRef<PdfHighlighterUtils | null>(null);
   const [, forceUpdate] = useState({});
@@ -118,6 +130,22 @@ export const PDFDialog = ({
   const createCode = useCreateCode();
   const updateCode = useUpdateCode();
   const deleteCode = useDeleteCode();
+
+  const handleToggleDarkMode = useCallback(() => {
+    setDarkMode((prev) => {
+      const next = !prev;
+      localStorage.setItem('pdf-dialog-dark-mode', String(next));
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    setUrl(fileUrl);
+  }, [fileUrl]);
+
+  useEffect(() => {
+    setReferenceId(initialReferenceId);
+  }, [initialReferenceId]);
 
   useEffect(() => {
     if (codes && !isCodesLoading)
@@ -178,9 +206,10 @@ export const PDFDialog = ({
   };
 
   const handleJumpToCode = (code: Code) => {
-    if (code.reference === referenceId)
+    if (code.reference === referenceId) {
       document.location.hash = `highlight-${code.id}`;
-    else if (code.reference && code.referenceFileUrl) {
+    } else if (code.reference && code.referenceFileUrl) {
+      pendingHighlightIdRef.current = code.id.toString();
       setReferenceId(code.reference);
       setUrl(code.referenceFileUrl);
     }
@@ -359,8 +388,13 @@ export const PDFDialog = ({
               setCodingSidebarOpen(false);
             }}
             darkMode={darkMode}
-            onToggleDarkMode={() => setDarkMode(!darkMode)}
+            onToggleDarkMode={handleToggleDarkMode}
+            onClose={() => onOpenChange(false)}
+            onNavigate={onNavigate}
+            hasNext={hasNext}
+            hasPrev={hasPrev}
             readOnly={readOnly}
+            title={title}
           />
 
           {/* Main content */}
@@ -406,10 +440,28 @@ export const PDFDialog = ({
                         onScrollAway={resetHash}
                         utilsRef={(_pdfHighlighterUtils) => {
                           highlighterUtilsRef.current = _pdfHighlighterUtils;
-                          // Only force update ONCE to prevent infinite re-render loop
                           if (!hasInitializedUtilsRef.current) {
                             hasInitializedUtilsRef.current = true;
                             forceUpdate({});
+
+                            if (pendingHighlightId) {
+                              const id = pendingHighlightId;
+                              onPendingHighlightConsumed?.();
+
+                              const tryScroll = () => {
+                                const highlight = highlights.find(
+                                  (h) => h.id === id
+                                );
+                                if (highlight && highlighterUtilsRef.current) {
+                                  highlighterUtilsRef.current.scrollToHighlight(
+                                    highlight
+                                  );
+                                  return;
+                                }
+                                requestAnimationFrame(tryScroll);
+                              };
+                              requestAnimationFrame(tryScroll);
+                            }
                           }
                         }}
                         pdfScaleValue={pdfScaleValue}

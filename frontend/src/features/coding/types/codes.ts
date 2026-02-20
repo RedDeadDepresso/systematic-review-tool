@@ -6,6 +6,7 @@ export interface Code extends Highlight {
   reference?: number;
   subTheme?: number | null;
   referenceFileUrl?: string;
+  referenceTitle?: string;
   content: Content;
   comment?: string;
 

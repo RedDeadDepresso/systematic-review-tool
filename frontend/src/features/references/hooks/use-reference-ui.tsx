@@ -187,6 +187,33 @@ export function useReferenceUI<T extends ReferenceType>(references: T[]) {
       ? sortedReferences.findIndex((r) => r.id === openDetailId)
       : -1;
 
+  const currentPDFIndex =
+    openPDFId !== null
+      ? sortedReferences.findIndex((r) => r.id === openPDFId)
+      : -1;
+
+  const hasOpenPDFReferencePrev = currentPDFIndex > 0;
+  const hasOpenPDFReferenceNext =
+    currentPDFIndex !== -1 && currentPDFIndex < sortedReferences.length - 1;
+
+  const handleOpenPDFNavigate = useCallback(
+    (direction: 'prev' | 'next') => {
+      if (openPDFId === null) return;
+      const currentIndex = sortedReferences.findIndex(
+        (r) => r.id === openPDFId
+      );
+      if (currentIndex === -1) return;
+
+      const newIndex =
+        direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
+
+      if (newIndex >= 0 && newIndex < sortedReferences.length) {
+        setOpenPDFId(sortedReferences[newIndex].id);
+      }
+    },
+    [sortedReferences, openPDFId]
+  );
+
   const total = references?.length ?? 0;
   const allSelected = total > 0 && selectedReferenceIds.length === total;
 
@@ -222,7 +249,11 @@ export function useReferenceUI<T extends ReferenceType>(references: T[]) {
     // PDF state
     openPDFId,
     openPDFReference,
+    currentPDFIndex,
+    hasOpenPDFReferencePrev,
+    hasOpenPDFReferenceNext,
     handleOpenPDF,
     handleClosePDF,
+    handleOpenPDFNavigate,
   };
 }

@@ -185,6 +185,9 @@ function RouteComponent() {
           title={ui.openPDFReference.title}
           fileUrl={ui.openPDFReference.file}
           userRole={fetchReview.data?.userRole || 'Viewer'}
+          hasNext={ui.hasOpenPDFReferenceNext}
+          hasPrev={ui.hasOpenPDFReferencePrev}
+          onNavigate={ui.handleOpenPDFNavigate}
         />
       )}
       <FileUploadDialog

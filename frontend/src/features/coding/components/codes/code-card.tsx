@@ -103,11 +103,22 @@ export function CodeCard({
                 {code.name}
               </p>
               {isExpanded && (
-                <p
-                  className={`text-muted-foreground line-clamp-2 mt-1 ${compact ? 'text-[10px]' : 'text-xs'}`}
-                >
-                  {code?.comment}
-                </p>
+                <div className={`mt-1 space-y-1`}>
+                  {code.content?.text?.trim() && (
+                    <p
+                      className={`text-muted-foreground line-clamp-2 italic border-l-2 border-muted-foreground/40 pl-1.5 ${compact ? 'text-[10px]' : 'text-xs'}`}
+                    >
+                      "{code.content.text.trim()}"
+                    </p>
+                  )}
+                  {code?.comment && (
+                    <p
+                      className={`text-muted-foreground line-clamp-2 ${compact ? 'text-[10px]' : 'text-xs'}`}
+                    >
+                      {code.comment}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
             <div className="flex items-center gap-1 shrink-0">

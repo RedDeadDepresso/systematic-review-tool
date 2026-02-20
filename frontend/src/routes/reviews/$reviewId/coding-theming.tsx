@@ -71,6 +71,9 @@ function RouteComponent() {
   );
   const [openPdfDialog, setOpenPdfDialog] = React.useState(false);
   const [selectedCode, setSelectedCode] = useState<Code | null>(null);
+  const [pendingHighlightId, setPendingHighlightId] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     setPageTitle('Coding & Theming');
@@ -81,8 +84,8 @@ function RouteComponent() {
   const handleJumpToCode = (code: Code) => {
     if (code.reference && code.referenceFileUrl) {
       setSelectedCode(code);
+      setPendingHighlightId(code.id.toString());
       setOpenPdfDialog(true);
-      document.location.hash = `highlight-${code.id}`;
     }
   };
 
@@ -181,10 +184,15 @@ function RouteComponent() {
             referenceId={selectedCode.reference}
             open={!!openPdfDialog}
             onOpenChange={(open) => !open && setOpenPdfDialog(false)}
-            title=""
+            title={selectedCode?.referenceTitle || ''}
             fileUrl={selectedCode.referenceFileUrl}
             readOnly={false}
             userRole={fetchReview.data?.userRole || 'Viewer'}
+            hasNext={false}
+            hasPrev={false}
+            onNavigate={(_val: 'prev' | 'next') => {}}
+            pendingHighlightId={pendingHighlightId}
+            onPendingHighlightConsumed={() => setPendingHighlightId(null)}
           />
         )}
       <div className="flex w-full justify-end my-4">
