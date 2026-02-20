@@ -1,0 +1,42 @@
+# General
+# ------------------------------------------------------------------------------
+# DJANGO_READ_DOT_ENV_FILE=True
+DJANGO_SETTINGS_MODULE=config.settings.production
+DJANGO_SECRET_KEY=i4eAQ3Ox5eAMeatQB18lIK6Scva2oT3NUO9SpOpSPY1FwDN5sEMbTP7Lbira1fxz
+DJANGO_ADMIN_URL=yuR0vnL3p6opO195CA6n0MMgDYM6M6sB/
+DJANGO_ALLOWED_HOSTS=.slrt.duckdns.org
+
+# Security
+# ------------------------------------------------------------------------------
+# TIP: better off using DNS, however, redirect is OK too
+DJANGO_SECURE_SSL_REDIRECT=False
+
+# Email
+# ------------------------------------------------------------------------------
+DJANGO_SERVER_EMAIL=
+
+
+# django-allauth
+# ------------------------------------------------------------------------------
+DJANGO_ACCOUNT_ALLOW_REGISTRATION=True
+
+# Gunicorn
+# ------------------------------------------------------------------------------
+WEB_CONCURRENCY=4
+
+# Sentry
+# ------------------------------------------------------------------------------
+SENTRY_DSN=
+
+
+# Redis
+# ------------------------------------------------------------------------------
+REDIS_URL=redis://redis:6379/0
+
+# Celery
+# ------------------------------------------------------------------------------
+
+# Flower
+CELERY_FLOWER_USER=tQbvGcdmwBbeCVjYZgsqkWKgTTRwuPkY
+CELERY_FLOWER_PASSWORD=mCMXm0cfmJUL5fqB2HKqrR63es8rjPgCcauiILTpiUREuZZofE6QJBxKX48Yrax8
+

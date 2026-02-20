@@ -1,1 +1,4 @@
-.env.production
+.env
+.envs/*
+!.envs/.local/
+!.envs/.production.example/

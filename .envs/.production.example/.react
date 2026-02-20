@@ -1,0 +1,7 @@
+
+# Backend api url used by frontend.
+VITE_API_BASE_URL=https://slrt.duckdns.org/api
+
+
+# Backend websocket url used by frontend.
+VITE_WS_URL=ws://slrt.duckdns.org/ws

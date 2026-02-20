@@ -18,9 +18,9 @@ services:
       - /app/.venv
       - ./backend:/app:z
     env_file:
-      - ./backend/.envs/.local/.django
-      - ./backend/.envs/.local/.postgres
-      - ./.env.development
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+      - ./.envs/.local/.react
     ports:
       - "8000:8000"
     command: /start
@@ -35,7 +35,7 @@ services:
       - slrt_project_local_postgres_data:/var/lib/postgresql/18/docker
       - slrt_project_local_postgres_data_backups:/backups
     env_file:
-      - ./backend/.envs/.local/.postgres
+      - ./.envs/.local/.postgres
 
   mailpit:
     image: docker.io/axllent/mailpit:latest
@@ -99,4 +99,4 @@ services:
       - CI=true
     command: sh -c "pnpm dev"
     env_file:
-      - ./.env.development
+      - ./.envs/.local/.react
