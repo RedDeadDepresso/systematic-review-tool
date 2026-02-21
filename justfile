@@ -35,8 +35,8 @@ logs *args:
 
 # manage: Executes `manage.py` command.
 manage +args:
-    @docker compose run --rm django python ./manage.py {{args}}
+    @docker compose exec django sh -c 'export DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB} && python ./manage.py {{args}}'
 
 # test: Executes `pytest` command.
 test *args:
-    @docker compose run --rm django coverage run -m pytest {{args}}
+    @docker compose exec django sh -c 'export DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB} && coverage run -m pytest {{args}}'
