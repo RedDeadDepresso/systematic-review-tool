@@ -7,3 +7,4 @@ dist
 build
 *.log
 .env*
+!.envs/.production/.react

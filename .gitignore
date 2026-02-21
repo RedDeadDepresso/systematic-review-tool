@@ -2,3 +2,4 @@
 .envs/*
 !.envs/.local/
 !.envs/.production.example/
+.env.production

@@ -15,7 +15,7 @@ variables:
 
   DEPLOY_USER: $DEPLOY_USER_CI
   DEPLOY_HOST: $DEPLOY_HOST_CI
-  DEPLOY_PATH: /srv/app
+  DEPLOY_PATH: /home/$DEPLOY_USER_CI/app
 
   UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
   PNPM_STORE_PATH: "$CI_PROJECT_DIR/.pnpm-store"
