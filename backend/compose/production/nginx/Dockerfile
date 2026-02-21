@@ -6,6 +6,7 @@ RUN corepack enable
 
 # Correct path (relative to repo root)
 COPY frontend/ ./
+COPY .envs/.production/.react .env.production
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
