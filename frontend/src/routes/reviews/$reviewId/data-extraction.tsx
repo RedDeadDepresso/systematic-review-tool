@@ -1,6 +1,6 @@
 import { DataExtractionTable } from '@/features/extraction/components/data-extraction/data-extraction-table';
-import { PDFDialog } from '@/components/shared/pdf-dialog/pdf-dialog';
-import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
+import { PDFDialog } from '@/components/blocks/pdf-dialog/pdf-dialog';
+import { FileUploadDialog } from '@/components/blocks/file-upload-dialog';
 import { MatchPDFDialog } from '@/features/references/components/uploaded-pdfs/match-pdf-dialog';
 import { ExtractionFooter } from '@/features/references/components/references/references-table-footer';
 import { AppLayoutContext } from '@/context/app-layout-context';

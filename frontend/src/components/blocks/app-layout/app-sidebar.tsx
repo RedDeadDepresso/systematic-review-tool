@@ -1,8 +1,8 @@
 import {
   NavMain,
   NavMainUnauthenticated,
-} from '@/components/shared/app-layout/nav-main';
-import { NavUser } from '@/components/shared/app-layout/nav-user';
+} from '@/components/blocks/app-layout/nav-main';
+import { NavUser } from '@/components/blocks/app-layout/nav-user';
 import {
   Sidebar,
   SidebarContent,
@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useFetchUser } from '@/features/users/hooks/use-auth';
 import { BookOpenCheck } from 'lucide-react';
-import { NavTheme } from '@/components/shared/app-layout/nav-theme';
+import { NavTheme } from '@/components/blocks/app-layout/nav-theme';
 import { useContext } from 'react';
 import { AppLayoutContext } from '@/context/app-layout-context';
 

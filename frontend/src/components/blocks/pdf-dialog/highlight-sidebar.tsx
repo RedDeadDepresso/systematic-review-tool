@@ -4,9 +4,9 @@ import { type CommentedHighlight } from '@/features/coding/types/codes';
 import {
   HighlightFilters,
   type SortOption,
-} from '@/components/shared/pdf-dialog/highlight-filters';
-import { HighlightCard } from '@/components/shared/pdf-dialog/highlight-card';
-import { PageGroup } from '@/components/shared/pdf-dialog/page-group';
+} from '@/components/blocks/pdf-dialog/highlight-filters';
+import { HighlightCard } from '@/components/blocks/pdf-dialog/highlight-card';
+import { PageGroup } from '@/components/blocks/pdf-dialog/page-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { FileText, Highlighter } from 'lucide-react';
 import { cn } from '@/lib/utils';

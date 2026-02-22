@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { useRequestPasswordReset } from '@/features/users/hooks/use-auth';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
-import { errorMessage } from '@/components/shared/error-message';
+import { errorMessage } from '@/components/blocks/error-message';
 
 export function RequestPasswordResetForm() {
   const requestReset = useRequestPasswordReset();

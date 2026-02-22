@@ -12,7 +12,7 @@ import {
   type VisibilityState,
 } from '@tanstack/react-table';
 import { Button } from '@/components/ui/button';
-import { DataTable, DataTableSortHeader } from '@/components/shared/data-table';
+import { DataTable, DataTableSortHeader } from '@/components/blocks/data-table';
 import type { Invitation } from '@/features/reviews/types/invitations';
 import { useUpdateInvitationStatus } from '@/features/reviews/hooks/use-invitations';
 

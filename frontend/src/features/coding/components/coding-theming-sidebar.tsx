@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, useMemo, useCallback } from 'react';
 import { MainThemeCard } from '@/features/coding/components/main-themes/main-theme-card';
 import { SubThemeCard } from '@/features/coding/components/sub-themes/sub-theme-card';

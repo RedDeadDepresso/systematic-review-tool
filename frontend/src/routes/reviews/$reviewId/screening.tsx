@@ -10,7 +10,7 @@ import {
   TableTopHeader,
   type ExportType,
 } from '@/features/references/components/references/references-table-top-header';
-import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
+import { FileUploadDialog } from '@/components/blocks/file-upload-dialog';
 import { MatchPDFDialog } from '@/features/references/components/uploaded-pdfs/match-pdf-dialog';
 import type {
   ArticleViewLayout,
@@ -25,7 +25,7 @@ import { ReferencesTableBody } from '@/features/references/components/references
 import { ScreeningFooter } from '@/features/references/components/references/references-table-footer';
 import { TableSubHeader } from '@/features/references/components/references/references-table-sub-header';
 import { useBulkUpsertReferenceOpinions } from '@/features/references/hooks/use-reference-opinions';
-import { PDFDialog } from '@/components/shared/pdf-dialog/pdf-dialog';
+import { PDFDialog } from '@/components/blocks/pdf-dialog/pdf-dialog';
 import { useFetchReview } from '@/features/reviews/hooks/use-reviews';
 import { Spinner } from '@/components/ui/spinner';
 import { exportScreening } from '@/features/references/api/references';

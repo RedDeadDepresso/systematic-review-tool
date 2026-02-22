@@ -51,7 +51,7 @@ import {
   DataTable,
   DataTableColumnToggle,
   DataTableSortHeader,
-} from '@/components/shared/data-table';
+} from '@/components/blocks/data-table';
 
 export function createColumns(
   userRole: ReviewRole,

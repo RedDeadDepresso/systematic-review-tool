@@ -15,7 +15,7 @@ import {
 import { Plus, ChevronDown, ChevronRight } from 'lucide-react';
 import { useCodingTheming } from '@/features/coding/hooks/use-coding-theming';
 import type { Code } from '@/features/coding/types/codes';
-import { PDFDialog } from '@/components/shared/pdf-dialog/pdf-dialog';
+import { PDFDialog } from '@/components/blocks/pdf-dialog/pdf-dialog';
 import React from 'react';
 import { ExportDropdown } from '@/features/coding/components/export-dropdown';
 import { useFetchReview } from '@/features/reviews/hooks/use-reviews';

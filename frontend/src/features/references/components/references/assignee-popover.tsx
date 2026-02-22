@@ -1,5 +1,3 @@
-'use client';
-
 import React, { useState, useMemo } from 'react';
 import { Users, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';

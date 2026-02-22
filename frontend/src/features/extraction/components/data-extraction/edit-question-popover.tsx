@@ -1,5 +1,4 @@
 // components/edit-question-popover.tsx
-'use client';
 
 import React from 'react';
 

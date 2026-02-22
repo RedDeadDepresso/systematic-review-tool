@@ -15,7 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useChangePassword } from '@/features/users/hooks/use-auth';
 import { useState } from 'react';
-import { errorMessage } from '@/components/shared/error-message';
+import { errorMessage } from '@/components/blocks/error-message';
 
 export function ChangePasswordForm() {
   const changePassword = useChangePassword();

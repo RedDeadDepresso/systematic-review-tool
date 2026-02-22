@@ -1,5 +1,3 @@
-'use client';
-
 import React, { useState, useMemo } from 'react';
 import {
   Plus,
@@ -52,7 +50,7 @@ import {
 } from '@/features/references/components/references/references-table-row';
 import { EditQuestionPopover } from '@/features/extraction/components/data-extraction/edit-question-popover';
 import { useQueryClient } from '@tanstack/react-query';
-import { AddDataDialog } from '@/components/shared/add-data-dialog';
+import { AddDataDialog } from '@/components/blocks/add-data-dialog';
 
 interface DataExtractionTableProps {
   reviewId: number;

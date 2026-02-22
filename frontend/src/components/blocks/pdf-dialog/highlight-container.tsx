@@ -1,5 +1,5 @@
 import { type MouseEvent } from 'react';
-import HighlightPopup from '@/components/shared/pdf-dialog/highlight-popup';
+import HighlightPopup from '@/components/blocks/pdf-dialog/highlight-popup';
 import {
   AreaHighlight,
   MonitoredHighlightContainer,

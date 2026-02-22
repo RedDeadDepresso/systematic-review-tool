@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { useLogin } from '@/features/users/hooks/use-auth';
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { errorMessage } from '@/components/shared/error-message';
+import { errorMessage } from '@/components/blocks/error-message';
 
 export function LoginForm({
   className,

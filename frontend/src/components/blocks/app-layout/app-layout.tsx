@@ -1,4 +1,4 @@
-import { AppSidebar } from '@/components/shared/app-layout/app-sidebar';
+import { AppSidebar } from '@/components/blocks/app-layout/app-sidebar';
 import {
   SidebarInset,
   SidebarProvider,

@@ -19,7 +19,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { useContext, useEffect, useState } from 'react';
 import { ResolveDuplicatesDialog } from '@/features/references/components/reference-duplicates/resolve-duplicates-dialog';
 import { AppLayoutContext } from '@/context/app-layout-context';
-import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
+import { FileUploadDialog } from '@/components/blocks/file-upload-dialog';
 import { ReviewMembersTable } from '@/features/reviews/components/review-members/review-members-table';
 import { can } from '@/lib/permissions';
 import { StatsTabs } from '@/features/reviews/components/screening-stats/stats-tabs';

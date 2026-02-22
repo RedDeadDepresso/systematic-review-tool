@@ -5,15 +5,15 @@ import {
   useRef,
   useState,
 } from 'react';
-import CommentForm from '@/components/shared/pdf-dialog/comment-form';
+import CommentForm from '@/components/blocks/pdf-dialog/comment-form';
 import ContextMenu, {
   type ContextMenuProps,
-} from '@/components/shared/pdf-dialog/context-menu';
-import ExpandableTip from '@/components/shared/pdf-dialog/expandable.tip';
-import HighlightContainer from '@/components/shared/pdf-dialog/highlight-container';
-import HighLightSidebar from '@/components/shared/pdf-dialog/highlight-sidebar';
-import { Header } from '@/components/shared/pdf-dialog/header';
-import { FloatingActions } from '@/components/shared/pdf-dialog/floating-actions';
+} from '@/components/blocks/pdf-dialog/context-menu';
+import ExpandableTip from '@/components/blocks/pdf-dialog/expandable.tip';
+import HighlightContainer from '@/components/blocks/pdf-dialog/highlight-container';
+import HighLightSidebar from '@/components/blocks/pdf-dialog/highlight-sidebar';
+import { Header } from '@/components/blocks/pdf-dialog/header';
+import { FloatingActions } from '@/components/blocks/pdf-dialog/floating-actions';
 import {
   type GhostHighlight,
   LeftPanel,

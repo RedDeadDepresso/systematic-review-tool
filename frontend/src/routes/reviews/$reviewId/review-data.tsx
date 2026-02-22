@@ -12,7 +12,7 @@ import {
   type ExportType,
 } from '@/features/references/components/references/references-table-top-header';
 import { ResolveDuplicatesDialog } from '@/features/references/components/reference-duplicates/resolve-duplicates-dialog';
-import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
+import { FileUploadDialog } from '@/components/blocks/file-upload-dialog';
 import { MatchPDFDialog } from '@/features/references/components/uploaded-pdfs/match-pdf-dialog';
 import type { ArticleViewLayout } from '@/features/references/types/references';
 import { useReferenceFilters } from '@/features/references/hooks/use-reference-filters';
@@ -23,7 +23,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ReferencesTableBody } from '@/features/references/components/references/references-table-body';
 import { ReviewDataFooter } from '@/features/references/components/references/references-table-footer';
 import { TableSubHeader } from '@/features/references/components/references/references-table-sub-header';
-import { PDFDialog } from '@/components/shared/pdf-dialog/pdf-dialog';
+import { PDFDialog } from '@/components/blocks/pdf-dialog/pdf-dialog';
 import { useFetchReview } from '@/features/reviews/hooks/use-reviews';
 import { Spinner } from '@/components/ui/spinner';
 import { exportReviewData } from '@/features/references/api/references';
