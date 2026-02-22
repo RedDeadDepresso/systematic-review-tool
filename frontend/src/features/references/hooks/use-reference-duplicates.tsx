@@ -31,7 +31,9 @@ export const useDetectDuplicateReferences = () => {
         return {
           ...oldData,
           duplicatePairsCount:
-            oldData.duplicatePairsCount + duplicatesFoundCount,
+            oldData.duplicatePairsCount === null
+              ? duplicatesFoundCount
+              : oldData.duplicatePairsCount + duplicatesFoundCount,
         };
       });
     },
@@ -81,7 +83,10 @@ export const useResolveDuplicateReferences = () => {
         if (!oldData) return oldData;
         return {
           ...oldData,
-          duplicatePairsCount: oldData.duplicatePairsCount - 1,
+          duplicatePairsCount:
+            oldData.duplicatePairsCount === null
+              ? null
+              : oldData.duplicatePairsCount - 1,
         };
       });
     },

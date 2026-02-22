@@ -151,9 +151,15 @@ function ReviewPage() {
                   </>
                 ) : (
                   <>
-                    <p className="text-center text-4xl font-semibold text-foreground">
-                      {data?.referenceCount}
-                    </p>
+                    <div className="flex justify-center">
+                      {data?.referenceCount === null ? (
+                        <Spinner className="h-10 w-8" />
+                      ) : (
+                        <p className="text-center text-4xl font-semibold text-foreground">
+                          {data?.referenceCount ?? 0}
+                        </p>
+                      )}
+                    </div>
                     {can('uploadFiles', data?.userRole) && (
                       <>
                         <FileUploadDialog
@@ -188,18 +194,26 @@ function ReviewPage() {
                 {isLoading ? (
                   <>
                     <Skeleton className="h-12 w-24 mx-auto" />
-                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-12 w-full" />
                   </>
                 ) : (
                   <>
-                    <p className="text-center text-4xl font-semibold text-foreground">
-                      {data?.duplicatePairsCount}
-                    </p>
+                    <div className="flex justify-center">
+                      {data?.duplicatePairsCount === null ? (
+                        <Spinner className="h-10 w-8" />
+                      ) : (
+                        <p className="text-center text-4xl font-semibold text-foreground">
+                          {data?.duplicatePairsCount ?? 0}
+                        </p>
+                      )}
+                    </div>
                     {can('manageDuplicates', data?.userRole) && (
                       <Button
                         className="w-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
                         onClick={handleDetectDuplicates}
-                        disabled={isPending}
+                        disabled={
+                          isPending || data?.duplicatePairsCount === null
+                        }
                       >
                         {isPending && <Spinner />}
                         Detect Duplicates
@@ -223,13 +237,22 @@ function ReviewPage() {
                   </>
                 ) : (
                   <>
-                    <p className="text-center text-4xl font-semibold text-foreground">
-                      {data?.duplicatePairsUnresolvedCount}
-                    </p>
+                    <div className="flex justify-center">
+                      {data?.duplicatePairsUnresolvedCount === null ? (
+                        <Spinner className="h-10 w-8" />
+                      ) : (
+                        <p className="text-center text-4xl font-semibold text-foreground">
+                          {data?.duplicatePairsUnresolvedCount ?? 0}
+                        </p>
+                      )}
+                    </div>
                     {can('manageDuplicates', data?.userRole) && (
                       <Button
                         className="w-full bg-gray-200 text-gray-600 hover:bg-gray-300"
-                        disabled={data?.duplicatePairsUnresolvedCount === 0}
+                        disabled={
+                          data?.duplicatePairsUnresolvedCount === null ||
+                          data?.duplicatePairsUnresolvedCount === 0
+                        }
                         onClick={() => setIsOpen(true)}
                       >
                         Continue Resolving
@@ -381,7 +404,7 @@ function ReviewPage() {
                         <Skeleton className="h-16 w-32" />
                         <Skeleton className="h-16 w-32" />
                       </div>
-                      <Skeleton className="h-[400px] w-full" />
+                      <Skeleton className="h-100 w-full" />
                     </div>
                   </div>
                 ) : (

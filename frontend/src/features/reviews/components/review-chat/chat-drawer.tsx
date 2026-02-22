@@ -2,16 +2,18 @@ import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { X, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { type ChatMessage } from '@/features/reviews/hooks/use-review-chat';
+import { type ChatMessage } from '@/features/reviews/types/review-chat';
 import { useReviewMembers } from '@/features/reviews/hooks/use-review-members';
-import { formatDistanceToNow, parseISO } from 'date-fns';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
+import {
+  ChatMessageCard,
+  MemberAvatar,
+} from '@/features/reviews/components/review-chat/chat-message';
 
 interface ChatDrawerProps {
   reviewId: number;
@@ -22,99 +24,6 @@ interface ChatDrawerProps {
   sendTyping: (isTyping: boolean) => void;
   messages: ChatMessage[];
   typingUsers: Set<number>;
-}
-
-// Generate consistent avatar colors based on user ID
-function getAvatarColor(userId: number): string {
-  const colors = [
-    '#EF4444', // red
-    '#F59E0B', // amber
-    '#10B981', // emerald
-    '#3B82F6', // blue
-    '#8B5CF6', // violet
-    '#EC4899', // pink
-    '#14B8A6', // teal
-    '#F97316', // orange
-  ];
-  return colors[userId % colors.length];
-}
-
-interface MemberAvatarProps {
-  userName: string;
-  userId: number | null;
-  avatarUrl: string | null;
-  isSystem: boolean;
-  size?: 'sm' | 'md';
-}
-
-function MemberAvatar({
-  userName,
-  userId,
-  avatarUrl,
-  isSystem,
-  size = 'md',
-}: MemberAvatarProps) {
-  const sizeClasses = size === 'sm' ? 'w-8 h-8 text-xs' : 'w-10 h-10 text-sm';
-  if (isSystem) {
-    return (
-      <div
-        className={cn(
-          'rounded-lg flex items-center justify-center font-bold text-white bg-gray-700',
-          sizeClasses
-        )}
-      >
-        🤖
-      </div>
-    );
-  }
-
-  // If user has avatar, show it
-  if (avatarUrl) {
-    return (
-      <img
-        src={avatarUrl}
-        alt={userName}
-        className={cn('rounded-full object-cover', sizeClasses)}
-        onError={(e) => {
-          // Fallback to initials if image fails to load
-          e.currentTarget.style.display = 'none';
-          const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-          if (fallback) fallback.style.display = 'flex';
-        }}
-      />
-    );
-  }
-
-  // Fallback to initials
-  const initials = userName
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-
-  return (
-    <div
-      className={cn(
-        'rounded-full flex items-center justify-center font-medium text-white relative',
-        sizeClasses
-      )}
-      style={{ backgroundColor: getAvatarColor(userId || 0) }}
-    >
-      {initials}
-    </div>
-  );
-}
-
-// Helper function to safely format relative time
-function formatMessageTime(timestamp: string): string {
-  try {
-    const date = parseISO(timestamp);
-    return formatDistanceToNow(date, { addSuffix: true });
-  } catch (error) {
-    console.error('Error parsing date:', timestamp, error);
-    return 'Unknown time';
-  }
 }
 
 export function ChatDrawer({
@@ -234,7 +143,7 @@ export function ChatDrawer({
       />
 
       {/* Drawer */}
-      <div className="fixed inset-y-0 right-0 w-full sm:w-[400px] bg-background border-l border-border shadow-xl z-50 flex flex-col animate-in slide-in-from-right duration-300">
+      <div className="fixed inset-y-0 right-0 w-full sm:sm:w-100 bg-background border-l border-border shadow-xl z-50 flex flex-col animate-in slide-in-from-right duration-300">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
           <div className="flex items-center gap-3">
@@ -325,66 +234,7 @@ export function ChatDrawer({
             </div>
           ) : (
             messages.map((message) => {
-              return (
-                <div
-                  key={message.id}
-                  className={cn(
-                    'px-4 py-4 border-b border-border/50 hover:bg-muted/30',
-                    message.isSystemMessage && 'bg-muted/20'
-                  )}
-                >
-                  <div className="flex items-start gap-3">
-                    <MemberAvatar
-                      userName={message.userName || 'Unknown'}
-                      userId={message.userId}
-                      avatarUrl={message.avatarUrl || null}
-                      isSystem={message.isSystemMessage}
-                      size="sm"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className="font-semibold text-sm text-foreground">
-                          {message.userName || 'Unknown User'}
-                        </span>
-                        {message.isSystemMessage && (
-                          <Badge variant="secondary" className="text-xs">
-                            System
-                          </Badge>
-                        )}
-                        <span className="text-xs text-muted-foreground">
-                          {formatMessageTime(message.createdAt)}
-                        </span>
-                      </div>
-                      <p className="text-sm text-foreground mt-1 whitespace-pre-wrap">
-                        {message.message || '(empty message)'}
-                      </p>
-
-                      {message.isSystemMessage && message.metadata && (
-                        <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
-                          {message.metadata.pairs_found !== undefined && (
-                            <p>• Pairs found: {message.metadata.pairs_found}</p>
-                          )}
-                          {message.metadata.auto_resolved !== undefined && (
-                            <p>
-                              • Auto-resolved: {message.metadata.auto_resolved}
-                            </p>
-                          )}
-                          {message.metadata.confidence_threshold !==
-                            undefined && (
-                            <p>
-                              • Threshold:{' '}
-                              {Math.round(
-                                message.metadata.confidence_threshold * 100
-                              )}
-                              %
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
+              return <ChatMessageCard key={message.id} message={message} />;
             })
           )}
 

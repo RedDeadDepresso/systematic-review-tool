@@ -106,7 +106,7 @@ export const useUploadReviewReferences = () => {
         if (!oldData) return oldData;
         return {
           ...oldData,
-          referenceCount: oldData.referenceCount + uploadedReferenceCount,
+          referenceCount: null,
         };
       });
     },
