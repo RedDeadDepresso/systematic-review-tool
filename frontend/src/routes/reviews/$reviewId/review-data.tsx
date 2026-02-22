@@ -25,7 +25,6 @@ import { ReviewDataFooter } from '@/features/references/components/references/re
 import { TableSubHeader } from '@/features/references/components/references/references-table-sub-header';
 import { PDFDialog } from '@/components/blocks/pdf-dialog/pdf-dialog';
 import { useFetchReview } from '@/features/reviews/hooks/use-reviews';
-import { Spinner } from '@/components/ui/spinner';
 import { exportReviewData } from '@/features/references/api/references';
 
 export const Route = createFileRoute('/reviews/$reviewId/review-data')({
@@ -113,19 +112,6 @@ function RouteComponent() {
     },
     [queryParams]
   );
-
-  if (isLoading) {
-    return (
-      <div className="h-full flex items-center justify-center text-muted-foreground">
-        <div className="flex flex-col gap-2">
-          <span>Loading references...</span>
-          <div className="flex items-center justify-center w-full">
-            <Spinner />
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (error) {
     return (
@@ -254,6 +240,7 @@ function RouteComponent() {
                 onOpenDetail={ui.handleOpenDetail}
                 onOpenPDF={ui.handleOpenPDF}
                 viewLayout={articleViewLayout}
+                isLoading={isLoading}
               />
               {articleViewLayout !== 'title-abstract' && (
                 <ReviewDataFooter

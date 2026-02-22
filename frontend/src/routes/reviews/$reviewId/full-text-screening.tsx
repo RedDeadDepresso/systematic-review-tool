@@ -28,7 +28,6 @@ import { useBulkUpsertReferenceOpinions } from '@/features/references/hooks/use-
 import { PDFDialog } from '@/components/blocks/pdf-dialog/pdf-dialog';
 import { useFetchReview } from '@/features/reviews/hooks/use-reviews';
 import { AddDataDialog } from '@/components/blocks/add-data-dialog';
-import { Spinner } from '@/components/ui/spinner';
 import { exportScreeningFullText } from '@/features/references/api/references';
 import { useScreeningStats } from '@/features/reviews/hooks/use-screening-stats';
 
@@ -155,19 +154,6 @@ function RouteComponent() {
 
   const [openAddData, setOpenAddData] = useState<boolean>(false);
 
-  if (isLoading) {
-    return (
-      <div className="h-full flex items-center justify-center text-muted-foreground">
-        <div className="flex flex-col gap-2">
-          <span>Loading references...</span>
-          <div className="flex items-center justify-center w-full">
-            <Spinner />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -264,6 +250,7 @@ function RouteComponent() {
                 onOpenDetail={ui.handleOpenDetail}
                 viewLayout={articleViewLayout}
                 onOpenPDF={ui.handleOpenPDF}
+                isLoading={isLoading}
               />
               {articleViewLayout !== 'title-abstract' && (
                 <ScreeningFooter

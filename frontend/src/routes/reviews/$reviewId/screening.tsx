@@ -27,7 +27,6 @@ import { TableSubHeader } from '@/features/references/components/references/refe
 import { useBulkUpsertReferenceOpinions } from '@/features/references/hooks/use-reference-opinions';
 import { PDFDialog } from '@/components/blocks/pdf-dialog/pdf-dialog';
 import { useFetchReview } from '@/features/reviews/hooks/use-reviews';
-import { Spinner } from '@/components/ui/spinner';
 import { exportScreening } from '@/features/references/api/references';
 import { useScreeningStats } from '@/features/reviews/hooks/use-screening-stats';
 
@@ -152,19 +151,6 @@ function RouteComponent() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="h-full flex items-center justify-center text-muted-foreground">
-        <div className="flex flex-col gap-2">
-          <span>Loading references...</span>
-          <div className="flex items-center justify-center w-full">
-            <Spinner />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -252,6 +238,7 @@ function RouteComponent() {
                 onOpenDetail={ui.handleOpenDetail}
                 viewLayout={articleViewLayout}
                 onOpenPDF={ui.handleOpenPDF}
+                isLoading={isLoading}
               />
               {articleViewLayout !== 'title-abstract' && (
                 <ScreeningFooter
