@@ -11,7 +11,6 @@ import { useFetchReview } from '@/features/reviews/hooks/use-reviews';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useContext, useEffect } from 'react';
-import { Spinner } from '@/components/ui/spinner';
 
 export const Route = createFileRoute('/reviews/$reviewId/data-extraction')({
   component: RouteComponent,
@@ -46,19 +45,6 @@ function RouteComponent() {
     setIsAuthenticated(true);
     setScroll(false);
   }, []);
-
-  if (isLoading) {
-    return (
-      <div className="h-full flex items-center justify-center text-muted-foreground">
-        <div className="flex flex-col gap-2">
-          <span>Loading references...</span>
-          <div className="flex items-center justify-center w-full">
-            <Spinner />
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (error) {
     return (
@@ -117,6 +103,7 @@ function RouteComponent() {
           ui.handleHighlightReference(refId);
           fileUpload.setOpenUploadPDFDialog(true);
         }}
+        isLoading={isLoading}
       />
       <ExtractionFooter
         reviewId={reviewId}
