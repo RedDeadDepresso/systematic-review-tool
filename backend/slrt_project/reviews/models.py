@@ -8,8 +8,9 @@ from django.db import models
 
 class Review(models.Model):
     class DuplicateDetectionStatus(models.TextChoices):
-        PENDING = "pending", "Pending"
-        COMPLETED = "completed", "Completed"
+        NOT_STARTED = "Not Started"
+        PENDING = "Pending"
+        COMPLETED = "Completed"
 
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
@@ -17,7 +18,7 @@ class Review(models.Model):
     duplicate_detection_status = models.CharField(
         max_length=20,
         choices=DuplicateDetectionStatus.choices,
-        default=DuplicateDetectionStatus.COMPLETED,
+        default=DuplicateDetectionStatus.NOT_STARTED,
     )
     is_active = models.BooleanField(default=True)
     is_blinded = models.BooleanField(default=True)

@@ -127,6 +127,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             "screening_stats",
             "screening_opinions",
             "full_text_opinions",
+            "duplicate_detection_status",
             "duplicate_resolved_count",
             "duplicate_not_duplicate_count",
             "duplicate_deleted_count",

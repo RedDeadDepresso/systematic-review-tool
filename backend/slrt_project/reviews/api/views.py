@@ -36,7 +36,6 @@ from slrt_project.permissions import (
 )
 from slrt_project.references.models import (
     Reference,
-    ReferenceDuplicatePair,
     ReferenceLabel,
     ReferenceOpinion,
 )
@@ -58,7 +57,11 @@ from slrt_project.reviews.models import (
     ScreeningCriteria,
     SearchMethod,
 )
-from slrt_project.reviews.tasks import auto_deduplicate_task, import_bibtex_task
+from slrt_project.reviews.tasks import (
+    auto_deduplicate_task,
+    detect_duplicates_task,
+    import_bibtex_task,
+)
 from slrt_project.reviews.utils import strip_ansi
 from vendor.prisma_flow_diagram.prisma import Prisma2020Diagram, plot_prisma2020_new
 from vendor.prisma_flow_diagram.validation import _human_issue
@@ -718,7 +721,81 @@ class ReviewViewSet(viewsets.ModelViewSet):
             }
         )
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], url_path="detect-duplicates")
+    def detect_duplicates(self, request, pk=None):
+        """
+        Detect duplicate references asynchronously
+        Only owner, collaborator, and reviewer can detect duplicates
+        """
+        review = self.get_object()
+
+        # Check user permission
+        try:
+            member = ReviewMember.objects.get(review=review, user=request.user)
+            if member.role not in PERMISSIONS[Permission.MANAGE_DUPLICATES]:
+                return permission_denied_message(Permission.MANAGE_DUPLICATES)
+        except ReviewMember.DoesNotExist:
+            return Response(
+                {"error": "You are not a member of this review"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Check current status
+        match review.duplicate_detection_status:
+            case Review.DuplicateDetectionStatus.PENDING:
+                return Response(
+                    {"detail": "Duplicate detection is already in progress."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            case Review.DuplicateDetectionStatus.COMPLETED:
+                return Response(
+                    {"detail": "Duplicate detection already performed."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # Check if there are references to check
+        reference_count = Reference.objects.filter(review=review).count()
+
+        if reference_count == 0:
+            return Response(
+                {"error": "No references found to check for duplicates"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get threshold from request (optional)
+        threshold = float(request.data.get("threshold", 0.5))
+
+        # Validate threshold
+        if not (0.0 <= threshold <= 1.0):
+            return Response(
+                {"error": "Threshold must be between 0.0 and 1.0"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Update status to pending
+        review.duplicate_detection_status = Review.DuplicateDetectionStatus.PENDING
+        review.save()
+
+        # Start async task
+        task = detect_duplicates_task.delay(
+            review_id=review.id, member_id=member.id, threshold=threshold
+        )
+
+        logger.info(
+            f"Started duplicate detection task {task.id} for review {review.id}"
+        )
+
+        return Response(
+            {
+                "message": "Duplicate detection started. You'll be notified when complete.",
+                "task_id": task.id,
+                "status": "processing",
+                "threshold": threshold,
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    @action(detail=True, methods=["post"], url_path="auto-resolve-duplicates")
     def auto_resolve_duplicates(self, request, pk=None):
         """
         Start automatic duplicate resolution
@@ -728,7 +805,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
         # Check user permission
         try:
             member = ReviewMember.objects.get(review=review, user=request.user)
-            if not member.role not in PERMISSIONS[Permission.MANAGE_DUPLICATES]:
+            if member.role not in PERMISSIONS[Permission.MANAGE_DUPLICATES]:
                 permission_denied_message(Permission.MANAGE_DUPLICATES)
         except ReviewMember.DoesNotExist:
             return Response(
@@ -807,44 +884,6 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 }
                 for method in search_methods
             ]
-        )
-
-    @action(detail=True, methods=["get"])
-    def auto_resolve_preview(self, request, pk=None):
-        """
-        Preview how many pairs would be auto-resolved
-
-        """
-        review = self.get_object()
-
-        confidence_threshold = request.query_params.get("confidence_threshold", 0.9)
-
-        try:
-            confidence_threshold = float(confidence_threshold)
-            if not (0.0 <= confidence_threshold <= 1.0):
-                raise ValueError
-        except (ValueError, TypeError):
-            return Response(
-                {"error": "confidence_threshold must be a number between 0.0 and 1.0"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Count pairs that would be auto-resolved
-        high_confidence_pairs = ReferenceDuplicatePair.objects.filter(
-            review=review, resolved=False, similarity_score__gte=confidence_threshold
-        ).count()
-
-        total_unresolved = ReferenceDuplicatePair.objects.filter(
-            review=review, resolved=False
-        ).count()
-
-        return Response(
-            {
-                "total_unresolved": total_unresolved,
-                "would_auto_resolve": high_confidence_pairs,
-                "confidence_threshold": confidence_threshold,
-                "remaining_after": total_unresolved - high_confidence_pairs,
-            }
         )
 
     # === Helper Methods ===
