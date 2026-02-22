@@ -55,8 +55,7 @@ function RouteComponent() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-background">
-      {/* Dialogs */}
+    <>
       {ui.openPDFId && ui.openPDFReference && ui.openPDFReference.file && (
         <PDFDialog
           reviewId={reviewId}
@@ -87,37 +86,39 @@ function RouteComponent() {
           onImport={fileUpload.handleMatch}
         />
       )}
-      <DataExtractionTable
-        reviewId={reviewId}
-        references={ui.sortedReferences}
-        questions={data?.questions || []}
-        selectedReferenceIds={ui.selectedReferenceIds}
-        highlightedReferenceId={ui.highlightedReferenceId}
-        allSelected={ui.allSelected}
-        onSelectAll={ui.handleSelectAllReferences}
-        onSelectReference={ui.handleReferenceSelect}
-        onHighlightReference={ui.handleHighlightReference}
-        onOpenDetail={ui.handleOpenDetail}
-        onOpenPDF={ui.handleOpenPDF}
-        onAttachPDF={(refId: number) => {
-          ui.handleHighlightReference(refId);
-          fileUpload.setOpenUploadPDFDialog(true);
-        }}
-        isLoading={isLoading}
-      />
-      <ExtractionFooter
-        reviewId={reviewId}
-        userRole={fetchReview.data?.userRole || 'Viewer'}
-        selectedReferenceIds={ui.selectedReferenceIds}
-        highlightedReferenceId={ui.highlightedReferenceId}
-        onLabelsApplied={() =>
-          queryClient.invalidateQueries({
-            queryKey: ['extraction-table', reviewId],
-          })
-        }
-        onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
-        onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
-      />
-    </div>
+      <div className="h-full flex flex-col overflow-hidden bg-background">
+        <DataExtractionTable
+          reviewId={reviewId}
+          references={ui.sortedReferences}
+          questions={data?.questions || []}
+          isLoading={isLoading}
+          selectedReferenceIds={ui.selectedReferenceIds}
+          highlightedReferenceId={ui.highlightedReferenceId}
+          allSelected={ui.allSelected}
+          onSelectAll={ui.handleSelectAllReferences}
+          onSelectReference={ui.handleReferenceSelect}
+          onHighlightReference={ui.handleHighlightReference}
+          onOpenDetail={ui.handleOpenDetail}
+          onOpenPDF={ui.handleOpenPDF}
+          onAttachPDF={(refId: number) => {
+            ui.handleHighlightReference(refId);
+            fileUpload.setOpenUploadPDFDialog(true);
+          }}
+        />
+        <ExtractionFooter
+          reviewId={reviewId}
+          userRole={fetchReview.data?.userRole || 'Viewer'}
+          selectedReferenceIds={ui.selectedReferenceIds}
+          highlightedReferenceId={ui.highlightedReferenceId}
+          onLabelsApplied={() =>
+            queryClient.invalidateQueries({
+              queryKey: ['extraction-table', reviewId],
+            })
+          }
+          onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
+          onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
+        />
+      </div>
+    </>
   );
 }

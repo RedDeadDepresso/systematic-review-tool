@@ -78,7 +78,7 @@ function RouteComponent() {
   useEffect(() => {
     setPageTitle('Coding & Theming');
     setIsAuthenticated(true);
-    setScroll(false);
+    setScroll(true);
   }, []);
 
   const handleJumpToCode = (code: Code) => {

@@ -14,7 +14,7 @@ export function ReferencesTable({
   return (
     <div
       className={cn(
-        'flex flex-col min-w-0',
+        'flex flex-col min-h-0 overflow-hidden min-w-0',
         viewLayout === 'title-abstract' ? 'w-80' : 'flex-1'
       )}
     >
