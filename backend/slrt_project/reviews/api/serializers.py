@@ -93,12 +93,15 @@ class ReviewSerializer(serializers.ModelSerializer):
     user_member_id = serializers.IntegerField(read_only=True)
 
     # annotated counts from queryset
-    reference_count = serializers.IntegerField(read_only=True)
+    reference_count = serializers.IntegerField(read_only=True, allow_null=True)
+
     duplicate_resolved_count = serializers.IntegerField(read_only=True)
     duplicate_not_duplicate_count = serializers.IntegerField(read_only=True)
     duplicate_deleted_count = serializers.IntegerField(read_only=True)
-    duplicate_pairs_count = serializers.IntegerField(read_only=True)
-    duplicate_pairs_unresolved_count = serializers.IntegerField(read_only=True)
+    duplicate_pairs_count = serializers.IntegerField(read_only=True, allow_null=True)
+    duplicate_pairs_unresolved_count = serializers.IntegerField(
+        read_only=True, allow_null=True
+    )
 
     members = ReviewMemberSerializer(many=True, read_only=True)
 
@@ -203,7 +206,7 @@ class ReviewListSerializer(serializers.ModelSerializer):
     user_role = serializers.SerializerMethodField()
     date_created = serializers.DateTimeField(format="%d %b %Y")
     owner = serializers.StringRelatedField()
-    reference_count = serializers.IntegerField(read_only=True)
+    reference_count = serializers.IntegerField(read_only=True, allow_null=True)
     owner = serializers.SerializerMethodField()
 
     def get_user_role(self, obj):

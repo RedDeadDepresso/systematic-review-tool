@@ -1,76 +1,21 @@
 import logging
 
-from asgiref.sync import async_to_sync
+import bibtexparser
 from celery import shared_task
-from channels.layers import get_channel_layer
-from django.conf import settings
 
-from slrt_project.references.models import ReferenceDuplicatePair
+from slrt_project.references.models import Reference, ReferenceDuplicatePair
 from slrt_project.reviews.models import (
     Review,
-    ReviewChatMessage,
     ReviewMember,
     SearchMethod,
+)
+from slrt_project.reviews.utils import (
+    extract_reference_fields,
+    send_review_chat_message,
 )
 
 
 logger = logging.getLogger(__name__)
-
-
-def send_review_chat_message(
-    review_id, member, message, is_system_message=False, metadata=None
-):
-    """
-    Send a chat message to review and broadcast via WebSocket
-    """
-    # Save message to database
-    chat_message = ReviewChatMessage.objects.create(
-        review_id=review_id,
-        member=member,
-        message=message,
-        is_system_message=is_system_message,
-        metadata=metadata,
-    )
-
-    # Broadcast via WebSocket
-    channel_layer = get_channel_layer()
-
-    if not channel_layer:
-        logger.warning("Channel layer not available, cannot broadcast message")
-        return chat_message
-
-    user_name = "System"
-    user_id = None
-    member_id = None
-    avatar_url = None
-
-    if member:
-        user = member.user
-        user_name = f"{user.first_name} {user.last_name}".strip() or user.email
-        user_id = user.id
-        member_id = member.id
-        if user.avatar:
-            avatar_url = f"{settings.SITE_URL}{settings.MEDIA_URL}{user.avatar.name}"
-
-    async_to_sync(channel_layer.group_send)(
-        f"review_{review_id}",
-        {
-            "type": "chat_message",
-            "message_id": chat_message.id,
-            "member_id": member_id,
-            "user_id": user_id,
-            "user_name": user_name,
-            "avatar_url": avatar_url,
-            "message": message,
-            "is_system_message": is_system_message,
-            "metadata": metadata,
-            "created_at": chat_message.created_at.isoformat(),
-        },
-    )
-
-    logger.info(f"Sent message to review {review_id}: {message[:50]}")
-
-    return chat_message
 
 
 @shared_task(bind=True, max_retries=3)
@@ -196,7 +141,9 @@ def auto_deduplicate_task(
 
         # Update review flag
         if create_pairs_first and pairs_created > 0:
-            review.reference_duplicate_detected = True
+            review.duplicate_detection_status = (
+                Review.DuplicateDetectionStatus.COMPLETED
+            )
             review.save()
 
         # Send completion message
@@ -261,6 +208,184 @@ def auto_deduplicate_task(
             metadata={"action": "deduplication_failed", "error": str(e)},
         )
 
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=e, countdown=60)
+        else:
+            return {
+                "success": False,
+                "error": f"Failed after {self.max_retries} retries: {str(e)}",
+            }
+
+
+@shared_task(bind=True, max_retries=3)
+def import_bibtex_task(self, review_id: int, member_id: int, search_method_id: int):
+    """
+    Import BibTeX file and create references
+
+    Args:
+        review_id: Review ID
+        member_id: ReviewMember ID who triggered import
+        search_method_id: SearchMethod ID with the uploaded file
+    """
+
+    search_method = None
+
+    try:
+        review = Review.objects.get(id=review_id)
+        member = ReviewMember.objects.select_related("user").get(id=member_id)
+        search_method = SearchMethod.objects.get(id=search_method_id)
+
+        user_name = member.user_name
+        file_name = search_method.name
+
+        # Verify file exists
+        if not search_method.file:
+            error_msg = "No file attached to SearchMethod"
+            logger.error(error_msg)
+
+            send_review_chat_message(
+                review_id=review_id,
+                member=member,
+                message="❌ Import failed: No file found",
+                is_system_message=True,
+                metadata={"action": "import_failed", "error": error_msg},
+            )
+
+            # Delete SearchMethod on failure
+            search_method.delete()
+
+            return {"success": False, "error": error_msg}
+
+        file_path = search_method.file.path
+
+        logger.info(f"Processing file: {file_path}")
+
+        # Send start message
+        send_review_chat_message(
+            review_id=review_id,
+            member=member,
+            message=f"📤 {user_name} started importing references from {file_name}...",
+            is_system_message=True,
+            metadata={"action": "import_started", "filename": file_name},
+        )
+
+        # Parse BibTeX file
+        try:
+            with open(file_path, "r", encoding="utf-8") as bib_file:
+                bib_database = bibtexparser.load(bib_file)
+        except UnicodeDecodeError:
+            # Try with different encoding
+            try:
+                with open(file_path, "r", encoding="latin-1") as bib_file:
+                    bib_database = bibtexparser.load(bib_file)
+            except Exception as e:
+                raise Exception(f"Failed to parse BibTeX file: {str(e)}")
+
+        total_entries = len(bib_database.entries)
+
+        if total_entries == 0:
+            error_msg = "BibTeX file is empty"
+            logger.warning(error_msg)
+
+            send_review_chat_message(
+                review_id=review_id,
+                member=member,
+                message=f"⚠️ Import warning: No references found in {file_name}",
+                is_system_message=True,
+                metadata={"action": "import_failed", "error": error_msg},
+            )
+
+            # Delete SearchMethod on failure
+            search_method.delete()
+
+            return {"success": False, "error": error_msg}
+
+        logger.info(f"Found {total_entries} entries in BibTeX file")
+
+        # Create all references at once
+        references = [
+            extract_reference_fields(review.id, search_method, entry)
+            for entry in bib_database.entries
+        ]
+
+        Reference.objects.bulk_create(references)
+        created_count = len(references)
+
+        logger.info(f"Imported {created_count} references")
+
+        # Remove file (django-cleanup will delete it)
+        search_method.file = None
+        search_method.save()
+
+        metadata = {
+            "action": "import_completed",
+            "filename": file_name,
+            "imported_count": created_count,
+            "search_method": search_method.name,
+        }
+
+        if not SearchMethod.objects.filter(review=review, file__gt="").exists():
+            metadata["refresh_review"] = True
+
+        # Send completion message
+        send_review_chat_message(
+            review_id=review_id,
+            member=member,
+            message=(
+                f"✅ Import complete!\n"
+                f"• File: {file_name}\n"
+                f"• Imported: {created_count} references\n"
+                f"• Source: {search_method.name}"
+            ),
+            is_system_message=True,
+            metadata=metadata,
+        )
+
+        logger.info(
+            f"Successfully imported {created_count} references from {file_name}"
+        )
+
+        return {
+            "success": True,
+            "imported_count": created_count,
+            "search_method": search_method.name,
+        }
+
+    except SearchMethod.DoesNotExist:
+        error_msg = f"SearchMethod {search_method_id} not found"
+        logger.error(error_msg)
+        return {"success": False, "error": error_msg}
+
+    except Review.DoesNotExist:
+        error_msg = f"Review {review_id} not found"
+        logger.error(error_msg)
+
+        # Delete SearchMethod on failure
+        if search_method:
+            search_method.delete()
+
+        return {"success": False, "error": error_msg}
+
+    except Exception as e:
+        logger.exception(f"BibTeX import task error: {str(e)}")
+
+        # Send failure message
+        try:
+            send_review_chat_message(
+                review_id=review_id,
+                member=member if "member" in locals() else None,
+                message=f"❌ Import failed: {str(e)}",
+                is_system_message=True,
+                metadata={"action": "import_failed", "error": str(e)},
+            )
+        except Exception as send_message_error:
+            logger.warning(f"Failed to send failure message: {send_message_error}")
+
+        # Delete SearchMethod on failure
+        if search_method:
+            search_method.delete()
+
+        # Retry on failure
         if self.request.retries < self.max_retries:
             raise self.retry(exc=e, countdown=60)
         else:

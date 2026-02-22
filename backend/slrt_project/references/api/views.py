@@ -816,16 +816,22 @@ class ReferenceDuplicatePairViewSet(viewsets.ViewSet):
     def detect(self, request):
         """Only owner and collaborator can detect duplicates"""
         review = self._get_review(require_manage_duplicates=True)
-
-        if review.reference_duplicate_detected:
+        if review.duplicate_detection_status == Review.DuplicateDetectionStatus.PENDING:
             return Response(
-                {"detail": "Duplicate detection already performed."},
+                {"detail": "Duplicate detection is already in progress."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not SearchMethod.objects.filter(review=review, file__gt="").exists():
+            return Response(
+                {
+                    "detail": "Duplicate detection already performed or no bib file uploaded."
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         queryset = Reference.objects.filter(review=review)
         created_count = ReferenceDuplicatePair.create_pairs(review, queryset)
-        review.reference_duplicate_detected = True
+        review.duplicate_detection_status = Review.DuplicateDetectionStatus.COMPLETED
         review.save()
 
         return Response(
