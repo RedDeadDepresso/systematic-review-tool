@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Tag,
   Send,
@@ -32,6 +32,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export interface ReviewDataFooterProps {
   reviewId: number;
@@ -329,20 +334,57 @@ export function ScreeningFooter({
     },
   ];
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input, textarea, or contenteditable
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      if (selectedRefs.length === 0) return;
+
+      const pressedKey = e.key.toUpperCase();
+      console.log(pressedKey);
+      const matchedButton = opinionButtons.find(
+        (btn) => btn.label[0] === pressedKey
+      );
+
+      if (matchedButton) {
+        e.preventDefault();
+        onOpinionApplied(matchedButton.status);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedRefs.length, onOpinionApplied]);
+
   return (
     <BaseFooter userRole={userRole} selectedCount={selectedRefs.length}>
       <div className="flex items-center gap-2">
         {opinionButtons.map(({ label, icon: Icon, status, className }) => (
-          <Button
-            key={status}
-            size="sm"
-            className={cn('flex-1 gap-2', className)}
-            onClick={() => onOpinionApplied(status)}
-            disabled={selectedRefs.length === 0}
-          >
-            <Icon className="h-4 w-4" />
-            <span className="hidden sm:inline">{label}</span>
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                key={status}
+                size="sm"
+                className={cn('flex-1 gap-2', className)}
+                onClick={() => onOpinionApplied(status)}
+                disabled={selectedRefs.length === 0}
+              >
+                <Icon className="h-4 w-4" />
+                <span className="hidden sm:inline">{label}</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Press <strong>{label[0]}</strong> to mark as {label}
+            </TooltipContent>
+          </Tooltip>
         ))}
         <ReasonPopover
           reviewId={reviewId}
