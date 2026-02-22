@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { X, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { type ChatMessage } from '@/features/reviews/types/review-chat';
-import { useReviewMembers } from '@/features/reviews/hooks/use-review-members';
+import { useFetchReviewMembers } from '@/features/reviews/hooks/use-review-members';
 import {
   Popover,
   PopoverContent,
@@ -37,13 +37,23 @@ export function ChatDrawer({
   sendTyping,
 }: ChatDrawerProps) {
   const [messageInput, setMessageInput] = useState('');
+  const [enabledMembers, setEnabledMembers] = useState<boolean>(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isTypingRef = useRef(false);
 
-  const { data: members = [] } = useReviewMembers(reviewId);
+  const { data: members = [] } = useFetchReviewMembers(
+    reviewId,
+    enabledMembers
+  );
+
+  useEffect(() => {
+    if (open && !enabledMembers) {
+      setEnabledMembers(true);
+    }
+  }, [open]);
 
   useEffect(() => {
     if (open && messagesEndRef.current) {

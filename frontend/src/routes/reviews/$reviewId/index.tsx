@@ -29,6 +29,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { ZoteroSyncPanel } from '@/features/integrations/components/zotero/zotero-sync-panel';
+import { useFetchReviewMembers } from '@/features/reviews/hooks/use-review-members';
 
 export const Route = createFileRoute('/reviews/$reviewId/')({
   component: ReviewPage,
@@ -47,6 +48,8 @@ function ReviewPage() {
     useContext(AppLayoutContext);
   const UploadReviewReferences = useUploadReviewReferences();
   const [openUploadDialog, setOpenUploadDialog] = useState(false);
+  const [enabledMembers, setEnabledMembers] = useState<boolean>(false);
+  const fetchReviewMembers = useFetchReviewMembers(reviewId, enabledMembers);
 
   useEffect(() => {
     setPageTitle('Overview');
@@ -328,15 +331,16 @@ function ReviewPage() {
         {/* Members Section - Collapsible */}
         <Collapsible>
           <Card className="py-0">
-            <CollapsibleTrigger asChild>
+            <CollapsibleTrigger asChild onClick={() => setEnabledMembers(true)}>
               <button className="group flex w-full items-center justify-between p-6 hover:bg-accent/50 transition-colors rounded-t-lg">
                 <h2 className="text-xl font-semibold text-foreground">
                   Members
-                  {!isLoading && data?.members && (
-                    <span className="ml-2 text-sm font-normal text-muted-foreground">
-                      ({data.members.length})
-                    </span>
-                  )}
+                  {!fetchReviewMembers.isLoading &&
+                    fetchReviewMembers?.data && (
+                      <span className="ml-2 text-sm font-normal text-muted-foreground">
+                        ({fetchReviewMembers.data.length})
+                      </span>
+                    )}
                 </h2>
                 <ChevronDownIcon className="h-5 w-5 transition-transform group-data-[state=open]:rotate-180" />
               </button>
@@ -344,10 +348,10 @@ function ReviewPage() {
             <CollapsibleContent>
               <div className="px-6 pb-6">
                 <ReviewMembersTable
-                  data={data?.members || []}
+                  data={fetchReviewMembers.data || []}
                   userRole={data?.userRole || 'Viewer'}
                   reviewId={reviewId}
-                  isLoading={isLoading}
+                  isLoading={fetchReviewMembers.isLoading}
                 />
               </div>
             </CollapsibleContent>

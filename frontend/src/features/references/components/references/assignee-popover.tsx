@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Users, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -8,9 +8,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { useFetchReview } from '@/features/reviews/hooks/use-reviews';
 import { useAssignReferences } from '@/features/references/hooks/use-references';
 import type { ReviewMember } from '@/features/reviews/types/reviews';
+import { useFetchReviewMembers } from '@/features/reviews/hooks/use-review-members';
 
 interface AssigneePopoverProps {
   reviewId: number;
@@ -26,6 +26,7 @@ export function AssigneePopover({
   onAssigneeApplied,
 }: AssigneePopoverProps) {
   const [open, setOpen] = useState(false);
+  const [enabledMembers, setEnabledMembers] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAssigneeId, setSelectedAssigneeId] = useState<
     number | 'remove' | 'split' | null
@@ -33,12 +34,14 @@ export function AssigneePopover({
   const [isApplying, setIsApplying] = useState(false);
 
   const assignReferences = useAssignReferences();
-  const { data: review } = useFetchReview(reviewId);
+  const { data: members = [] } = useFetchReviewMembers(
+    reviewId,
+    enabledMembers
+  );
 
   const assignableMembers = useMemo<ReviewMember[]>(() => {
-    if (!review) return [];
-    return review.members.filter((m) => m.role === 'Reviewer' || 'Owner');
-  }, [review]);
+    return members.filter((m) => m.role === 'Reviewer' || m.role === 'Owner');
+  }, [members]);
 
   const filteredMemebers = useMemo(() => {
     if (!searchQuery.trim()) return assignableMembers;
@@ -47,6 +50,12 @@ export function AssigneePopover({
       m.user.displayName.toLowerCase().includes(searchQuery.toLowerCase());
     });
   }, [assignableMembers, searchQuery]);
+
+  useEffect(() => {
+    if (open && !enabledMembers) {
+      setEnabledMembers(true);
+    }
+  }, [open]);
 
   const handleApply = async () => {
     if (selectedReferenceIds.length === 0 || selectedAssigneeId === null)
