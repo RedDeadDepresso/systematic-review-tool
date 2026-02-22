@@ -20,7 +20,7 @@ import { useContext, useEffect, useState } from 'react';
 import { ResolveDuplicatesDialog } from '@/features/references/components/reference-duplicates/resolve-duplicates-dialog';
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
-import { ReviewTeamTable } from '@/features/reviews/components/review-members/review-team-table';
+import { ReviewMembersTable } from '@/features/reviews/components/review-members/review-members-table';
 import { can } from '@/lib/permissions';
 import { StatsTabs } from '@/features/reviews/components/screening-stats/stats-tabs';
 import {
@@ -371,10 +371,11 @@ function ReviewPage() {
                     </div>
                   </div>
                 ) : (
-                  <ReviewTeamTable
+                  <ReviewMembersTable
                     data={data?.members || []}
                     userRole={data?.userRole || 'Viewer'}
                     reviewId={reviewId}
+                    isLoading={isLoading}
                   />
                 )}
               </div>
