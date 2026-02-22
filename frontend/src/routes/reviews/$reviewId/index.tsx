@@ -343,41 +343,12 @@ function ReviewPage() {
             </CollapsibleTrigger>
             <CollapsibleContent>
               <div className="px-6 pb-6">
-                {isLoading ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-4">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-1/4" />
-                        <Skeleton className="h-3 w-1/3" />
-                      </div>
-                      <Skeleton className="h-6 w-20" />
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-1/4" />
-                        <Skeleton className="h-3 w-1/3" />
-                      </div>
-                      <Skeleton className="h-6 w-20" />
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-1/4" />
-                        <Skeleton className="h-3 w-1/3" />
-                      </div>
-                      <Skeleton className="h-6 w-20" />
-                    </div>
-                  </div>
-                ) : (
-                  <ReviewMembersTable
-                    data={data?.members || []}
-                    userRole={data?.userRole || 'Viewer'}
-                    reviewId={reviewId}
-                    isLoading={isLoading}
-                  />
-                )}
+                <ReviewMembersTable
+                  data={data?.members || []}
+                  userRole={data?.userRole || 'Viewer'}
+                  reviewId={reviewId}
+                  isLoading={isLoading}
+                />
               </div>
             </CollapsibleContent>
           </Card>

@@ -20,13 +20,21 @@ import {
 } from '@/features/reviews/api/reviews';
 import type { AxiosError } from 'axios';
 
-export const useFetchReviews = (params: { isActive: boolean }) => {
+interface UseFetchReviewsParams {
+  isActive: boolean;
+  enabled?: boolean;
+}
+
+export const useFetchReviews = ({
+  isActive,
+  enabled = true,
+}: UseFetchReviewsParams) => {
   return useQuery({
-    queryKey: ['reviews', params],
-    queryFn: () => fetchReviews(params),
+    queryKey: ['reviews', { isActive }],
+    queryFn: () => fetchReviews({ isActive }),
+    enabled,
   });
 };
-
 export const useFetchReview = (id: number | null) => {
   return useQuery({
     queryKey: ['reviews', id],
