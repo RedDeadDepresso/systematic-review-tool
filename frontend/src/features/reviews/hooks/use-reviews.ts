@@ -8,11 +8,17 @@ import {
   fetchArticleCounts,
   addData,
   createReviewPrisma,
+  detectDuplicateReferences,
 } from '@/features/reviews/api/reviews';
 import type { Review } from '@/features/reviews/types/reviews';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { type Stage } from '@/features/references/types/references';
+import {
+  autoResolveDuplicates,
+  type AutoResolveRequest,
+} from '@/features/reviews/api/reviews';
+import type { AxiosError } from 'axios';
 
 export const useFetchReviews = (params: { isActive: boolean }) => {
   return useQuery({
@@ -93,22 +99,10 @@ export const useUpdateReview = () => {
 };
 
 export const useUploadReviewReferences = () => {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: UploadReviewReferences,
-    onSuccess: (
-      { uploadedReferenceCount }: { uploadedReferenceCount: number },
-      { reviewId }: { reviewId: number; formData: FormData }
-    ) => {
-      toast.success(`${uploadedReferenceCount} References have been uploaded.`);
-      queryClient.setQueryData(['reviews', reviewId], (oldData: Review) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          referenceCount: oldData.referenceCount + uploadedReferenceCount,
-        };
-      });
+    onSuccess: () => {
+      toast.success('References have been uploaded.');
     },
   });
 };
@@ -121,6 +115,53 @@ export const useDeleteReview = () => {
     },
     onError: () => {
       toast.error('Delete failed.');
+    },
+  });
+};
+
+export const useDetectDuplicateReferences = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ reviewId }: { reviewId: number }) =>
+      detectDuplicateReferences(reviewId),
+    onSuccess: (_, { reviewId }) => {
+      toast.success(`Duplicate detection started.`);
+      queryClient.setQueryData(['reviews', reviewId], (oldData: Review) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          duplicatePairsCount: null,
+          duplicateDetectionStatus: 'Pending',
+        };
+      });
+    },
+    onError: (error: unknown) => {
+      console.log('error', error);
+      const axiosError = error as AxiosError;
+      const data = axiosError?.response?.data;
+      const message =
+        data && typeof data === 'object' && 'detail' in data
+          ? (data as { detail?: string }).detail
+          : undefined;
+      if (message) toast.error(message);
+    },
+  });
+};
+
+export const useAutoResolveDuplicates = (reviewId: number) => {
+  return useMutation({
+    mutationFn: (settings: AutoResolveRequest) =>
+      autoResolveDuplicates(reviewId, settings),
+    onSuccess: (data) => {
+      toast.success(
+        `Auto-resolution started with ${Math.round(data.confidenceThreshold * 100)}% confidence threshold`
+      );
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.error || 'Failed to start auto-resolution'
+      );
     },
   });
 };

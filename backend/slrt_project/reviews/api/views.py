@@ -1,19 +1,21 @@
 import json
+import logging
 import os
-import re
 import tempfile
-from datetime import date
 from urllib.parse import urlencode
 
-import bibtexparser
 from django.core.files.base import ContentFile
 from django.db.models import (
+    Case,
     Count,
     Exists,
+    IntegerField,
     OuterRef,
     Prefetch,
     Q,
     Subquery,
+    Value,
+    When,
 )
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -34,7 +36,6 @@ from slrt_project.permissions import (
 )
 from slrt_project.references.models import (
     Reference,
-    ReferenceDuplicatePair,
     ReferenceLabel,
     ReferenceOpinion,
 )
@@ -56,16 +57,17 @@ from slrt_project.reviews.models import (
     ScreeningCriteria,
     SearchMethod,
 )
-from slrt_project.reviews.tasks import auto_deduplicate_task
+from slrt_project.reviews.tasks import (
+    auto_deduplicate_task,
+    detect_duplicates_task,
+    import_bibtex_task,
+)
+from slrt_project.reviews.utils import strip_ansi
 from vendor.prisma_flow_diagram.prisma import Prisma2020Diagram, plot_prisma2020_new
 from vendor.prisma_flow_diagram.validation import _human_issue
 
 
-ANSI_ESCAPE = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
-
-
-def strip_ansi(text: str) -> str:
-    return ANSI_ESCAPE.sub("", text)
+logger = logging.getLogger(__name__)
 
 
 class ReviewViewSet(viewsets.ModelViewSet):
@@ -81,44 +83,32 @@ class ReviewViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = (filters.DjangoFilterBackend,)
     filterset_class = ReviewFilter
-    BIBTEX_MONTHS = {
-        "jan": 1,
-        "feb": 2,
-        "mar": 3,
-        "apr": 4,
-        "may": 5,
-        "jun": 6,
-        "jul": 7,
-        "aug": 8,
-        "sep": 9,
-        "oct": 10,
-        "nov": 11,
-        "dec": 12,
-    }
-    PUBLICATION_TYPES = {
-        "article": "Journal Article",
-        "book": "Book",
-        "inproceedings": "Conference Paper",
-        "phdthesis": "PhD Thesis",
-        "mastersthesis": "Master's Thesis",
-        "techreport": "Technical Report",
-        "misc": "Miscellaneous",
-    }
 
     def get_queryset(self):
         user = self.request.user
 
+        base_qs = Review.objects.filter(members__user=user).distinct()
+
         owner_membership = ReviewMember.objects.filter(
-            review=OuterRef("pk"), role=ReviewMember.Role.OWNER
+            review=OuterRef("pk"),
+            role=ReviewMember.Role.OWNER,
         )
 
-        user_membership = ReviewMember.objects.filter(review=OuterRef("pk"), user=user)
+        user_membership = ReviewMember.objects.filter(
+            review=OuterRef("pk"),
+            user=user,
+        )
 
-        queryset = (
-            Review.objects.filter(members__user=user)
-            .distinct()
-            .annotate(
-                owner_id=Subquery(owner_membership.values("user_id")[:1]),
+        search_method_exists = SearchMethod.objects.filter(
+            review=OuterRef("pk"),
+            file__gt="",
+        )
+
+        # ===============================
+        # LIST VIEW (lightweight)
+        # ===============================
+        if self.action == "list":
+            return base_qs.annotate(
                 owner_first_name=Subquery(
                     owner_membership.values("user__first_name")[:1]
                 ),
@@ -127,45 +117,78 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 ),
                 owner_email=Subquery(owner_membership.values("user__email")[:1]),
                 user_role=Subquery(user_membership.values("role")[:1]),
-                user_member_id=Subquery(user_membership.values("id")[:1]),
-                reference_count=Count("reference", distinct=True),
-                duplicate_resolved_count=Count(
-                    "reference",
-                    filter=Q(
-                        reference__duplicate_status=Reference.DuplicateStatus.RESOLVED
+                reference_count=Case(
+                    When(
+                        Exists(search_method_exists),
+                        then=Value(None),
                     ),
-                    distinct=True,
+                    default=Count("reference", distinct=True),
+                    output_field=IntegerField(),
                 ),
-                duplicate_not_duplicate_count=Count(
-                    "reference",
-                    filter=Q(
-                        reference__duplicate_status=Reference.DuplicateStatus.NOT_DUPLICATE
+            )
+
+        # ===============================
+        # DETAIL / RETRIEVE VIEW
+        # ===============================
+        queryset = base_qs.annotate(
+            user_role=Subquery(user_membership.values("role")[:1]),
+            user_member_id=Subquery(user_membership.values("id")[:1]),
+            # Conditionally null reference_count
+            reference_count=Case(
+                When(
+                    Exists(search_method_exists),
+                    then=Value(None),
+                ),
+                default=Count("reference", distinct=True),
+                output_field=IntegerField(),
+            ),
+            # Duplicate reference status counts
+            duplicate_resolved_count=Count(
+                "reference",
+                filter=Q(
+                    reference__duplicate_status=Reference.DuplicateStatus.RESOLVED
+                ),
+                distinct=True,
+            ),
+            duplicate_not_duplicate_count=Count(
+                "reference",
+                filter=Q(
+                    reference__duplicate_status=Reference.DuplicateStatus.NOT_DUPLICATE
+                ),
+                distinct=True,
+            ),
+            duplicate_deleted_count=Count(
+                "reference",
+                filter=Q(reference__duplicate_status=Reference.DuplicateStatus.DELETED),
+                distinct=True,
+            ),
+            # Conditionally null duplicate pair counts
+            duplicate_pairs_count=Case(
+                When(
+                    duplicate_detection_status=Review.DuplicateDetectionStatus.COMPLETED,
+                    then=Count("referenceduplicatepair", distinct=True),
+                ),
+                default=Value(None),
+                output_field=IntegerField(),
+            ),
+            duplicate_pairs_unresolved_count=Case(
+                When(
+                    duplicate_detection_status=Review.DuplicateDetectionStatus.COMPLETED,
+                    then=Count(
+                        "referenceduplicatepair",
+                        filter=Q(referenceduplicatepair__resolved=False),
+                        distinct=True,
                     ),
-                    distinct=True,
                 ),
-                duplicate_deleted_count=Count(
-                    "reference",
-                    filter=Q(
-                        reference__duplicate_status=Reference.DuplicateStatus.DELETED
-                    ),
-                    distinct=True,
-                ),
-                duplicate_pairs_count=Count("referenceduplicatepair", distinct=True),
-                duplicate_pairs_unresolved_count=Count(
-                    "referenceduplicatepair",
-                    filter=Q(referenceduplicatepair__resolved=False),
-                    distinct=True,
-                ),
+                default=Value(None),
+                output_field=IntegerField(),
+            ),
+        ).prefetch_related(
+            Prefetch(
+                "members",
+                queryset=ReviewMember.objects.select_related("user"),
             )
         )
-
-        if self.action != "list":
-            queryset = queryset.prefetch_related(
-                Prefetch(
-                    "members",
-                    queryset=ReviewMember.objects.select_related("user"),
-                )
-            )
 
         return queryset
 
@@ -207,11 +230,11 @@ class ReviewViewSet(viewsets.ModelViewSet):
     def upload_references(self, request, pk=None):
         """
         Upload BibTeX file to add references to review.
-        Only owner and collaborator can upload.
+        File is processed asynchronously via Celery.
         """
         review = self.get_object()
 
-        # Check permissions - only owner and collaborator
+        # Check permissions
         check_permission(Permission.UPLOAD_FILES, request.user, review)
 
         uploaded_file = request.FILES.get("file")
@@ -228,39 +251,60 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Get ReviewMember
         try:
-            bib_database = bibtexparser.load(uploaded_file)
-        except Exception as e:
+            member = ReviewMember.objects.get(review=review, user=request.user)
+        except ReviewMember.DoesNotExist:
             return Response(
-                {"error": f"Failed to parse BibTeX file: {str(e)}"},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"error": "You are not a member of this review"},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
-        add_id = SearchMethod.objects.filter(
-            name=uploaded_file.name, review=review
-        ).exists()
-        search_method = SearchMethod.objects.create(
-            name=uploaded_file.name, review=review
+        # Create SearchMethod with file
+        try:
+            # Check if name already exists
+            base_name = uploaded_file.name
+            name = base_name
+            counter = 1
+
+            while SearchMethod.objects.filter(name=name, review=review).exists():
+                name_without_ext, ext = os.path.splitext(base_name)
+                name = f"{name_without_ext}_{counter}{ext}"
+                counter += 1
+
+            search_method = SearchMethod.objects.create(
+                review=review, name=name, file=uploaded_file
+            )
+
+            logger.info(
+                f"Created SearchMethod {search_method.id} with file: {search_method.file.path}"
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to create SearchMethod: {str(e)}")
+            return Response(
+                {"error": f"Failed to save file: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        # Start async task
+        task = import_bibtex_task.delay(
+            review_id=review.id, member_id=member.id, search_method_id=search_method.id
         )
-        if add_id:
-            search_method.name = f"{search_method.name}_{search_method.id}"
-            search_method.save(update_fields=["name"])
-        references = [
-            self._extract_reference_fields(review.id, search_method, entry)
-            for entry in bib_database.entries
-        ]
 
-        Reference.objects.bulk_create(references)
-
-        review.reference_duplicate_detected = False
-        review.save()
+        logger.info(
+            f"Started import task {task.id} for SearchMethod {search_method.id}"
+        )
 
         return Response(
             {
-                "message": "References uploaded successfully",
-                "uploaded_reference_count": len(bib_database.entries),
+                "message": "File uploaded successfully. Processing in background...",
+                "task_id": task.id,
+                "search_method_id": search_method.id,
+                "filename": uploaded_file.name,
+                "status": "processing",
             },
-            status=status.HTTP_201_CREATED,
+            status=status.HTTP_202_ACCEPTED,
         )
 
     @action(detail=True, methods=["get"], url_path="article-counts")
@@ -677,7 +721,81 @@ class ReviewViewSet(viewsets.ModelViewSet):
             }
         )
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], url_path="detect-duplicates")
+    def detect_duplicates(self, request, pk=None):
+        """
+        Detect duplicate references asynchronously
+        Only owner, collaborator, and reviewer can detect duplicates
+        """
+        review = self.get_object()
+
+        # Check user permission
+        try:
+            member = ReviewMember.objects.get(review=review, user=request.user)
+            if member.role not in PERMISSIONS[Permission.MANAGE_DUPLICATES]:
+                return permission_denied_message(Permission.MANAGE_DUPLICATES)
+        except ReviewMember.DoesNotExist:
+            return Response(
+                {"error": "You are not a member of this review"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Check current status
+        match review.duplicate_detection_status:
+            case Review.DuplicateDetectionStatus.PENDING:
+                return Response(
+                    {"detail": "Duplicate detection is already in progress."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            case Review.DuplicateDetectionStatus.COMPLETED:
+                return Response(
+                    {"detail": "Duplicate detection already performed."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # Check if there are references to check
+        reference_count = Reference.objects.filter(review=review).count()
+
+        if reference_count == 0:
+            return Response(
+                {"error": "No references found to check for duplicates"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get threshold from request (optional)
+        threshold = float(request.data.get("threshold", 0.5))
+
+        # Validate threshold
+        if not (0.0 <= threshold <= 1.0):
+            return Response(
+                {"error": "Threshold must be between 0.0 and 1.0"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Update status to pending
+        review.duplicate_detection_status = Review.DuplicateDetectionStatus.PENDING
+        review.save()
+
+        # Start async task
+        task = detect_duplicates_task.delay(
+            review_id=review.id, member_id=member.id, threshold=threshold
+        )
+
+        logger.info(
+            f"Started duplicate detection task {task.id} for review {review.id}"
+        )
+
+        return Response(
+            {
+                "message": "Duplicate detection started. You'll be notified when complete.",
+                "task_id": task.id,
+                "status": "processing",
+                "threshold": threshold,
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    @action(detail=True, methods=["post"], url_path="auto-resolve-duplicates")
     def auto_resolve_duplicates(self, request, pk=None):
         """
         Start automatic duplicate resolution
@@ -687,7 +805,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
         # Check user permission
         try:
             member = ReviewMember.objects.get(review=review, user=request.user)
-            if not member.role not in PERMISSIONS[Permission.MANAGE_DUPLICATES]:
+            if member.role not in PERMISSIONS[Permission.MANAGE_DUPLICATES]:
                 permission_denied_message(Permission.MANAGE_DUPLICATES)
         except ReviewMember.DoesNotExist:
             return Response(
@@ -768,115 +886,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
             ]
         )
 
-    @action(detail=True, methods=["get"])
-    def auto_resolve_preview(self, request, pk=None):
-        """
-        Preview how many pairs would be auto-resolved
-
-        """
-        review = self.get_object()
-
-        confidence_threshold = request.query_params.get("confidence_threshold", 0.9)
-
-        try:
-            confidence_threshold = float(confidence_threshold)
-            if not (0.0 <= confidence_threshold <= 1.0):
-                raise ValueError
-        except (ValueError, TypeError):
-            return Response(
-                {"error": "confidence_threshold must be a number between 0.0 and 1.0"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Count pairs that would be auto-resolved
-        high_confidence_pairs = ReferenceDuplicatePair.objects.filter(
-            review=review, resolved=False, similarity_score__gte=confidence_threshold
-        ).count()
-
-        total_unresolved = ReferenceDuplicatePair.objects.filter(
-            review=review, resolved=False
-        ).count()
-
-        return Response(
-            {
-                "total_unresolved": total_unresolved,
-                "would_auto_resolve": high_confidence_pairs,
-                "confidence_threshold": confidence_threshold,
-                "remaining_after": total_unresolved - high_confidence_pairs,
-            }
-        )
-
     # === Helper Methods ===
-
-    def _parse_bibtex_date(self, entry):
-        # Full ISO date: 2022-03-15
-        raw_date = entry.get("date")
-        if raw_date:
-            try:
-                parts = [int(p) for p in raw_date.split("-")]
-                return date(*parts)
-            except Exception:
-                pass
-
-        # Year + month
-        year = entry.get("year")
-        if not year:
-            return None
-
-        try:
-            year = int(year)
-        except ValueError:
-            return None
-
-        month = entry.get("month")
-        if month:
-            month = month.lower()[:3]
-            month = self.BIBTEX_MONTHS.get(month, 1)
-        else:
-            month = 1
-
-        return date(year, month, 1)
-
-    def _extract_reference_fields(self, review_id, search_method, entry):
-        """Extract reference fields from BibTeX entry"""
-        publication_type = self.PUBLICATION_TYPES.get(
-            entry.get("ENTRYTYPE", "").lower(), "Other"
-        )
-        publication_date = self._parse_bibtex_date(entry)
-
-        authors = (
-            ", ".join(a.strip() for a in entry.get("author", "").split(" and "))
-            if "author" in entry
-            else ""
-        )
-
-        journal = entry.get("journal") or entry.get("booktitle") or ""
-        article_customizations = entry.get("note") or entry.get("howpublished")
-
-        doi = entry.get("doi") or entry.get("DOI", "")
-
-        if doi:
-            doi = (
-                doi.lower().replace("doi:", "").replace("https://doi.org/", "").strip()
-            )
-
-        url = entry.get("url") or entry.get("URL", "")
-
-        return Reference(
-            review_id=review_id,
-            title=entry.get("title", "No Title"),
-            publication_type=publication_type,
-            authors=authors,
-            journal=journal,
-            search_method=search_method,
-            article_customizations=article_customizations or "",
-            abstract=entry.get("abstract", ""),
-            doi=doi,
-            url=url,
-            publication_date=publication_date,
-            pages=entry.get("pages", ""),
-        )
-
     def _generate_theme_table_latex(
         self, review_id, user_id, export_format="table_only", theme_ids=None
     ):

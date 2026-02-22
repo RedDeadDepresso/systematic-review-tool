@@ -1,6 +1,10 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import type {
+  ChatMember,
+  ChatMessage,
+} from '@/features/reviews/types/review-chat';
 
 const VITE_WS_URL = import.meta.env.VITE_WS_URL;
 
@@ -57,28 +61,6 @@ const setLastSeenMessageId = (reviewId: number, messageId: number) => {
     console.error('Error saving last seen message ID to localStorage:', error);
   }
 };
-
-export interface ChatMessage {
-  id: number;
-  memberId: number | null;
-  userId: number | null;
-  userName: string;
-  avatarUrl: string | null;
-  message: string;
-  isSystemMessage: boolean;
-  metadata?: any;
-  createdAt: string;
-}
-
-export interface ChatMember {
-  id: number;
-  userId: number;
-  name: string;
-  email: string;
-  role: string;
-  avatarUrl: string | null;
-  avatarColor: string;
-}
 
 interface UseReviewChatOptions {
   reviewId: number | null;
@@ -253,13 +235,8 @@ export function useReviewChat({
               toast.success(newMessage.message);
           }
 
-          if (data.is_system_message && data.metadata?.action) {
-            if (data.metadata.action === 'deduplication_completed') {
-              queryClient.invalidateQueries({
-                queryKey: ['duplicate-references'],
-              });
-              queryClient.invalidateQueries({ queryKey: ['references'] });
-            }
+          if (data.is_system_message && data.metadata?.refresh_review) {
+            queryClient.invalidateQueries({ queryKey: ['reviews', reviewId] });
           }
         } else if (data.type === 'user_typing') {
           const userId = data.user_id;

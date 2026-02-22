@@ -1,76 +1,365 @@
 import logging
 
-from asgiref.sync import async_to_sync
+import bibtexparser
 from celery import shared_task
-from channels.layers import get_channel_layer
-from django.conf import settings
 
-from slrt_project.references.models import ReferenceDuplicatePair
+from slrt_project.references.models import Reference, ReferenceDuplicatePair
 from slrt_project.reviews.models import (
     Review,
-    ReviewChatMessage,
     ReviewMember,
     SearchMethod,
+)
+from slrt_project.reviews.utils import (
+    extract_reference_fields,
+    send_review_chat_message,
 )
 
 
 logger = logging.getLogger(__name__)
 
 
-def send_review_chat_message(
-    review_id, member, message, is_system_message=False, metadata=None
+@shared_task(bind=True, max_retries=3)
+def import_bibtex_task(self, review_id: int, member_id: int, search_method_id: int):
+    """
+    Import BibTeX file and create references
+
+    Args:
+        review_id: Review ID
+        member_id: ReviewMember ID who triggered import
+        search_method_id: SearchMethod ID with the uploaded file
+    """
+
+    search_method = None
+
+    try:
+        review = Review.objects.get(id=review_id)
+        member = ReviewMember.objects.select_related("user").get(id=member_id)
+        search_method = SearchMethod.objects.get(id=search_method_id)
+
+        user_name = member.user_name
+        file_name = search_method.name
+
+        # Verify file exists
+        if not search_method.file:
+            error_msg = "No file attached to SearchMethod"
+            logger.error(error_msg)
+
+            send_review_chat_message(
+                review_id=review_id,
+                member=member,
+                message="❌ Import failed: No file found",
+                is_system_message=True,
+                metadata={"action": "import_failed", "error": error_msg},
+            )
+
+            # Delete SearchMethod on failure
+            search_method.delete()
+
+            return {"success": False, "error": error_msg}
+
+        file_path = search_method.file.path
+
+        logger.info(f"Processing file: {file_path}")
+
+        # Send start message
+        send_review_chat_message(
+            review_id=review_id,
+            member=member,
+            message=f"📤 {user_name} started importing references from {file_name}...",
+            is_system_message=True,
+            metadata={"action": "import_started", "filename": file_name},
+        )
+
+        # Parse BibTeX file
+        try:
+            with open(file_path, "r", encoding="utf-8") as bib_file:
+                bib_database = bibtexparser.load(bib_file)
+        except UnicodeDecodeError:
+            # Try with different encoding
+            try:
+                with open(file_path, "r", encoding="latin-1") as bib_file:
+                    bib_database = bibtexparser.load(bib_file)
+            except Exception as e:
+                raise Exception(f"Failed to parse BibTeX file: {str(e)}")
+
+        total_entries = len(bib_database.entries)
+
+        if total_entries == 0:
+            error_msg = "BibTeX file is empty"
+            logger.warning(error_msg)
+
+            send_review_chat_message(
+                review_id=review_id,
+                member=member,
+                message=f"⚠️ Import warning: No references found in {file_name}",
+                is_system_message=True,
+                metadata={"action": "import_failed", "error": error_msg},
+            )
+
+            # Delete SearchMethod on failure
+            search_method.delete()
+
+            return {"success": False, "error": error_msg}
+
+        logger.info(f"Found {total_entries} entries in BibTeX file")
+
+        # Create all references at once
+        references = [
+            extract_reference_fields(review.id, search_method, entry)
+            for entry in bib_database.entries
+        ]
+
+        Reference.objects.bulk_create(references)
+        created_count = len(references)
+
+        logger.info(f"Imported {created_count} references")
+
+        # Remove file (django-cleanup will delete it)
+        search_method.file = None
+        search_method.save()
+
+        metadata = {
+            "action": "import_completed",
+            "filename": file_name,
+            "imported_count": created_count,
+            "search_method": search_method.name,
+        }
+
+        if (
+            created_count > 0
+            and review.duplicate_detection_status
+            != Review.DuplicateDetectionStatus.NOT_STARTED
+        ):
+            review.duplicate_detection_status = (
+                Review.DuplicateDetectionStatus.NOT_STARTED
+            )
+            review.save()
+
+        if not SearchMethod.objects.filter(review=review, file__gt="").exists():
+            metadata["refresh_review"] = True
+
+        # Send completion message
+        send_review_chat_message(
+            review_id=review_id,
+            member=member,
+            message=(
+                f"✅ Import complete!\n"
+                f"• File: {file_name}\n"
+                f"• Imported: {created_count} references\n"
+                f"• Source: {search_method.name}"
+            ),
+            is_system_message=True,
+            metadata=metadata,
+        )
+
+        logger.info(
+            f"Successfully imported {created_count} references from {file_name}"
+        )
+
+        return {
+            "success": True,
+            "imported_count": created_count,
+            "search_method": search_method.name,
+        }
+
+    except SearchMethod.DoesNotExist:
+        error_msg = f"SearchMethod {search_method_id} not found"
+        logger.error(error_msg)
+        return {"success": False, "error": error_msg}
+
+    except Review.DoesNotExist:
+        error_msg = f"Review {review_id} not found"
+        logger.error(error_msg)
+
+        # Delete SearchMethod on failure
+        if search_method:
+            search_method.delete()
+
+        return {"success": False, "error": error_msg}
+
+    except Exception as e:
+        logger.exception(f"BibTeX import task error: {str(e)}")
+
+        # Send failure message
+        try:
+            send_review_chat_message(
+                review_id=review_id,
+                member=member if "member" in locals() else None,
+                message=f"❌ Import failed: {str(e)}",
+                is_system_message=True,
+                metadata={"action": "import_failed", "error": str(e)},
+            )
+        except Exception as send_message_error:
+            logger.warning(f"Failed to send failure message: {send_message_error}")
+
+        # Delete SearchMethod on failure
+        if search_method:
+            search_method.delete()
+
+        # Retry on failure
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=e, countdown=60)
+        else:
+            return {
+                "success": False,
+                "error": f"Failed after {self.max_retries} retries: {str(e)}",
+            }
+
+
+@shared_task(bind=True, max_retries=3)
+def detect_duplicates_task(
+    self, review_id: int, member_id: int, threshold: float = 0.5
 ):
     """
-    Send a chat message to review and broadcast via WebSocket
+    Detect duplicate reference pairs
+
+    Args:
+        review_id: Review ID
+        member_id: ReviewMember ID who triggered detection
+        threshold: Similarity threshold for detecting duplicates
     """
-    # Save message to database
-    chat_message = ReviewChatMessage.objects.create(
-        review_id=review_id,
-        member=member,
-        message=message,
-        is_system_message=is_system_message,
-        metadata=metadata,
-    )
+    try:
+        review = Review.objects.get(id=review_id)
+        member = ReviewMember.objects.select_related("user").get(id=member_id)
+        user_name = member.user_name
 
-    # Broadcast via WebSocket
-    channel_layer = get_channel_layer()
+        # Send start message
+        send_review_chat_message(
+            review_id=review_id,
+            member=member,
+            message=f"🔍 {user_name} started duplicate detection (threshold: {int(threshold * 100)}%)...",
+            is_system_message=True,
+            metadata={"action": "detection_started", "threshold": threshold},
+        )
 
-    if not channel_layer:
-        logger.warning("Channel layer not available, cannot broadcast message")
-        return chat_message
+        # Get all references for this review
+        references = Reference.objects.filter(review=review)
+        total_references = references.count()
 
-    user_name = "System"
-    user_id = None
-    member_id = None
-    avatar_url = None
+        if total_references == 0:
+            error_msg = "No references found to check for duplicates"
+            logger.warning(error_msg)
 
-    if member:
-        user = member.user
-        user_name = f"{user.first_name} {user.last_name}".strip() or user.email
-        user_id = user.id
-        member_id = member.id
-        if user.avatar:
-            avatar_url = f"{settings.SITE_URL}{settings.MEDIA_URL}{user.avatar.name}"
+            review.duplicate_detection_status = (
+                Review.DuplicateDetectionStatus.COMPLETED
+            )
+            review.save()
 
-    async_to_sync(channel_layer.group_send)(
-        f"review_{review_id}",
-        {
-            "type": "chat_message",
-            "message_id": chat_message.id,
-            "member_id": member_id,
-            "user_id": user_id,
-            "user_name": user_name,
-            "avatar_url": avatar_url,
-            "message": message,
-            "is_system_message": is_system_message,
-            "metadata": metadata,
-            "created_at": chat_message.created_at.isoformat(),
-        },
-    )
+            send_review_chat_message(
+                review_id=review_id,
+                member=member,
+                message=f"⚠️ {error_msg}",
+                is_system_message=True,
+                metadata={
+                    "action": "detection_completed",
+                    "pairs_found": 0,
+                    "refresh_review": True,
+                },
+            )
 
-    logger.info(f"Sent message to review {review_id}: {message[:50]}")
+            return {"success": True, "pairs_found": 0}
 
-    return chat_message
+        logger.info(f"Checking {total_references} references for duplicates")
+
+        # Detect duplicate pairs
+        pairs_created = ReferenceDuplicatePair.create_pairs(
+            review, references, threshold
+        )
+
+        logger.info(f"Found {pairs_created} duplicate pairs")
+
+        # Update review status
+        review.duplicate_detection_status = Review.DuplicateDetectionStatus.COMPLETED
+        review.save()
+
+        # Send completion message
+        if pairs_created > 0:
+            send_review_chat_message(
+                review_id=review_id,
+                member=member,
+                message=(
+                    f"✅ Duplicate detection complete!\n"
+                    f"• Found {pairs_created} potential duplicate pairs\n"
+                    f"• Total references: {total_references}\n"
+                    f"• Similarity threshold: {int(threshold * 100)}%"
+                ),
+                is_system_message=True,
+                metadata={
+                    "action": "detection_completed",
+                    "pairs_found": pairs_created,
+                    "total_references": total_references,
+                    "threshold": threshold,
+                    "refresh_review": True,
+                },
+            )
+        else:
+            send_review_chat_message(
+                review_id=review_id,
+                member=member,
+                message=(
+                    f"✅ Duplicate detection complete!\n"
+                    f"• No duplicate pairs found\n"
+                    f"• Total references: {total_references}\n"
+                    f"• Your references appear to be unique!"
+                ),
+                is_system_message=True,
+                metadata={
+                    "action": "detection_completed",
+                    "pairs_found": 0,
+                    "total_references": total_references,
+                    "threshold": threshold,
+                    "refresh_review": True,
+                },
+            )
+
+        logger.info(
+            f"Successfully completed duplicate detection: {pairs_created} pairs found"
+        )
+
+        return {
+            "success": True,
+            "pairs_found": pairs_created,
+            "total_references": total_references,
+        }
+
+    except Review.DoesNotExist:
+        error_msg = f"Review {review_id} not found"
+        logger.error(error_msg)
+        return {"success": False, "error": error_msg}
+
+    except Exception as e:
+        logger.exception(f"Duplicate detection task error: {str(e)}")
+
+        # Send failure message
+        try:
+            send_review_chat_message(
+                review_id=review_id,
+                member=member if "member" in locals() else None,
+                message=f"❌ Duplicate detection failed: {str(e)}",
+                is_system_message=True,
+                metadata={"action": "detection_failed", "error": str(e)},
+            )
+        except Exception as msg_error:
+            logger.exception(f"Failed to send failure message: {msg_error}")
+
+        # Retry on failure
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=e, countdown=60)
+        else:
+            # Update review status to failed
+            try:
+                review = Review.objects.get(id=review_id)
+                review.duplicate_detection_status = (
+                    Review.DuplicateDetectionStatus.COMPLETED
+                )
+                review.save()
+            except Exception as update_error:
+                logger.exception(f"Failed to update review status: {update_error}")
+
+            return {
+                "success": False,
+                "error": f"Failed after {self.max_retries} retries: {str(e)}",
+            }
 
 
 @shared_task(bind=True, max_retries=3)
@@ -156,8 +445,6 @@ def auto_deduplicate_task(
         if create_pairs_first:
             logger.info(f"Finding duplicate pairs for review {review_id}")
 
-            from .models import Reference
-
             references = Reference.objects.filter(review=review)
 
             pairs_created = ReferenceDuplicatePair.create_pairs(
@@ -189,14 +476,15 @@ def auto_deduplicate_task(
         )
 
         auto_resolved = result["auto_resolved"]
-        kept_count = len(result["kept_references"])
-        removed_count = len(result["removed_references"])
-
+        kept = result["kept_references"]
+        removed = result["removed_references"]
         logger.info(f"Auto-resolved {auto_resolved} pairs")
 
         # Update review flag
         if create_pairs_first and pairs_created > 0:
-            review.reference_duplicate_detected = True
+            review.duplicate_detection_status = (
+                Review.DuplicateDetectionStatus.COMPLETED
+            )
             review.save()
 
         # Send completion message
@@ -207,8 +495,8 @@ def auto_deduplicate_task(
                 message=(
                     f"✅ Auto-resolution complete!\n"
                     f"• Resolved: {auto_resolved} duplicates\n"
-                    f"• Kept: {kept_count} references\n"
-                    f"• Removed: {removed_count} duplicates\n"
+                    f"• Kept: {kept} references\n"
+                    f"• Removed: {removed} duplicates\n"
                     f"• Criteria: {criteria_str}"
                 ),
                 is_system_message=True,
@@ -216,10 +504,9 @@ def auto_deduplicate_task(
                     "action": "deduplication_completed",
                     "pairs_found": pairs_created,
                     "auto_resolved": auto_resolved,
-                    "kept_references": result["kept_references"],
-                    "removed_references": result["removed_references"],
                     "confidence_threshold": confidence_threshold,
                     "criteria": criteria,
+                    "refresh_review": True,
                 },
             )
         else:
@@ -246,8 +533,8 @@ def auto_deduplicate_task(
             "success": True,
             "pairs_found": pairs_created,
             "auto_resolved": auto_resolved,
-            "kept_references": kept_count,
-            "removed_references": removed_count,
+            "kept_references": kept,
+            "removed_references": removed,
         }
 
     except Exception as e:

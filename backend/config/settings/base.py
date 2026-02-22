@@ -2,6 +2,7 @@
 """Base settings to build other settings files upon."""
 
 import ssl
+from datetime import timedelta
 from pathlib import Path
 
 import environ
@@ -382,6 +383,10 @@ SPECTACULAR_SETTINGS = {
 # drf-auth-kit
 # -------------------------------------------------------------------------------
 # drf-auth-kit - https://https://drf-auth-kit.readthedocs.io/en/latest/
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
+}
 FRONTEND_BASE_URL = env(
     "FRONTEND_BASE_URL",
     default="http://localhost:3000",
@@ -393,6 +398,8 @@ PASSWORD_RESET_CONFIRM_PATH = env(
     default="/confirm-password-reset",
 )
 AUTH_KIT = {
+    "AUTH_TYPE": "jwt",
+    "USE_AUTH_COOKIE": False,
     "USER_SERIALIZER": "slrt_project.users.api.serializers.UserSerializer",
     "USER_VIEW": "slrt_project.users.api.views.UserView",
     "FRONTEND_BASE_URL": FRONTEND_BASE_URL,

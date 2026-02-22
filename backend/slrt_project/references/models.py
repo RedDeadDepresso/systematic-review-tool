@@ -256,8 +256,8 @@ class ReferenceDuplicatePair(models.Model):
         )
 
         auto_resolved_count = 0
-        kept_references = []
-        removed_references = []
+        kept_references_count = 0
+        removed_references_count = 0
 
         for pair in high_confidence_pairs:
             ref1 = pair.reference1
@@ -327,13 +327,13 @@ class ReferenceDuplicatePair(models.Model):
             pair.save()
 
             auto_resolved_count += 1
-            kept_references.append(kept.id)
-            removed_references.append(removed.id)
+            kept_references_count += 1
+            removed_references_count += 1
 
         return {
             "auto_resolved": auto_resolved_count,
-            "kept_references": kept_references,
-            "removed_references": removed_references,
+            "kept_references": kept_references_count,
+            "removed_references": removed_references_count,
         }
 
     @classmethod

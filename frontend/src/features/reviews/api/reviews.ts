@@ -195,3 +195,44 @@ export const downloadJsonFile = async (reviewId: number) => {
     console.error('Failed to download JSON file:', error);
   }
 };
+
+export const detectDuplicateReferences = async (reviewId: number) => {
+  const res = await api.post(`reviews/${reviewId}/detect-duplicates/`, null, {
+    params: { review: reviewId },
+  });
+  return res.data;
+};
+
+export interface AutoResolveRequest {
+  confidenceThreshold?: number;
+  createPairsFirst?: boolean;
+  textNormalization?: boolean;
+  preferredSearchMethodId?: number | null;
+  criteria?: {
+    authors: boolean;
+    title: boolean;
+    journal: boolean;
+    year: boolean;
+    pages: boolean;
+    doi: boolean;
+  };
+}
+
+export interface AutoResolveResponse {
+  message: string;
+  taskId: string;
+  confidenceThreshold: number;
+  status: string;
+}
+
+// Start auto-resolution
+export const autoResolveDuplicates = async (
+  reviewId: number,
+  settings: AutoResolveRequest
+) => {
+  const res = await api.post<AutoResolveResponse>(
+    `/reviews/${reviewId}/auto-resolve-duplicates/`,
+    settings
+  );
+  return res.data;
+};

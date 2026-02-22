@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 
 
@@ -5,11 +7,20 @@ from django.db import models
 
 
 class Review(models.Model):
+    class DuplicateDetectionStatus(models.TextChoices):
+        NOT_STARTED = "Not Started"
+        PENDING = "Pending"
+        COMPLETED = "Completed"
+
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     date_created = models.DateTimeField(auto_now_add=True)
+    duplicate_detection_status = models.CharField(
+        max_length=20,
+        choices=DuplicateDetectionStatus.choices,
+        default=DuplicateDetectionStatus.NOT_STARTED,
+    )
     is_active = models.BooleanField(default=True)
-    reference_duplicate_detected = models.BooleanField(default=False)
     is_blinded = models.BooleanField(default=True)
     prisma_file = models.FileField(upload_to="prisma_diagrams/", blank=True, null=True)
 
@@ -158,9 +169,19 @@ class ReviewChatMessage(models.Model):
         return "Unknown"
 
 
+def search_method_upload_path(instance, filename):
+    return f"search_methods/{uuid.uuid4()}/{filename}"
+
+
 class SearchMethod(models.Model):
     review = models.ForeignKey(Review, on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
+    file = models.FileField(
+        upload_to=search_method_upload_path,
+        null=True,
+        blank=True,
+        help_text="Uploaded BibTeX file (deleted after successful import)",
+    )
 
     def __str__(self):
         return self.name
