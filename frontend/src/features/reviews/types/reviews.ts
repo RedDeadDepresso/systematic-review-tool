@@ -12,6 +12,8 @@ export type ReviewMember = {
   role: ReviewRole;
 };
 
+export type DuplicateDetectionStatus = 'Not Started' | 'Pending' | 'Completed';
+
 export type Review = {
   title: string;
   description: string;
@@ -24,6 +26,7 @@ export type Review = {
   screeningStats: ScreeningStat[];
   screeningOpinions: OpinionStats[];
   fullTextOpinions: OpinionStats[];
+  duplicateDetectionStatus: string;
   duplicatePairsCount: number | null;
   duplicatePairsUnresolvedCount: number | null;
   duplicateResolvedCount: number;

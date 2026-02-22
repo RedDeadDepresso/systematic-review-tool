@@ -4,10 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  useAutoResolvePreview,
-  useAutoResolveDuplicates,
-} from '@/features/references/hooks/use-reference-duplicates';
+import { useAutoResolveDuplicates } from '@/features/reviews/hooks/use-reviews';
 import { useSearchMethods } from '@/features/reviews/hooks/use-search-methods';
 import {
   IconSparkles,
@@ -54,11 +51,6 @@ export function AutoResolverForm({ reviewId, onClose }: AutoResolverFormProps) {
   });
 
   const { data: searchMethods = [] } = useSearchMethods(reviewId);
-  const { data: preview, isLoading: loadingPreview } = useAutoResolvePreview(
-    reviewId,
-    similarityThreshold / 100,
-    !createPairsFirst
-  );
 
   const autoResolveMutation = useAutoResolveDuplicates(reviewId);
 
@@ -338,38 +330,6 @@ export function AutoResolverForm({ reviewId, onClose }: AutoResolverFormProps) {
             />
           </div>
         </div>
-
-        {/* Preview */}
-        {!createPairsFirst &&
-          (loadingPreview ? (
-            <Alert>
-              <AlertDescription>Loading preview...</AlertDescription>
-            </Alert>
-          ) : preview ? (
-            <Alert>
-              <AlertDescription>
-                <div className="space-y-2">
-                  <p className="font-medium">Preview:</p>
-                  <ul className="space-y-1 text-sm">
-                    <li>
-                      • Total unresolved pairs:{' '}
-                      <strong>{preview.totalUnresolved}</strong>
-                    </li>
-                    <li>
-                      • Will auto-resolve:{' '}
-                      <strong className="text-primary">
-                        {preview.wouldAutoResolve}
-                      </strong>
-                    </li>
-                    <li>
-                      • Remaining to review manually:{' '}
-                      <strong>{preview.remainingAfter}</strong>
-                    </li>
-                  </ul>
-                </div>
-              </AlertDescription>
-            </Alert>
-          ) : null)}
 
         {/* Update warning threshold */}
         {similarityThreshold < 87 && (

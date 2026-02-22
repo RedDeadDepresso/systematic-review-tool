@@ -4,7 +4,7 @@ import {
   useUploadPDF,
 } from '@/features/references/hooks/use-uploaded-pdfs';
 import { useAttachPDFsToReferences } from '@/features/references/hooks/use-references';
-import { useDetectDuplicateReferences } from '@/features/references/hooks/use-reference-duplicates';
+import { useDetectDuplicateReferences } from '@/features/reviews/hooks/use-reviews';
 import { useUploadReviewReferences } from '@/features/reviews/hooks/use-reviews';
 import type {
   Reference,

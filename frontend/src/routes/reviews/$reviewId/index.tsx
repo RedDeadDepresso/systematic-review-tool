@@ -14,7 +14,7 @@ import {
   Trash2,
   ChevronDownIcon,
 } from 'lucide-react';
-import { useDetectDuplicateReferences } from '@/features/references/hooks/use-reference-duplicates';
+import { useDetectDuplicateReferences } from '@/features/reviews/hooks/use-reviews';
 import { Spinner } from '@/components/ui/spinner';
 import { useContext, useEffect, useState } from 'react';
 import { ResolveDuplicatesDialog } from '@/features/references/components/reference-duplicates/resolve-duplicates-dialog';
@@ -199,11 +199,13 @@ function ReviewPage() {
                 ) : (
                   <>
                     <div className="flex justify-center">
-                      {data?.duplicatePairsCount === null ? (
+                      {data?.duplicateDetectionStatus === 'Pending' ? (
                         <Spinner className="h-10 w-8" />
                       ) : (
                         <p className="text-center text-4xl font-semibold text-foreground">
-                          {data?.duplicatePairsCount ?? 0}
+                          {data?.duplicateDetectionStatus === 'Not Started'
+                            ? '?'
+                            : (data?.duplicatePairsCount ?? 0)}
                         </p>
                       )}
                     </div>
@@ -212,7 +214,8 @@ function ReviewPage() {
                         className="w-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
                         onClick={handleDetectDuplicates}
                         disabled={
-                          isPending || data?.duplicatePairsCount === null
+                          isPending ||
+                          data?.duplicateDetectionStatus !== 'Not Started'
                         }
                       >
                         {isPending && <Spinner />}
@@ -238,11 +241,13 @@ function ReviewPage() {
                 ) : (
                   <>
                     <div className="flex justify-center">
-                      {data?.duplicatePairsUnresolvedCount === null ? (
+                      {data?.duplicateDetectionStatus === 'Pending' ? (
                         <Spinner className="h-10 w-8" />
                       ) : (
                         <p className="text-center text-4xl font-semibold text-foreground">
-                          {data?.duplicatePairsUnresolvedCount ?? 0}
+                          {data?.duplicateDetectionStatus === 'Not Started'
+                            ? '?'
+                            : (data?.duplicatePairsUnresolvedCount ?? 0)}
                         </p>
                       )}
                     </div>
@@ -250,8 +255,8 @@ function ReviewPage() {
                       <Button
                         className="w-full bg-gray-200 text-gray-600 hover:bg-gray-300"
                         disabled={
-                          data?.duplicatePairsUnresolvedCount === null ||
-                          data?.duplicatePairsUnresolvedCount === 0
+                          data?.duplicateDetectionStatus === 'Not Started' ||
+                          !data?.duplicatePairsUnresolvedCount
                         }
                         onClick={() => setIsOpen(true)}
                       >
