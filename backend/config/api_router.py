@@ -33,6 +33,7 @@ from slrt_project.reviews.api.views import (
     ReviewMemberRetrieveUpdateDestroyView,
     ReviewViewSet,
     ScreeningCriteriaViewSet,
+    SearchMethodDestroyView,
 )
 
 
@@ -99,7 +100,12 @@ urlpatterns = [
         "review-members/<int:pk>/",
         ReviewMemberRetrieveUpdateDestroyView.as_view(),
         name="review-member-detail",
-    )
+    ),
+    path(
+        "search-methods/<int:pk>/",
+        SearchMethodDestroyView.as_view(),
+        name="search-method-destroy",
+    ),
 ]
 
 
