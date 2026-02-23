@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { IconDotsVertical } from '@tabler/icons-react';
+import { IconDotsVertical, IconPlus } from '@tabler/icons-react';
 import {
   type ColumnDef,
   type ColumnFiltersState,
@@ -33,8 +33,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
-import { ReviewForm } from '@/features/reviews/components/reviews/review-form';
+import { ReviewFormDialog } from '@/features/reviews/components/reviews/review-form-dialog';
 import {
+  useCreateReview,
   useDeleteReview,
   useUpdateReview,
 } from '@/features/reviews/hooks/use-reviews';
@@ -177,10 +178,16 @@ export function ReviewsTable({
     pageSize: 10,
   });
 
+  const createReview = useCreateReview();
   const updateReview = useUpdateReview();
+  const [openCreateDialog, setOpenCreateDialog] = React.useState(false);
   const deleteReview = useDeleteReview();
   const queryClient = useQueryClient();
   const router = useRouter();
+
+  const onSubmitCreate = (formData: { title: string; description: string }) => {
+    createReview.mutate(formData);
+  };
 
   const onToggleArchive = (rowData: ReviewRow) => {
     updateReview.mutate({ id: rowData.id, payload: { isActive: !isActive } });
@@ -241,7 +248,22 @@ export function ReviewsTable({
       }
       toolbarActions={
         <>
-          {isActive && <ReviewForm />}
+          <ReviewFormDialog
+            dialogTitle="Create Review"
+            dialogDescription="Create a new review for this project."
+            onSubmit={onSubmitCreate}
+            disabled={createReview.isPending}
+            open={openCreateDialog}
+            onOpenChange={setOpenCreateDialog}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setOpenCreateDialog(true)}
+          >
+            <IconPlus />
+            <span className="hidden lg:inline">Create Review</span>
+          </Button>
           <DataTableColumnToggle table={table} />
         </>
       }

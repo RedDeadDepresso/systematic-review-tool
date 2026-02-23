@@ -102,6 +102,7 @@ export const useUpdateReview = () => {
           queryKey: ['reviews', variables.id, 'references'],
         });
       }
+      toast.success('Review has been updated.');
     },
   });
 };

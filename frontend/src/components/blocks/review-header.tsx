@@ -1,4 +1,11 @@
-import { Grid, UserPlus, MoreVertical, Settings2 } from 'lucide-react';
+import {
+  Grid,
+  UserPlus,
+  MoreVertical,
+  Settings2,
+  Trash2,
+  Edit2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { ScreeningCriteriaPopover } from '@/features/reviews/components/screening-criteria/screening-criteria-popover';
@@ -15,9 +22,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Link, useRouterState } from '@tanstack/react-router';
+import { Link, useRouter, useRouterState } from '@tanstack/react-router';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
+  useDeleteReview,
   useFetchReview,
   useUpdateReview,
 } from '@/features/reviews/hooks/use-reviews';
@@ -28,6 +36,17 @@ import { ChatDrawer } from '@/features/reviews/components/review-chat/chat-drawe
 import { ChatButton } from '@/features/reviews/components/review-chat/chat-button';
 import { useReviewChat } from '@/features/reviews/hooks/use-review-chat';
 import { useState } from 'react';
+import { ReviewFormDialog } from '@/features/reviews/components/reviews/review-form-dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface ReviewHeaderProps {
   reviewId: number;
@@ -37,6 +56,7 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
   const isMobile = useIsMobile();
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showZoteroDialog, setShowZoteroDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCriteriaPopover, setShowCriteriaPopover] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -46,6 +66,9 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
 
   const fetchReview = useFetchReview(reviewId);
   const updateReview = useUpdateReview();
+  const deleteReview = useDeleteReview();
+  const [openUpdateDialog, setOpenUpdateDialog] = useState(false);
+  const router = useRouter();
 
   const {
     unreadCount,
@@ -87,6 +110,24 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
       path: `/reviews/${reviewId}/prisma`,
     },
   ];
+
+  const onSubmitUpdate = async (formData: {
+    title: string;
+    description: string;
+  }) => {
+    updateReview.mutate({ id: reviewId, payload: formData });
+  };
+
+  const handleDelete = () => {
+    deleteReview.mutate(
+      { id: reviewId },
+      {
+        onSuccess: () => {
+          router.navigate({ to: '/' });
+        },
+      }
+    );
+  };
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-card">
@@ -209,10 +250,77 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
                   Invite members
                 </DropdownMenuItem>
               )}
+
+              <DropdownMenuSeparator />
+
+              {/* Edit Review Details */}
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setOpenUpdateDialog(true);
+                  setDropdownOpen(true);
+                }}
+              >
+                <Edit2 className="h-4 w-4 mr-2" />
+                Edit review details
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setShowDeleteDialog(true);
+                  setDropdownOpen(true);
+                }}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete review
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
+
+      {fetchReview.data && (
+        <ReviewFormDialog
+          dialogTitle="Update Review"
+          dialogDescription="Update an existing review for this project."
+          initialTitle={fetchReview.data?.title || ''}
+          initialDescription={fetchReview.data?.description || ''}
+          onSubmit={onSubmitUpdate}
+          disabled={updateReview.isPending}
+          open={openUpdateDialog}
+          onOpenChange={setOpenUpdateDialog}
+        />
+      )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete{' '}
+              <span className="font-medium text-foreground">
+                {fetchReview.data?.title}
+              </span>
+              . This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={(e) => e.stopPropagation()}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-white"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete();
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Screening Criteria Popover */}
       <ScreeningCriteriaPopover
