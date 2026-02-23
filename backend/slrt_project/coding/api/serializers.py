@@ -13,7 +13,9 @@ class CodeSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "member"]
 
     def get_reference_title(self, obj):
-        return obj.reference.title
+        if obj.reference and obj.reference.title:
+            return obj.reference.title
+        return None
 
     def get_reference_file_url(self, obj):
         request = self.context.get("request")

@@ -1,5 +1,3 @@
-'use client';
-
 import React, { useState, useMemo } from 'react';
 import {
   Plus,
@@ -52,7 +50,8 @@ import {
 } from '@/features/references/components/references/references-table-row';
 import { EditQuestionPopover } from '@/features/extraction/components/data-extraction/edit-question-popover';
 import { useQueryClient } from '@tanstack/react-query';
-import { AddDataDialog } from '@/components/shared/add-data-dialog';
+import { AddDataDialog } from '@/components/blocks/add-data-dialog';
+import { DataExtractionSkeleton } from '@/features/extraction/components/data-extraction/data-extraction-skeleton';
 
 interface DataExtractionTableProps {
   reviewId: number;
@@ -67,6 +66,7 @@ interface DataExtractionTableProps {
   onOpenDetail: (id: number) => void;
   onOpenPDF: (referenceId: number) => void;
   onAttachPDF: (referenceId: number) => void;
+  isLoading?: boolean;
 }
 
 const statusColors: Record<ExtractionStatus, string> = {
@@ -379,6 +379,7 @@ export function DataExtractionTable({
   onOpenDetail,
   onOpenPDF,
   onAttachPDF,
+  isLoading = false,
 }: DataExtractionTableProps) {
   const [statusFilter, setStatusFilter] = useState<ExtractionStatus | 'all'>(
     'in-progress'
@@ -655,131 +656,137 @@ export function DataExtractionTable({
             </tr>
           </thead>
           <tbody>
-            {filteredReferences.map((ref, index) => {
-              return (
-                <tr
-                  key={ref.id}
-                  onClick={(e) => handleRowClick(ref.id, e)}
-                  onDoubleClick={(e) => handleRowDoubleClick(ref.id, e)}
-                  className={cn(
-                    'border-b border-border hover:bg-muted/30 transition-colors cursor-pointer',
-                    selectedReferenceIds.includes(ref.id) && 'bg-primary/5',
-                    highlightedReferenceId === ref.id &&
-                      'bg-primary/10 ring-1 ring-primary/30'
-                  )}
-                >
-                  <td className="px-4 py-3" data-checkbox-area>
-                    <Checkbox
-                      checked={selectedReferenceIds.includes(ref.id)}
-                      onCheckedChange={() => onSelectReference(ref.id)}
-                    />
-                  </td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">
-                    {index + 1}
-                  </td>
-                  <td className="px-4 py-3 max-w-[300px]">
-                    <p className="text-sm text-foreground line-clamp-2 w-full">
-                      {ref.title}
-                    </p>
-                    <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                      {ref.assignee && (
-                        <AssigneeBadge assignee={ref.assignee} />
+            {isLoading ? (
+              <DataExtractionSkeleton questionCount={questions.length} />
+            ) : (
+              <>
+                {filteredReferences.map((ref, index) => {
+                  return (
+                    <tr
+                      key={ref.id}
+                      onClick={(e) => handleRowClick(ref.id, e)}
+                      onDoubleClick={(e) => handleRowDoubleClick(ref.id, e)}
+                      className={cn(
+                        'border-b border-border hover:bg-muted/30 transition-colors cursor-pointer',
+                        selectedReferenceIds.includes(ref.id) && 'bg-primary/5',
+                        highlightedReferenceId === ref.id &&
+                          'bg-primary/10 ring-1 ring-primary/30'
                       )}
-                      {ref.labels.map((label) => (
-                        <LabelBadge key={label.id} label={label} />
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {ref.isExtractionCompleted ? (
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <XCircle className="h-5 w-5 text-muted-foreground/50" />
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {ref.file ? (
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="text-primary p-0 h-auto"
-                        onClick={() => onOpenPDF(ref.id)}
-                      >
-                        View PDF
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-primary border-primary/30 bg-primary/5 hover:bg-primary/10"
-                        onClick={() => onAttachPDF(ref.id)}
-                      >
-                        Attach PDF
-                      </Button>
-                    )}
-                  </td>
-                  {questions.map((q) => {
-                    const answer = ref.answers[q.id];
-                    const isEditing =
-                      editingCell?.referenceId === ref.id &&
-                      editingCell?.questionId === q.id;
-
-                    return (
-                      <td
-                        key={q.id}
-                        className="px-4 py-3 border-l border-border"
-                        onClick={() =>
-                          !isEditing && handleCellClick(ref.id, q.id)
-                        }
-                      >
-                        {isEditing ? (
-                          <CellEditor
-                            question={q}
-                            value={answer?.value || ''}
-                            onSave={handleCellSave}
-                            onCancel={handleCellCancel}
-                          />
+                    >
+                      <td className="px-4 py-3" data-checkbox-area>
+                        <Checkbox
+                          checked={selectedReferenceIds.includes(ref.id)}
+                          onCheckedChange={() => onSelectReference(ref.id)}
+                        />
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">
+                        {index + 1}
+                      </td>
+                      <td className="px-4 py-3 max-w-[300px]">
+                        <p className="text-sm text-foreground line-clamp-2 w-full">
+                          {ref.title}
+                        </p>
+                        <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                          {ref.assignee && (
+                            <AssigneeBadge assignee={ref.assignee} />
+                          )}
+                          {ref.labels.map((label) => (
+                            <LabelBadge key={label.id} label={label} />
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {ref.isExtractionCompleted ? (
+                          <CheckCircle2 className="h-5 w-5 text-green-600" />
                         ) : (
-                          <div className="text-sm text-foreground cursor-pointer min-h-[32px] flex items-center">
-                            <CellDisplay
-                              question={q}
-                              value={answer?.value || ''}
-                            />
-                          </div>
+                          <XCircle className="h-5 w-5 text-muted-foreground/50" />
                         )}
                       </td>
-                    );
-                  })}
-                  <td className="px-4 py-3 border-l border-border" />
-                </tr>
-              );
-            })}
+                      <td className="px-4 py-3">
+                        {ref.file ? (
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="text-primary p-0 h-auto"
+                            onClick={() => onOpenPDF(ref.id)}
+                          >
+                            View PDF
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-primary border-primary/30 bg-primary/5 hover:bg-primary/10"
+                            onClick={() => onAttachPDF(ref.id)}
+                          >
+                            Attach PDF
+                          </Button>
+                        )}
+                      </td>
+                      {questions.map((q) => {
+                        const answer = ref.answers[q.id];
+                        const isEditing =
+                          editingCell?.referenceId === ref.id &&
+                          editingCell?.questionId === q.id;
 
-            {/* Empty rows */}
-            {filteredReferences.length < 14 &&
-              Array.from({ length: 14 - filteredReferences.length }).map(
-                (_, i) => (
-                  <tr
-                    key={`empty-${i}`}
-                    className="border-b border-border h-14"
-                  >
-                    <td className="px-4 py-3" />
-                    <td className="px-4 py-3 text-sm text-muted-foreground/50">
-                      {filteredReferences.length + i + 1}
-                    </td>
-                    <td className="px-4 py-3" />
-                    <td className="px-4 py-3" />
-                    <td className="px-4 py-3" />
-                    {questions.map((q) => (
-                      <td
-                        key={q.id}
-                        className="px-4 py-3 border-l border-border"
-                      />
-                    ))}
-                    <td className="px-4 py-3 border-l border-border" />
-                  </tr>
-                )
-              )}
+                        return (
+                          <td
+                            key={q.id}
+                            className="px-4 py-3 border-l border-border"
+                            onClick={() =>
+                              !isEditing && handleCellClick(ref.id, q.id)
+                            }
+                          >
+                            {isEditing ? (
+                              <CellEditor
+                                question={q}
+                                value={answer?.value || ''}
+                                onSave={handleCellSave}
+                                onCancel={handleCellCancel}
+                              />
+                            ) : (
+                              <div className="text-sm text-foreground cursor-pointer min-h-[32px] flex items-center">
+                                <CellDisplay
+                                  question={q}
+                                  value={answer?.value || ''}
+                                />
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                      <td className="px-4 py-3 border-l border-border" />
+                    </tr>
+                  );
+                })}
+
+                {/* Empty rows */}
+                {filteredReferences.length < 14 &&
+                  Array.from({ length: 14 - filteredReferences.length }).map(
+                    (_, i) => (
+                      <tr
+                        key={`empty-${i}`}
+                        className="border-b border-border h-14"
+                      >
+                        <td className="px-4 py-3" />
+                        <td className="px-4 py-3 text-sm text-muted-foreground/50">
+                          {filteredReferences.length + i + 1}
+                        </td>
+                        <td className="px-4 py-3" />
+                        <td className="px-4 py-3" />
+                        <td className="px-4 py-3" />
+                        {questions.map((q) => (
+                          <td
+                            key={q.id}
+                            className="px-4 py-3 border-l border-border"
+                          />
+                        ))}
+                        <td className="px-4 py-3 border-l border-border" />
+                      </tr>
+                    )
+                  )}
+              </>
+            )}
           </tbody>
         </table>
       </div>

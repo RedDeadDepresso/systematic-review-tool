@@ -1,4 +1,4 @@
-import { ReviewHeader } from '@/components/shared/review-header';
+import { ReviewHeader } from '@/components/blocks/review-header';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/reviews/$reviewId')({

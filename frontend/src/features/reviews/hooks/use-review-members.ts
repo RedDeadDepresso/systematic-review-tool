@@ -9,13 +9,16 @@ import type {
 } from '@/features/reviews/types/reviews';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { getReviewMembers } from '@/features/reviews/api/review-members';
+import { fetchReviewMembers } from '@/features/reviews/api/review-members';
 
-export const useReviewMembers = (reviewId: number | null) => {
+export const useFetchReviewMembers = (
+  reviewId: number | null,
+  enabled: boolean = false
+) => {
   return useQuery({
     queryKey: ['review-members', reviewId],
-    queryFn: () => getReviewMembers(reviewId!),
-    enabled: !!reviewId,
+    queryFn: () => fetchReviewMembers(reviewId!),
+    enabled: !!reviewId && enabled,
   });
 };
 

@@ -32,9 +32,9 @@ def import_bibtex_task(self, review_id: int, member_id: int, search_method_id: i
     search_method = None
 
     try:
+        search_method = SearchMethod.objects.get(id=search_method_id)
         review = Review.objects.get(id=review_id)
         member = ReviewMember.objects.select_related("user").get(id=member_id)
-        search_method = SearchMethod.objects.get(id=search_method_id)
 
         user_name = member.user_name
         file_name = search_method.name
@@ -80,6 +80,7 @@ def import_bibtex_task(self, review_id: int, member_id: int, search_method_id: i
                 with open(file_path, "r", encoding="latin-1") as bib_file:
                     bib_database = bibtexparser.load(bib_file)
             except Exception as e:
+                search_method.delete()
                 raise Exception(f"Failed to parse BibTeX file: {str(e)}")
 
         total_entries = len(bib_database.entries)

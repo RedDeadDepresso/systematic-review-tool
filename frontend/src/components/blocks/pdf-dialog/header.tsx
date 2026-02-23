@@ -27,6 +27,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import { useEffect } from 'react';
 
 interface HeaderProps {
   pdfScaleValue: number | undefined;
@@ -73,6 +74,25 @@ export function Header({
     ? `${Math.round(pdfScaleValue * 100)}%`
     : 'Auto';
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      )
+        return;
+
+      if (e.key === 'ArrowLeft' && hasPrev) onNavigate('prev');
+      if (e.key === 'ArrowRight' && hasNext) onNavigate('next');
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [hasPrev, hasNext, onNavigate]);
+
   return (
     <TooltipProvider>
       <header className="flex h-14 items-center justify-between border-b bg-background px-4">
@@ -103,27 +123,43 @@ export function Header({
 
         {/* Centre section - Navigation + Title */}
         <div className="flex items-center gap-2 flex-1 justify-center">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onNavigate('prev')}
-            disabled={!hasPrev}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => onNavigate('prev')}
+                disabled={!hasPrev}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Left arrow key shortcut{' '}
+              <kbd className="ml-1 text-xs px-1 rounded">←</kbd>
+            </TooltipContent>
+          </Tooltip>
           <h1 className="text-sm font-medium text-foreground line-clamp-1 max-w-xl">
             {title}
           </h1>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onNavigate('next')}
-            disabled={!hasNext}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => onNavigate('next')}
+                disabled={!hasNext}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Right arrow key shortcut{' '}
+              <kbd className="ml-1 text-xs px-1 rounded">→</kbd>
+            </TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Right section - Dropdown + Close */}

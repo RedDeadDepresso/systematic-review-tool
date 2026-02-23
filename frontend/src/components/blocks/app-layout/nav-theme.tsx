@@ -12,7 +12,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Monitor, Moon, Palette, Sun } from 'lucide-react';
-import { useTheme } from '@/components/shared/app-layout/theme-provider';
+import { useTheme } from '@/components/blocks/app-layout/theme-provider';
 
 export function NavTheme() {
   const { isMobile } = useSidebar();

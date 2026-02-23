@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Tag,
   Send,
@@ -32,6 +32,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export interface ReviewDataFooterProps {
   reviewId: number;
@@ -44,7 +49,12 @@ export interface ReviewDataFooterProps {
 }
 
 export interface ScreeningFooterProps extends ReviewDataFooterProps {
-  onOpinionApplied: (status: OpinionStatus, reasonId?: number | null) => void;
+  opinionStatus?: OpinionStatus | null;
+  onOpinionApplied: (
+    referenceIds: number[],
+    status: OpinionStatus,
+    reasonId?: number | null
+  ) => void;
 }
 
 // Shared hook for getting selected references
@@ -297,6 +307,7 @@ export function ScreeningFooter({
   onAttachPDF,
   onMatchPDF,
   onLabelsApplied,
+  opinionStatus,
   onOpinionApplied,
 }: ScreeningFooterProps) {
   const selectedRefs = useSelectedRefs(
@@ -304,46 +315,106 @@ export function ScreeningFooter({
     highlightedReferenceId
   );
   const bulkCreateNote = useBulkCreateNote();
+  console.log(opinionStatus);
 
   const opinionButtons = [
     {
       label: 'Include',
       icon: Check,
       status: 'Included' as OpinionStatus,
-      className:
+      activeClassName:
+        'bg-green-600 text-white border border-green-700 hover:bg-green-700',
+      defaultClassName:
         'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100',
     },
     {
       label: 'Maybe',
       icon: CircleQuestionMark,
       status: 'Maybe' as OpinionStatus,
-      className:
+      activeClassName:
+        'bg-yellow-500 text-white border border-yellow-600 hover:bg-yellow-600',
+      defaultClassName:
         'bg-yellow-50 text-yellow-700 border border-yellow-200 hover:bg-yellow-100',
     },
     {
       label: 'Exclude',
       icon: X,
       status: 'Excluded' as OpinionStatus,
-      className:
+      activeClassName:
+        'bg-red-600 text-white border border-red-700 hover:bg-red-700',
+      defaultClassName:
         'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100',
     },
   ];
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input, textarea, or contenteditable
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      if (selectedRefs.length === 0) return;
+
+      const pressedKey = e.key.toUpperCase();
+      console.log(pressedKey);
+      const matchedButton = opinionButtons.find(
+        (btn) => btn.label[0] === pressedKey
+      );
+
+      if (matchedButton) {
+        e.preventDefault();
+        onOpinionApplied(selectedRefs, matchedButton.status);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedRefs.length, onOpinionApplied]);
+
   return (
     <BaseFooter userRole={userRole} selectedCount={selectedRefs.length}>
       <div className="flex items-center gap-2">
-        {opinionButtons.map(({ label, icon: Icon, status, className }) => (
-          <Button
-            key={status}
-            size="sm"
-            className={cn('flex-1 gap-2', className)}
-            onClick={() => onOpinionApplied(status)}
-            disabled={selectedRefs.length === 0}
-          >
-            <Icon className="h-4 w-4" />
-            <span className="hidden sm:inline">{label}</span>
-          </Button>
-        ))}
+        {opinionButtons.map(
+          ({
+            label,
+            icon: Icon,
+            status,
+            activeClassName,
+            defaultClassName,
+          }) => {
+            const buttonClassName =
+              opinionStatus === null
+                ? defaultClassName // no opinion yet — all normal
+                : opinionStatus === status
+                  ? activeClassName // this one is the current opinion — strong
+                  : defaultClassName; // another is the current opinion — dimmed
+
+            return (
+              <Tooltip key={status}>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    className={cn('flex-1 gap-2', buttonClassName)}
+                    onClick={() => onOpinionApplied(selectedRefs, status)}
+                    disabled={selectedRefs.length === 0}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span className="hidden sm:inline">{label}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Press <strong>{label[0]}</strong> to mark as {label}
+                </TooltipContent>
+              </Tooltip>
+            );
+          }
+        )}
         <ReasonPopover
           reviewId={reviewId}
           trigger={
@@ -357,7 +428,7 @@ export function ScreeningFooter({
             </Button>
           }
           handleReasonApplied={(reasonId) =>
-            onOpinionApplied('Excluded', reasonId)
+            onOpinionApplied(selectedRefs, 'Excluded', reasonId)
           }
         />
         <ActionButtons

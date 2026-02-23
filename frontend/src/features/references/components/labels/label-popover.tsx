@@ -1,6 +1,4 @@
-'use client';
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, use } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -34,6 +32,7 @@ export function LabelPopover({
   onLabelsApplied,
 }: LabelPopoverProps) {
   const [open, setOpen] = useState(false);
+  const [enabledLabels, setEnabledLabels] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [labelStates, setLabelStates] = useState<Record<number, LabelState>>(
     {}
@@ -41,9 +40,15 @@ export function LabelPopover({
   const [isApplying, setIsApplying] = useState(false);
 
   // Fetch labels using hook
-  const { data: labels = [], refetch } = useFetchLabels();
+  const { data: labels = [], refetch } = useFetchLabels(enabledLabels);
   const createLabelMutation = useCreateLabel();
   const assignLabelsMutation = useAssignLabelsToReferences();
+
+  useMemo(() => {
+    if (open && !enabledLabels) {
+      setEnabledLabels(true);
+    }
+  }, [open, enabledLabels]);
 
   // Filter labels based on search
   const filteredLabels = useMemo(() => {

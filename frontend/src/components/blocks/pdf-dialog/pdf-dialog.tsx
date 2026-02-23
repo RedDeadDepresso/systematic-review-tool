@@ -5,15 +5,15 @@ import {
   useRef,
   useState,
 } from 'react';
-import CommentForm from '@/components/shared/pdf-dialog/comment-form';
+import CommentForm from '@/components/blocks/pdf-dialog/comment-form';
 import ContextMenu, {
   type ContextMenuProps,
-} from '@/components/shared/pdf-dialog/context-menu';
-import ExpandableTip from '@/components/shared/pdf-dialog/expandable.tip';
-import HighlightContainer from '@/components/shared/pdf-dialog/highlight-container';
-import HighLightSidebar from '@/components/shared/pdf-dialog/highlight-sidebar';
-import { Header } from '@/components/shared/pdf-dialog/header';
-import { FloatingActions } from '@/components/shared/pdf-dialog/floating-actions';
+} from '@/components/blocks/pdf-dialog/context-menu';
+import ExpandableTip from '@/components/blocks/pdf-dialog/expandable.tip';
+import HighlightContainer from '@/components/blocks/pdf-dialog/highlight-container';
+import HighLightSidebar from '@/components/blocks/pdf-dialog/highlight-sidebar';
+import { Header } from '@/components/blocks/pdf-dialog/header';
+import { FloatingActions } from '@/components/blocks/pdf-dialog/floating-actions';
 import {
   type GhostHighlight,
   LeftPanel,
@@ -77,6 +77,7 @@ type PDFDialogProps = {
   readOnly?: boolean;
   pendingHighlightId?: string | null;
   onPendingHighlightConsumed?: () => void;
+  footer?: React.ReactNode;
 };
 
 export const PDFDialog = ({
@@ -93,6 +94,7 @@ export const PDFDialog = ({
   userRole,
   pendingHighlightId,
   onPendingHighlightConsumed,
+  footer,
 }: PDFDialogProps) => {
   readOnly = readOnly || !can('modifyThemesCodes', userRole);
   const [referenceId, setReferenceId] = useState<number>(initialReferenceId);
@@ -362,11 +364,11 @@ export const PDFDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-screen h-screen overflow-hidden flex pt-0 pr-0 [&>button]:hidden">
+      <DialogContent className="sm:max-w-screen h-dvh overflow-hidden flex pt-0 pr-0 [&>button]:hidden">
         <DialogHeader className="sr-only">
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <div className="flex h-screen flex-col bg-background w-full">
+        <div className="flex h-full flex-col bg-background w-full">
           {/* Header */}
           <Header
             pdfScaleValue={pdfScaleValue}
@@ -536,6 +538,7 @@ export const PDFDialog = ({
               </>
             )}
           </div>
+          {footer && <div className="shrink-0">{footer}</div>}
 
           {contextMenu && <ContextMenu {...contextMenu} />}
         </div>

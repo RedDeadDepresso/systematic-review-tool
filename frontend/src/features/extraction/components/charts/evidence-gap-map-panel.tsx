@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/select';
 import { useFetchExtractionQuestions } from '@/features/extraction/hooks/use-extraction-questions';
 import { useFetchEvidenceGapMap } from '@/features/extraction/hooks/use-charts';
-import { useTheme } from '@/components/shared/app-layout/theme-provider';
+import { useTheme } from '@/components/blocks/app-layout/theme-provider';
 
 interface EvidenceGapMapPanelProps {
   reviewId: number;

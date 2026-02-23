@@ -13,10 +13,11 @@ import type { Label } from '@/features/references/types/labels';
 /**
  * Fetch all labels for the current user
  */
-export function useFetchLabels() {
+export function useFetchLabels(enabled: boolean = false) {
   return useQuery({
     queryKey: ['labels'],
     queryFn: fetchLabels,
+    enabled: enabled,
   });
 }
 

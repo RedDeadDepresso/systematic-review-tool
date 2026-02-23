@@ -4,7 +4,7 @@ import type {
 } from '@/features/reviews/types/reviews';
 import api from '@/api/client';
 
-export const getReviewMembers = async (reviewId: number) => {
+export const fetchReviewMembers = async (reviewId: number) => {
   const res = await api.get<ReviewMember[]>(`/reviews/${reviewId}/members/`);
   return res.data;
 };

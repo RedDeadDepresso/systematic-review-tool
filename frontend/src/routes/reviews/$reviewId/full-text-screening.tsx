@@ -10,7 +10,7 @@ import {
   TableTopHeader,
   type ExportType,
 } from '@/features/references/components/references/references-table-top-header';
-import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
+import { FileUploadDialog } from '@/components/blocks/file-upload-dialog';
 import { MatchPDFDialog } from '@/features/references/components/uploaded-pdfs/match-pdf-dialog';
 import type {
   ArticleViewLayout,
@@ -25,12 +25,12 @@ import { ReferencesTableBody } from '@/features/references/components/references
 import { ScreeningFooter } from '@/features/references/components/references/references-table-footer';
 import { TableSubHeader } from '@/features/references/components/references/references-table-sub-header';
 import { useBulkUpsertReferenceOpinions } from '@/features/references/hooks/use-reference-opinions';
-import { PDFDialog } from '@/components/shared/pdf-dialog/pdf-dialog';
+import { PDFDialog } from '@/components/blocks/pdf-dialog/pdf-dialog';
 import { useFetchReview } from '@/features/reviews/hooks/use-reviews';
-import { AddDataDialog } from '@/components/shared/add-data-dialog';
-import { Spinner } from '@/components/ui/spinner';
+import { AddDataDialog } from '@/components/blocks/add-data-dialog';
 import { exportScreeningFullText } from '@/features/references/api/references';
 import { useScreeningStats } from '@/features/reviews/hooks/use-screening-stats';
+import { cn } from '@/lib/utils';
 
 export const Route = createFileRoute('/reviews/$reviewId/full-text-screening')({
   component: RouteComponent,
@@ -90,7 +90,10 @@ function RouteComponent() {
   const fetchReview = useFetchReview(reviewId);
 
   // UI state management
-  const ui = useReferenceUI(data?.references || []);
+  const ui = useReferenceUI(
+    data?.references || [],
+    fetchReview.data?.userMemberId || undefined
+  );
 
   // Keyword management
   const keywords = useKeywordManagement(
@@ -126,14 +129,11 @@ function RouteComponent() {
   const bulkUpsertReferenceOpinions = useBulkUpsertReferenceOpinions();
 
   const handleOpinionApplied = async (
+    referenceIds: number[],
     status: OpinionStatus,
     reasonId?: number | null
   ) => {
     try {
-      const referenceIds = [
-        ...ui.selectedReferenceIds,
-        ...(ui.highlightedReferenceId ? [ui.highlightedReferenceId] : []),
-      ];
       await bulkUpsertReferenceOpinions.mutateAsync({
         payload: {
           referenceIds: referenceIds,
@@ -155,19 +155,6 @@ function RouteComponent() {
 
   const [openAddData, setOpenAddData] = useState<boolean>(false);
 
-  if (isLoading) {
-    return (
-      <div className="h-full flex items-center justify-center text-muted-foreground">
-        <div className="flex flex-col gap-2">
-          <span>Loading references...</span>
-          <div className="flex items-center justify-center w-full">
-            <Spinner />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -177,7 +164,7 @@ function RouteComponent() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <>
       {/* Dialogs */}
       {ui.openPDFId && ui.openPDFReference && ui.openPDFReference.file && (
         <PDFDialog
@@ -191,6 +178,18 @@ function RouteComponent() {
           hasNext={ui.hasOpenPDFReferenceNext}
           hasPrev={ui.hasOpenPDFReferencePrev}
           onNavigate={ui.handleOpenPDFNavigate}
+          footer={
+            <ScreeningFooter
+              reviewId={reviewId}
+              userRole={fetchReview.data?.userRole || 'Viewer'}
+              selectedReferenceIds={[]}
+              highlightedReferenceId={ui.openPDFId}
+              onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
+              onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
+              onOpinionApplied={handleOpinionApplied}
+              opinionStatus={ui.PDFOpinionStatus}
+            />
+          }
         />
       )}
       <FileUploadDialog
@@ -216,209 +215,216 @@ function RouteComponent() {
         onOpenChange={setOpenAddData}
         onAdd={invalidateQuery}
       />
-
-      {/* Header */}
-
-      <div className="flex flex-1 overflow-hidden">
-        <div className="flex flex-col flex-1">
-          {/* Table Header */}
-          <TableTopHeader
-            userRole={fetchReview.data?.userRole || 'Viewer'}
-            filteredCount={data?.filteredCount || 0}
-            totalCount={data?.totalCount || 0}
-            searchQuery={filters.searchQuery}
-            onSearchChange={filters.setSearchQuery}
-            onSortChange={ui.handleSortChange}
-            isLeftCollapsed={ui.isSourcesSidebarCollapsed}
-            onToggleLeftCollapse={() =>
-              ui.setIsSourcesSidebarCollapsed(!ui.isSourcesSidebarCollapsed)
-            }
-            isRightCollapsed={ui.isFiltersSidebarCollapsed}
-            onToggleRightCollapse={() =>
-              ui.setIsFiltersSidebarCollapsed(!ui.isFiltersSidebarCollapsed)
-            }
-            onAddData={() => setOpenAddData(true)}
-            onExport={handleExport}
-            breakButtonReviewId={reviewId}
-          />
-
-          <div className="flex flex-1 overflow-hidden">
-            {/* References Table */}
-            <ReferencesTable viewLayout={articleViewLayout}>
-              <TableSubHeader
-                allSelected={ui.allSelected}
-                onSelectAll={ui.handleSelectAllReferences}
-                sortField={ui.sortField}
-                sortDirection={ui.sortDirection}
-                onSortChange={ui.handleSortChange}
-                viewLayout={articleViewLayout}
-              />
-              <ReferencesTableBody
-                references={ui.sortedReferences}
-                selectedReferenceIds={ui.selectedReferenceIds}
-                highlightedReferenceId={ui.highlightedReferenceId}
-                onSelectReference={ui.handleReferenceSelect}
-                onHighlightReference={ui.handleHighlightReference}
-                highlightIncludeKeywords={keywords.highlightIncludeKeywords}
-                highlightExcludeKeywords={keywords.highlightExcludeKeywords}
-                onOpenDetail={ui.handleOpenDetail}
-                viewLayout={articleViewLayout}
-                onOpenPDF={ui.handleOpenPDF}
-              />
-              {articleViewLayout !== 'title-abstract' && (
-                <ScreeningFooter
+      <div className="h-full flex flex-col overflow-hidden bg-background">
+        {/* Header */}
+        <div className="flex flex-1 overflow-hidden">
+          <div className="flex flex-col flex-1 min-h-0">
+            {/* Table Header */}
+            <TableTopHeader
+              userRole={fetchReview.data?.userRole || 'Viewer'}
+              filteredCount={data?.filteredCount || 0}
+              totalCount={data?.totalCount || 0}
+              searchQuery={filters.searchQuery}
+              onSearchChange={filters.setSearchQuery}
+              onSortChange={ui.handleSortChange}
+              isLeftCollapsed={ui.isSourcesSidebarCollapsed}
+              onToggleLeftCollapse={() =>
+                ui.setIsSourcesSidebarCollapsed(!ui.isSourcesSidebarCollapsed)
+              }
+              isRightCollapsed={ui.isFiltersSidebarCollapsed}
+              onToggleRightCollapse={() =>
+                ui.setIsFiltersSidebarCollapsed(!ui.isFiltersSidebarCollapsed)
+              }
+              onAddData={() => setOpenAddData(true)}
+              onExport={handleExport}
+              breakButtonReviewId={reviewId}
+            />
+            <div className="flex flex-1 overflow-hidden">
+              <div
+                className={cn(
+                  'flex flex-col min-h-0 overflow-hidden min-w-0',
+                  articleViewLayout === 'title-abstract' ? 'w-80' : 'flex-1'
+                )}
+              >
+                {/* References Table */}
+                <ReferencesTable viewLayout={articleViewLayout}>
+                  <TableSubHeader
+                    allSelected={ui.allSelected}
+                    onSelectAll={ui.handleSelectAllReferences}
+                    sortField={ui.sortField}
+                    sortDirection={ui.sortDirection}
+                    onSortChange={ui.handleSortChange}
+                    viewLayout={articleViewLayout}
+                  />
+                  <ReferencesTableBody
+                    references={ui.sortedReferences}
+                    selectedReferenceIds={ui.selectedReferenceIds}
+                    highlightedReferenceId={ui.highlightedReferenceId}
+                    onSelectReference={ui.handleReferenceSelect}
+                    onHighlightReference={ui.handleHighlightReference}
+                    highlightIncludeKeywords={keywords.highlightIncludeKeywords}
+                    highlightExcludeKeywords={keywords.highlightExcludeKeywords}
+                    onOpenDetail={ui.handleOpenDetail}
+                    viewLayout={articleViewLayout}
+                    onOpenPDF={ui.handleOpenPDF}
+                    isLoading={isLoading}
+                  />
+                </ReferencesTable>
+                {articleViewLayout !== 'title-abstract' && (
+                  <ScreeningFooter
+                    reviewId={reviewId}
+                    userRole={fetchReview.data?.userRole || 'Viewer'}
+                    selectedReferenceIds={ui.selectedReferenceIds}
+                    highlightedReferenceId={ui.highlightedReferenceId}
+                    onLabelsApplied={invalidateQuery}
+                    onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
+                    onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
+                    onOpinionApplied={handleOpinionApplied}
+                  />
+                )}
+              </div>
+              {/* Detail Panel */}
+              {articleViewLayout === 'title-abstract' && (
+                <ScreeningReferenceDetailPanel
                   reviewId={reviewId}
                   userRole={fetchReview.data?.userRole || 'Viewer'}
+                  reference={
+                    data?.references.find(
+                      (r) => r.id === ui.highlightedReferenceId
+                    ) || null
+                  }
+                  onClose={() => ui.handleHighlightReference(null)}
                   selectedReferenceIds={ui.selectedReferenceIds}
                   highlightedReferenceId={ui.highlightedReferenceId}
+                  highlightIncludeKeywords={keywords.highlightIncludeKeywords}
+                  highlightExcludeKeywords={keywords.highlightExcludeKeywords}
                   onLabelsApplied={invalidateQuery}
                   onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
                   onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
                   onOpinionApplied={handleOpinionApplied}
                 />
               )}
-            </ReferencesTable>
 
-            {/* Detail Panel */}
-            {articleViewLayout === 'title-abstract' && (
-              <ScreeningReferenceDetailPanel
+              {/* Filters Sidebar */}
+              <FiltersSidebar
                 reviewId={reviewId}
                 userRole={fetchReview.data?.userRole || 'Viewer'}
-                reference={
-                  data?.references.find(
-                    (r) => r.id === ui.highlightedReferenceId
-                  ) || null
+                keywords={keywords.allKeywords}
+                labels={data?.labels || []}
+                publicationTypes={data?.publicationTypes || []}
+                publicationYears={data?.publicationYears || []}
+                fileCounts={data?.fileCounts || { withFile: 0, withoutFile: 0 }}
+                assignees={data?.assignees || []}
+                searchMethods={data?.searchMethods || []}
+                selectedIncludeKeywords={filters.includeKeywords}
+                selectedExcludeKeywords={filters.excludeKeywords}
+                selectedLabels={filters.labelIds}
+                selectedPublicationTypes={filters.publicationTypes}
+                selectedPublicationYears={filters.publicationYears}
+                selectedFileStatus={filters.fileStatus}
+                selectedAssignees={filters.assigneeIds}
+                selectedSearchMethods={filters.searchMethodIds}
+                onIncludeKeywordToggle={filters.handleIncludeKeywordToggle}
+                onExcludeKeywordToggle={filters.handleExcludeKeywordToggle}
+                onSelectAllInclude={() => {
+                  // Get all include keywords from data
+                  const allIncludeKeywords = keywords.allKeywords
+                    .filter((k) => k.isInclusive)
+                    .map((k) => k.name);
+
+                  // Call the handler with the full list
+                  filters.handleSelectAllIncludeKeywords(allIncludeKeywords);
+                }}
+                onSelectAllExclude={() => {
+                  // Get all exclude keywords from data
+                  const allExcludeKeywords = keywords.allKeywords
+                    .filter((k) => !k.isInclusive)
+                    .map((k) => k.name);
+
+                  filters.handleSelectAllExcludeKeywords(allExcludeKeywords);
+                }}
+                onLabelToggle={filters.handleLabelToggle}
+                onSelectAllLabels={() => {
+                  // Get all label IDs from data
+                  const allLabelIds = (data?.labels || []).map((l) => l.id);
+                  filters.handleSelectAllLabels(allLabelIds);
+                }}
+                onPublicationTypeToggle={filters.handlePublicationTypeToggle}
+                onSelectAllPublicationTypes={() => {
+                  // Get all publication types from data
+                  const allTypes = (data?.publicationTypes || []).map(
+                    (pt) => pt.publicationType
+                  );
+                  filters.handleSelectAllPublicationTypes(allTypes);
+                }}
+                onPublicationYearToggle={filters.handlePublicationYearToggle}
+                onSelectAllPublicationYears={() => {
+                  // Get all years from data
+                  const allYears = (data?.publicationYears || []).map(
+                    (py) => py.year
+                  );
+                  filters.handleSelectAllPublicationYears(allYears);
+                }}
+                onFileStatusChange={filters.handleFileStatusChange}
+                onAssigneeToggle={filters.handleAssigneeToggle}
+                onSelectAllAssignees={() => {
+                  // Get all assignee IDs from data
+                  const allAssigneeIds = (data?.assignees || []).map(
+                    (a) => a.Id
+                  );
+                  filters.handleSelectAllAssignees(allAssigneeIds);
+                }}
+                onSearchMethodToggle={filters.handleSearchMethodToggle}
+                onSelectAllSearchMethods={() => {
+                  // Get all search method IDs from data
+                  const allMethodIds = (data?.searchMethods || []).map(
+                    (sm) => sm.id
+                  );
+                  filters.handleSelectAllSearchMethods(allMethodIds);
+                }}
+                onResetAllFilters={filters.handleResetAllFilters}
+                isCollapsed={ui.isFiltersSidebarCollapsed}
+                onToggleCollapse={() =>
+                  ui.setIsFiltersSidebarCollapsed(!ui.isFiltersSidebarCollapsed)
                 }
-                onClose={() => ui.handleHighlightReference(null)}
-                selectedReferenceIds={ui.selectedReferenceIds}
-                highlightedReferenceId={ui.highlightedReferenceId}
-                highlightIncludeKeywords={keywords.highlightIncludeKeywords}
-                highlightExcludeKeywords={keywords.highlightExcludeKeywords}
-                onLabelsApplied={invalidateQuery}
-                onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
-                onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
-                onOpinionApplied={handleOpinionApplied}
+                includeHighlightEnabled={includeHighlightEnabled}
+                excludeHighlightEnabled={excludeHighlightEnabled}
+                onToggleIncludeHighlight={() =>
+                  setIncludeHighlightEnabled(!includeHighlightEnabled)
+                }
+                onToggleExcludeHighlight={() =>
+                  setExcludeHighlightEnabled(!excludeHighlightEnabled)
+                }
+                onCreateKeyword={keywords.handleCreateKeyword}
+                onDeleteKeyword={keywords.handleDeleteKeyword}
+                onDeleteLabel={async () => true}
+                articleViewLayout={articleViewLayout}
+                onArticleViewLayoutChange={setArticleViewLayout}
               />
-            )}
-
-            {/* Filters Sidebar */}
-            <FiltersSidebar
-              reviewId={reviewId}
-              userRole={fetchReview.data?.userRole || 'Viewer'}
-              keywords={keywords.allKeywords}
-              labels={data?.labels || []}
-              publicationTypes={data?.publicationTypes || []}
-              publicationYears={data?.publicationYears || []}
-              fileCounts={data?.fileCounts || { withFile: 0, withoutFile: 0 }}
-              assignees={data?.assignees || []}
-              searchMethods={data?.searchMethods || []}
-              selectedIncludeKeywords={filters.includeKeywords}
-              selectedExcludeKeywords={filters.excludeKeywords}
-              selectedLabels={filters.labelIds}
-              selectedPublicationTypes={filters.publicationTypes}
-              selectedPublicationYears={filters.publicationYears}
-              selectedFileStatus={filters.fileStatus}
-              selectedAssignees={filters.assigneeIds}
-              selectedSearchMethods={filters.searchMethodIds}
-              onIncludeKeywordToggle={filters.handleIncludeKeywordToggle}
-              onExcludeKeywordToggle={filters.handleExcludeKeywordToggle}
-              onSelectAllInclude={() => {
-                // Get all include keywords from data
-                const allIncludeKeywords = keywords.allKeywords
-                  .filter((k) => k.isInclusive)
-                  .map((k) => k.name);
-
-                // Call the handler with the full list
-                filters.handleSelectAllIncludeKeywords(allIncludeKeywords);
-              }}
-              onSelectAllExclude={() => {
-                // Get all exclude keywords from data
-                const allExcludeKeywords = keywords.allKeywords
-                  .filter((k) => !k.isInclusive)
-                  .map((k) => k.name);
-
-                filters.handleSelectAllExcludeKeywords(allExcludeKeywords);
-              }}
-              onLabelToggle={filters.handleLabelToggle}
-              onSelectAllLabels={() => {
-                // Get all label IDs from data
-                const allLabelIds = (data?.labels || []).map((l) => l.id);
-                filters.handleSelectAllLabels(allLabelIds);
-              }}
-              onPublicationTypeToggle={filters.handlePublicationTypeToggle}
-              onSelectAllPublicationTypes={() => {
-                // Get all publication types from data
-                const allTypes = (data?.publicationTypes || []).map(
-                  (pt) => pt.publicationType
-                );
-                filters.handleSelectAllPublicationTypes(allTypes);
-              }}
-              onPublicationYearToggle={filters.handlePublicationYearToggle}
-              onSelectAllPublicationYears={() => {
-                // Get all years from data
-                const allYears = (data?.publicationYears || []).map(
-                  (py) => py.year
-                );
-                filters.handleSelectAllPublicationYears(allYears);
-              }}
-              onFileStatusChange={filters.handleFileStatusChange}
-              onAssigneeToggle={filters.handleAssigneeToggle}
-              onSelectAllAssignees={() => {
-                // Get all assignee IDs from data
-                const allAssigneeIds = (data?.assignees || []).map((a) => a.Id);
-                filters.handleSelectAllAssignees(allAssigneeIds);
-              }}
-              onSearchMethodToggle={filters.handleSearchMethodToggle}
-              onSelectAllSearchMethods={() => {
-                // Get all search method IDs from data
-                const allMethodIds = (data?.searchMethods || []).map(
-                  (sm) => sm.id
-                );
-                filters.handleSelectAllSearchMethods(allMethodIds);
-              }}
-              onResetAllFilters={filters.handleResetAllFilters}
-              isCollapsed={ui.isFiltersSidebarCollapsed}
-              onToggleCollapse={() =>
-                ui.setIsFiltersSidebarCollapsed(!ui.isFiltersSidebarCollapsed)
-              }
-              includeHighlightEnabled={includeHighlightEnabled}
-              excludeHighlightEnabled={excludeHighlightEnabled}
-              onToggleIncludeHighlight={() =>
-                setIncludeHighlightEnabled(!includeHighlightEnabled)
-              }
-              onToggleExcludeHighlight={() =>
-                setExcludeHighlightEnabled(!excludeHighlightEnabled)
-              }
-              onCreateKeyword={keywords.handleCreateKeyword}
-              onDeleteKeyword={keywords.handleDeleteKeyword}
-              onDeleteLabel={async () => true}
-              articleViewLayout={articleViewLayout}
-              onArticleViewLayoutChange={setArticleViewLayout}
-            />
+            </div>
           </div>
         </div>
+        {/* Reference Drawer */}
+        {ui.openDetail && (
+          <ScreeningReferenceDrawer
+            reviewId={reviewId}
+            userRole={fetchReview.data?.userRole || 'Viewer'}
+            reference={ui.openDetail}
+            onClose={ui.handleCloseDetail}
+            onNavigate={ui.handleNavigateDetail}
+            hasPrev={ui.currentDetailIndex > 0}
+            hasNext={ui.currentDetailIndex < ui.sortedReferences.length - 1}
+            highlightIncludeKeywords={keywords.highlightIncludeKeywords}
+            highlightExcludeKeywords={keywords.highlightExcludeKeywords}
+            selectedReferenceIds={ui.selectedReferenceIds}
+            highlightedReferenceId={ui.highlightedReferenceId}
+            onLabelsApplied={invalidateQuery}
+            onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
+            onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
+            onOpinionApplied={handleOpinionApplied}
+          />
+        )}
       </div>
-
-      {/* Reference Drawer */}
-      {ui.openDetail && (
-        <ScreeningReferenceDrawer
-          reviewId={reviewId}
-          userRole={fetchReview.data?.userRole || 'Viewer'}
-          reference={ui.openDetail}
-          onClose={ui.handleCloseDetail}
-          onNavigate={ui.handleNavigateDetail}
-          hasPrev={ui.currentDetailIndex > 0}
-          hasNext={ui.currentDetailIndex < ui.sortedReferences.length - 1}
-          highlightIncludeKeywords={keywords.highlightIncludeKeywords}
-          highlightExcludeKeywords={keywords.highlightExcludeKeywords}
-          selectedReferenceIds={ui.selectedReferenceIds}
-          highlightedReferenceId={ui.highlightedReferenceId}
-          onLabelsApplied={invalidateQuery}
-          onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
-          onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
-          onOpinionApplied={handleOpinionApplied}
-        />
-      )}
-    </div>
+    </>
   );
 }

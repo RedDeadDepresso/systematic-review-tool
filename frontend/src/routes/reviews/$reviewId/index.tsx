@@ -19,8 +19,8 @@ import { Spinner } from '@/components/ui/spinner';
 import { useContext, useEffect, useState } from 'react';
 import { ResolveDuplicatesDialog } from '@/features/references/components/reference-duplicates/resolve-duplicates-dialog';
 import { AppLayoutContext } from '@/context/app-layout-context';
-import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
-import { ReviewTeamTable } from '@/features/reviews/components/review-members/review-team-table';
+import { FileUploadDialog } from '@/components/blocks/file-upload-dialog';
+import { ReviewMembersTable } from '@/features/reviews/components/review-members/review-members-table';
 import { can } from '@/lib/permissions';
 import { StatsTabs } from '@/features/reviews/components/screening-stats/stats-tabs';
 import {
@@ -29,6 +29,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { ZoteroSyncPanel } from '@/features/integrations/components/zotero/zotero-sync-panel';
+import { useFetchReviewMembers } from '@/features/reviews/hooks/use-review-members';
 
 export const Route = createFileRoute('/reviews/$reviewId/')({
   component: ReviewPage,
@@ -47,6 +48,8 @@ function ReviewPage() {
     useContext(AppLayoutContext);
   const UploadReviewReferences = useUploadReviewReferences();
   const [openUploadDialog, setOpenUploadDialog] = useState(false);
+  const [enabledMembers, setEnabledMembers] = useState<boolean>(false);
+  const fetchReviewMembers = useFetchReviewMembers(reviewId, enabledMembers);
 
   useEffect(() => {
     setPageTitle('Overview');
@@ -203,7 +206,8 @@ function ReviewPage() {
                         <Spinner className="h-10 w-8" />
                       ) : (
                         <p className="text-center text-4xl font-semibold text-foreground">
-                          {data?.duplicateDetectionStatus === 'Not Started'
+                          {data?.duplicateDetectionStatus === 'Not Started' &&
+                          data?.referenceCount !== 0
                             ? '?'
                             : (data?.duplicatePairsCount ?? 0)}
                         </p>
@@ -215,7 +219,8 @@ function ReviewPage() {
                         onClick={handleDetectDuplicates}
                         disabled={
                           isPending ||
-                          data?.duplicateDetectionStatus !== 'Not Started'
+                          data?.duplicateDetectionStatus !== 'Not Started' ||
+                          data?.referenceCount === 0
                         }
                       >
                         {isPending && <Spinner />}
@@ -245,7 +250,8 @@ function ReviewPage() {
                         <Spinner className="h-10 w-8" />
                       ) : (
                         <p className="text-center text-4xl font-semibold text-foreground">
-                          {data?.duplicateDetectionStatus === 'Not Started'
+                          {data?.duplicateDetectionStatus === 'Not Started' &&
+                          data?.referenceCount !== 0
                             ? '?'
                             : (data?.duplicatePairsUnresolvedCount ?? 0)}
                         </p>
@@ -256,7 +262,8 @@ function ReviewPage() {
                         className="w-full bg-gray-200 text-gray-600 hover:bg-gray-300"
                         disabled={
                           data?.duplicateDetectionStatus === 'Not Started' ||
-                          !data?.duplicatePairsUnresolvedCount
+                          !data?.duplicatePairsUnresolvedCount ||
+                          data?.referenceCount === 0
                         }
                         onClick={() => setIsOpen(true)}
                       >
@@ -328,55 +335,28 @@ function ReviewPage() {
         {/* Members Section - Collapsible */}
         <Collapsible>
           <Card className="py-0">
-            <CollapsibleTrigger asChild>
+            <CollapsibleTrigger asChild onClick={() => setEnabledMembers(true)}>
               <button className="group flex w-full items-center justify-between p-6 hover:bg-accent/50 transition-colors rounded-t-lg">
                 <h2 className="text-xl font-semibold text-foreground">
                   Members
-                  {!isLoading && data?.members && (
-                    <span className="ml-2 text-sm font-normal text-muted-foreground">
-                      ({data.members.length})
-                    </span>
-                  )}
+                  {!fetchReviewMembers.isLoading &&
+                    fetchReviewMembers?.data && (
+                      <span className="ml-2 text-sm font-normal text-muted-foreground">
+                        ({fetchReviewMembers.data.length})
+                      </span>
+                    )}
                 </h2>
                 <ChevronDownIcon className="h-5 w-5 transition-transform group-data-[state=open]:rotate-180" />
               </button>
             </CollapsibleTrigger>
             <CollapsibleContent>
               <div className="px-6 pb-6">
-                {isLoading ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-4">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-1/4" />
-                        <Skeleton className="h-3 w-1/3" />
-                      </div>
-                      <Skeleton className="h-6 w-20" />
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-1/4" />
-                        <Skeleton className="h-3 w-1/3" />
-                      </div>
-                      <Skeleton className="h-6 w-20" />
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-1/4" />
-                        <Skeleton className="h-3 w-1/3" />
-                      </div>
-                      <Skeleton className="h-6 w-20" />
-                    </div>
-                  </div>
-                ) : (
-                  <ReviewTeamTable
-                    data={data?.members || []}
-                    userRole={data?.userRole || 'Viewer'}
-                    reviewId={reviewId}
-                  />
-                )}
+                <ReviewMembersTable
+                  data={fetchReviewMembers.data || []}
+                  userRole={data?.userRole || 'Viewer'}
+                  reviewId={reviewId}
+                  isLoading={fetchReviewMembers.isLoading}
+                />
               </div>
             </CollapsibleContent>
           </Card>

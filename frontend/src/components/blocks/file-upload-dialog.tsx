@@ -139,6 +139,8 @@ export function FileUploadDialog({
 
   const handleClearUploaded = () => {
     setFiles((prev) => prev.filter((f) => f.status !== 'success'));
+    setHasAttemptedUpload(false);
+    setUploadProgress(0);
   };
 
   const handleContinue = async () => {

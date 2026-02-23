@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import CommentForm from '@/components/shared/pdf-dialog/comment-form';
+import CommentForm from '@/components/blocks/pdf-dialog/comment-form';
 import {
   type GhostHighlight,
   type PdfSelection,

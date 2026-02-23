@@ -31,6 +31,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface ZoteroSyncPanelProps {
   reviewId: number;
@@ -132,7 +133,7 @@ export function ZoteroSyncPanel({ reviewId }: ZoteroSyncPanelProps) {
       <Card>
         <CardHeader>
           <CardTitle>Zotero Integration</CardTitle>
-          <CardDescription>Loading...</CardDescription>
+          <Skeleton className="h-4 w-32" />
         </CardHeader>
       </Card>
     );

@@ -1,6 +1,6 @@
 import { DataExtractionTable } from '@/features/extraction/components/data-extraction/data-extraction-table';
-import { PDFDialog } from '@/components/shared/pdf-dialog/pdf-dialog';
-import { FileUploadDialog } from '@/components/shared/file-upload-dialog';
+import { PDFDialog } from '@/components/blocks/pdf-dialog/pdf-dialog';
+import { FileUploadDialog } from '@/components/blocks/file-upload-dialog';
 import { MatchPDFDialog } from '@/features/references/components/uploaded-pdfs/match-pdf-dialog';
 import { ExtractionFooter } from '@/features/references/components/references/references-table-footer';
 import { AppLayoutContext } from '@/context/app-layout-context';
@@ -11,7 +11,6 @@ import { useFetchReview } from '@/features/reviews/hooks/use-reviews';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useContext, useEffect } from 'react';
-import { Spinner } from '@/components/ui/spinner';
 
 export const Route = createFileRoute('/reviews/$reviewId/data-extraction')({
   component: RouteComponent,
@@ -47,19 +46,6 @@ function RouteComponent() {
     setScroll(false);
   }, []);
 
-  if (isLoading) {
-    return (
-      <div className="h-full flex items-center justify-center text-muted-foreground">
-        <div className="flex flex-col gap-2">
-          <span>Loading references...</span>
-          <div className="flex items-center justify-center w-full">
-            <Spinner />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -69,8 +55,7 @@ function RouteComponent() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-background">
-      {/* Dialogs */}
+    <>
       {ui.openPDFId && ui.openPDFReference && ui.openPDFReference.file && (
         <PDFDialog
           reviewId={reviewId}
@@ -101,36 +86,39 @@ function RouteComponent() {
           onImport={fileUpload.handleMatch}
         />
       )}
-      <DataExtractionTable
-        reviewId={reviewId}
-        references={ui.sortedReferences}
-        questions={data?.questions || []}
-        selectedReferenceIds={ui.selectedReferenceIds}
-        highlightedReferenceId={ui.highlightedReferenceId}
-        allSelected={ui.allSelected}
-        onSelectAll={ui.handleSelectAllReferences}
-        onSelectReference={ui.handleReferenceSelect}
-        onHighlightReference={ui.handleHighlightReference}
-        onOpenDetail={ui.handleOpenDetail}
-        onOpenPDF={ui.handleOpenPDF}
-        onAttachPDF={(refId: number) => {
-          ui.handleHighlightReference(refId);
-          fileUpload.setOpenUploadPDFDialog(true);
-        }}
-      />
-      <ExtractionFooter
-        reviewId={reviewId}
-        userRole={fetchReview.data?.userRole || 'Viewer'}
-        selectedReferenceIds={ui.selectedReferenceIds}
-        highlightedReferenceId={ui.highlightedReferenceId}
-        onLabelsApplied={() =>
-          queryClient.invalidateQueries({
-            queryKey: ['extraction-table', reviewId],
-          })
-        }
-        onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
-        onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
-      />
-    </div>
+      <div className="h-full flex flex-col overflow-hidden bg-background">
+        <DataExtractionTable
+          reviewId={reviewId}
+          references={ui.sortedReferences}
+          questions={data?.questions || []}
+          isLoading={isLoading}
+          selectedReferenceIds={ui.selectedReferenceIds}
+          highlightedReferenceId={ui.highlightedReferenceId}
+          allSelected={ui.allSelected}
+          onSelectAll={ui.handleSelectAllReferences}
+          onSelectReference={ui.handleReferenceSelect}
+          onHighlightReference={ui.handleHighlightReference}
+          onOpenDetail={ui.handleOpenDetail}
+          onOpenPDF={ui.handleOpenPDF}
+          onAttachPDF={(refId: number) => {
+            ui.handleHighlightReference(refId);
+            fileUpload.setOpenUploadPDFDialog(true);
+          }}
+        />
+        <ExtractionFooter
+          reviewId={reviewId}
+          userRole={fetchReview.data?.userRole || 'Viewer'}
+          selectedReferenceIds={ui.selectedReferenceIds}
+          highlightedReferenceId={ui.highlightedReferenceId}
+          onLabelsApplied={() =>
+            queryClient.invalidateQueries({
+              queryKey: ['extraction-table', reviewId],
+            })
+          }
+          onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
+          onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
+        />
+      </div>
+    </>
   );
 }
