@@ -78,18 +78,20 @@ export function TableTopHeader({
   return (
     <div className="flex items-center justify-between px-3 sm:px-6 py-3 border-b border-border bg-card">
       <div className="flex items-center gap-2 sm:gap-3">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0"
-          onClick={onToggleLeftCollapse}
-        >
-          {isLeftCollapsed ? (
-            <ChevronRight className="h-4 w-4 sm:mr-1" />
-          ) : (
-            <ChevronLeft className="h-4 w-4 sm:mr-1" />
-          )}
-        </Button>
+        {isLeftCollapsed !== undefined && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={onToggleLeftCollapse}
+          >
+            {isLeftCollapsed ? (
+              <ChevronRight className="h-4 w-4 sm:mr-1" />
+            ) : (
+              <ChevronLeft className="h-4 w-4 sm:mr-1" />
+            )}
+          </Button>
+        )}
         <h1 className="text-sm sm:text-lg font-semibold">
           <span className="hidden sm:inline">Showing </span>
           {filteredCount === totalCount

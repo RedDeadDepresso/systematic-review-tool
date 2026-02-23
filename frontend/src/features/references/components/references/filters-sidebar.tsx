@@ -36,10 +36,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useIsMobile } from '@/hooks/use-mobile';
-import type {
-  ArticleViewLayout,
-  Label,
-} from '@/features/references/types/references';
+import type { ArticleViewLayout } from '@/features/references/types/references';
 import type {
   Assignee,
   FileCounts,
@@ -50,6 +47,7 @@ import type {
 } from '@/features/references/api/references';
 import type { ReviewRole } from '@/features/reviews/types/reviews';
 import { can } from '@/lib/permissions';
+import type { Label } from '@/features/references/types/labels';
 
 interface FiltersSidebarProps {
   reviewId: number;
@@ -93,7 +91,8 @@ interface FiltersSidebarProps {
   onToggleExcludeHighlight: () => void;
   onCreateKeyword: (name: string, isInclusive: boolean) => void;
   onDeleteKeyword?: (keyword: Keyword) => void;
-  onDeleteLabel?: (label: Label) => void;
+  onDeleteLabel?: (label: LabelCount) => void;
+  onDeleteSearchMethod?: (searchMethod: SearchMethod) => void;
   articleViewLayout?: ArticleViewLayout;
   onArticleViewLayoutChange?: (layout: ArticleViewLayout) => void;
 }
@@ -229,6 +228,7 @@ export function FiltersSidebar({
   onCreateKeyword,
   onDeleteKeyword,
   onDeleteLabel,
+  onDeleteSearchMethod,
   articleViewLayout,
   onArticleViewLayoutChange,
 }: FiltersSidebarProps) {
@@ -236,6 +236,10 @@ export function FiltersSidebar({
 
   onDeleteKeyword = can('modifyKeyword', userRole)
     ? onDeleteKeyword
+    : undefined;
+
+  onDeleteSearchMethod = can('uploadFiles', userRole)
+    ? onDeleteSearchMethod
     : undefined;
 
   // PERSISTENT STATE - survives data changes
@@ -360,9 +364,10 @@ export function FiltersSidebar({
   const excludeKeywords = keywords.filter((k) => !k.isInclusive);
   const [deleteConfirmKeyword, setDeleteConfirmKeyword] =
     useState<Keyword | null>(null);
-  const [deleteConfirmLabel, setDeleteConfirmLabel] = useState<Label | null>(
-    null
-  );
+  const [deleteConfirmLabel, setDeleteConfirmLabel] =
+    useState<LabelCount | null>(null);
+  const [deleteConfirmSearchMethod, setDeleteConfirmSearchMethod] =
+    useState<SearchMethod | null>(null);
 
   const toggleSection = (section: keyof typeof sections) => {
     setSections((prev) => ({ ...prev, [section]: !prev[section] }));
@@ -898,6 +903,11 @@ export function FiltersSidebar({
                   checked={selectedSearchMethods.includes(sm.id)}
                   onCheckedChange={() => onSearchMethodToggle(sm.id)}
                   count={sm.count}
+                  onDelete={
+                    onDeleteSearchMethod
+                      ? () => setDeleteConfirmSearchMethod(sm)
+                      : undefined
+                  }
                 />
               ))}
             </div>
@@ -1165,6 +1175,37 @@ export function FiltersSidebar({
                 if (deleteConfirmLabel && onDeleteLabel) {
                   onDeleteLabel(deleteConfirmLabel);
                   setDeleteConfirmLabel(null);
+                }
+              }}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={deleteConfirmSearchMethod !== null}
+        onOpenChange={(open) => !open && setDeleteConfirmSearchMethod(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Search Method</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the search method "
+              {deleteConfirmSearchMethod?.name}"? This will also delete all
+              associated references and their metadata. This action cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteConfirmSearchMethod && onDeleteSearchMethod) {
+                  onDeleteSearchMethod(deleteConfirmSearchMethod);
+                  setDeleteConfirmSearchMethod(null);
                 }
               }}
               className="bg-destructive text-white hover:bg-destructive/90"

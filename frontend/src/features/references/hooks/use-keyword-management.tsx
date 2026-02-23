@@ -87,10 +87,6 @@ export function useKeywordManagement(
           );
         }
 
-        queryClient.invalidateQueries({
-          queryKey: ['reviews', reviewId, 'review-data'],
-        });
-
         return true;
       } catch (error) {
         console.error(error);

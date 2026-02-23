@@ -63,11 +63,11 @@ export function useDeleteLabel() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id }: { id: number }) => deleteLabel(id),
+    mutationFn: (id: number) => deleteLabel(id),
     onSuccess: (_data, variables) => {
       toast.success('Label has been deleted.');
       queryClient.setQueryData<Label[]>(['labels'], (oldData = []) =>
-        oldData.filter((label) => label.id !== variables.id)
+        oldData.filter((label) => label.id !== variables)
       );
     },
   });

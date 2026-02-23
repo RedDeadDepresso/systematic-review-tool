@@ -5,7 +5,7 @@ import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAutoResolveDuplicates } from '@/features/reviews/hooks/use-reviews';
-import { useSearchMethods } from '@/features/reviews/hooks/use-search-methods';
+import { useFetchSearchMethods } from '@/features/reviews/hooks/use-search-methods';
 import {
   IconSparkles,
   IconAlertCircle,
@@ -50,7 +50,7 @@ export function AutoResolverForm({ reviewId, onClose }: AutoResolverFormProps) {
     doi: false,
   });
 
-  const { data: searchMethods = [] } = useSearchMethods(reviewId);
+  const { data: searchMethods = [] } = useFetchSearchMethods(reviewId);
 
   const autoResolveMutation = useAutoResolveDuplicates(reviewId);
 
