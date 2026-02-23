@@ -99,7 +99,7 @@ function IndexPage() {
                     )}
                   </TabsTrigger>
                   <TabsTrigger value="inactive">
-                    Inactive
+                    Archived
                     {!isLoadingInactive && inactiveEnabled && (
                       <span className="ml-1.5 text-xs text-muted-foreground">
                         ({inactiveReviews.length})
