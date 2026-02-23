@@ -1,3 +1,4 @@
+import type { Label } from '@/features/references/types/labels';
 import type { ReviewMember } from '@/features/reviews/types/reviews';
 
 export type OpinionStatus = 'Undecided' | 'Included' | 'Excluded' | 'Maybe';
@@ -10,13 +11,6 @@ export type Opinion = {
   stage: Stage;
   reason: string | null;
   updatedAt: string;
-};
-
-export type Label = {
-  id: number;
-  name: string;
-  color?: string;
-  hotkey?: string;
 };
 
 export type Reference = {

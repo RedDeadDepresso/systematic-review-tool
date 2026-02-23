@@ -28,9 +28,15 @@ import { useBulkUpsertReferenceOpinions } from '@/features/references/hooks/use-
 import { PDFDialog } from '@/components/blocks/pdf-dialog/pdf-dialog';
 import { useFetchReview } from '@/features/reviews/hooks/use-reviews';
 import { AddDataDialog } from '@/components/blocks/add-data-dialog';
-import { exportScreeningFullText } from '@/features/references/api/references';
+import {
+  exportScreeningFullText,
+  type LabelCount,
+  type SearchMethod,
+} from '@/features/references/api/references';
 import { useScreeningStats } from '@/features/reviews/hooks/use-screening-stats';
 import { cn } from '@/lib/utils';
+import { useDeleteSearchMethod } from '@/features/reviews/hooks/use-search-methods';
+import { useDeleteLabel } from '@/features/references/hooks/use-labels';
 
 export const Route = createFileRoute('/reviews/$reviewId/full-text-screening')({
   component: RouteComponent,
@@ -86,6 +92,31 @@ function RouteComponent() {
       queryKey: ['reviews', 'screening-full-text', queryParams],
     });
   };
+
+  const deleteSearchMethod = useDeleteSearchMethod(reviewId);
+  const deleteLabel = useDeleteLabel();
+
+  const handleDeleteLabel = useCallback(
+    (label: LabelCount) => {
+      deleteLabel.mutate(label.id, {
+        onSuccess: () => {
+          invalidateQuery();
+        },
+      });
+    },
+    [deleteLabel]
+  );
+
+  const handleDeleteSearchMethod = useCallback(
+    (searchMethod: SearchMethod) => {
+      deleteSearchMethod.mutate(searchMethod.id, {
+        onSuccess: () => {
+          invalidateQuery();
+        },
+      });
+    },
+    [deleteSearchMethod]
+  );
 
   const fetchReview = useFetchReview(reviewId);
 
@@ -227,10 +258,6 @@ function RouteComponent() {
               searchQuery={filters.searchQuery}
               onSearchChange={filters.setSearchQuery}
               onSortChange={ui.handleSortChange}
-              isLeftCollapsed={ui.isSourcesSidebarCollapsed}
-              onToggleLeftCollapse={() =>
-                ui.setIsSourcesSidebarCollapsed(!ui.isSourcesSidebarCollapsed)
-              }
               isRightCollapsed={ui.isFiltersSidebarCollapsed}
               onToggleRightCollapse={() =>
                 ui.setIsFiltersSidebarCollapsed(!ui.isFiltersSidebarCollapsed)
@@ -397,7 +424,8 @@ function RouteComponent() {
                 }
                 onCreateKeyword={keywords.handleCreateKeyword}
                 onDeleteKeyword={keywords.handleDeleteKeyword}
-                onDeleteLabel={async () => true}
+                onDeleteLabel={handleDeleteLabel}
+                onDeleteSearchMethod={handleDeleteSearchMethod}
                 articleViewLayout={articleViewLayout}
                 onArticleViewLayoutChange={setArticleViewLayout}
               />

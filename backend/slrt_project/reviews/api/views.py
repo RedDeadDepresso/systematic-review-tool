@@ -48,6 +48,7 @@ from slrt_project.reviews.api.serializers import (
     ReviewMemberSerializer,
     ReviewSerializer,
     ScreeningCriteriaSerializer,
+    SearchMethodSerializer,
 )
 from slrt_project.reviews.models import (
     Review,
@@ -858,7 +859,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
             status=status.HTTP_202_ACCEPTED,
         )
 
-    @action(detail=True, methods=["get"])
+    @action(detail=True, methods=["get"], url_path="search-methods")
     def search_methods(self, request, pk=None):
         """
         Get all search methods for a review
@@ -1224,4 +1225,20 @@ class ReviewMemberRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVie
         """Cannot remove the owner"""
         if instance.role == ReviewMember.Role.OWNER:
             raise serializers.ValidationError("You cannot remove the review owner.")
+        instance.delete()
+
+
+class SearchMethodDestroyView(generics.DestroyAPIView):
+    """
+    View to delete a search method.
+    Only owner and collaborator can delete.
+    """
+
+    serializer_class = SearchMethodSerializer
+    queryset = SearchMethod.objects.all()
+    permission_classes = [IsAuthenticated]
+
+    def perform_destroy(self, instance):
+        """Only owner and collaborator can delete search method"""
+        check_permission(Permission.UPLOAD_FILES, self.request.user, instance.review)
         instance.delete()

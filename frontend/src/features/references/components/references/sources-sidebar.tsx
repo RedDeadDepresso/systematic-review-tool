@@ -20,8 +20,20 @@ import type {
 } from '@/features/references/api/references';
 import type { ReviewRole } from '@/features/reviews/types/reviews';
 import { can } from '@/lib/permissions';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useState } from 'react';
 
 interface SourcesSidebarProps {
+  reviewId: number;
   searchMethods: SearchMethod[];
   userRole: ReviewRole;
   selectedSearchMethodIds: number[];
@@ -35,6 +47,7 @@ interface SourcesSidebarProps {
   onAddReferences: () => void;
   onDetectDuplicates: () => void;
   onResolveDuplicates: () => void;
+  onDeleteSearchMethod?: (searchMethod: SearchMethod) => void;
 }
 
 export function SourcesSidebar({
@@ -51,6 +64,7 @@ export function SourcesSidebar({
   onAddReferences,
   onDetectDuplicates,
   onResolveDuplicates,
+  onDeleteSearchMethod,
 }: SourcesSidebarProps) {
   const duplicateStatuses = [
     { key: 'Unresolved', icon: Clock, label: 'Unresolved' },
@@ -58,6 +72,8 @@ export function SourcesSidebar({
     { key: 'Not Duplicate', icon: XCircle, label: 'Not Duplicate' },
     { key: 'Resolved', icon: CheckCircle, label: 'Resolved' },
   ];
+  const [deleteConfirmSearchMethod, setDeleteConfirmSearchMethod] =
+    useState<SearchMethod | null>(null);
 
   return (
     <aside
@@ -121,7 +137,18 @@ export function SourcesSidebar({
                     <span className="text-muted-foreground">
                       {method.count}
                     </span>
-                    <Trash2 className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    {can('uploadFiles', userRole) && onDeleteSearchMethod && (
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteConfirmSearchMethod(method);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4  text-muted-foreground hover:text-destructive" />
+                      </div>
+                    )}
                   </div>
                 </button>
               ))}
@@ -201,6 +228,37 @@ export function SourcesSidebar({
           </CollapsibleContent>
         </Collapsible>
       </div>
+      {/* Delete Confirmation Dialogs */}
+      <AlertDialog
+        open={deleteConfirmSearchMethod !== null}
+        onOpenChange={(open) => !open && setDeleteConfirmSearchMethod(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Search Method</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the search method "
+              {deleteConfirmSearchMethod?.name}"? This will also delete all
+              associated references and their metadata. This action cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteConfirmSearchMethod && onDeleteSearchMethod) {
+                  onDeleteSearchMethod(deleteConfirmSearchMethod);
+                  setDeleteConfirmSearchMethod(null);
+                }
+              }}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </aside>
   );
 }

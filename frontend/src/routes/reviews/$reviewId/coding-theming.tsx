@@ -7,7 +7,7 @@ import { CodeCard } from '@/features/coding/components/codes/code-card';
 import { CreateItemDialog } from '@/features/coding/components/create-item-dialog';
 import { SectionSearch } from '@/features/coding/components/section-search';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Collapsible,

@@ -11,6 +11,7 @@ from slrt_project.reviews.models import (
     ReviewMember,
     ScreeningCriteria,
     ScreeningStat,
+    SearchMethod,
 )
 from slrt_project.users.api.serializers import UserSerializer
 
@@ -291,3 +292,9 @@ class AddDataSerializer(serializers.Serializer):
             )
 
         return attrs
+
+
+class SearchMethodSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SearchMethod
+        fields = ["id", "name"]

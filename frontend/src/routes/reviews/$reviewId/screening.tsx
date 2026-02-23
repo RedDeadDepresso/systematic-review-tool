@@ -27,9 +27,15 @@ import { TableSubHeader } from '@/features/references/components/references/refe
 import { useBulkUpsertReferenceOpinions } from '@/features/references/hooks/use-reference-opinions';
 import { PDFDialog } from '@/components/blocks/pdf-dialog/pdf-dialog';
 import { useFetchReview } from '@/features/reviews/hooks/use-reviews';
-import { exportScreening } from '@/features/references/api/references';
+import {
+  exportScreening,
+  type LabelCount,
+  type SearchMethod,
+} from '@/features/references/api/references';
 import { useScreeningStats } from '@/features/reviews/hooks/use-screening-stats';
 import { cn } from '@/lib/utils';
+import { useDeleteSearchMethod } from '@/features/reviews/hooks/use-search-methods';
+import { useDeleteLabel } from '@/features/references/hooks/use-labels';
 
 export const Route = createFileRoute('/reviews/$reviewId/screening')({
   component: RouteComponent,
@@ -80,7 +86,37 @@ function RouteComponent() {
   };
 
   const { data, isLoading, error } = useFetchScreening(queryParams);
+  const invalidateQuery = () => {
+    queryClient.invalidateQueries({
+      queryKey: ['reviews', 'screening', queryParams],
+    });
+  };
   const fetchReview = useFetchReview(reviewId);
+
+  const deleteSearchMethod = useDeleteSearchMethod(reviewId);
+  const deleteLabel = useDeleteLabel();
+
+  const handleDeleteLabel = useCallback(
+    (label: LabelCount) => {
+      deleteLabel.mutate(label.id, {
+        onSuccess: () => {
+          invalidateQuery();
+        },
+      });
+    },
+    [deleteLabel]
+  );
+
+  const handleDeleteSearchMethod = useCallback(
+    (searchMethod: SearchMethod) => {
+      deleteSearchMethod.mutate(searchMethod.id, {
+        onSuccess: () => {
+          invalidateQuery();
+        },
+      });
+    },
+    [deleteSearchMethod]
+  );
 
   // UI state management
   const ui = useReferenceUI(
@@ -104,9 +140,7 @@ function RouteComponent() {
   const fileUpload = useFileUpload(
     reviewId,
     () => {
-      queryClient.invalidateQueries({
-        queryKey: ['reviews', 'screening', queryParams],
-      });
+      invalidateQuery();
     },
     ui.selectedReferenceIds,
     ui.highlightedReferenceId,
@@ -139,9 +173,7 @@ function RouteComponent() {
           reason: reasonId,
         },
       });
-      queryClient.invalidateQueries({
-        queryKey: ['reviews', 'screening', queryParams],
-      });
+      invalidateQuery();
       if (
         referenceIds.length === 1 &&
         referenceIds[0] === ui.highlightedReferenceId
@@ -216,10 +248,6 @@ function RouteComponent() {
               searchQuery={filters.searchQuery}
               onSearchChange={filters.setSearchQuery}
               onSortChange={ui.handleSortChange}
-              isLeftCollapsed={ui.isSourcesSidebarCollapsed}
-              onToggleLeftCollapse={() =>
-                ui.setIsSourcesSidebarCollapsed(!ui.isSourcesSidebarCollapsed)
-              }
               isRightCollapsed={ui.isFiltersSidebarCollapsed}
               onToggleRightCollapse={() =>
                 ui.setIsFiltersSidebarCollapsed(!ui.isFiltersSidebarCollapsed)
@@ -265,11 +293,7 @@ function RouteComponent() {
                     userRole={fetchReview.data?.userRole || 'Viewer'}
                     selectedReferenceIds={ui.selectedReferenceIds}
                     highlightedReferenceId={ui.highlightedReferenceId}
-                    onLabelsApplied={() =>
-                      queryClient.invalidateQueries({
-                        queryKey: ['reviews', 'screening', queryParams],
-                      })
-                    }
+                    onLabelsApplied={invalidateQuery}
                     onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
                     onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
                     onOpinionApplied={handleOpinionApplied}
@@ -292,11 +316,7 @@ function RouteComponent() {
                   highlightedReferenceId={ui.highlightedReferenceId}
                   highlightIncludeKeywords={keywords.highlightIncludeKeywords}
                   highlightExcludeKeywords={keywords.highlightExcludeKeywords}
-                  onLabelsApplied={() =>
-                    queryClient.invalidateQueries({
-                      queryKey: ['reviews', 'screening', queryParams],
-                    })
-                  }
+                  onLabelsApplied={invalidateQuery}
                   onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
                   onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
                   onOpinionApplied={handleOpinionApplied}
@@ -395,7 +415,8 @@ function RouteComponent() {
                 }
                 onCreateKeyword={keywords.handleCreateKeyword}
                 onDeleteKeyword={keywords.handleDeleteKeyword}
-                onDeleteLabel={async () => true}
+                onDeleteLabel={handleDeleteLabel}
+                onDeleteSearchMethod={handleDeleteSearchMethod}
                 articleViewLayout={articleViewLayout}
                 onArticleViewLayoutChange={setArticleViewLayout}
               />
@@ -417,11 +438,7 @@ function RouteComponent() {
             highlightExcludeKeywords={keywords.highlightExcludeKeywords}
             selectedReferenceIds={ui.selectedReferenceIds}
             highlightedReferenceId={ui.highlightedReferenceId}
-            onLabelsApplied={() =>
-              queryClient.invalidateQueries({
-                queryKey: ['reviews', 'screening', queryParams],
-              })
-            }
+            onLabelsApplied={invalidateQuery}
             onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
             onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
             onOpinionApplied={handleOpinionApplied}

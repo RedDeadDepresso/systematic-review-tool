@@ -25,8 +25,14 @@ import { ReviewDataFooter } from '@/features/references/components/references/re
 import { TableSubHeader } from '@/features/references/components/references/references-table-sub-header';
 import { PDFDialog } from '@/components/blocks/pdf-dialog/pdf-dialog';
 import { useFetchReview } from '@/features/reviews/hooks/use-reviews';
-import { exportReviewData } from '@/features/references/api/references';
+import {
+  exportReviewData,
+  type LabelCount,
+  type SearchMethod,
+} from '@/features/references/api/references';
 import { cn } from '@/lib/utils';
+import { useDeleteSearchMethod } from '@/features/reviews/hooks/use-search-methods';
+import { useDeleteLabel } from '@/features/references/hooks/use-labels';
 
 export const Route = createFileRoute('/reviews/$reviewId/review-data')({
   component: RouteComponent,
@@ -37,6 +43,7 @@ function RouteComponent() {
   const { setPageTitle, setIsAuthenticated, setScroll } =
     useContext(AppLayoutContext);
   const queryClient = useQueryClient();
+  const deleteSearchMethod = useDeleteSearchMethod(reviewId);
 
   useEffect(() => {
     setPageTitle('Review Data');
@@ -74,6 +81,11 @@ function RouteComponent() {
   };
 
   const { data, isLoading, error } = useFetchReviewData(queryParams);
+  const invalidateQuery = () => {
+    queryClient.invalidateQueries({
+      queryKey: ['reviews', 'review-data', queryParams],
+    });
+  };
   const fetchReview = useFetchReview(reviewId);
 
   // UI state management
@@ -95,13 +107,35 @@ function RouteComponent() {
   const fileUpload = useFileUpload(
     reviewId,
     () => {
-      queryClient.invalidateQueries({
-        queryKey: ['reviews', 'review-data', queryParams],
-      });
+      invalidateQuery();
     },
     ui.selectedReferenceIds,
     ui.highlightedReferenceId,
     ui.sortedReferences
+  );
+
+  const deleteLabel = useDeleteLabel();
+
+  const handleDeleteLabel = useCallback(
+    (label: LabelCount) => {
+      deleteLabel.mutate(label.id, {
+        onSuccess: () => {
+          invalidateQuery();
+        },
+      });
+    },
+    [deleteLabel]
+  );
+
+  const handleDeleteSearchMethod = useCallback(
+    (searchMethod: SearchMethod) => {
+      deleteSearchMethod.mutate(searchMethod.id, {
+        onSuccess: () => {
+          invalidateQuery();
+        },
+      });
+    },
+    [deleteSearchMethod]
   );
 
   const handleExport = useCallback(
@@ -173,6 +207,7 @@ function RouteComponent() {
         <div className="flex flex-1 overflow-hidden">
           {/* Sources Sidebar */}
           <SourcesSidebar
+            reviewId={reviewId}
             searchMethods={data?.searchMethods || []}
             userRole={fetchReview.data?.userRole || 'Viewer'}
             selectedSearchMethodIds={filters.searchMethodIds}
@@ -195,6 +230,7 @@ function RouteComponent() {
               fileUpload.detectDuplicateReferences.mutate({ reviewId })
             }
             onResolveDuplicates={() => setIsResolveDuplicatesOpen(true)}
+            onDeleteSearchMethod={handleDeleteSearchMethod}
           />
 
           <div className="flex flex-col flex-1 min-h-0">
@@ -253,11 +289,7 @@ function RouteComponent() {
                     userRole={fetchReview.data?.userRole || 'Viewer'}
                     selectedReferenceIds={ui.selectedReferenceIds}
                     highlightedReferenceId={ui.highlightedReferenceId}
-                    onLabelsApplied={() =>
-                      queryClient.invalidateQueries({
-                        queryKey: ['reviews', 'review-data', queryParams],
-                      })
-                    }
+                    onLabelsApplied={invalidateQuery}
                     onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
                     onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
                   />
@@ -279,11 +311,7 @@ function RouteComponent() {
                   highlightedReferenceId={ui.highlightedReferenceId}
                   highlightIncludeKeywords={keywords.highlightIncludeKeywords}
                   highlightExcludeKeywords={keywords.highlightExcludeKeywords}
-                  onLabelsApplied={() =>
-                    queryClient.invalidateQueries({
-                      queryKey: ['reviews', 'review-data', queryParams],
-                    })
-                  }
+                  onLabelsApplied={invalidateQuery}
                   onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
                   onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
                 />
@@ -381,7 +409,8 @@ function RouteComponent() {
                 }
                 onCreateKeyword={keywords.handleCreateKeyword}
                 onDeleteKeyword={keywords.handleDeleteKeyword}
-                onDeleteLabel={async () => true}
+                onDeleteLabel={handleDeleteLabel}
+                onDeleteSearchMethod={handleDeleteSearchMethod}
                 articleViewLayout={articleViewLayout}
                 onArticleViewLayoutChange={setArticleViewLayout}
               />
@@ -403,11 +432,7 @@ function RouteComponent() {
             highlightExcludeKeywords={keywords.highlightExcludeKeywords}
             selectedReferenceIds={ui.selectedReferenceIds}
             highlightedReferenceId={ui.highlightedReferenceId}
-            onLabelsApplied={() =>
-              queryClient.invalidateQueries({
-                queryKey: ['reviews', 'review-data', queryParams],
-              })
-            }
+            onLabelsApplied={invalidateQuery}
             onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
             onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
           />
