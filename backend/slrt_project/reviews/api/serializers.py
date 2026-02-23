@@ -103,8 +103,6 @@ class ReviewSerializer(serializers.ModelSerializer):
         read_only=True, allow_null=True
     )
 
-    members = ReviewMemberSerializer(many=True, read_only=True)
-
     screening_stats = serializers.SerializerMethodField()
     screening_opinions = serializers.SerializerMethodField()
     full_text_opinions = serializers.SerializerMethodField()
@@ -123,7 +121,6 @@ class ReviewSerializer(serializers.ModelSerializer):
             "is_blinded",
             "user_role",
             "user_member_id",
-            "members",
             "screening_stats",
             "screening_opinions",
             "full_text_opinions",

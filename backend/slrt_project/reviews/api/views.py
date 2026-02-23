@@ -11,7 +11,6 @@ from django.db.models import (
     Exists,
     IntegerField,
     OuterRef,
-    Prefetch,
     Q,
     Subquery,
     Value,
@@ -183,13 +182,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 default=Value(None),
                 output_field=IntegerField(),
             ),
-        ).prefetch_related(
-            Prefetch(
-                "members",
-                queryset=ReviewMember.objects.select_related("user"),
-            )
         )
-
         return queryset
 
     def get_serializer_class(self):

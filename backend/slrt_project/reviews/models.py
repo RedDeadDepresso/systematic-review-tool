@@ -1,3 +1,4 @@
+import os
 import uuid
 
 from django.db import models
@@ -170,7 +171,9 @@ class ReviewChatMessage(models.Model):
 
 
 def search_method_upload_path(instance, filename):
-    return f"search_methods/{uuid.uuid4()}/{filename}"
+    ext = filename.split(".")[-1]
+    new_filename = f"{uuid.uuid4()}.{ext}"
+    return os.path.join("search_methods", new_filename)
 
 
 class SearchMethod(models.Model):
