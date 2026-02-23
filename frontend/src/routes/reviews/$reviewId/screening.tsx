@@ -83,7 +83,10 @@ function RouteComponent() {
   const fetchReview = useFetchReview(reviewId);
 
   // UI state management
-  const ui = useReferenceUI(data?.references || []);
+  const ui = useReferenceUI(
+    data?.references || [],
+    fetchReview.data?.userMemberId || undefined
+  );
 
   // Keyword management
   const keywords = useKeywordManagement(
@@ -123,14 +126,11 @@ function RouteComponent() {
   const bulkUpsertReferenceOpinions = useBulkUpsertReferenceOpinions();
 
   const handleOpinionApplied = async (
+    referenceIds: number[],
     status: OpinionStatus,
     reasonId?: number | null
   ) => {
     try {
-      const referenceIds = [
-        ...ui.selectedReferenceIds,
-        ...(ui.highlightedReferenceId ? [ui.highlightedReferenceId] : []),
-      ];
       await bulkUpsertReferenceOpinions.mutateAsync({
         payload: {
           referenceIds: referenceIds,
@@ -175,6 +175,18 @@ function RouteComponent() {
           hasNext={ui.hasOpenPDFReferenceNext}
           hasPrev={ui.hasOpenPDFReferencePrev}
           onNavigate={ui.handleOpenPDFNavigate}
+          footer={
+            <ScreeningFooter
+              reviewId={reviewId}
+              userRole={fetchReview.data?.userRole || 'Viewer'}
+              selectedReferenceIds={[]}
+              highlightedReferenceId={ui.openPDFId}
+              onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
+              onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
+              onOpinionApplied={handleOpinionApplied}
+              opinionStatus={ui.PDFOpinionStatus}
+            />
+          }
         />
       )}
       <FileUploadDialog

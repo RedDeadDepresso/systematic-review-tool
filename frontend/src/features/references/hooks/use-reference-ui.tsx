@@ -8,7 +8,10 @@ import type { ReferenceWithAnswers } from '@/features/extraction/types/extractio
 
 type ReferenceType = Reference | ReferenceWithAnswers;
 
-export function useReferenceUI<T extends ReferenceType>(references: T[]) {
+export function useReferenceUI<T extends ReferenceType>(
+  references: T[],
+  memberId?: number
+) {
   // Sidebar collapse states
   const [isSourcesSidebarCollapsed, setIsSourcesSidebarCollapsed] =
     useState(true);
@@ -94,6 +97,17 @@ export function useReferenceUI<T extends ReferenceType>(references: T[]) {
     if (!openPDFId) return null;
     return references.find((r) => r.id === openPDFId) ?? null;
   }, [openPDFId, references]);
+
+  // Only defined when the PDF dialog is open and memberId is provided.
+  // Guards with 'opinions' in check since ReferenceWithAnswers has no opinions.
+  const PDFOpinionStatus = useMemo(() => {
+    if (!openPDFId || !memberId || !openPDFReference) return null;
+    if (!('opinions' in openPDFReference)) return null;
+    return (
+      openPDFReference.opinions.find((o) => o.member.id === memberId)?.status ??
+      null
+    );
+  }, [openPDFId, memberId, openPDFReference]);
 
   // Handlers
   const handleReferenceSelect = useCallback((id: number) => {
@@ -254,6 +268,7 @@ export function useReferenceUI<T extends ReferenceType>(references: T[]) {
     // PDF state
     openPDFId,
     openPDFReference,
+    PDFOpinionStatus,
     currentPDFIndex,
     hasOpenPDFReferencePrev,
     hasOpenPDFReferenceNext,

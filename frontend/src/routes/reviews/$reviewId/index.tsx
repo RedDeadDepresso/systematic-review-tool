@@ -206,7 +206,8 @@ function ReviewPage() {
                         <Spinner className="h-10 w-8" />
                       ) : (
                         <p className="text-center text-4xl font-semibold text-foreground">
-                          {data?.duplicateDetectionStatus === 'Not Started'
+                          {data?.duplicateDetectionStatus === 'Not Started' &&
+                          data?.referenceCount !== 0
                             ? '?'
                             : (data?.duplicatePairsCount ?? 0)}
                         </p>
@@ -218,7 +219,8 @@ function ReviewPage() {
                         onClick={handleDetectDuplicates}
                         disabled={
                           isPending ||
-                          data?.duplicateDetectionStatus !== 'Not Started'
+                          data?.duplicateDetectionStatus !== 'Not Started' ||
+                          data?.referenceCount === 0
                         }
                       >
                         {isPending && <Spinner />}
@@ -248,7 +250,8 @@ function ReviewPage() {
                         <Spinner className="h-10 w-8" />
                       ) : (
                         <p className="text-center text-4xl font-semibold text-foreground">
-                          {data?.duplicateDetectionStatus === 'Not Started'
+                          {data?.duplicateDetectionStatus === 'Not Started' &&
+                          data?.referenceCount !== 0
                             ? '?'
                             : (data?.duplicatePairsUnresolvedCount ?? 0)}
                         </p>
@@ -259,7 +262,8 @@ function ReviewPage() {
                         className="w-full bg-gray-200 text-gray-600 hover:bg-gray-300"
                         disabled={
                           data?.duplicateDetectionStatus === 'Not Started' ||
-                          !data?.duplicatePairsUnresolvedCount
+                          !data?.duplicatePairsUnresolvedCount ||
+                          data?.referenceCount === 0
                         }
                         onClick={() => setIsOpen(true)}
                       >
