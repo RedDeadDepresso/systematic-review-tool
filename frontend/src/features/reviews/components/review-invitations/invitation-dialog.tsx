@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import EmailChipsInput from '@/features/reviews/components/review-invitations/email-chip-input';
-import { useSendInvitations } from '@/features/reviews/hooks/use-invitations';
+import { useSendInvitations } from '@/features/reviews/hooks/use-review-invitations';
 import type { InvitationRole } from '@/features/reviews/types/invitations';
 
 export interface InvitationDialogProps {

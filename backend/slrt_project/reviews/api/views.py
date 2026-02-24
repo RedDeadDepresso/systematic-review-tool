@@ -1051,84 +1051,93 @@ class ReviewInvitationViewSet(
         return ReviewInvitationSerializer
 
     def get_queryset(self):
-        """
-        List invitations:
-        - ?sent=true → invitations sent by current user
-        - ?sent=false → invitations received by current user
-        """
-        sent_param = self.request.query_params.get("sent", "false").lower() == "true"
         user = self.request.user
+        invitation_type = self.request.query_params.get("type")
 
-        if sent_param:
+        if invitation_type == "sent":
             return ReviewInvitation.objects.filter(invited_by=user)
-        else:
+        elif invitation_type == "received":
             return ReviewInvitation.objects.filter(email=user.email)
 
+        # default: return both
+        return ReviewInvitation.objects.filter(Q(invited_by=user) | Q(email=user.email))
+
     def create(self, request, *args, **kwargs):
-        """Only owner can invite"""
         review_id = request.data.get("review")
         emails = request.data.get("emails", [])
         role = request.data.get("role", ReviewMember.Role.VIEWER)
 
         review = get_object_or_404(Review, pk=review_id)
 
-        # Check if user is owner
+        # Permission check
         check_permission(Permission.INVITE, request.user, review)
 
         # Validate role
-        if role not in [choice[0] for choice in ReviewMember.Role.choices]:
+        if role not in ReviewMember.Role.values:
             return Response(
                 {
-                    "detail": f"Invalid role. Must be one of: {', '.join([c[0] for c in ReviewMember.Role.choices])}"
+                    "detail": f"Invalid role. Must be one of: {', '.join(ReviewMember.Role.values)}"
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Get existing member emails
+        existing_member_emails = set(
+            review.members.select_related("user").values_list("user__email", flat=True)
+        )
+
+        # Get already invited emails (optional but recommended)
+        existing_invited_emails = set(
+            ReviewInvitation.objects.filter(review=review).values_list(
+                "email", flat=True
+            )
+        )
+
         created_invitations = []
+
         for email in emails:
-            if email == request.user.email:
+            if (
+                email == request.user.email
+                or email in existing_member_emails
+                or email in existing_invited_emails
+            ):
                 continue
+
             invitation = ReviewInvitation.objects.create(
                 email=email,
                 review=review,
                 invited_by=request.user,
-                role=role,  # Store the role in invitation
+                role=role,
             )
             created_invitations.append(invitation)
 
         serializer = ReviewInvitationSerializer(created_invitations, many=True)
         return Response(serializer.data, status=201)
 
-    def update(self, request, pk=None):
-        """
-        Accept or decline an invitation.
-        On accept, create ReviewMember with the specified role.
-        """
+    @action(detail=True, methods=["post"])
+    def accept(self, request, pk=None):
         invitation = get_object_or_404(
             ReviewInvitation, pk=pk, email=request.user.email
         )
-        action_type = request.data.get("action", "").lower()
 
-        if action_type == "accept":
-            # Create ReviewMember with role from invitation
-            ReviewMember.objects.create(
-                review=invitation.review,
-                user=request.user,
-                role=invitation.role,  # Use role from invitation
-            )
-            invitation.delete()
-            return Response(
-                {"detail": "Invitation accepted."}, status=status.HTTP_200_OK
-            )
-        elif action_type == "decline":
-            invitation.delete()
-            return Response(
-                {"detail": "Invitation declined."}, status=status.HTTP_200_OK
-            )
-        else:
-            return Response(
-                {"detail": "Invalid action."}, status=status.HTTP_400_BAD_REQUEST
-            )
+        # Prevent duplicate membership
+        ReviewMember.objects.get_or_create(
+            review=invitation.review,
+            user=request.user,
+            defaults={"role": invitation.role},
+        )
+
+        invitation.delete()
+        return Response({"detail": "Invitation accepted."})
+
+    @action(detail=True, methods=["post"])
+    def decline(self, request, pk=None):
+        invitation = get_object_or_404(
+            ReviewInvitation, pk=pk, email=request.user.email
+        )
+
+        invitation.delete()
+        return Response({"detail": "Invitation declined."})
 
     def destroy(self, request, pk=None):
         """

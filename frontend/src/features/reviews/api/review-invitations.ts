@@ -15,25 +15,28 @@ export async function sendInvitations(payload: {
 }
 
 /* ------------------ FETCH INVITATIONS ------------------ */
-/**
- * sent = true  -> invitations sent by current user
- * sent = false -> invitations received by current user (default)
- */
-export async function fetchInvitations(sent = false): Promise<Invitation[]> {
+export async function fetchInvitations(
+  type: 'received' | 'sent'
+): Promise<Invitation[]> {
   const res = await api.get<Invitation[]>('/review-invitations/', {
-    params: { sent },
+    params: { type },
   });
   return res.data;
 }
 
-/* ------------------ ACCEPT / DECLINE ------------------ */
-export async function updateInvitationStatus(
-  inviteId: number,
-  action: 'accept' | 'decline'
-) {
-  const res = await api.put(`/review-invitations/${inviteId}/`, {
-    action,
-  });
+/* ------------------ ACCEPT INVITATION ------------------ */
+export async function acceptInvitation(inviteId: number) {
+  const res = await api.post<{ detail: string }>(
+    `/review-invitations/${inviteId}/accept/`
+  );
+  return res.data;
+}
+
+/* ------------------ DECLINE INVITATION ------------------ */
+export async function declineInvitation(inviteId: number) {
+  const res = await api.post<{ detail: string }>(
+    `/review-invitations/${inviteId}/decline/`
+  );
   return res.data;
 }
 
