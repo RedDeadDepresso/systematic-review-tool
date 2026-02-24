@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type {
   Reference,
-  Label,
   Opinion,
 } from '@/features/references/types/references';
 import { highlightText } from '@/lib/highlight-text';
@@ -16,6 +15,7 @@ import {
 } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import type { ReviewMember } from '@/features/reviews/types/reviews';
+import type { Label } from '@/features/references/types/labels';
 
 interface OpinionBadgeProps {
   idx: number;

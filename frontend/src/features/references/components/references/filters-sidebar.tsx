@@ -47,7 +47,6 @@ import type {
 } from '@/features/references/api/references';
 import type { ReviewRole } from '@/features/reviews/types/reviews';
 import { can } from '@/lib/permissions';
-import type { Label } from '@/features/references/types/labels';
 
 interface FiltersSidebarProps {
   reviewId: number;

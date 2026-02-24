@@ -192,7 +192,7 @@ class BulkCreateNoteSerializer(serializers.Serializer):
 class LabelSerializer(serializers.ModelSerializer):
     class Meta:
         model = Label
-        fields = ["id", "user", "name", "color"]
+        fields = ["id", "user", "name", "color", "hotkey"]
         read_only_fields = ["id", "user"]
 
     def validate_name(self, value):
