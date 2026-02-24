@@ -3,8 +3,11 @@ import { ReviewsTable } from '@/features/reviews/components/reviews/reviews-tabl
 import { useFetchReviews } from '@/features/reviews/hooks/use-reviews';
 import { useContext, useEffect, useState } from 'react';
 import { AppLayoutContext } from '@/context/app-layout-context';
-import { useFetchInvitations } from '@/features/reviews/hooks/use-invitations';
-import { InvitationsTable } from '@/features/reviews/components/review-invitations/invitations-table';
+import { useFetchInvitations } from '@/features/reviews/hooks/use-review-invitations';
+import {
+  ReceivedInvitationsTable,
+  SentInvitationsTable,
+} from '@/features/reviews/components/review-invitations/invitations-table';
 import { redirectUnauthenticated } from '@/features/users/api/auth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -29,8 +32,15 @@ function IndexPage() {
   const { data: inactiveReviews = [], isLoading: isLoadingInactive } =
     useFetchReviews({ isActive: false, enabled: inactiveEnabled });
 
-  const { data: invitations = [], isLoading: isLoadingInvitations } =
-    useFetchInvitations();
+  const {
+    data: receivedInvitations = [],
+    isLoading: isLoadingReceivedInvitations,
+  } = useFetchInvitations('received', true);
+
+  const [sentEnabled, setSentEnabled] = useState(false);
+
+  const { data: sentInvitations = [], isLoading: isLoadingSentInvitations } =
+    useFetchInvitations('sent', sentEnabled);
 
   const { setPageTitle, setIsAuthenticated, setScroll } =
     useContext(AppLayoutContext);
@@ -50,9 +60,9 @@ function IndexPage() {
             <button className="group flex w-full items-center justify-between p-6 hover:bg-accent/50 transition-colors rounded-lg">
               <h2 className="text-2xl font-semibold text-foreground">
                 Invitations
-                {!isLoadingInvitations && (
+                {!isLoadingReceivedInvitations && (
                   <span className="ml-2 text-sm font-normal text-muted-foreground">
-                    ({invitations.length})
+                    ({receivedInvitations.length})
                   </span>
                 )}
               </h2>
@@ -61,10 +71,43 @@ function IndexPage() {
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="px-6 pb-6">
-              <InvitationsTable
-                data={invitations}
-                isLoading={isLoadingInvitations}
-              />
+              <Tabs
+                defaultValue="received"
+                onValueChange={(value) => {
+                  if (value === 'sent') setSentEnabled(true);
+                }}
+              >
+                <TabsList className="mb-4">
+                  <TabsTrigger value="received">
+                    Received
+                    {!isLoadingReceivedInvitations && (
+                      <span className="ml-1.5 text-xs text-muted-foreground">
+                        ({receivedInvitations.length})
+                      </span>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="sent">
+                    Sent
+                    {!isLoadingSentInvitations && sentEnabled && (
+                      <span className="ml-1.5 text-xs text-muted-foreground">
+                        ({sentInvitations.length})
+                      </span>
+                    )}
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="received">
+                  <ReceivedInvitationsTable
+                    data={receivedInvitations}
+                    isLoading={isLoadingReceivedInvitations}
+                  />
+                </TabsContent>
+                <TabsContent value="sent">
+                  <SentInvitationsTable
+                    data={sentInvitations}
+                    isLoading={isLoadingSentInvitations}
+                  />
+                </TabsContent>
+              </Tabs>
             </div>
           </CollapsibleContent>
         </Card>

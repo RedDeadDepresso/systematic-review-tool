@@ -37,19 +37,14 @@ export const useUpdateReviewMember = () => {
 
     onSuccess: (updatedMember, variables) => {
       queryClient.setQueryData(
-        ['reviews', variables.reviewId],
-        (oldReview: Review) => {
-          if (!oldReview) return oldReview;
-
-          return {
-            ...oldReview,
-            members: oldReview.members.map((member: ReviewMember) =>
-              member.id === updatedMember.id ? updatedMember : member
-            ),
-          };
+        ['review-members', variables.reviewId],
+        (oldData: ReviewMember[]) => {
+          if (!oldData) return oldData;
+          return oldData.map((member) =>
+            member.id === variables.id ? updatedMember : member
+          );
         }
       );
-
       toast.success('Member role updated.');
     },
 
@@ -68,22 +63,15 @@ export const useDeleteReviewMember = () => {
 
     onSuccess: (_, variables) => {
       queryClient.setQueryData(
-        ['reviews', variables.reviewId],
-        (oldReview: Review) => {
-          if (!oldReview) return oldReview;
-
-          return {
-            ...oldReview,
-            members: oldReview.members.filter(
-              (member: ReviewMember) => member.id !== variables.id
-            ),
-          };
+        ['review-members', variables.reviewId],
+        (oldData: ReviewMember[]) => {
+          if (!oldData) return oldData;
+          return oldData.filter((member) => member.id !== variables.id);
         }
       );
 
       toast.success('Member removed successfully.');
     },
-
     onError: () => {
       toast.error('Failed to remove member.');
     },
