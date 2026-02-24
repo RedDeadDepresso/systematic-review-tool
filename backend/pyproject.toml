@@ -203,4 +203,5 @@ dependencies = [
     "pytest-cov>=7.0.0",
     "typing-extensions>=4.15.0",
     "rispy>=0.10.0",
+    "lxml>=6.0.2",
 ]

@@ -3,6 +3,7 @@ import logging
 import bibtexparser
 import rispy
 from celery import shared_task
+from lxml import etree
 
 from slrt_project.references.models import Reference, ReferenceDuplicatePair
 from slrt_project.reviews.models import (
@@ -12,6 +13,7 @@ from slrt_project.reviews.models import (
 )
 from slrt_project.reviews.utils import (
     extract_bibtex_reference_fields,
+    extract_endnote_reference_fields,
     extract_ris_reference_fields,
     send_review_chat_message,
 )
@@ -24,6 +26,16 @@ logger = logging.getLogger(__name__)
 def import_references_task(
     self, review_id: int, member_id: int, search_method_id: int, file_type: str = "bib"
 ):
+    """
+    Import BibTeX, RIS, or EndNote XML file and create references
+
+    Args:
+        review_id: Review ID
+        member_id: ReviewMember ID who triggered import
+        search_method_id: SearchMethod ID with the uploaded file
+        file_type: 'bib', 'ris', or 'endnote'
+    """
+
     search_method = None
 
     try:
@@ -55,6 +67,9 @@ def import_references_task(
         logger.info(f"Processing {file_type.upper()} file: {file_path}")
 
         # Send start message
+        file_type_display = (
+            "EndNote XML" if file_type == "endnote" else file_type.upper()
+        )
         send_review_chat_message(
             review_id=review_id,
             member=member,
@@ -71,7 +86,7 @@ def import_references_task(
         entries = []
 
         if file_type == "bib":
-            # Parse BibTeX file
+            # Parse BibTeX file (existing code)
             try:
                 with open(file_path, "r", encoding="utf-8") as bib_file:
                     bib_database = bibtexparser.load(bib_file)
@@ -85,7 +100,7 @@ def import_references_task(
                     raise Exception(f"Failed to parse BibTeX file: {str(e)}")
 
         elif file_type == "ris":
-            # Parse RIS file
+            # Parse RIS file (existing code)
             try:
                 with open(file_path, "r", encoding="utf-8") as ris_file:
                     entries = rispy.load(ris_file)
@@ -97,13 +112,31 @@ def import_references_task(
                     raise Exception(f"Failed to parse RIS file: {str(e)}")
             except Exception as e:
                 raise Exception(f"Failed to parse RIS file: {str(e)}")
+
+        elif file_type == "endnote":
+            # Parse EndNote XML file
+            try:
+                tree = etree.parse(file_path)
+                root = tree.getroot()
+
+                # EndNote XML has records in <record> tags
+                entries = root.findall(".//record")
+
+                if not entries:
+                    raise Exception("No records found in EndNote XML file")
+
+            except etree.XMLSyntaxError as e:
+                raise Exception(f"Invalid XML format: {str(e)}")
+            except Exception as e:
+                raise Exception(f"Failed to parse EndNote XML file: {str(e)}")
+
         else:
             raise Exception(f"Unsupported file type: {file_type}")
 
         total_entries = len(entries)
 
         if total_entries == 0:
-            error_msg = f"{file_type.upper()} file is empty"
+            error_msg = f"{file_type_display} file is empty"
             logger.warning(error_msg)
 
             send_review_chat_message(
@@ -117,7 +150,7 @@ def import_references_task(
             search_method.delete()
             return {"success": False, "error": error_msg}
 
-        logger.info(f"Found {total_entries} entries in {file_type.upper()} file")
+        logger.info(f"Found {total_entries} entries in {file_type_display} file")
 
         # Create all references at once
         if file_type == "bib":
@@ -125,9 +158,14 @@ def import_references_task(
                 extract_bibtex_reference_fields(review.id, search_method, entry)
                 for entry in entries
             ]
-        else:  # ris
+        elif file_type == "ris":
             references = [
                 extract_ris_reference_fields(review.id, search_method, entry)
+                for entry in entries
+            ]
+        else:  # endnote
+            references = [
+                extract_endnote_reference_fields(review.id, search_method, entry)
                 for entry in entries
             ]
 
@@ -169,7 +207,7 @@ def import_references_task(
             message=(
                 f"✅ Import complete!\n"
                 f"• File: {file_name}\n"
-                f"• Format: {file_type.upper()}\n"
+                f"• Format: {file_type_display}\n"
                 f"• Imported: {created_count} references\n"
                 f"• Source: {search_method.name}"
             ),

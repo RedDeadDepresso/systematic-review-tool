@@ -223,7 +223,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="upload-references")
     def upload_references(self, request, pk=None):
         """
-        Upload BibTeX or RIS file to add references to review.
+        Upload BibTeX, RIS, or EndNote XML file to add references to review.
         File is processed asynchronously via Celery.
         """
         review = self.get_object()
@@ -241,9 +241,11 @@ class ReviewViewSet(viewsets.ModelViewSet):
         filename, ext = os.path.splitext(uploaded_file.name)
         ext = ext.lower()
 
-        if ext not in [".bib", ".ris"]:
+        if ext not in [".bib", ".ris", ".xml"]:
             return Response(
-                {"error": "Invalid file type. Please upload a .bib or .ris file."},
+                {
+                    "error": "Invalid file type. Please upload a .bib, .ris, or .xml (EndNote) file."
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -283,12 +285,18 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+        # Determine file type
+        if ext == ".xml":
+            file_type = "endnote"
+        else:
+            file_type = ext[1:]  # Remove the dot
+
         # Start async task with file type
         task = import_references_task.delay(
             review_id=review.id,
             member_id=member.id,
             search_method_id=search_method.id,
-            file_type=ext[1:],
+            file_type=file_type,
         )
 
         logger.info(
@@ -301,7 +309,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 "task_id": task.id,
                 "search_method_id": search_method.id,
                 "filename": uploaded_file.name,
-                "file_type": ext[1:],
+                "file_type": file_type,
                 "status": "processing",
             },
             status=status.HTTP_202_ACCEPTED,
