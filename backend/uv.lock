@@ -1747,6 +1747,15 @@ wheels = [
 ]
 
 [[package]]
+name = "rispy"
+version = "0.10.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/21/80/79150d1fabf30a863e2ec5e8d289731863efe2a7762ff5072d9e97b8bfbc/rispy-0.10.0.tar.gz", hash = "sha256:0b815b668fcc993e4f540670fd37090576ecfbc58a57e2daae67774241e91c84", size = 16703, upload-time = "2025-05-23T17:00:39.479Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/14/25/efdcd3dadf3f2aabbdb64d028db1dca1b1467a08d84b5117bffc3b1a599b/rispy-0.10.0-py3-none-any.whl", hash = "sha256:acc8b941ab5e7b65b5365e468af2e00f0cb031a9e5c5a6b06538d856151e61be", size = 15260, upload-time = "2025-05-23T17:00:37.796Z" },
+]
+
+[[package]]
 name = "roman-numerals"
 version = "4.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1880,6 +1889,7 @@ dependencies = [
     { name = "python-slugify" },
     { name = "pyzotero" },
     { name = "redis" },
+    { name = "rispy" },
     { name = "sentry-sdk" },
     { name = "typing-extensions" },
     { name = "uvicorn", extra = ["standard"] },
@@ -1943,6 +1953,7 @@ requires-dist = [
     { name = "python-slugify", specifier = "==8.0.4" },
     { name = "pyzotero", specifier = "==1.10.0" },
     { name = "redis", specifier = "==7.2.0" },
+    { name = "rispy", specifier = ">=0.10.0" },
     { name = "sentry-sdk", specifier = "==2.53.0" },
     { name = "typing-extensions", specifier = ">=4.15.0" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.41.0" },

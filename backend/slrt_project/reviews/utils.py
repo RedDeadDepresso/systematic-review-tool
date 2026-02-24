@@ -125,7 +125,7 @@ def parse_bibtex_date(entry):
     return date(year, month, 1)
 
 
-def extract_reference_fields(review_id, search_method, entry):
+def extract_bibtex_reference_fields(review_id, search_method, entry):
     """Extract reference fields from BibTeX entry"""
     publication_type = PUBLICATION_TYPES.get(
         entry.get("ENTRYTYPE", "").lower(), "Other"
@@ -161,6 +161,108 @@ def extract_reference_fields(review_id, search_method, entry):
         url=url,
         publication_date=publication_date,
         pages=entry.get("pages", ""),
+    )
+
+
+# ---- ris parsing utilities ----
+
+# RIS type mapping
+RIS_PUBLICATION_TYPES = {
+    "JOUR": "Journal Article",
+    "BOOK": "Book",
+    "CHAP": "Book Chapter",
+    "CONF": "Conference Paper",
+    "THES": "Thesis",
+    "RPRT": "Technical Report",
+    "GEN": "Miscellaneous",
+}
+
+
+def parse_ris_date(entry):
+    """Parse date from RIS entry"""
+    # RIS uses Y1 for primary date
+    year_str = entry.get("year") or entry.get("publication_year")
+
+    if not year_str:
+        return None
+
+    try:
+        year = int(year_str)
+    except (ValueError, TypeError):
+        return None
+
+    # Try to get month if available
+    month = 1
+
+    return date(year, month, 1)
+
+
+def extract_ris_reference_fields(review_id, search_method, entry):
+    """Extract reference fields from RIS entry"""
+    publication_type = RIS_PUBLICATION_TYPES.get(
+        entry.get("type_of_reference", "GEN"), "Miscellaneous"
+    )
+
+    publication_date = parse_ris_date(entry)
+
+    # RIS authors are in 'authors' field as a list
+    authors_list = entry.get("authors") or entry.get("first_authors") or []
+    authors = ", ".join(authors_list) if authors_list else ""
+
+    # Journal can be in various fields
+    journal = (
+        entry.get("journal_name")
+        or entry.get("secondary_title")
+        or entry.get("alternate_title3")
+        or ""
+    )
+
+    # Notes
+    article_customizations = entry.get("notes") or ""
+
+    # DOI
+    doi = entry.get("doi", "")
+    if doi:
+        doi = doi.lower().replace("doi:", "").replace("https://doi.org/", "").strip()
+
+    # URL
+    url = entry.get("url") or entry.get("urls", [""])[0] if entry.get("urls") else ""
+
+    # Abstract
+    abstract = entry.get("abstract", "")
+
+    # Title - try multiple fields
+    title = entry.get("title")
+
+    if not title:
+        title = entry.get("primary_title")
+
+    if not title:
+        titles = entry.get("titles")
+        if titles and isinstance(titles, list):
+            title = titles[0]
+
+    if not title:
+        title = "No Title"
+
+    # Pages - can be start_page + end_page or just pages
+    start_page = entry.get("start_page", "")
+    end_page = entry.get("end_page", "")
+    pages = f"{start_page}-{end_page}" if start_page and end_page else start_page or ""
+
+    return Reference(
+        review_id=review_id,
+        title=title,
+        publication_type=publication_type,
+        authors=authors,
+        journal=journal,
+        search_method=search_method,
+        article_customizations=article_customizations,
+        abstract=abstract,
+        doi=doi,
+        url=url,
+        publication_date=publication_date,
+        pages=pages,
     )
 
 

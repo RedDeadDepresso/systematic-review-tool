@@ -60,7 +60,7 @@ from slrt_project.reviews.models import (
 from slrt_project.reviews.tasks import (
     auto_deduplicate_task,
     detect_duplicates_task,
-    import_bibtex_task,
+    import_references_task,
 )
 from slrt_project.reviews.utils import strip_ansi
 from vendor.prisma_flow_diagram.prisma import Prisma2020Diagram, plot_prisma2020_new
@@ -223,7 +223,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="upload-references")
     def upload_references(self, request, pk=None):
         """
-        Upload BibTeX file to add references to review.
+        Upload BibTeX or RIS file to add references to review.
         File is processed asynchronously via Celery.
         """
         review = self.get_object()
@@ -238,10 +238,12 @@ class ReviewViewSet(viewsets.ModelViewSet):
             )
 
         # Validate file extension
-        _, ext = os.path.splitext(uploaded_file.name)
-        if ext.lower() != ".bib":
+        filename, ext = os.path.splitext(uploaded_file.name)
+        ext = ext.lower()
+
+        if ext not in [".bib", ".ris"]:
             return Response(
-                {"error": "Invalid file type. Please upload a .bib file."},
+                {"error": "Invalid file type. Please upload a .bib or .ris file."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -262,8 +264,8 @@ class ReviewViewSet(viewsets.ModelViewSet):
             counter = 1
 
             while SearchMethod.objects.filter(name=name, review=review).exists():
-                name_without_ext, ext = os.path.splitext(base_name)
-                name = f"{name_without_ext}_{counter}{ext}"
+                name_without_ext, file_ext = os.path.splitext(base_name)
+                name = f"{name_without_ext}_{counter}{file_ext}"
                 counter += 1
 
             search_method = SearchMethod.objects.create(
@@ -281,9 +283,12 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        # Start async task
-        task = import_bibtex_task.delay(
-            review_id=review.id, member_id=member.id, search_method_id=search_method.id
+        # Start async task with file type
+        task = import_references_task.delay(
+            review_id=review.id,
+            member_id=member.id,
+            search_method_id=search_method.id,
+            file_type=ext[1:],
         )
 
         logger.info(
@@ -296,6 +301,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 "task_id": task.id,
                 "search_method_id": search_method.id,
                 "filename": uploaded_file.name,
+                "file_type": ext[1:],
                 "status": "processing",
             },
             status=status.HTTP_202_ACCEPTED,
