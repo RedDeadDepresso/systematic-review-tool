@@ -12,6 +12,7 @@ class Label(models.Model):
     user = models.ForeignKey("users.User", on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
     color = models.CharField(max_length=50, default="#3b82f6")
+    hotkey = models.CharField(max_length=30, blank=True, default="")
 
     class Meta:
         constraints = [
