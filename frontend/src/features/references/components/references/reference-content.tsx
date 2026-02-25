@@ -101,7 +101,7 @@ export function ReferenceContent({
       <div className="space-y-0">
         {(reference.opinions?.length > 0 ||
           reference.assignee ||
-          reference.labels.length > 0) && (
+          reference.labels?.length > 0) && (
           <DetailSection icon={Tags} label="Labels">
             <div className="flex flex-wrap gap-2 mb-3">
               {/* Opinions */}
@@ -125,15 +125,6 @@ export function ReferenceContent({
                   ))}
                 </>
               )}
-
-              {/* Fallback if nothing exists */}
-              {!reference.opinions?.length &&
-                !reference.assignee &&
-                !reference.labels?.length && (
-                  <span className="text-muted-foreground text-sm">
-                    No review data available.
-                  </span>
-                )}
             </div>
           </DetailSection>
         )}
