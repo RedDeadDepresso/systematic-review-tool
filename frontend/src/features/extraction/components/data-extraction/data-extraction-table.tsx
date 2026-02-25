@@ -44,14 +44,12 @@ import {
   useSaveExtractionAnswer,
   useDownloadCSVFile,
 } from '@/features/extraction/hooks/use-extraction-table';
-import {
-  AssigneeBadge,
-  LabelBadge,
-} from '@/features/references/components/references/references-table-row';
 import { EditQuestionPopover } from '@/features/extraction/components/data-extraction/edit-question-popover';
 import { useQueryClient } from '@tanstack/react-query';
 import { AddDataDialog } from '@/components/blocks/add-data-dialog';
 import { DataExtractionSkeleton } from '@/features/extraction/components/data-extraction/data-extraction-skeleton';
+import { AssigneeBadge } from '@/features/references/components/references/assignee-badge';
+import { LabelBadge } from '@/features/references/components/labels/label-badge';
 
 interface DataExtractionTableProps {
   reviewId: number;

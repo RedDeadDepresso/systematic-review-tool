@@ -9,9 +9,13 @@ import {
   Hash,
   LinkIcon,
   MessageSquare,
+  Tags,
   Users,
 } from 'lucide-react';
 import { NotesList } from '@/features/references/components/notes/note';
+import { OpinionBadge } from '@/features/references/components/references/opinion-badge';
+import { AssigneeBadge } from '@/features/references/components/references/assignee-badge';
+import { LabelBadge } from '@/features/references/components/labels/label-badge';
 
 function DetailSection({
   icon: Icon,
@@ -95,6 +99,45 @@ export function ReferenceContent({
       )}
     >
       <div className="space-y-0">
+        {(reference.opinions?.length > 0 ||
+          reference.assignee ||
+          reference.labels.length > 0) && (
+          <DetailSection icon={Tags} label="Labels">
+            <div className="flex flex-wrap gap-2 mb-3">
+              {/* Opinions */}
+              {reference.opinions?.length > 0 && (
+                <>
+                  {reference.opinions.map((opinion, idx) => (
+                    <OpinionBadge key={idx} idx={idx} opinion={opinion} />
+                  ))}
+                </>
+              )}
+
+              {/* Assignee + Labels */}
+              {(reference.assignee || reference.labels?.length > 0) && (
+                <>
+                  {reference.assignee && (
+                    <AssigneeBadge assignee={reference.assignee} />
+                  )}
+
+                  {reference.labels?.map((label) => (
+                    <LabelBadge key={label.id} label={label} />
+                  ))}
+                </>
+              )}
+
+              {/* Fallback if nothing exists */}
+              {!reference.opinions?.length &&
+                !reference.assignee &&
+                !reference.labels?.length && (
+                  <span className="text-muted-foreground text-sm">
+                    No review data available.
+                  </span>
+                )}
+            </div>
+          </DetailSection>
+        )}
+
         <DetailSection
           icon={FileText}
           label="Abstract"
