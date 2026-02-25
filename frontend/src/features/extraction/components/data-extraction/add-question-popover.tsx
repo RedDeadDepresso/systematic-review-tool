@@ -144,7 +144,7 @@ export function AddQuestionPopover({
       <Popover open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>{trigger}</PopoverTrigger>
         <PopoverContent className="w-80 p-0" align="end">
-          <div className="flex flex-col max-h-[600px]">
+          <div className="flex flex-col max-h-[600px] overflow-y-auto">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-border">
               <div className="flex items-center gap-2">
