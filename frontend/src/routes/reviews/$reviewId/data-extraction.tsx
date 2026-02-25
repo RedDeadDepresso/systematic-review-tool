@@ -84,6 +84,7 @@ function RouteComponent() {
           references={fileUpload.combinedReferences}
           uploadedPDFs={fileUpload.uploadedPDFs}
           onImport={fileUpload.handleMatch}
+          onAutoMatch={fileUpload.handleAutoMatch}
         />
       )}
       <div className="h-full flex flex-col overflow-hidden bg-background">

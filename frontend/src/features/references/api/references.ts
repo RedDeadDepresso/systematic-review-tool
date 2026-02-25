@@ -224,3 +224,14 @@ export const assignReferences = async (payload: AssignReferencesPayload) => {
   const response = await api.post('/references/assign/', payload);
   return response.data;
 };
+
+export const autoMatch = async (payload: {
+  reviewId: number;
+  referenceIds: number[];
+}) => {
+  const res = await api.post<{ matched: number; unmatched: number }>(
+    '/references/auto-match/',
+    payload
+  );
+  return res.data;
+};

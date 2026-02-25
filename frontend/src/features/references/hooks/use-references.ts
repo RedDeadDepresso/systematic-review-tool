@@ -10,6 +10,7 @@ import {
   type AssignReferencesPayload,
   fetchScreening,
   fetchScreeningFullText,
+  autoMatch,
 } from '@/features/references/api/references';
 import type { Reference } from '@/features/references/types/references';
 import type { UploadedPDF } from '@/features/references/types/uploaded-pdfs';
@@ -155,6 +156,18 @@ export const useAssignReferences = () => {
     },
     onError: (err: any) => {
       toast.error(err?.message || 'Failed to assign references.');
+    },
+  });
+};
+
+export const useAutoMatch = () => {
+  return useMutation({
+    mutationFn: autoMatch,
+    onSuccess: (data) => {
+      toast.success(`Matches: ${data.matched}. No matches: ${data.unmatched} `);
+    },
+    onError: () => {
+      toast.error(`Error founding matches.`);
     },
   });
 };

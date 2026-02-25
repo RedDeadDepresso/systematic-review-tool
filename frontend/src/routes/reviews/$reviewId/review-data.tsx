@@ -106,9 +106,7 @@ function RouteComponent() {
   // File upload management
   const fileUpload = useFileUpload(
     reviewId,
-    () => {
-      invalidateQuery();
-    },
+    invalidateQuery,
     ui.selectedReferenceIds,
     ui.highlightedReferenceId,
     ui.sortedReferences
@@ -130,9 +128,7 @@ function RouteComponent() {
   const handleDeleteSearchMethod = useCallback(
     (searchMethod: SearchMethod) => {
       deleteSearchMethod.mutate(searchMethod.id, {
-        onSuccess: () => {
-          invalidateQuery();
-        },
+        onSuccess: invalidateQuery,
       });
     },
     [deleteSearchMethod]
@@ -201,6 +197,7 @@ function RouteComponent() {
           references={fileUpload.combinedReferences}
           uploadedPDFs={fileUpload.uploadedPDFs}
           onImport={fileUpload.handleMatch}
+          onAutoMatch={fileUpload.handleAutoMatch}
         />
       )}
       <div className="h-full flex flex-col overflow-hidden bg-background">

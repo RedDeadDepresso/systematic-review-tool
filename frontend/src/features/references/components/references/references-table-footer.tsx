@@ -315,7 +315,6 @@ export function ScreeningFooter({
     highlightedReferenceId
   );
   const bulkCreateNote = useBulkCreateNote();
-  console.log(opinionStatus);
 
   const opinionButtons = [
     {
