@@ -14,6 +14,7 @@ import type { Label } from '@/features/references/types/labels';
 import { OpinionBadge } from '@/features/references/components/references/opinion-badge';
 import { AssigneeBadge } from '@/features/references/components/references/assignee-badge';
 import { LabelBadge } from '@/features/references/components/labels/label-badge';
+import { Badge } from '@/components/ui/badge';
 
 interface ReferenceRowProps {
   reference: Reference;
@@ -26,6 +27,28 @@ interface ReferenceRowProps {
   highlightIncludeKeywords: string[];
   highlightExcludeKeywords: string[];
   onOpenPDF: (referenceId: number) => void;
+}
+
+export function PDFBadge({
+  onClick,
+}: {
+  onClick: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge
+          variant="default"
+          className="text-xs gap-1 hover:bg-primary/90"
+          onClick={onClick}
+        >
+          <ExternalLink className="h-3 w-3" />
+          PDF
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent>Open PDF</TooltipContent>
+    </Tooltip>
+  );
 }
 
 export function ReferenceRowTitleOnly({
@@ -85,20 +108,7 @@ export function ReferenceRowTitleOnly({
 
         {/* Labels + PDF + Assignee */}
         <div className="flex items-center gap-2 mt-2 flex-wrap">
-          {ref.file && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => onOpenPDF(ref.id)}
-                >
-                  PDF
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Open PDF</TooltipContent>
-            </Tooltip>
-          )}
+          {ref.file && <PDFBadge onClick={() => onOpenPDF(ref.id)} />}
 
           {ref.assignee && <AssigneeBadge assignee={ref.assignee} />}
 
@@ -194,20 +204,7 @@ export function ReferenceRowTitleAbstract({
 
               {/* Labels + PDF + Assignee */}
               <div className="flex flex-wrap gap-2 mt-2">
-                {ref.file && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => onOpenPDF(ref.id)}
-                      >
-                        PDF
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Open PDF</TooltipContent>
-                  </Tooltip>
-                )}
+                {ref.file && <PDFBadge onClick={() => onOpenPDF(ref.id)} />}
 
                 {ref.assignee && <AssigneeBadge assignee={ref.assignee} />}
 

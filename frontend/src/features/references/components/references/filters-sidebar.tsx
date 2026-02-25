@@ -14,6 +14,7 @@ import {
   MoreVertical,
   Book,
   Tag,
+  Check,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -621,18 +622,8 @@ export function FiltersSidebar({
           <CollapsibleSection
             title="Keywords for include"
             icon={
-              <div className="w-4 h-4 rounded bg-primary flex items-center justify-center">
-                <svg
-                  className="w-2.5 h-2.5 text-primary-foreground"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
+              <div className="w-4 h-4 rounded bg-emerald-500 flex items-center justify-center">
+                <Check className="h-2.5 w-2.5 text-white" />
               </div>
             }
             isOpen={sections.include}
@@ -645,7 +636,7 @@ export function FiltersSidebar({
                   className={cn(
                     'h-6 w-6 p-0 transition-colors',
                     includeHighlightEnabled
-                      ? 'bg-primary/10 hover:bg-primary/20'
+                      ? 'bg-emerald-500/10 hover:bg-emerald-500/20'
                       : 'hover:bg-muted'
                   )}
                   onClick={(e) => {
@@ -658,11 +649,11 @@ export function FiltersSidebar({
                       : 'Enable highlighting'
                   }
                 >
-                  <X
+                  <Check
                     className={cn(
                       'h-3 w-3',
                       includeHighlightEnabled
-                        ? 'text-primary'
+                        ? 'text-emerald-600'
                         : 'text-muted-foreground'
                     )}
                   />
