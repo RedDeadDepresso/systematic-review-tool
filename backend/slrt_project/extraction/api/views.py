@@ -472,8 +472,6 @@ class ScatterPlotViewSet(viewsets.ViewSet):
         common_ref_ids = set(x_answers) & set(y_answers)
 
         # Fetch reference titles in one query
-        from .models import Reference
-
         title_map = {
             r["id"]: r["title"]
             for r in Reference.objects.filter(id__in=common_ref_ids).values(
@@ -538,6 +536,7 @@ class EvidenceGapMapViewSet(viewsets.ViewSet):
             )
 
         _allowed = [
+            ExtractionQuestion.QuestionType.BOOLEAN,
             ExtractionQuestion.QuestionType.SINGLE_SELECT,
             ExtractionQuestion.QuestionType.MULTI_SELECT,
         ]
@@ -549,8 +548,8 @@ class EvidenceGapMapViewSet(viewsets.ViewSet):
         if err:
             return err
 
-        row_options = q_row.options or []
-        col_options = q_col.options or []
+        row_options = self._get_options(q_row)
+        col_options = self._get_options(q_col)
 
         ref_filter = {}
         if review_id:
@@ -573,34 +572,19 @@ class EvidenceGapMapViewSet(viewsets.ViewSet):
             .values_list("reference_id", "value")
         )
 
-        def _expand(answers_qs, question):
-            """Map ref_id → set of option strings (handles multi-select)."""
-            result: dict[int, set[str]] = {}
-            is_multi = question.type == ExtractionQuestion.QuestionType.MULTI_SELECT
-            for ref_id, value in answers_qs:
-                if is_multi:
-                    tokens = {t.strip() for t in value.split(",") if t.strip()}
-                else:
-                    tokens = {value.strip()} if value.strip() else set()
-                result.setdefault(ref_id, set()).update(tokens)
-            return result
-
-        row_map = _expand(row_answers_qs, q_row)
-        col_map = _expand(col_answers_qs, q_col)
+        row_map = self._expand(row_answers_qs, q_row)
+        col_map = self._expand(col_answers_qs, q_col)
 
         # All refs that appear in both maps
         common_refs = set(row_map) & set(col_map)
 
         # Fetch titles
-        from .models import Reference
-
         title_map = {
             r["id"]: r["title"]
             for r in Reference.objects.filter(id__in=common_refs).values("id", "title")
         }
 
         # Build matrix
-        # matrix[row_opt][col_opt] = {"count": N, "references": [...]}
         matrix: dict[str, dict] = {r: {} for r in row_options}
         for row_opt in row_options:
             for col_opt in col_options:
@@ -647,6 +631,40 @@ class EvidenceGapMapViewSet(viewsets.ViewSet):
                 "cells": cells,
             }
         )
+
+    def _get_options(self, question):
+        if question.type == ExtractionQuestion.QuestionType.BOOLEAN:
+            return ["Yes", "No"]
+        return question.options or []
+
+    def _expand(self, answers_qs, question):
+        result: dict[int, set[str]] = {}
+        is_multi = question.type == ExtractionQuestion.QuestionType.MULTI_SELECT
+        is_boolean = question.type == ExtractionQuestion.QuestionType.BOOLEAN
+
+        for ref_id, value in answers_qs:
+            if not value:
+                continue
+
+            if is_multi:
+                tokens = {t.strip() for t in value.split(",") if t.strip()}
+
+            elif is_boolean:
+                v = value.strip().lower()
+
+                if v in ["true", "1", "yes"]:
+                    tokens = {"Yes"}
+                elif v in ["false", "0", "no"]:
+                    tokens = {"No"}
+                else:
+                    continue  # skip invalid
+
+            else:
+                tokens = {value.strip()}
+
+            result.setdefault(ref_id, set()).update(tokens)
+
+        return result
 
 
 class PublicationTimelineViewSet(viewsets.ViewSet):
