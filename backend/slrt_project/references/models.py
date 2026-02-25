@@ -3,6 +3,7 @@ import uuid
 from django.contrib.postgres.indexes import GinIndex, OpClass
 from django.contrib.postgres.search import SearchVectorField
 from django.db import connection, models, transaction
+from django.db.models import Func
 from django.db.models.functions import Lower
 from django.utils import timezone
 
@@ -46,7 +47,9 @@ class Reference(models.Model):
     abstract = models.TextField(blank=True)
     doi = models.CharField(max_length=255, blank=True)
     url = models.URLField(max_length=500, blank=True)
-    file = models.FileField(upload_to=reference_upload_path, blank=True, null=True)
+    file = models.FileField(
+        upload_to=reference_upload_path, blank=True, null=True, max_length=255
+    )
     search_vector = SearchVectorField(null=True, blank=True)
     assignee = models.ForeignKey(
         "reviews.ReviewMember", null=True, on_delete=models.SET_NULL
@@ -84,7 +87,7 @@ class Reference(models.Model):
         return bool(self.file)
 
     def __str__(self):
-        return f"{self.review.id} {self.id}"
+        return f"{self.review.id} {self.id} {self.title}"
 
 
 class ReferenceLabel(models.Model):
@@ -109,9 +112,30 @@ class ReferenceLabel(models.Model):
         ]
 
 
+class ImmutableUnaccent(Func):
+    function = "immutable_unaccent"
+    arity = 1
+
+
 class UploadedPDF(models.Model):
-    file = models.FileField(upload_to=reference_upload_path)
-    review = models.ForeignKey("reviews.Review", on_delete=models.CASCADE)
+    review = models.ForeignKey(
+        "reviews.Review",
+        on_delete=models.CASCADE,
+        related_name="uploaded_pdfs",
+    )
+
+    file = models.FileField(upload_to="uploaded_pdfs/", max_length=255)
+    name = models.TextField()
+    doi = models.CharField(max_length=255, null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["doi"]),
+            # GIN trgm index created via RunSQL in migration due to expression limitations
+        ]
+
+    def __str__(self):
+        return f"{self.name}.pdf"
 
 
 class ReferenceDuplicatePair(models.Model):

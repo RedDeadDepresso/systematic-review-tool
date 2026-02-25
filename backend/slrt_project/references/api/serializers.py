@@ -45,6 +45,11 @@ class AttachPDFsSerializer(serializers.Serializer):
     mappings = AttachPDFMappingSerializer(many=True)
 
 
+class AutoMatchSerializer(serializers.Serializer):
+    review_id = serializers.IntegerField()
+    reference_ids = serializers.ListField(child=serializers.IntegerField())
+
+
 class BaseReferenceSerializer(serializers.ModelSerializer):
     search_method = serializers.StringRelatedField()
 
