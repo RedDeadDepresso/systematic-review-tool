@@ -3,7 +3,6 @@ import {
   updateReviewMember,
 } from '@/features/reviews/api/review-members';
 import type {
-  Review,
   ReviewMember,
   ReviewRole,
 } from '@/features/reviews/types/reviews';

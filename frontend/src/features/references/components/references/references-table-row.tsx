@@ -1,12 +1,8 @@
 import React from 'react';
-import { CircleUser, ExternalLink, Link2, Paperclip } from 'lucide-react';
+import { ExternalLink, Link2, Paperclip } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import type {
-  Reference,
-  Opinion,
-} from '@/features/references/types/references';
+import type { Reference } from '@/features/references/types/references';
 import { highlightText } from '@/lib/highlight-text';
 import {
   Tooltip,
@@ -14,76 +10,10 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
-import type { ReviewMember } from '@/features/reviews/types/reviews';
 import type { Label } from '@/features/references/types/labels';
-
-interface OpinionBadgeProps {
-  idx: number;
-  opinion: Opinion;
-}
-
-function OpinionBadge({ idx, opinion }: OpinionBadgeProps) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Badge
-          className={cn(
-            'flex items-center gap-1 text-xs',
-            opinion.status === 'Included' &&
-              'bg-green-50 text-green-700 border-green-200',
-            opinion.status === 'Maybe' &&
-              'bg-yellow-50 text-yellow-700 border-yellow-200',
-            opinion.status === 'Excluded' &&
-              'bg-red-50 text-red-700 border-red-200',
-            opinion.status === 'Undecided' &&
-              'bg-gray-50 text-gray-600 border-gray-200'
-          )}
-        >
-          {opinion.status === 'Included' && '✓'}
-          {opinion.status === 'Maybe' && '?'}
-          {opinion.status === 'Excluded' && '✕'}
-          <span>{opinion.member.user.firstName}</span>
-          {opinion.reason && <span>- {opinion.reason}</span>}
-        </Badge>
-      </TooltipTrigger>
-      <TooltipContent>
-        {opinion.status} by {opinion.member.user.email} at {opinion.updatedAt}{' '}
-        {idx === 0 && '(Most Recent)'}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
-export function AssigneeBadge({ assignee }: { assignee: ReviewMember }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Badge variant="secondary" className="text-xs gap-1">
-          <CircleUser className="h-3 w-3" />
-          {assignee.user.firstName}
-        </Badge>
-      </TooltipTrigger>
-      <TooltipContent>Assigned to {assignee.user.email}</TooltipContent>
-    </Tooltip>
-  );
-}
-
-export function LabelBadge({ label }: { label: Label }) {
-  return (
-    <Badge
-      key={label.id}
-      variant="outline"
-      className="text-xs"
-      style={{
-        borderColor: label.color,
-        color: label.color,
-        backgroundColor: `${label.color}10`,
-      }}
-    >
-      {label.name}
-    </Badge>
-  );
-}
+import { OpinionBadge } from '@/features/references/components/references/opinion-badge';
+import { AssigneeBadge } from '@/features/references/components/references/assignee-badge';
+import { LabelBadge } from '@/features/references/components/labels/label-badge';
 
 interface ReferenceRowProps {
   reference: Reference;

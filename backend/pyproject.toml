@@ -202,4 +202,7 @@ dependencies = [
     "cryptography>=46.0.5",
     "pytest-cov>=7.0.0",
     "typing-extensions>=4.15.0",
+    "rispy>=0.10.0",
+    "lxml>=6.0.2",
+    "pymupdf>=1.27.1",
 ]

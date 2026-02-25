@@ -11,8 +11,9 @@ import {
   FileText,
   Calendar,
   User,
-  Tag,
   MoreVertical,
+  Book,
+  Tag,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -845,11 +846,7 @@ export function FiltersSidebar({
         {hasFilteredContent.labels && (
           <CollapsibleSection
             title="Labels"
-            icon={
-              <div className="w-4 h-4 rounded border border-muted-foreground flex items-center justify-center">
-                <span className="text-[8px]">L</span>
-              </div>
-            }
+            icon={<Tag className="w-4 h-4 text-muted-foreground" />}
             isOpen={sections.labels}
             onToggle={() => toggleSection('labels')}
           >
@@ -917,7 +914,7 @@ export function FiltersSidebar({
         {publicationTypes.length > 0 && hasFilteredContent.publicationTypes && (
           <CollapsibleSection
             title="Publication Type"
-            icon={<Tag className="w-4 h-4 text-muted-foreground" />}
+            icon={<Book className="w-4 h-4 text-muted-foreground" />}
             isOpen={sections.publicationTypes}
             onToggle={() => toggleSection('publicationTypes')}
           >

@@ -1,7 +1,9 @@
 import logging
 
 import bibtexparser
+import rispy
 from celery import shared_task
+from lxml import etree
 
 from slrt_project.references.models import Reference, ReferenceDuplicatePair
 from slrt_project.reviews.models import (
@@ -10,7 +12,9 @@ from slrt_project.reviews.models import (
     SearchMethod,
 )
 from slrt_project.reviews.utils import (
-    extract_reference_fields,
+    extract_bibtex_reference_fields,
+    extract_endnote_reference_fields,
+    extract_ris_reference_fields,
     send_review_chat_message,
 )
 
@@ -19,22 +23,25 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True, max_retries=3)
-def import_bibtex_task(self, review_id: int, member_id: int, search_method_id: int):
+def import_references_task(
+    self, review_id: int, member_id: int, search_method_id: int, file_type: str = "bib"
+):
     """
-    Import BibTeX file and create references
+    Import BibTeX, RIS, or EndNote XML file and create references
 
     Args:
         review_id: Review ID
         member_id: ReviewMember ID who triggered import
         search_method_id: SearchMethod ID with the uploaded file
+        file_type: 'bib', 'ris', or 'endnote'
     """
 
     search_method = None
 
     try:
-        search_method = SearchMethod.objects.get(id=search_method_id)
         review = Review.objects.get(id=review_id)
         member = ReviewMember.objects.select_related("user").get(id=member_id)
+        search_method = SearchMethod.objects.get(id=search_method_id)
 
         user_name = member.user_name
         file_name = search_method.name
@@ -52,41 +59,84 @@ def import_bibtex_task(self, review_id: int, member_id: int, search_method_id: i
                 metadata={"action": "import_failed", "error": error_msg},
             )
 
-            # Delete SearchMethod on failure
             search_method.delete()
-
             return {"success": False, "error": error_msg}
 
         file_path = search_method.file.path
 
-        logger.info(f"Processing file: {file_path}")
+        logger.info(f"Processing {file_type.upper()} file: {file_path}")
 
         # Send start message
+        file_type_display = (
+            "EndNote XML" if file_type == "endnote" else file_type.upper()
+        )
         send_review_chat_message(
             review_id=review_id,
             member=member,
             message=f"📤 {user_name} started importing references from {file_name}...",
             is_system_message=True,
-            metadata={"action": "import_started", "filename": file_name},
+            metadata={
+                "action": "import_started",
+                "filename": file_name,
+                "file_type": file_type,
+            },
         )
 
-        # Parse BibTeX file
-        try:
-            with open(file_path, "r", encoding="utf-8") as bib_file:
-                bib_database = bibtexparser.load(bib_file)
-        except UnicodeDecodeError:
-            # Try with different encoding
-            try:
-                with open(file_path, "r", encoding="latin-1") as bib_file:
-                    bib_database = bibtexparser.load(bib_file)
-            except Exception as e:
-                search_method.delete()
-                raise Exception(f"Failed to parse BibTeX file: {str(e)}")
+        # Parse file based on type
+        entries = []
 
-        total_entries = len(bib_database.entries)
+        if file_type == "bib":
+            # Parse BibTeX file (existing code)
+            try:
+                with open(file_path, "r", encoding="utf-8") as bib_file:
+                    bib_database = bibtexparser.load(bib_file)
+                    entries = bib_database.entries
+            except UnicodeDecodeError:
+                try:
+                    with open(file_path, "r", encoding="latin-1") as bib_file:
+                        bib_database = bibtexparser.load(bib_file)
+                        entries = bib_database.entries
+                except Exception as e:
+                    raise Exception(f"Failed to parse BibTeX file: {str(e)}")
+
+        elif file_type == "ris":
+            # Parse RIS file (existing code)
+            try:
+                with open(file_path, "r", encoding="utf-8") as ris_file:
+                    entries = rispy.load(ris_file)
+            except UnicodeDecodeError:
+                try:
+                    with open(file_path, "r", encoding="latin-1") as ris_file:
+                        entries = rispy.load(ris_file)
+                except Exception as e:
+                    raise Exception(f"Failed to parse RIS file: {str(e)}")
+            except Exception as e:
+                raise Exception(f"Failed to parse RIS file: {str(e)}")
+
+        elif file_type == "endnote":
+            # Parse EndNote XML file
+            try:
+                tree = etree.parse(file_path)
+                root = tree.getroot()
+
+                # EndNote XML has records in <record> tags
+                entries = root.findall(".//record")
+
+                if not entries:
+                    raise Exception("No records found in EndNote XML file")
+
+            except etree.XMLSyntaxError as e:
+                raise Exception(f"Invalid XML format: {str(e)}")
+            except Exception as e:
+                raise Exception(f"Failed to parse EndNote XML file: {str(e)}")
+
+        else:
+            raise Exception(f"Unsupported file type: {file_type}")
+
+        total_entries = len(entries)
 
         if total_entries == 0:
-            error_msg = "BibTeX file is empty"
+            error_msg = f"{file_type_display} file is empty"
             logger.warning(error_msg)
 
             send_review_chat_message(
@@ -97,35 +147,34 @@ def import_bibtex_task(self, review_id: int, member_id: int, search_method_id: i
                 metadata={"action": "import_failed", "error": error_msg},
             )
 
-            # Delete SearchMethod on failure
             search_method.delete()
-
             return {"success": False, "error": error_msg}
 
-        logger.info(f"Found {total_entries} entries in BibTeX file")
+        logger.info(f"Found {total_entries} entries in {file_type_display} file")
 
         # Create all references at once
-        references = [
-            extract_reference_fields(review.id, search_method, entry)
-            for entry in bib_database.entries
-        ]
+        if file_type == "bib":
+            references = [
+                extract_bibtex_reference_fields(review.id, search_method, entry)
+                for entry in entries
+            ]
+        elif file_type == "ris":
+            references = [
+                extract_ris_reference_fields(review.id, search_method, entry)
+                for entry in entries
+            ]
+        else:  # endnote
+            references = [
+                extract_endnote_reference_fields(review.id, search_method, entry)
+                for entry in entries
+            ]
 
         Reference.objects.bulk_create(references)
         created_count = len(references)
 
         logger.info(f"Imported {created_count} references")
 
-        # Remove file (django-cleanup will delete it)
-        search_method.file = None
-        search_method.save()
-
-        metadata = {
-            "action": "import_completed",
-            "filename": file_name,
-            "imported_count": created_count,
-            "search_method": search_method.name,
-        }
-
+        # Update review flag
         if (
             created_count > 0
             and review.duplicate_detection_status
@@ -135,6 +184,18 @@ def import_bibtex_task(self, review_id: int, member_id: int, search_method_id: i
                 Review.DuplicateDetectionStatus.NOT_STARTED
             )
             review.save()
+
+        # Remove file (django-cleanup will delete it)
+        search_method.file = None
+        search_method.save()
+
+        metadata = {
+            "action": "import_completed",
+            "filename": file_name,
+            "file_type": file_type,
+            "imported_count": created_count,
+            "search_method": search_method.name,
+        }
 
         if not SearchMethod.objects.filter(review=review, file__gt="").exists():
             metadata["refresh_review"] = True
@@ -146,6 +207,7 @@ def import_bibtex_task(self, review_id: int, member_id: int, search_method_id: i
             message=(
                 f"✅ Import complete!\n"
                 f"• File: {file_name}\n"
+                f"• Format: {file_type_display}\n"
                 f"• Imported: {created_count} references\n"
                 f"• Source: {search_method.name}"
             ),
@@ -161,6 +223,7 @@ def import_bibtex_task(self, review_id: int, member_id: int, search_method_id: i
             "success": True,
             "imported_count": created_count,
             "search_method": search_method.name,
+            "file_type": file_type,
         }
 
     except SearchMethod.DoesNotExist:
@@ -172,14 +235,13 @@ def import_bibtex_task(self, review_id: int, member_id: int, search_method_id: i
         error_msg = f"Review {review_id} not found"
         logger.error(error_msg)
 
-        # Delete SearchMethod on failure
         if search_method:
             search_method.delete()
 
         return {"success": False, "error": error_msg}
 
     except Exception as e:
-        logger.exception(f"BibTeX import task error: {str(e)}")
+        logger.exception(f"Reference import task error: {str(e)}")
 
         # Send failure message
         try:
@@ -190,17 +252,16 @@ def import_bibtex_task(self, review_id: int, member_id: int, search_method_id: i
                 is_system_message=True,
                 metadata={"action": "import_failed", "error": str(e)},
             )
-        except Exception as send_message_error:
-            logger.warning(f"Failed to send failure message: {send_message_error}")
-
-        # Delete SearchMethod on failure
-        if search_method:
-            search_method.delete()
+        except Exception as e:
+            logger.error(str(e))
 
         # Retry on failure
         if self.request.retries < self.max_retries:
             raise self.retry(exc=e, countdown=60)
         else:
+            # Delete SearchMethod on failure
+            if search_method:
+                search_method.delete()
             return {
                 "success": False,
                 "error": f"Failed after {self.max_retries} retries: {str(e)}",

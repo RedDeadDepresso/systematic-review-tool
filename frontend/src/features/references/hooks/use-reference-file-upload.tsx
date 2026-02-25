@@ -3,13 +3,17 @@ import {
   useFetchUploadedPDFs,
   useUploadPDF,
 } from '@/features/references/hooks/use-uploaded-pdfs';
-import { useAttachPDFsToReferences } from '@/features/references/hooks/use-references';
+import {
+  useAttachPDFsToReferences,
+  useAutoMatch,
+} from '@/features/references/hooks/use-references';
 import { useDetectDuplicateReferences } from '@/features/reviews/hooks/use-reviews';
 import { useUploadReviewReferences } from '@/features/reviews/hooks/use-reviews';
 import type {
   Reference,
   ReferencePDFMapping,
 } from '@/features/references/types/references';
+import { useQueryClient } from '@tanstack/react-query';
 
 export function useFileUpload(
   reviewId: number,
@@ -27,6 +31,13 @@ export function useFileUpload(
   const attachPDFsToReferences = useAttachPDFsToReferences();
   const detectDuplicateReferences = useDetectDuplicateReferences();
   const uploadReviewReferences = useUploadReviewReferences();
+  const autoMatch = useAutoMatch();
+  const queryClient = useQueryClient();
+
+  const invalidateUploadedPDFs = () =>
+    queryClient.invalidateQueries({
+      queryKey: ['reviews', reviewId, 'uploaded-pdfs'],
+    });
 
   const handleUploadPDF = useCallback(
     async (file: File): Promise<boolean> => {
@@ -68,6 +79,7 @@ export function useFileUpload(
         await attachPDFsToReferences.mutateAsync({ reviewId, mappings });
         setOpenMatchDialog(false);
         onSuccess();
+        invalidateUploadedPDFs();
         return true;
       } catch (error) {
         return false;
@@ -97,6 +109,24 @@ export function useFileUpload(
     highlightedReferenceId,
   ]);
 
+  const handleAutoMatch = useCallback(async (): Promise<boolean> => {
+    const referenceIds =
+      selectedReferenceIds.length > 0
+        ? selectedReferenceIds
+        : highlightedReferenceId !== null
+          ? [highlightedReferenceId]
+          : [];
+    try {
+      await autoMatch.mutate({ reviewId, referenceIds });
+      setOpenMatchDialog(false);
+      onSuccess();
+      invalidateUploadedPDFs();
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }, [selectedReferenceIds, reviewId, highlightedReferenceId, onSuccess]);
+
   return {
     openUploadBibDialog,
     setOpenUploadBibDialog,
@@ -110,5 +140,6 @@ export function useFileUpload(
     handleMatch,
     combinedReferences,
     detectDuplicateReferences,
+    handleAutoMatch,
   };
 }

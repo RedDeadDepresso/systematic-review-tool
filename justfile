@@ -33,6 +33,10 @@ prune *args:
 logs *args:
     @docker compose logs -f {{args}}
 
+# run: Executes any command.
+run +args:
+    @docker compose exec django sh -c 'export DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB} && {{args}}'
+
 # manage: Executes `manage.py` command.
 manage +args:
     @docker compose exec django sh -c 'export DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB} && python ./manage.py {{args}}'

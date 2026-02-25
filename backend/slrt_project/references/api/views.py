@@ -1,10 +1,14 @@
 import logging
+import os
+import re
 
 import bibtexparser
+import pymupdf
+from django.contrib.postgres.search import TrigramSimilarity
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.db.models import Count, F, Prefetch
-from django.db.models.functions import ExtractYear
+from django.db.models import Count, F, OuterRef, Prefetch, Subquery
+from django.db.models.functions import ExtractYear, Lower
 from django.http import HttpResponse
 from django_filters import rest_framework as filters
 from rest_framework import mixins, serializers, status, viewsets
@@ -20,6 +24,7 @@ from slrt_project.references.api.serializers import (
     AssignLabelsSerializer,
     AssignReferencesSerializer,
     AttachPDFsSerializer,
+    AutoMatchSerializer,
     BulkCreateNoteSerializer,
     KeywordSerializer,
     LabelSerializer,
@@ -32,6 +37,7 @@ from slrt_project.references.api.serializers import (
     UploadedPDFSerializer,
 )
 from slrt_project.references.models import (
+    ImmutableUnaccent,
     Keyword,
     Label,
     Note,
@@ -173,6 +179,108 @@ class ReferenceViewSet(viewsets.ModelViewSet):
             )
 
         return Response({"updated_references": updated}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["post"], url_path="auto-match")
+    def auto_match(self, request):
+        serializer = AutoMatchSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        reference_ids = serializer.validated_data["reference_ids"]
+        review = get_object_or_404(Review, id=serializer.validated_data["review_id"])
+        check_permission(Permission.UPLOAD_FILES, user, review)
+
+        references = Reference.objects.select_related("review").filter(
+            id__in=reference_ids,
+            review=review,
+        )
+
+        if not references.exists():
+            return Response({"matched": [], "unmatched": reference_ids})
+
+        uploaded_pdfs = UploadedPDF.objects.filter(review=review)
+
+        matched_reference_ids = []
+
+        with transaction.atomic():
+            # DOI MATCH (Single Bulk Update)
+            doi_pdf_subquery = uploaded_pdfs.filter(doi__iexact=OuterRef("doi")).values(
+                "file"
+            )[:1]
+
+            references.exclude(doi__isnull=True).exclude(doi="").update(
+                file=Subquery(doi_pdf_subquery)
+            )
+
+            matched_reference_ids.extend(
+                Reference.objects.filter(id__in=reference_ids)
+                .exclude(file__isnull=True)
+                .values_list("id", flat=True)
+            )
+
+            # EXACT NORMALIZED NAME MATCH
+            remaining_refs = Reference.objects.filter(
+                id__in=reference_ids,
+                file__isnull=True,
+            )
+
+            name_pdf_subquery = (
+                uploaded_pdfs.annotate(normalized_name=Lower(ImmutableUnaccent("name")))
+                .filter(normalized_name=Lower(ImmutableUnaccent(OuterRef("title"))))
+                .values("file")[:1]
+            )
+
+            remaining_refs.update(file=Subquery(name_pdf_subquery))
+
+            matched_reference_ids = list(
+                Reference.objects.filter(id__in=reference_ids)
+                .exclude(file__isnull=True)
+                .values_list("id", flat=True)
+            )
+
+            # TRIGRAM MATCH (Highest Similarity)
+            remaining_refs = Reference.objects.filter(
+                id__in=reference_ids,
+                file__isnull=True,
+            )
+
+            trigram_subquery = (
+                uploaded_pdfs.annotate(
+                    similarity=TrigramSimilarity(
+                        Lower(ImmutableUnaccent("name")),
+                        Lower(ImmutableUnaccent(OuterRef("title"))),
+                    )
+                )
+                .filter(similarity__gt=0.6)
+                .order_by("-similarity")
+                .values("file")[:1]
+            )
+
+            remaining_refs.update(file=Subquery(trigram_subquery))
+
+            # Collect final matched IDs
+            matched_reference_ids = list(
+                Reference.objects.filter(id__in=reference_ids)
+                .exclude(file__isnull=True)
+                .values_list("id", flat=True)
+            )
+
+            # DELETE USED UPLOADED PDFs
+            used_files = Reference.objects.filter(
+                id__in=matched_reference_ids
+            ).values_list("file", flat=True)
+
+            used_pdfs = UploadedPDF.objects.filter(review=review, file__in=used_files)
+            used_pdfs.update(file="")  # django-cleanup skips empty file fields
+            used_pdfs.delete()
+
+        return Response(
+            {
+                "matched": len(matched_reference_ids),
+                "unmatched": len(set(reference_ids) - set(matched_reference_ids)),
+            },
+            status=status.HTTP_200_OK,
+        )
 
     @action(detail=False, methods=["post"])
     def bulk_sync_pdfs(self, request):
@@ -555,7 +663,35 @@ class UploadedPDFViewSet(viewsets.ModelViewSet):
 
         check_permission(Permission.UPLOAD_FILES, user, review)
 
-        serializer.save()
+        # Save first to get file path
+        instance = serializer.save()
+
+        # Extract filename without extension
+        base_name = os.path.basename(instance.file.name)
+        name_without_ext = os.path.splitext(base_name)[0]
+        instance.name = name_without_ext
+
+        # Extract DOI from first page
+        doi = self.extract_doi(instance.file.path)
+        instance.doi = doi
+
+        # Save updated fields
+        instance.save()
+
+    def extract_doi(self, file_path):
+        doi_pattern = r"10\.\d{4,9}/[-._;()/:A-Z0-9]+"
+
+        try:
+            doc = pymupdf.open(file_path)
+            if len(doc) > 0:
+                text = doc[0].get_text()  # first page only
+                match = re.search(doi_pattern, text, re.I)
+                if match:
+                    return match.group(0)
+        except Exception:
+            pass
+
+        return None
 
 
 class LabelViewSet(viewsets.ModelViewSet):

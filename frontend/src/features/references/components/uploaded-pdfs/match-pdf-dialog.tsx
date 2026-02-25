@@ -32,6 +32,7 @@ interface MatchPDFDialogProps {
   references: Reference[];
   uploadedPDFs: UploadedPDF[];
   onImport: (payload: ReferencePDFMapping[]) => Promise<boolean>;
+  onAutoMatch: () => Promise<boolean>;
 }
 
 const UNSELECTED_VALUE = '__unselected__';
@@ -42,6 +43,7 @@ export function MatchPDFDialog({
   references,
   uploadedPDFs,
   onImport,
+  onAutoMatch,
 }: MatchPDFDialogProps) {
   // Map of referenceId -> uploadedPDFId (or undefined if not selected)
   const [selections, setSelections] = React.useState<
@@ -115,29 +117,16 @@ export function MatchPDFDialog({
     }
   };
 
-  // Auto match - attempt to match references to PDFs by filename similarity
-  const handleAutoMatch = () => {
-    const newSelections: Record<number, number> = {};
-    const usedPdfIds = new Set<number>();
-
-    references.forEach((ref) => {
-      const titleLower = ref.title.toLowerCase();
-      const matchingPdf = uploadedPDFs.find((pdf) => {
-        if (usedPdfIds.has(pdf.id)) return false;
-        const fileName = pdf.file.toLowerCase().replace('.pdf', '');
-        return (
-          titleLower.includes(fileName) ||
-          fileName.includes(titleLower.split(' ')[0])
-        );
-      });
-
-      if (matchingPdf) {
-        newSelections[ref.id] = matchingPdf.id;
-        usedPdfIds.add(matchingPdf.id);
-      }
-    });
-
-    setSelections(newSelections);
+  const handleAutoMatch = async () => {
+    setIsSubmitting(true);
+    try {
+      const success = await onAutoMatch();
+      if (success) onOpenChange(false);
+    } catch (error) {
+      console.error('Auto match failed:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const hasSelections = getMappings().length > 0;

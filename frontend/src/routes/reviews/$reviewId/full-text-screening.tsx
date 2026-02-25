@@ -236,6 +236,7 @@ function RouteComponent() {
           references={fileUpload.combinedReferences}
           uploadedPDFs={fileUpload.uploadedPDFs}
           onImport={fileUpload.handleMatch}
+          onAutoMatch={fileUpload.handleAutoMatch}
         />
       )}
       <AddDataDialog
