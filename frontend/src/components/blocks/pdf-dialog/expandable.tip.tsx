@@ -43,7 +43,7 @@ const ExpandableTip = ({ addHighlight }: ExpandableTipProps) => {
           }}
         >
           <Plus className="mr-1 h-4 w-4" />
-          Add highlight
+          Add code
         </Button>
       ) : (
         <CommentForm
