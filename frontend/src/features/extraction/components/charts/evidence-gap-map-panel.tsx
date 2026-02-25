@@ -38,7 +38,7 @@ export function EvidenceGapMapPanel({ reviewId }: EvidenceGapMapPanelProps) {
   const { data: selectQuestions = [], isLoading: questionsLoading } =
     useFetchExtractionQuestions({
       reviewId,
-      type: ['single-select', 'multi-select'],
+      type: ['boolean', 'single-select', 'multi-select'],
     });
 
   const parsedQRow = qRow ? parseInt(qRow, 10) : null;
