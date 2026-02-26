@@ -171,13 +171,6 @@ function ReviewPage() {
                           title="Upload References"
                           description="Add references to the review (BibTeX, RIS, or EndNote XML format)"
                           acceptedFormats=".bib,.ris,.xml"
-                          acceptedMimeTypes={[
-                            'application/x-bibtex',
-                            'application/x-research-info-systems',
-                            'text/xml',
-                            'application/xml',
-                            'text/plain',
-                          ]}
                           fileTypeLabel="BibTeX/RIS/EndNote XML"
                           onUpload={handleUploadReferences}
                         />

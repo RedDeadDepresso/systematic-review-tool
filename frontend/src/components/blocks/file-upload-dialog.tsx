@@ -29,8 +29,6 @@ export interface FileUploadDialogProps {
   /** Accepted file formats (e.g., ".pdf", ".jpg,.png", "image/*") */
   acceptedFormats?: string;
   /** MIME types to filter dropped/selected files (e.g., ["application/pdf"]) */
-  acceptedMimeTypes?: string[];
-  /** File type label for UI text (e.g., "PDF", "Image") */
   fileTypeLabel?: string;
   /** Custom upload function - receives file and should return success boolean */
   onUpload: (file: File) => Promise<boolean>;
@@ -48,7 +46,6 @@ export function FileUploadDialog({
   title = 'Upload Full Text PDF',
   description = 'Add PDFs to selected articles',
   acceptedFormats = '.pdf,application/pdf',
-  acceptedMimeTypes = ['application/pdf'],
   fileTypeLabel = 'PDF',
   onUpload,
   onAllSuccess,
@@ -82,14 +79,16 @@ export function FileUploadDialog({
   };
 
   const isAcceptedFile = (file: File) => {
-    if (acceptedMimeTypes.length === 0) return true;
-    return acceptedMimeTypes.some((mime) => {
-      if (mime.endsWith('/*')) {
-        const baseType = mime.replace('/*', '');
-        return file.type.startsWith(baseType);
-      }
-      return file.type === mime;
-    });
+    if (!acceptedFormats) return true;
+
+    const extensions = acceptedFormats
+      .split(',')
+      .map((ext) => ext.trim().toLowerCase())
+      .filter((ext) => ext.startsWith('.'));
+
+    if (extensions.length === 0) return true;
+
+    return extensions.some((ext) => file.name.toLowerCase().endsWith(ext));
   };
 
   const addFiles = (fileList: File[]) => {
