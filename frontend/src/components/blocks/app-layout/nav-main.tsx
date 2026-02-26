@@ -76,7 +76,7 @@ function DocsSection() {
         <CollapsibleContent>
           <SidebarMenuSub>
             {DOC_LINKS.map((item) =>
-              'children' in item ? (
+              'children' in item && item.children ? (
                 // Nested group (no further collapsible, just a label + items)
                 <SidebarMenuSubItem key={item.title}>
                   <p className="px-3 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">

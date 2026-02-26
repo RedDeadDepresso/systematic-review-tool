@@ -179,7 +179,9 @@ export function ReviewOpinionStatsChart({
                 cursor={{ fill: 'rgba(0, 0, 0, 0.05)' }}
               />
               <ChartLegend
-                content={<ChartLegendContent />}
+                content={({ payload }) => (
+                  <ChartLegendContent payload={payload} />
+                )}
                 wrapperStyle={{ fontSize: '12px' }}
               />
               <Bar
@@ -238,7 +240,9 @@ export function ReviewOpinionStatsChart({
                 cursor={{ fill: 'rgba(0, 0, 0, 0.05)' }}
               />
               <ChartLegend
-                content={<ChartLegendContent />}
+                content={({ payload }) => (
+                  <ChartLegendContent payload={payload} />
+                )}
                 wrapperStyle={{ fontSize: '12px' }}
               />
               <Bar
