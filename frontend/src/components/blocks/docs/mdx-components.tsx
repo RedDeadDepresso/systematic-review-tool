@@ -276,20 +276,5 @@ export const mdxComponents = {
   AlertTitle,
   AlertDescription,
   AspectRatio,
-  Link: ({ className, ...props }: React.ComponentProps<typeof Link>) => (
-    <a
-      className={cn('font-medium underline underline-offset-4', className)}
-      {...props}
-    />
-  ),
-  LinkedCard: ({ className, ...props }: React.ComponentProps<typeof Link>) => (
-    <a
-      className={cn(
-        'bg-surface text-surface-foreground hover:bg-surface/80 flex w-full flex-col items-center rounded-xl p-6 transition-colors sm:p-10',
-        className
-      )}
-      {...props}
-    />
-  ),
   Kbd,
 };

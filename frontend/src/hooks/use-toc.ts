@@ -6,7 +6,9 @@ export interface TocItem {
   depth: number;
 }
 
-export function useTocFromContent(contentRef: React.RefObject<HTMLElement>) {
+export function useTocFromContent(
+  contentRef: React.RefObject<HTMLElement | null>
+) {
   const [toc, setToc] = useState<TocItem[]>([]);
 
   useEffect(() => {

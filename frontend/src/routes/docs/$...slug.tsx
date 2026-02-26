@@ -6,9 +6,9 @@ import { useTocFromContent } from '@/hooks/use-toc';
 
 const modules = import.meta.glob('/src/docs/**/*.mdx');
 
-export const Route = createFileRoute('/docs/$...slug')({
+export const Route = createFileRoute('/docs/$/slug')({
   loader: async ({ params }) => {
-    const slugPath = params['*'];
+    const slugPath = (params as any)['*'];
 
     if (!slugPath) {
       throw new Error('Missing slug');
@@ -19,10 +19,10 @@ export const Route = createFileRoute('/docs/$...slug')({
     );
 
     if (!match) {
-      throw new Error(`Doc "${slugPath}" not found`);
+      throw new Error(`Doc '${slugPath}' not found`);
     }
 
-    const mod = await match[1]();
+    const mod = (await match[1]()) as { default: React.ComponentType<any> };
     return { Component: mod.default };
   },
   component: DocsPage,
