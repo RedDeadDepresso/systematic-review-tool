@@ -38,7 +38,7 @@ const DOC_LINKS = [
     title: 'User Guide',
     children: [
       { title: 'Getting Started', href: '/docs/user-guide/getting-started' },
-      { title: 'Intro', href: '/docs/user-guide/intro' },
+      { title: 'Review Overview', href: '/docs/user-guide/review-overview' },
     ],
   },
 ];
