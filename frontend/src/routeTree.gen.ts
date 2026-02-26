@@ -25,6 +25,7 @@ import { Route as ReviewsReviewIdFullTextScreeningRouteImport } from './routes/r
 import { Route as ReviewsReviewIdDataExtractionRouteImport } from './routes/reviews/$reviewId/data-extraction'
 import { Route as ReviewsReviewIdCodingThemingRouteImport } from './routes/reviews/$reviewId/coding-theming'
 import { Route as ReviewsReviewIdChartsRouteImport } from './routes/reviews/$reviewId/charts'
+import { Route as DocsSplatSlugRouteImport } from './routes/docs/$...slug'
 
 const RequestPasswordResetRoute = RequestPasswordResetRouteImport.update({
   id: '/request-password-reset',
@@ -111,6 +112,11 @@ const ReviewsReviewIdChartsRoute = ReviewsReviewIdChartsRouteImport.update({
   path: '/charts',
   getParentRoute: () => ReviewsReviewIdRouteRoute,
 } as any)
+const DocsSplatSlugRoute = DocsSplatSlugRouteImport.update({
+  id: '/docs/$/slug',
+  path: '/docs/$/slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -121,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/request-password-reset': typeof RequestPasswordResetRoute
   '/reviews/$reviewId': typeof ReviewsReviewIdRouteRouteWithChildren
+  '/docs/$/slug': typeof DocsSplatSlugRoute
   '/reviews/$reviewId/charts': typeof ReviewsReviewIdChartsRoute
   '/reviews/$reviewId/coding-theming': typeof ReviewsReviewIdCodingThemingRoute
   '/reviews/$reviewId/data-extraction': typeof ReviewsReviewIdDataExtractionRoute
@@ -138,6 +145,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/request-password-reset': typeof RequestPasswordResetRoute
+  '/docs/$/slug': typeof DocsSplatSlugRoute
   '/reviews/$reviewId/charts': typeof ReviewsReviewIdChartsRoute
   '/reviews/$reviewId/coding-theming': typeof ReviewsReviewIdCodingThemingRoute
   '/reviews/$reviewId/data-extraction': typeof ReviewsReviewIdDataExtractionRoute
@@ -157,6 +165,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/request-password-reset': typeof RequestPasswordResetRoute
   '/reviews/$reviewId': typeof ReviewsReviewIdRouteRouteWithChildren
+  '/docs/$/slug': typeof DocsSplatSlugRoute
   '/reviews/$reviewId/charts': typeof ReviewsReviewIdChartsRoute
   '/reviews/$reviewId/coding-theming': typeof ReviewsReviewIdCodingThemingRoute
   '/reviews/$reviewId/data-extraction': typeof ReviewsReviewIdDataExtractionRoute
@@ -177,6 +186,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/request-password-reset'
     | '/reviews/$reviewId'
+    | '/docs/$/slug'
     | '/reviews/$reviewId/charts'
     | '/reviews/$reviewId/coding-theming'
     | '/reviews/$reviewId/data-extraction'
@@ -194,6 +204,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/request-password-reset'
+    | '/docs/$/slug'
     | '/reviews/$reviewId/charts'
     | '/reviews/$reviewId/coding-theming'
     | '/reviews/$reviewId/data-extraction'
@@ -212,6 +223,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/request-password-reset'
     | '/reviews/$reviewId'
+    | '/docs/$/slug'
     | '/reviews/$reviewId/charts'
     | '/reviews/$reviewId/coding-theming'
     | '/reviews/$reviewId/data-extraction'
@@ -231,6 +243,7 @@ export interface RootRouteChildren {
   RegisterRoute: typeof RegisterRoute
   RequestPasswordResetRoute: typeof RequestPasswordResetRoute
   ReviewsReviewIdRouteRoute: typeof ReviewsReviewIdRouteRouteWithChildren
+  DocsSplatSlugRoute: typeof DocsSplatSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -347,6 +360,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReviewsReviewIdChartsRouteImport
       parentRoute: typeof ReviewsReviewIdRouteRoute
     }
+    '/docs/$/slug': {
+      id: '/docs/$/slug'
+      path: '/docs/$/slug'
+      fullPath: '/docs/$/slug'
+      preLoaderRoute: typeof DocsSplatSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -384,6 +404,7 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   RequestPasswordResetRoute: RequestPasswordResetRoute,
   ReviewsReviewIdRouteRoute: ReviewsReviewIdRouteRouteWithChildren,
+  DocsSplatSlugRoute: DocsSplatSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

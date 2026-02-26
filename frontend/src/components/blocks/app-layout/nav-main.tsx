@@ -30,6 +30,82 @@ import { useFetchReviews } from '@/features/reviews/hooks/use-reviews';
 import type { ReviewRow } from '@/features/reviews/types/reviews';
 import { IconKey } from '@tabler/icons-react';
 import { useState, useMemo } from 'react';
+import { BookOpen } from 'lucide-react';
+
+const DOC_LINKS = [
+  { title: 'Introduction', href: '/docs/introduction' },
+  {
+    title: 'User Guide',
+    children: [
+      { title: 'Getting Started', href: '/docs/user-guide/getting-started' },
+      { title: 'Intro', href: '/docs/user-guide/intro' },
+    ],
+  },
+];
+
+function DocsSection() {
+  const [open, setOpen] = useState(false);
+  const { state, setOpen: setSidebarOpen } = useSidebar();
+  const isCollapsed = state === 'collapsed';
+
+  const handleClick = () => {
+    if (isCollapsed) {
+      setSidebarOpen(true);
+      setOpen(true);
+    } else {
+      setOpen((prev) => !prev);
+    }
+  };
+
+  return (
+    <Collapsible
+      asChild
+      className="group/collapsible"
+      open={isCollapsed ? false : open}
+      onOpenChange={setOpen}
+    >
+      <SidebarMenuItem>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton tooltip="Documentation" onClick={handleClick}>
+            <BookOpen />
+            <span>Documentation</span>
+            <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+
+        <CollapsibleContent>
+          <SidebarMenuSub>
+            {DOC_LINKS.map((item) =>
+              'children' in item ? (
+                // Nested group (no further collapsible, just a label + items)
+                <SidebarMenuSubItem key={item.title}>
+                  <p className="px-3 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {item.title}
+                  </p>
+                  {item.children.map((child) => (
+                    <SidebarMenuSubButton key={child.href} asChild>
+                      <Link to={child.href}>
+                        <span>{child.title}</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  ))}
+                </SidebarMenuSubItem>
+              ) : (
+                <SidebarMenuSubItem key={item.href}>
+                  <SidebarMenuSubButton asChild>
+                    <Link to={item.href}>
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              )
+            )}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </SidebarMenuItem>
+    </Collapsible>
+  );
+}
 
 export type NavMainItem = {
   title: string;
@@ -172,6 +248,7 @@ export function NavMain() {
           reviews={archivedReviews}
           onOpen={() => setArchivedEnabled(true)}
         />
+        <DocsSection />
       </SidebarMenu>
     </SidebarGroup>
   );
@@ -210,6 +287,7 @@ export function NavMainUnauthenticated() {
             <span>Reset Password</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
+        <DocsSection />
       </SidebarMenu>
     </SidebarGroup>
   );
