@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import mdx from '@mdx-js/rollup'
 
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import { resolve } from 'node:path'
@@ -8,8 +9,9 @@ import { resolve } from 'node:path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    tanstackRouter ({ autoCodeSplitting: true }),
-    viteReact(),
+    tanstackRouter({ autoCodeSplitting: true }),
+    { enforce: 'pre', ...mdx({ jsxImportSource: 'react' }) },
+    viteReact({ include: /\.(jsx|tsx|mdx)$/ }),
     tailwindcss(),
   ],
   resolve: {

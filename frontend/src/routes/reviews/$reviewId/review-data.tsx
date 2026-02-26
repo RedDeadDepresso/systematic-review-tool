@@ -178,10 +178,16 @@ function RouteComponent() {
         open={fileUpload.openUploadBibDialog}
         onOpenChange={fileUpload.setOpenUploadBibDialog}
         title="Upload References"
-        description="Add references to the review"
-        acceptedFormats=".bib,application/x-bibtex"
-        acceptedMimeTypes={['application/x-bibtex']}
-        fileTypeLabel="BibTeX"
+        description="Add references to the review (BibTeX, RIS, or EndNote XML format)"
+        acceptedFormats=".bib,.ris,.xml"
+        acceptedMimeTypes={[
+          'application/x-bibtex',
+          'application/x-research-info-systems',
+          'text/xml',
+          'application/xml',
+          'text/plain',
+        ]}
+        fileTypeLabel="BibTeX/RIS/EndNote XML"
         onUpload={fileUpload.handleUploadReferences}
       />
       <FileUploadDialog
