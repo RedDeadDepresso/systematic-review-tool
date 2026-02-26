@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/collapsible';
 import { ZoteroSyncPanel } from '@/features/integrations/components/zotero/zotero-sync-panel';
 import { useFetchReviewMembers } from '@/features/reviews/hooks/use-review-members';
+import { ScreeningCriteriaCard } from '@/features/reviews/components/screening-criteria/screening-criteria-card';
 
 export const Route = createFileRoute('/reviews/$reviewId/')({
   component: ReviewPage,
@@ -330,6 +331,11 @@ function ReviewPage() {
             </Card>
           </div>
         </Card>
+
+        <ScreeningCriteriaCard
+          reviewId={reviewId}
+          userRole={data?.userRole || 'Viewer'}
+        />
 
         {/* Members Section - Collapsible */}
         <Collapsible>
