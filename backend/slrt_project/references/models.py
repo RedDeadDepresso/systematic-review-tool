@@ -3,7 +3,7 @@ import uuid
 from django.contrib.postgres.indexes import GinIndex, OpClass
 from django.contrib.postgres.search import SearchVectorField
 from django.db import connection, models, transaction
-from django.db.models import Func
+from django.db.models import Case, CharField, Count, Func, Max, Value, When
 from django.db.models.functions import Lower
 from django.utils import timezone
 
@@ -26,6 +26,13 @@ class Label(models.Model):
 
 def reference_upload_path(instance, filename):
     return f"references/{uuid.uuid4()}/{filename}"
+
+
+class ReferenceOpinionStatus(models.TextChoices):
+    UNDECIDED = "Undecided"
+    EXCLUDED = "Excluded"
+    MAYBE = "Maybe"
+    INCLUDED = "Included"
 
 
 class Reference(models.Model):
@@ -65,6 +72,16 @@ class Reference(models.Model):
     zotero_version = models.IntegerField(default=0)
     last_synced = models.DateTimeField(null=True, blank=True)
     pages = models.CharField(max_length=50, blank=True, default="")
+    screening_status = models.CharField(
+        max_length=20,
+        blank=True,
+        default=ReferenceOpinionStatus.UNDECIDED,
+    )
+    full_text_status = models.CharField(
+        max_length=20,
+        blank=True,
+        default=ReferenceOpinionStatus.UNDECIDED,
+    )
 
     class Meta:
         indexes = [
@@ -80,6 +97,72 @@ class Reference(models.Model):
                 condition=models.Q(zotero_key__isnull=False),
             )
         ]
+
+    @classmethod
+    def update_opinion_statuses(cls, reference_ids=None, stage=None):
+        if stage not in [
+            ReferenceOpinion.Stage.SCREENING,
+            ReferenceOpinion.Stage.FULL_TEXT,
+        ]:
+            raise ValueError("Invalid stage")
+
+        refs_qs = cls.objects.all()
+        if reference_ids:
+            refs_qs = refs_qs.filter(id__in=reference_ids)
+
+        opinions = (
+            ReferenceOpinion.objects.filter(
+                reference_id__in=refs_qs.values_list("id", flat=True),
+                stage=stage,
+            )
+            .values("reference_id")
+            .annotate(
+                distinct_count=Count("status", distinct=True),
+                max_status=Max("status"),
+            )
+        )
+
+        status_map = {}
+
+        for op in opinions:
+            if op["distinct_count"] == 0:
+                effective_status = ReferenceOpinionStatus.UNDECIDED
+
+            elif op["distinct_count"] == 1:
+                # All same → use that status (Included, Excluded, Maybe)
+                effective_status = op["max_status"]
+
+            else:
+                # Conflicting opinions → now UNDECIDED (not Maybe anymore)
+                effective_status = ReferenceOpinionStatus.UNDECIDED
+
+            status_map[op["reference_id"]] = effective_status
+
+        # References without opinions
+        all_ids = set(refs_qs.values_list("id", flat=True))
+        for ref_id in all_ids:
+            if ref_id not in status_map:
+                status_map[ref_id] = ReferenceOpinionStatus.UNDECIDED
+
+        when_statements = [
+            When(id=ref_id, then=Value(status)) for ref_id, status in status_map.items()
+        ]
+
+        update_field = (
+            "full_text_status"
+            if stage == ReferenceOpinion.Stage.FULL_TEXT
+            else "screening_status"
+        )
+
+        refs_qs.update(
+            **{
+                update_field: Case(
+                    *when_statements,
+                    default=Value(ReferenceOpinionStatus.UNDECIDED),
+                    output_field=CharField(),
+                )
+            }
+        )
 
     @property
     def has_pdf(self):
@@ -504,12 +587,6 @@ class Reason(models.Model):
 
 
 class ReferenceOpinion(models.Model):
-    class Status(models.TextChoices):
-        UNDECIDED = "Undecided"
-        EXCLUDED = "Excluded"
-        MAYBE = "Maybe"
-        INCLUDED = "Included"
-
     class Stage(models.TextChoices):
         SCREENING = "screening", "Screening"
         FULL_TEXT = "full-text", "Full-Text Screening"
@@ -518,8 +595,8 @@ class ReferenceOpinion(models.Model):
     member = models.ForeignKey("reviews.ReviewMember", on_delete=models.CASCADE)
     status = models.CharField(
         max_length=20,
-        choices=Status.choices,
-        default=Status.UNDECIDED,
+        choices=ReferenceOpinionStatus.choices,
+        default=ReferenceOpinionStatus.UNDECIDED,
     )
     stage = models.CharField(
         max_length=20,
