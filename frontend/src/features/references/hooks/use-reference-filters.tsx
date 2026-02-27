@@ -1,3 +1,4 @@
+import type { OpinionStatus } from '@/features/references/types/references';
 import { useState, useCallback, useEffect, useRef } from 'react';
 
 export interface ReviewDataFilters {
@@ -10,6 +11,7 @@ export interface ReviewDataFilters {
   fileStatus: 'all' | 'withFile' | 'withoutFile';
   assigneeIds: (number | null)[];
   duplicateStatuses: string[];
+  opinionStatuses: OpinionStatus[];
   searchQuery: string;
 }
 
@@ -21,10 +23,18 @@ export interface UseReviewDataFiltersOptions {
   enableFileStatus?: boolean;
   enableAssignees?: boolean;
   enableDuplicates?: boolean;
+  enableOpinions?: boolean;
   debounceDelay?: number;
 }
 
 export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
+  const ALL_OPINION_STATUSES: OpinionStatus[] = [
+    'Undecided',
+    'Included',
+    'Maybe',
+    'Excluded',
+  ];
+
   const {
     enableSearchMethods = true,
     enableKeywords = true,
@@ -32,7 +42,8 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     enablePublicationFilters = true,
     enableFileStatus = true,
     enableAssignees = true,
-    enableDuplicates = true,
+    enableDuplicates = false,
+    enableOpinions = false,
     debounceDelay = 500, // Default 500ms debounce
   } = options;
 
@@ -48,6 +59,9 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
   >('all');
   const [assigneeIds, setAssigneeIds] = useState<(number | null)[]>([]);
   const [duplicateStatuses, setDuplicateStatuses] = useState<string[]>([]);
+  const [opinionStatuses, setOpinionStatuses] = useState<OpinionStatus[]>([
+    'Undecided',
+  ]);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Debounced state (for API calls)
@@ -76,6 +90,9 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
   const [debouncedDuplicateStatuses, setDebouncedDuplicateStatuses] = useState<
     string[]
   >([]);
+  const [debouncedOpinionStatuses, setDebouncedOpinionStatuses] = useState<
+    OpinionStatus[]
+  >(['Undecided']);
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -97,6 +114,7 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
       setDebouncedAssigneeIds(assigneeIds);
       setDebouncedDuplicateStatuses(duplicateStatuses);
       setDebouncedSearchQuery(searchQuery);
+      setDebouncedOpinionStatuses(opinionStatuses);
     }, debounceDelay);
 
     return () => {
@@ -116,6 +134,7 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     duplicateStatuses,
     searchQuery,
     debounceDelay,
+    opinionStatuses,
   ]);
 
   // Toggle handlers (update optimistic state immediately)
@@ -217,6 +236,18 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     [enableDuplicates]
   );
 
+  const handleOpinionStatusToggle = useCallback(
+    (status: OpinionStatus) => {
+      if (!enableOpinions) return;
+      setOpinionStatuses((prev) =>
+        prev.includes(status)
+          ? prev.filter((s) => s !== status)
+          : [...prev, status]
+      );
+    },
+    [enableOpinions]
+  );
+
   // Select all handlers
   const handleSelectAllIncludeKeywords = useCallback(
     (allKeywords: string[]) => {
@@ -288,6 +319,17 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     [enableSearchMethods]
   );
 
+  // Select all handlers
+  const handleSelectAllOpinionStatuses = useCallback(
+    (allOpinionStatuses: OpinionStatus[]) => {
+      if (!enableOpinions) return;
+      setOpinionStatuses((prev) =>
+        prev.length === allOpinionStatuses.length ? [] : allOpinionStatuses
+      );
+    },
+    [enableOpinions]
+  );
+
   // Reset all filters
   const handleResetAllFilters = useCallback(() => {
     if (enableSearchMethods) setSearchMethodIds([]);
@@ -304,6 +346,7 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     if (enableAssignees) setAssigneeIds([]);
     if (enableDuplicates) setDuplicateStatuses([]);
     setSearchQuery('');
+    if (enableOpinions) setOpinionStatuses([]);
   }, [
     enableSearchMethods,
     enableKeywords,
@@ -312,6 +355,7 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     enableFileStatus,
     enableAssignees,
     enableDuplicates,
+    enableOpinions,
   ]);
 
   // Get active filters for API (using debounced values)
@@ -334,6 +378,7 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     if (enableAssignees) filters.assigneeIds = debouncedAssigneeIds;
     if (enableDuplicates)
       filters.duplicateStatuses = debouncedDuplicateStatuses;
+    if (enableOpinions) filters.opinionStatuses = debouncedOpinionStatuses;
 
     return filters;
   }, [
@@ -347,6 +392,7 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     debouncedAssigneeIds,
     debouncedDuplicateStatuses,
     debouncedSearchQuery,
+    debouncedOpinionStatuses,
     enableSearchMethods,
     enableKeywords,
     enableLabels,
@@ -354,10 +400,12 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     enableFileStatus,
     enableAssignees,
     enableDuplicates,
+    enableOpinions,
   ]);
 
   return {
     // Optimistic state (for UI - checkboxes show immediately)
+    ALL_OPINION_STATUSES,
     searchMethodIds,
     includeKeywords,
     excludeKeywords,
@@ -368,6 +416,7 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     assigneeIds,
     duplicateStatuses,
     searchQuery,
+    opinionStatuses,
 
     // Debounced filters (for API calls)
     filters: getActiveFilters(),
@@ -388,6 +437,7 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     handleFileStatusChange,
     handleAssigneeToggle,
     handleDuplicateStatusToggle,
+    handleOpinionStatusToggle,
 
     // Select all handlers
     handleSelectAllIncludeKeywords,
@@ -397,6 +447,7 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     handleSelectAllPublicationYears,
     handleSelectAllAssignees,
     handleSelectAllSearchMethods,
+    handleSelectAllOpinionStatuses,
 
     // Reset
     handleResetAllFilters,

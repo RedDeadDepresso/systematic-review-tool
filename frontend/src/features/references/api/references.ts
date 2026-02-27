@@ -1,4 +1,5 @@
 import type {
+  OpinionStatus,
   Reference,
   ReferencePDFMapping,
 } from '@/features/references/types/references';
@@ -69,6 +70,10 @@ export type DuplicateStatusCounts = {
   Resolved: number;
 };
 
+export type FetchScreeningParams = {
+  opinionStatuses?: OpinionStatus[];
+} & FetchReviewDataParams;
+
 export type FetchReviewDataParamsResponse = {
   references: Reference[];
   totalCount: number;
@@ -83,7 +88,9 @@ export type FetchReviewDataParamsResponse = {
   assignees: Assignee[];
 };
 
-const paramsToSnakeCase = (params: FetchReviewDataParams) => {
+const paramsToSnakeCase = (
+  params: FetchReviewDataParams | FetchScreeningParams
+) => {
   return {
     review: params.review,
     search_method_ids: params.searchMethodIds,
@@ -96,6 +103,8 @@ const paramsToSnakeCase = (params: FetchReviewDataParams) => {
     assignee_ids: params.assigneeIds,
     duplicate_statuses: params.duplicateStatuses,
     search: params.searchQuery,
+    opinion_statuses:
+      'opinionStatuses' in params ? params.opinionStatuses : undefined,
   };
 };
 
@@ -109,7 +118,7 @@ export const fetchReviewData = async (
 };
 
 export const fetchScreening = async (
-  params: FetchReviewDataParams
+  params: FetchScreeningParams
 ): Promise<FetchReviewDataParamsResponse> => {
   const res = await api.get('/screening/', {
     params: paramsToSnakeCase(params),
@@ -118,7 +127,7 @@ export const fetchScreening = async (
 };
 
 export const fetchScreeningFullText = async (
-  params: FetchReviewDataParams
+  params: FetchScreeningParams
 ): Promise<FetchReviewDataParamsResponse> => {
   const res = await api.get('/screening-full-text/', {
     params: paramsToSnakeCase(params),
