@@ -1,7 +1,7 @@
 from django.contrib.postgres.search import SearchQuery
 from django_filters import rest_framework as filters
 
-from slrt_project.references.models import Reference
+from slrt_project.references.models import Reference, ReferenceOpinion
 
 
 # Reusable "InFilter" for numbers
@@ -27,6 +27,7 @@ class ReferenceFilter(filters.FilterSet):
     publication_years = filters.BaseInFilter(method="filter_publication_years")
     has_file = filters.BooleanFilter(method="filter_has_file")
     assignee_ids = filters.BaseInFilter(field_name="assignee_id", lookup_expr="in")
+    opinion_statuses = CharInFilter(method="filter_opinion_statuses")
 
     class Meta:
         model = Reference
@@ -86,3 +87,17 @@ class ReferenceFilter(filters.FilterSet):
             return queryset.exclude(file="")
         else:
             return queryset.filter(file="")
+
+    def filter_opinion_statuses(self, queryset, name, value):
+        if not value:
+            return queryset
+
+        stage = getattr(self.request.resolver_match.func.cls, "stage", None)
+
+        status_field = (
+            "full_text_status"
+            if stage == ReferenceOpinion.Stage.FULL_TEXT
+            else "screening_status"
+        )
+
+        return queryset.filter(**{f"{status_field}__in": value})

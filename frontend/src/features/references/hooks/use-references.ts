@@ -11,6 +11,7 @@ import {
   fetchScreening,
   fetchScreeningFullText,
   autoMatch,
+  type FetchScreeningParams,
 } from '@/features/references/api/references';
 import type { Reference } from '@/features/references/types/references';
 import type { UploadedPDF } from '@/features/references/types/uploaded-pdfs';
@@ -32,14 +33,14 @@ export const useFetchReviewData = (params: FetchReviewDataParams) => {
   });
 };
 
-export const useFetchScreening = (params: FetchReviewDataParams) => {
+export const useFetchScreening = (params: FetchScreeningParams) => {
   return useQuery({
     queryKey: ['reviews', 'screening', params],
     queryFn: () => fetchScreening(params),
   });
 };
 
-export const useFetchScreeningFullText = (params: FetchReviewDataParams) => {
+export const useFetchScreeningFullText = (params: FetchScreeningParams) => {
   return useQuery({
     queryKey: ['reviews', 'screening-full-text', params],
     queryFn: () => fetchScreeningFullText(params),

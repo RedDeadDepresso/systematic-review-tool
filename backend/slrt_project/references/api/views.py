@@ -7,7 +7,7 @@ import pymupdf
 from django.contrib.postgres.search import TrigramSimilarity
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.db.models import Count, F, OuterRef, Prefetch, Subquery
+from django.db.models import CharField, Count, F, OuterRef, Prefetch, Subquery
 from django.db.models.functions import ExtractYear, Lower
 from django.http import HttpResponse
 from django_filters import rest_framework as filters
@@ -46,6 +46,7 @@ from slrt_project.references.models import (
     ReferenceDuplicatePair,
     ReferenceLabel,
     ReferenceOpinion,
+    ReferenceOpinionStatus,
     UploadedPDF,
 )
 from slrt_project.references.tasks import sync_single_reference_pdf
@@ -427,31 +428,65 @@ class ScreeningQuerysetMixin:
     Screening-specific queryset modifications.
     """
 
-    def apply_screening(self, qs, full_text=None, stage=None):
+    def apply_screening(self, qs, stage=None):
+        """
+        Apply screening or full-text filters with opinion status.
+        - Uses cached screening_status / full_text_status fields.
+        - Respects blind mode: if review.is_blinded, only current user's opinion is considered.
+        - Stage is passed from the view; no query parameters needed.
+        """
+
         user = self.request.user
         review = self.get_review()
 
-        opinions_qs = ReferenceOpinion.objects.filter(stage=stage)
+        if stage is None:
+            stage = ReferenceOpinion.Stage.SCREENING
 
-        if review and review.is_blinded:
-            opinions_qs = opinions_qs.filter(member__user=user)
-
-        opinions_qs = opinions_qs.select_related("member__user", "reason").only(
-            "id",
-            "status",
-            "stage",
-            "updated_at",
-            "member__id",
-            "member__user__first_name",
-            "member__user__last_name",
-            "member__user__email",
-            "reason__name",
-        )
-
+        # Exclude deleted/undecided duplicates
         qs = qs.exclude(duplicate_status__in=["Undecided", "Deleted"])
 
-        if full_text is not None:
-            qs = qs.filter(in_full_text=full_text)
+        # Full-text filtering implied by stage
+        if stage == ReferenceOpinion.Stage.FULL_TEXT:
+            qs = qs.filter(in_full_text=True)
+
+        # Determine cached status field
+        status_field = (
+            "full_text_status"
+            if stage == ReferenceOpinion.Stage.FULL_TEXT
+            else "screening_status"
+        )
+
+        if review and review.is_blinded:
+            # Blind mode: current user's opinion only
+            user_opinions = ReferenceOpinion.objects.filter(
+                reference=OuterRef("pk"),
+                member__user=user,
+                stage=stage,
+            ).values("status")[:1]
+
+            qs = qs.annotate(
+                effective_status=Subquery(user_opinions, output_field=CharField())
+            )
+        else:
+            # Non-blind: use cached status
+            qs = qs.annotate(effective_status=F(status_field))
+
+        # Prefetch opinions for display
+        opinions_qs = (
+            ReferenceOpinion.objects.filter(stage=stage)
+            .select_related("member__user", "reason")
+            .only(
+                "id",
+                "status",
+                "stage",
+                "updated_at",
+                "member__id",
+                "member__user__first_name",
+                "member__user__last_name",
+                "member__user__email",
+                "reason__name",
+            )
+        )
 
         return qs.prefetch_related(
             Prefetch(
@@ -618,11 +653,11 @@ class ReviewDataViewSet(
 
 
 class ScreeningViewSet(ScreeningQuerysetMixin, ReviewDataViewSet):
+    stage = ReferenceOpinion.Stage.SCREENING
+
     def get_queryset(self):
-        return self.apply_screening(
-            super().get_queryset(),
-            stage=ReferenceOpinion.Stage.SCREENING,
-        )
+        qs = super().get_queryset()
+        return self.apply_screening(qs, stage=self.stage)
 
     def get_base_queryset_for_counts(self):
         return self.apply_screening(
@@ -632,17 +667,15 @@ class ScreeningViewSet(ScreeningQuerysetMixin, ReviewDataViewSet):
 
 
 class ScreeningFullTextViewSet(ScreeningQuerysetMixin, ReviewDataViewSet):
+    stage = ReferenceOpinion.Stage.FULL_TEXT
+
     def get_queryset(self):
-        return self.apply_screening(
-            super().get_queryset(),
-            full_text=True,
-            stage=ReferenceOpinion.Stage.FULL_TEXT,
-        )
+        qs = super().get_queryset()
+        return self.apply_screening(qs, stage=self.stage)
 
     def get_base_queryset_for_counts(self):
         return self.apply_screening(
             super().get_base_queryset_for_counts(),
-            full_text=True,
             stage=ReferenceOpinion.Stage.FULL_TEXT,
         )
 
@@ -851,7 +884,7 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
         user = request.user
 
         # Normalize reason: only allowed when excluded
-        if status_value != ReferenceOpinion.Status.EXCLUDED:
+        if status_value != ReferenceOpinionStatus.EXCLUDED:
             reason_value = None
 
         references = Reference.objects.filter(id__in=reference_ids).select_related(
@@ -916,6 +949,10 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
                 to_update,
                 ["status", "reason"],
             )
+
+        Reference.update_opinion_statuses(
+            reference_ids=reference_ids, stage=stage_value
+        )
 
         opinions = ReferenceOpinion.objects.filter(
             reference_id__in=reference_ids,

@@ -53,6 +53,7 @@ function RouteComponent() {
 
   // Feature flags - all enabled
   const filters = useReferenceFilters({
+    enableOpinions: false,
     enableSearchMethods: true,
     enableKeywords: true,
     enableLabels: true,
@@ -324,6 +325,8 @@ function RouteComponent() {
                 fileCounts={data?.fileCounts || { withFile: 0, withoutFile: 0 }}
                 assignees={data?.assignees || []}
                 searchMethods={data?.searchMethods || []}
+                opinionStatuses={[]}
+                selectedOpinionStatuses={filters.opinionStatuses}
                 selectedIncludeKeywords={filters.includeKeywords}
                 selectedExcludeKeywords={filters.excludeKeywords}
                 selectedLabels={filters.labelIds}
@@ -334,6 +337,12 @@ function RouteComponent() {
                 selectedSearchMethods={filters.searchMethodIds}
                 onIncludeKeywordToggle={filters.handleIncludeKeywordToggle}
                 onExcludeKeywordToggle={filters.handleExcludeKeywordToggle}
+                onOpionStatusToggle={filters.handleOpinionStatusToggle}
+                onSelectAllOpinionStatuses={() =>
+                  filters.handleSelectAllOpinionStatuses(
+                    filters.ALL_OPINION_STATUSES
+                  )
+                }
                 onSelectAllInclude={() => {
                   // Get all include keywords from data
                   const allIncludeKeywords = keywords.allKeywords

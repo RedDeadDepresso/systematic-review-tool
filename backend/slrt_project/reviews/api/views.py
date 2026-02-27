@@ -37,6 +37,7 @@ from slrt_project.references.models import (
     Reference,
     ReferenceLabel,
     ReferenceOpinion,
+    ReferenceOpinionStatus,
 )
 from slrt_project.reviews.api.filters import ReviewFilter
 from slrt_project.reviews.api.serializers import (
@@ -336,13 +337,13 @@ class ReviewViewSet(viewsets.ModelViewSet):
             included=Count(
                 "referenceopinion",
                 filter=opinion_filter
-                & Q(referenceopinion__status=ReferenceOpinion.Status.INCLUDED),
+                & Q(referenceopinion__status=ReferenceOpinionStatus.INCLUDED),
                 distinct=True,
             ),
             maybe=Count(
                 "referenceopinion",
                 filter=opinion_filter
-                & Q(referenceopinion__status=ReferenceOpinion.Status.MAYBE),
+                & Q(referenceopinion__status=ReferenceOpinionStatus.MAYBE),
                 distinct=True,
             ),
             labeled=Count(
@@ -406,10 +407,10 @@ class ReviewViewSet(viewsets.ModelViewSet):
         type_q = Q()
 
         if "included" in article_types:
-            type_q |= Q(referenceopinion__status=ReferenceOpinion.Status.INCLUDED)
+            type_q |= Q(referenceopinion__status=ReferenceOpinionStatus.INCLUDED)
 
         if "maybe" in article_types:
-            type_q |= Q(referenceopinion__status=ReferenceOpinion.Status.MAYBE)
+            type_q |= Q(referenceopinion__status=ReferenceOpinionStatus.MAYBE)
 
         if type_q:
             refs = refs.filter(opinion_q & type_q).distinct()
@@ -491,7 +492,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 reference__in_full_text=True,
                 reference__in_extraction=False,
                 stage=ReferenceOpinion.Stage.FULL_TEXT,
-                status=ReferenceOpinion.Status.EXCLUDED,
+                status=ReferenceOpinionStatus.EXCLUDED,
                 reason__isnull=False,
             )
             .order_by("reference_id", "-updated_at")

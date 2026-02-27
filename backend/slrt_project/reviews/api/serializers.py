@@ -3,7 +3,7 @@ from django.db.models.functions import Concat
 from rest_framework import serializers
 
 from slrt_project.integrations.models import ZoteroIntegration
-from slrt_project.references.models import ReferenceOpinion
+from slrt_project.references.models import ReferenceOpinion, ReferenceOpinionStatus
 from slrt_project.reviews.models import (
     Review,
     ReviewChatMessage,
@@ -183,9 +183,9 @@ class ReviewSerializer(serializers.ModelSerializer):
                 user_email=F("member__user__email"),
             )
             .annotate(
-                excluded=Count("id", filter=Q(status=ReferenceOpinion.Status.EXCLUDED)),
-                maybe=Count("id", filter=Q(status=ReferenceOpinion.Status.MAYBE)),
-                included=Count("id", filter=Q(status=ReferenceOpinion.Status.INCLUDED)),
+                excluded=Count("id", filter=Q(status=ReferenceOpinionStatus.EXCLUDED)),
+                maybe=Count("id", filter=Q(status=ReferenceOpinionStatus.MAYBE)),
+                included=Count("id", filter=Q(status=ReferenceOpinionStatus.INCLUDED)),
                 total=Count("id"),
             )
             .order_by("-total")

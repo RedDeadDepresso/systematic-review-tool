@@ -13,6 +13,7 @@ from slrt_project.references.models import (
     ReferenceDuplicatePair,
     ReferenceLabel,
     ReferenceOpinion,
+    ReferenceOpinionStatus,
     UploadedPDF,
 )
 from slrt_project.reviews.api.serializers import ReviewMemberSerializer
@@ -55,8 +56,7 @@ class BaseReferenceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Reference
-        fields = "__all__"
-        read_only_fields = [
+        fields = [
             "id",
             "title",
             "publication_type",
@@ -70,6 +70,7 @@ class BaseReferenceSerializer(serializers.ModelSerializer):
             "duplicate_status",
             "pages",
         ]
+        read_only_fields = fields
 
 
 class ReferenceSerializer(BaseReferenceSerializer):
@@ -77,6 +78,16 @@ class ReferenceSerializer(BaseReferenceSerializer):
     publication_date = serializers.DateField(format="%d/%m/%Y")
     labels = serializers.SerializerMethodField()
     assignee = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Reference
+        fields = BaseReferenceSerializer.Meta.fields + [
+            "file",
+            "opinions",
+            "labels",
+            "assignee",
+        ]
+        read_only_fields = fields
 
     def get_opinions(self, obj):
         opinions = getattr(obj, "prefetched_opinions", None)
@@ -149,7 +160,7 @@ class ReferenceOpinionSerializer(serializers.ModelSerializer):
         reference = attrs.get("reference", getattr(instance, "reference", None))
 
         # Only keep reason when excluded
-        if status != ReferenceOpinion.Status.EXCLUDED:
+        if status != ReferenceOpinionStatus.EXCLUDED:
             attrs["reason"] = None
 
         # If reason exists, ensure same review
@@ -295,7 +306,7 @@ class ReferenceOpinionUpsertSerializer(serializers.Serializer):
         help_text="List of reference IDs to upsert opinions for",
     )
     status = serializers.ChoiceField(
-        choices=ReferenceOpinion.Status.choices,
+        choices=ReferenceOpinionStatus.choices,
         help_text="Status to set for the opinions",
     )
     stage = serializers.ChoiceField(
@@ -314,7 +325,7 @@ class ReferenceOpinionUpsertSerializer(serializers.Serializer):
         return value
 
     def validate(self, attrs):
-        if attrs["status"] != ReferenceOpinion.Status.EXCLUDED:
+        if attrs["status"] != ReferenceOpinionStatus.EXCLUDED:
             attrs["reason"] = None
         return attrs
 

@@ -38,7 +38,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useIsMobile } from '@/hooks/use-mobile';
-import type { ArticleViewLayout } from '@/features/references/types/references';
+import type {
+  ArticleViewLayout,
+  OpinionStatus,
+} from '@/features/references/types/references';
 import type {
   Assignee,
   FileCounts,
@@ -68,6 +71,8 @@ interface FiltersSidebarProps {
   selectedFileStatus: 'all' | 'withFile' | 'withoutFile';
   selectedAssignees: (number | null)[];
   selectedSearchMethods: number[];
+  selectedOpinionStatuses: OpinionStatus[];
+  opinionStatuses: OpinionStatus[];
   onIncludeKeywordToggle: (keyword: string) => void;
   onExcludeKeywordToggle: (keyword: string) => void;
   onSelectAllInclude: () => void;
@@ -82,7 +87,9 @@ interface FiltersSidebarProps {
   onAssigneeToggle: (assigneeId: number | null) => void;
   onSelectAllAssignees: () => void;
   onSearchMethodToggle: (searchMethodId: number) => void;
+  onOpionStatusToggle: (opinionStatus: OpinionStatus) => void;
   onSelectAllSearchMethods: () => void;
+  onSelectAllOpinionStatuses: () => void;
   onResetAllFilters: () => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
@@ -200,11 +207,13 @@ export function FiltersSidebar({
   fileCounts,
   assignees,
   searchMethods,
+  opinionStatuses = ['Included', 'Maybe', 'Excluded'],
   selectedPublicationTypes,
   selectedPublicationYears,
   selectedFileStatus,
   selectedAssignees,
   selectedSearchMethods,
+  selectedOpinionStatuses,
   onIncludeKeywordToggle,
   onExcludeKeywordToggle,
   onSelectAllInclude,
@@ -220,6 +229,7 @@ export function FiltersSidebar({
   onSelectAllAssignees,
   onSearchMethodToggle,
   onSelectAllSearchMethods,
+  onSelectAllOpinionStatuses,
   onResetAllFilters,
   isCollapsed,
   includeHighlightEnabled,
@@ -230,6 +240,7 @@ export function FiltersSidebar({
   onDeleteKeyword,
   onDeleteLabel,
   onDeleteSearchMethod,
+  onOpionStatusToggle,
   articleViewLayout,
   onArticleViewLayoutChange,
 }: FiltersSidebarProps) {
@@ -247,6 +258,7 @@ export function FiltersSidebar({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   type Section = {
+    opinionStatuses: boolean;
     include: boolean;
     exclude: boolean;
     labels: boolean;
@@ -262,6 +274,7 @@ export function FiltersSidebar({
   const [sections, setSections] = useState<Section>(() => {
     if (typeof window === 'undefined') {
       return {
+        opinionsStatuses: true,
         include: true,
         exclude: true,
         labels: true,
@@ -281,6 +294,7 @@ export function FiltersSidebar({
       return stored
         ? JSON.parse(stored)
         : {
+            opinionsStatuses: true,
             include: true,
             exclude: true,
             labels: true,
@@ -293,6 +307,7 @@ export function FiltersSidebar({
           };
     } catch {
       return {
+        opinionsStatuses: true,
         include: true,
         exclude: true,
         labels: true,
@@ -408,6 +423,9 @@ export function FiltersSidebar({
     const name = a.firstName || a.lastName || a.email || 'Unassigned';
     return name.toLowerCase().includes(searchFilter.toLowerCase());
   });
+  const filteredOpinionStatuses = opinionStatuses.filter((os) => {
+    return os.toLowerCase().includes(searchFilter.toLowerCase());
+  });
 
   // Check if all items are selected
   const isAllSelected = (
@@ -448,9 +466,12 @@ export function FiltersSidebar({
     selectedAssignees,
     (a) => a.assignee__id
   );
+  const allOpinionStatusesSelected =
+    selectedOpinionStatuses.length === opinionStatuses.length;
 
   const handleExpandAll = () => {
     setSections({
+      opinionStatuses: true,
       include: true,
       exclude: true,
       labels: true,
@@ -465,6 +486,7 @@ export function FiltersSidebar({
 
   const handleCollapseAll = () => {
     setSections({
+      opinionStatuses: false,
       include: false,
       exclude: false,
       labels: false,
@@ -484,6 +506,7 @@ export function FiltersSidebar({
 
   // Check if sections should be visible based on search filter
   const hasFilteredContent = {
+    opinionStatuses: filteredOpinionStatuses.length > 0,
     include: filteredIncludeKeywords.length > 0 || !searchFilter,
     exclude: filteredExcludeKeywords.length > 0 || !searchFilter,
     labels: filteredLabels.length > 0,
@@ -617,6 +640,39 @@ export function FiltersSidebar({
         ref={scrollContainerRef}
         onScroll={handleScroll}
       >
+        {/* Opinion Statuses */}
+        {opinionStatuses.length > 0 && (
+          <CollapsibleSection
+            title="Opinion Status"
+            icon={<Check className="w-4 h-4 text-muted-foreground" />}
+            isOpen={sections.opinionStatuses ?? true}
+            onToggle={() =>
+              setSections((prev) => ({
+                ...prev,
+                opinionStatuses: !prev.opinionStatuses,
+              }))
+            }
+          >
+            <div className="space-y-1">
+              <CheckboxItem
+                label={
+                  <span className="text-muted-foreground">Select All</span>
+                }
+                checked={allOpinionStatusesSelected}
+                onCheckedChange={onSelectAllOpinionStatuses}
+              />
+              {opinionStatuses.map((status) => (
+                <CheckboxItem
+                  key={status}
+                  label={status}
+                  checked={selectedOpinionStatuses.includes(status)}
+                  onCheckedChange={() => onOpionStatusToggle(status)}
+                />
+              ))}
+            </div>
+          </CollapsibleSection>
+        )}
+
         {/* Keywords to Include */}
         {hasFilteredContent.include && (
           <CollapsibleSection
