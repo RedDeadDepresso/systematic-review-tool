@@ -82,6 +82,7 @@ class ReferenceSerializer(BaseReferenceSerializer):
     class Meta:
         model = Reference
         fields = BaseReferenceSerializer.Meta.fields + [
+            "file",
             "opinions",
             "labels",
             "assignee",
