@@ -37,12 +37,12 @@ export function ScreeningBreakButton({ reviewId }: ScreeningBreakButtonProps) {
           {isOnBreak ? (
             <>
               <Play className="h-4 w-4" />
-              <span className="hidden sm:inline">Resume Work</span>
+              <span className="hidden xl:inline">Resume Work</span>
             </>
           ) : (
             <>
               <Pause className="h-4 w-4" />
-              <span className="hidden sm:inline">Take Break</span>
+              <span className="hidden xl:inline">Take Break</span>
             </>
           )}
         </Button>

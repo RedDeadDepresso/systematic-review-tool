@@ -219,6 +219,9 @@ function RouteComponent() {
             }
             onResolveDuplicates={() => setIsResolveDuplicatesOpen(true)}
             onDeleteSearchMethod={handleDeleteSearchMethod}
+            onToggleCollapse={() =>
+              ui.setIsSourcesSidebarCollapsed(!ui.isSourcesSidebarCollapsed)
+            }
           />
 
           <div className="flex flex-col flex-1 min-h-0">

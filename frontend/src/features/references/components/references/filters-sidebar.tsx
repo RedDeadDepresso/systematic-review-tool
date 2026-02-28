@@ -37,7 +37,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useIsMobile } from '@/hooks/use-mobile';
 import type {
   ArticleViewLayout,
   OpinionStatus,
@@ -52,6 +51,13 @@ import type {
 } from '@/features/references/api/references';
 import type { ReviewRole } from '@/features/reviews/types/reviews';
 import { can } from '@/lib/permissions';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
+import { useMediaQuery } from 'usehooks-ts';
 
 interface FiltersSidebarProps {
   reviewId: number;
@@ -243,8 +249,9 @@ export function FiltersSidebar({
   onOpionStatusToggle,
   articleViewLayout,
   onArticleViewLayoutChange,
+  onToggleCollapse,
 }: FiltersSidebarProps) {
-  const isMobile = useIsMobile();
+  const isSmallScreen = useMediaQuery('(max-width: 1280px)');
 
   // Create local constants instead of reassigning destructured props
   // to satisfy React Compiler requirements
@@ -526,8 +533,8 @@ export function FiltersSidebar({
   };
 
   useEffect(() => {
-    if (isMobile) onArticleViewLayoutChange?.('title-only');
-  }, [isMobile]);
+    if (isSmallScreen) onArticleViewLayoutChange?.('title-only');
+  }, [isSmallScreen]);
 
   useEffect(() => {
     if (isSearchOpen && searchInputRef.current) {
@@ -582,8 +589,8 @@ export function FiltersSidebar({
 
   if (isCollapsed) return null;
 
-  return (
-    <aside className="w-64 sm:w-72 border-l border-border bg-card flex flex-col h-full">
+  const sidebarContent = (
+    <>
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         {isSearchOpen ? (
@@ -1100,15 +1107,15 @@ export function FiltersSidebar({
           >
             <div className="space-y-1">
               <label
-                aria-disabled={isMobile}
+                aria-disabled={isSmallScreen}
                 className={cn(
                   'flex items-center gap-3 py-1.5 rounded px-2 -mx-2',
-                  isMobile
+                  isSmallScreen
                     ? 'opacity-50 cursor-not-allowed pointer-events-none'
                     : 'cursor-pointer hover:bg-muted/50'
                 )}
                 onClick={() => {
-                  if (isMobile) return;
+                  if (isSmallScreen) return;
                   onArticleViewLayoutChange?.('title-abstract');
                 }}
               >
@@ -1145,15 +1152,15 @@ export function FiltersSidebar({
                 <span className="text-sm">Title only view</span>
               </label>
               <label
-                aria-disabled={isMobile}
+                aria-disabled={isSmallScreen}
                 className={cn(
                   'flex items-center gap-3 py-1.5 rounded px-2 -mx-2',
-                  isMobile
+                  isSmallScreen
                     ? 'opacity-50 cursor-not-allowed pointer-events-none'
                     : 'cursor-pointer hover:bg-muted/50'
                 )}
                 onClick={() => {
-                  if (isMobile) return;
+                  if (isSmallScreen) return;
                   onArticleViewLayoutChange?.('title-file');
                 }}
               >
@@ -1268,6 +1275,28 @@ export function FiltersSidebar({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </>
+  );
+
+  if (isSmallScreen) {
+    return (
+      <Drawer
+        open={!isCollapsed}
+        onOpenChange={(o) => !o && onToggleCollapse()}
+      >
+        <DrawerContent className="h-[85vh] flex flex-col">
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>Filters</DrawerTitle>
+          </DrawerHeader>
+          {sidebarContent}
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
+  return (
+    <aside className="w-64 sm:w-72 border-l border-border bg-card flex flex-col h-full">
+      {sidebarContent}
     </aside>
   );
 }
