@@ -5,6 +5,7 @@ import {
   Settings2,
   Trash2,
   Edit2,
+  ChevronDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -23,7 +24,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Link, useRouter, useRouterState } from '@tanstack/react-router';
-import { useIsMobile } from '@/hooks/use-mobile';
 import {
   useDeleteReview,
   useFetchReview,
@@ -47,13 +47,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { useMediaQuery } from 'usehooks-ts';
 
 interface ReviewHeaderProps {
   reviewId: number;
 }
 
 export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
-  const isMobile = useIsMobile();
+  const isSmallScreen = useMediaQuery('(max-width: 1280px)');
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showZoteroDialog, setShowZoteroDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -135,33 +136,57 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
       <div className="flex items-center justify-between gap-2 px-2 sm:px-4">
         {/* Navigation Tabs */}
         <div className="flex-1 overflow-x-auto scrollbar-hide">
-          <NavigationMenu viewport={isMobile} className="w-full">
-            <NavigationMenuList className="flex min-w-max lg:min-w-0">
-              {tabs.map((tab) => {
-                const isActive = pathname === tab.path;
-                return (
-                  <NavigationMenuItem key={tab.path}>
-                    <Link
-                      to={tab.path}
-                      params={{ reviewId: String(reviewId) }}
-                      className={`inline-flex items-center px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap
-                        ${
-                          isActive
-                            ? 'border-primary text-primary'
-                            : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-                        }
-                      `}
-                    >
-                      <span className="hidden sm:inline">{tab.label}</span>
-                      <span className="sm:hidden">
-                        {tab.label.split(' ')[0]}
-                      </span>
+          {isSmallScreen ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="gap-2 text-sm font-medium">
+                  {tabs.find((t) => t.path === pathname)?.label ?? 'Navigate'}
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                {tabs.map((tab) => (
+                  <DropdownMenuItem
+                    key={tab.path}
+                    asChild
+                    className={
+                      pathname === tab.path
+                        ? 'bg-accent text-accent-foreground'
+                        : ''
+                    }
+                  >
+                    <Link to={tab.path} params={{ reviewId: String(reviewId) }}>
+                      {tab.label}
                     </Link>
-                  </NavigationMenuItem>
-                );
-              })}
-            </NavigationMenuList>
-          </NavigationMenu>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <NavigationMenu viewport={false} className="w-full">
+              <NavigationMenuList className="flex min-w-max lg:min-w-0">
+                {tabs.map((tab) => {
+                  const isActive = pathname === tab.path;
+                  return (
+                    <NavigationMenuItem key={tab.path}>
+                      <Link
+                        to={tab.path}
+                        params={{ reviewId: String(reviewId) }}
+                        className={`inline-flex items-center px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap
+                  ${
+                    isActive
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                  }`}
+                      >
+                        {tab.label}
+                      </Link>
+                    </NavigationMenuItem>
+                  );
+                })}
+              </NavigationMenuList>
+            </NavigationMenu>
+          )}
         </div>
 
         {/* Chat Button */}
