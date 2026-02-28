@@ -1,5 +1,6 @@
 import type { OpinionStatus } from '@/features/references/types/references';
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback } from 'react';
+import { useDebounceValue } from 'usehooks-ts';
 
 export interface ReviewDataFilters {
   searchMethodIds: number[];
@@ -63,70 +64,7 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     'Undecided',
   ]);
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Debounced state (for API calls)
-  const [debouncedSearchMethodIds, setDebouncedSearchMethodIds] = useState<
-    number[]
-  >([]);
-  const [debouncedIncludeKeywords, setDebouncedIncludeKeywords] = useState<
-    string[]
-  >([]);
-  const [debouncedExcludeKeywords, setDebouncedExcludeKeywords] = useState<
-    string[]
-  >([]);
-  const [debouncedLabelIds, setDebouncedLabelIds] = useState<number[]>([]);
-  const [debouncedPublicationTypes, setDebouncedPublicationTypes] = useState<
-    string[]
-  >([]);
-  const [debouncedPublicationYears, setDebouncedPublicationYears] = useState<
-    number[]
-  >([]);
-  const [debouncedFileStatus, setDebouncedFileStatus] = useState<
-    'all' | 'withFile' | 'withoutFile'
-  >('all');
-  const [debouncedAssigneeIds, setDebouncedAssigneeIds] = useState<
-    (number | null)[]
-  >([]);
-  const [debouncedDuplicateStatuses, setDebouncedDuplicateStatuses] = useState<
-    string[]
-  >([]);
-  const [debouncedOpinionStatuses, setDebouncedOpinionStatuses] = useState<
-    OpinionStatus[]
-  >(['Undecided']);
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  const [isDebouncing, setIsDebouncing] = useState(false);
-
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Debounce logic
-  useEffect(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-
-    setIsDebouncing(true);
-    timeoutRef.current = setTimeout(() => {
-      setDebouncedSearchMethodIds(searchMethodIds);
-      setDebouncedIncludeKeywords(includeKeywords);
-      setDebouncedExcludeKeywords(excludeKeywords);
-      setDebouncedLabelIds(labelIds);
-      setDebouncedPublicationTypes(publicationTypes);
-      setDebouncedPublicationYears(publicationYears);
-      setDebouncedFileStatus(fileStatus);
-      setDebouncedAssigneeIds(assigneeIds);
-      setDebouncedDuplicateStatuses(duplicateStatuses);
-      setDebouncedSearchQuery(searchQuery);
-      setDebouncedOpinionStatuses(opinionStatuses);
-      setIsDebouncing(false);
-    }, debounceDelay);
-
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        setIsDebouncing(false);
-      }
-    };
-  }, [
+  const optimisticFilters: ReviewDataFilters = {
     searchMethodIds,
     includeKeywords,
     excludeKeywords,
@@ -136,10 +74,13 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     fileStatus,
     assigneeIds,
     duplicateStatuses,
-    searchQuery,
-    debounceDelay,
     opinionStatuses,
-  ]);
+    searchQuery,
+  };
+  const [debouncedFilters, isDebouncing] = useDebounceValue(
+    optimisticFilters,
+    debounceDelay
+  );
 
   // Toggle handlers (update optimistic state immediately)
   const handleSearchMethodToggle = useCallback(
@@ -362,51 +303,6 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     enableOpinions,
   ]);
 
-  // Get active filters for API (using debounced values)
-  const getActiveFilters = useCallback((): Partial<ReviewDataFilters> => {
-    const filters: Partial<ReviewDataFilters> = {
-      searchQuery: debouncedSearchQuery,
-    };
-
-    if (enableSearchMethods) filters.searchMethodIds = debouncedSearchMethodIds;
-    if (enableKeywords) {
-      filters.includeKeywords = debouncedIncludeKeywords;
-      filters.excludeKeywords = debouncedExcludeKeywords;
-    }
-    if (enableLabels) filters.labelIds = debouncedLabelIds;
-    if (enablePublicationFilters) {
-      filters.publicationTypes = debouncedPublicationTypes;
-      filters.publicationYears = debouncedPublicationYears;
-    }
-    if (enableFileStatus) filters.fileStatus = debouncedFileStatus;
-    if (enableAssignees) filters.assigneeIds = debouncedAssigneeIds;
-    if (enableDuplicates)
-      filters.duplicateStatuses = debouncedDuplicateStatuses;
-    if (enableOpinions) filters.opinionStatuses = debouncedOpinionStatuses;
-
-    return filters;
-  }, [
-    debouncedSearchMethodIds,
-    debouncedIncludeKeywords,
-    debouncedExcludeKeywords,
-    debouncedLabelIds,
-    debouncedPublicationTypes,
-    debouncedPublicationYears,
-    debouncedFileStatus,
-    debouncedAssigneeIds,
-    debouncedDuplicateStatuses,
-    debouncedSearchQuery,
-    debouncedOpinionStatuses,
-    enableSearchMethods,
-    enableKeywords,
-    enableLabels,
-    enablePublicationFilters,
-    enableFileStatus,
-    enableAssignees,
-    enableDuplicates,
-    enableOpinions,
-  ]);
-
   return {
     // Optimistic state (for UI - checkboxes show immediately)
     ALL_OPINION_STATUSES,
@@ -423,7 +319,7 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     opinionStatuses,
 
     // Debounced filters (for API calls)
-    filters: getActiveFilters(),
+    filters: debouncedFilters,
 
     // Setters
     setSearchQuery,
@@ -457,6 +353,6 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     handleResetAllFilters,
 
     // Utility
-    isDebouncing: isDebouncing,
+    isDebouncing,
   };
 }

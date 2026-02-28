@@ -5,37 +5,9 @@ import type {
   ChatMember,
   ChatMessage,
 } from '@/features/reviews/types/review-chat';
+import { useLocalStorage } from 'usehooks-ts';
 
 const VITE_WS_URL = import.meta.env.VITE_WS_URL;
-
-// Helper functions for localStorage
-const getUnreadCountKey = (reviewId: number) => `chat_unread_${reviewId}`;
-
-const getStoredUnreadCount = (reviewId: number): number => {
-  try {
-    const stored = localStorage.getItem(getUnreadCountKey(reviewId));
-    return stored ? parseInt(stored, 10) : 0;
-  } catch (error) {
-    console.error('Error reading unread count from localStorage:', error);
-    return 0;
-  }
-};
-
-const setStoredUnreadCount = (reviewId: number, count: number) => {
-  try {
-    localStorage.setItem(getUnreadCountKey(reviewId), count.toString());
-  } catch (error) {
-    console.error('Error saving unread count to localStorage:', error);
-  }
-};
-
-const clearStoredUnreadCount = (reviewId: number) => {
-  try {
-    localStorage.removeItem(getUnreadCountKey(reviewId));
-  } catch (error) {
-    console.error('Error clearing unread count from localStorage:', error);
-  }
-};
 
 // Store last seen message ID to avoid counting old messages as unread
 const getLastSeenMessageKey = (reviewId: number) =>
@@ -94,8 +66,11 @@ export function useReviewChat({
   const [typingUsers, setTypingUsers] = useState<Set<number>>(new Set());
 
   // Initialize unread count from localStorage
-  const [unreadCount, setUnreadCount] = useState(() =>
-    reviewId ? getStoredUnreadCount(reviewId) : 0
+  const storageKey = reviewId ? `chat_unread_${reviewId}` : undefined;
+
+  const [unreadCount, setUnreadCount] = useLocalStorage<number>(
+    storageKey ?? 'chat_unread_placeholder',
+    0
   );
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -119,30 +94,12 @@ export function useReviewChat({
   // Keep a mutable ref pointing to the latest `connect` implementation
   const connectRef = useRef<() => void>(() => {});
 
-  // Update reviewId ref when it changes
-  useEffect(() => {
-    reviewIdRef.current = reviewId;
-
-    // Load unread count for new review
-    if (reviewId) {
-      setUnreadCount(getStoredUnreadCount(reviewId));
-    }
-  }, [reviewId]);
-
-  // Sync unread count to localStorage whenever it changes
-  useEffect(() => {
-    if (reviewId) {
-      setStoredUnreadCount(reviewId, unreadCount);
-    }
-  }, [unreadCount, reviewId]);
-
   // Mark as read when drawer opens
   useEffect(() => {
     if (isDrawerOpen && reviewId && messages.length > 0) {
       const latestMessage = messages[messages.length - 1];
       setLastSeenMessageId(reviewId, latestMessage.id);
       setUnreadCount(0);
-      clearStoredUnreadCount(reviewId);
     }
   }, [isDrawerOpen, reviewId, messages]);
 

@@ -57,7 +57,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer';
-import { useMediaQuery } from 'usehooks-ts';
+import { useLocalStorage, useMediaQuery } from 'usehooks-ts';
 
 interface FiltersSidebarProps {
   reviewId: number;
@@ -200,6 +200,32 @@ const CheckboxItem: React.FC<CheckboxItemProps> = ({
   </div>
 );
 
+type Section = {
+  opinionStatuses: boolean;
+  include: boolean;
+  exclude: boolean;
+  labels: boolean;
+  searchMethods: boolean;
+  publicationTypes: boolean;
+  publicationYears: boolean;
+  fileStatus: boolean;
+  assignees: boolean;
+  layout: boolean;
+};
+
+const defaultSections: Section = {
+  opinionStatuses: true,
+  include: true,
+  exclude: true,
+  labels: true,
+  searchMethods: true,
+  publicationTypes: true,
+  publicationYears: true,
+  fileStatus: true,
+  assignees: true,
+  layout: true,
+};
+
 export function FiltersSidebar({
   reviewId,
   userRole,
@@ -266,84 +292,16 @@ export function FiltersSidebar({
   // PERSISTENT STATE - survives data changes
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  type Section = {
-    opinionStatuses: boolean;
-    include: boolean;
-    exclude: boolean;
-    labels: boolean;
-    searchMethods: boolean;
-    publicationTypes: boolean;
-    publicationYears: boolean;
-    fileStatus: boolean;
-    assignees: boolean;
-    layout: boolean;
-  };
-
   // Initialize section states from localStorage
-  const [sections, setSections] = useState<Section>(() => {
-    if (typeof window === 'undefined') {
-      return {
-        opinionsStatuses: true,
-        include: true,
-        exclude: true,
-        labels: true,
-        searchMethods: true,
-        publicationTypes: true,
-        publicationYears: true,
-        fileStatus: true,
-        assignees: true,
-        layout: true,
-      };
-    }
+  const [sections, setSections] = useLocalStorage<Section>(
+    `filtersSidebar_${reviewId}_sections`,
+    defaultSections
+  );
 
-    try {
-      const stored = localStorage.getItem(
-        `filtersSidebar_${reviewId}_sections`
-      );
-      if (!stored) {
-        return {
-          opinionsStatuses: true,
-          include: true,
-          exclude: true,
-          labels: true,
-          searchMethods: true,
-          publicationTypes: true,
-          publicationYears: true,
-          fileStatus: true,
-          assignees: true,
-          layout: true,
-        };
-      }
-      return JSON.parse(stored);
-    } catch {
-      return {
-        opinionsStatuses: true,
-        include: true,
-        exclude: true,
-        labels: true,
-        searchMethods: true,
-        publicationTypes: true,
-        publicationYears: true,
-        fileStatus: true,
-        assignees: true,
-        layout: true,
-      };
-    }
-  });
-
-  // Initialize search filter from localStorage
-  const [searchFilter, setSearchFilter] = useState(() => {
-    if (typeof window === 'undefined') return '';
-    try {
-      const stored = localStorage.getItem(`filtersSidebar_${reviewId}_search`);
-      if (!stored) {
-        return '';
-      }
-      return stored;
-    } catch {
-      return '';
-    }
-  });
+  const [searchFilter, setSearchFilter] = useLocalStorage<string>(
+    `filtersSidebar_${reviewId}_search`,
+    ''
+  );
 
   // Save sections to localStorage whenever they change
   useEffect(() => {
