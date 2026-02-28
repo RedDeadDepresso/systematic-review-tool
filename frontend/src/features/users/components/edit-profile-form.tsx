@@ -359,7 +359,10 @@ export function EditProfileForm() {
 
   const clearError = useCallback((field: string) => {
     setErrors((prev) => {
-      const { [field]: _, ...rest } = prev;
+      // avoid computed property destructuring which triggers
+      // BuildHIR error during React Compiler optimization
+      const rest = { ...prev };
+      delete rest[field];
       return rest;
     });
   }, []);

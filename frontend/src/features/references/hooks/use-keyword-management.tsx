@@ -1,5 +1,4 @@
 import { useState, useCallback, useMemo } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   useCreateKeyword,
   useDeleteKeyword,
@@ -19,7 +18,6 @@ export function useKeywordManagement(
   const [localKeywords, setLocalKeywords] = useState<Keyword[]>([]);
   const createKeyword = useCreateKeyword();
   const deleteKeyword = useDeleteKeyword();
-  const queryClient = useQueryClient();
 
   // Combine API keywords with local keywords
   const allKeywords = useMemo(() => {
@@ -70,37 +68,28 @@ export function useKeywordManagement(
     [createKeyword, reviewId]
   );
 
-  const handleDeleteKeyword = useCallback(
-    async (keyword: Keyword) => {
-      try {
-        await deleteKeyword.mutateAsync(keyword.id);
+  const handleDeleteKeyword = async (keyword: Keyword) => {
+    try {
+      await deleteKeyword.mutateAsync(keyword.id);
 
-        setLocalKeywords((prev) => prev.filter((k) => k.id !== keyword.id));
+      setLocalKeywords((prev) => prev.filter((k) => k.id !== keyword.id));
 
-        if (keyword.isInclusive) {
-          setSelectedIncludeKeywords(
-            selectedIncludeKeywords.filter((k) => k !== keyword.name)
-          );
-        } else {
-          setSelectedExcludeKeywords(
-            selectedExcludeKeywords.filter((k) => k !== keyword.name)
-          );
-        }
-
-        return true;
-      } catch (error) {
-        console.error(error);
-        return false;
+      if (keyword.isInclusive) {
+        setSelectedIncludeKeywords(
+          selectedIncludeKeywords.filter((k) => k !== keyword.name)
+        );
+      } else {
+        setSelectedExcludeKeywords(
+          selectedExcludeKeywords.filter((k) => k !== keyword.name)
+        );
       }
-    },
-    [
-      deleteKeyword,
-      reviewId,
-      queryClient,
-      selectedIncludeKeywords,
-      selectedExcludeKeywords,
-    ]
-  );
+
+      return true;
+    } catch (error) {
+      console.error(error);
+      return false;
+    }
+  };
 
   return {
     allKeywords,

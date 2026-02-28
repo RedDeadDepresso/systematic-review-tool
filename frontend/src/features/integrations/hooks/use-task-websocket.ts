@@ -42,6 +42,7 @@ export function useTaskWebSocket(
 ) {
   const [status, setStatus] = useState<TaskStatus | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const queryClient = useQueryClient();
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -61,6 +62,7 @@ export function useTaskWebSocket(
 
     // Reset state for new task
     taskCompletedRef.current = false;
+    setIsCompleted(false);
     reconnectAttemptsRef.current = 0;
     setStatus(null);
 
@@ -92,17 +94,34 @@ export function useTaskWebSocket(
           console.log('WebSocket message received:', data);
 
           setStatus(data);
-          optionsRef.current?.onStatusChange?.(data);
+          const currentOptions = optionsRef.current;
+          if (
+            currentOptions &&
+            typeof currentOptions.onStatusChange === 'function'
+          ) {
+            currentOptions.onStatusChange(data);
+          }
 
           // Handle progress updates
           if (data.status === 'PROGRESS') {
-            optionsRef.current?.onProgress?.(data);
+            if (
+              currentOptions &&
+              typeof currentOptions.onProgress === 'function'
+            ) {
+              currentOptions.onProgress(data);
+            }
           }
 
           // Handle completion
           if (data.status === 'SUCCESS') {
             taskCompletedRef.current = true;
-            optionsRef.current?.onSuccess?.(data.result);
+            setIsCompleted(true);
+            if (
+              currentOptions &&
+              typeof currentOptions.onSuccess === 'function'
+            ) {
+              currentOptions.onSuccess(data.result);
+            }
 
             // Invalidate queries
             queryClient.invalidateQueries({ queryKey: ['zotero-status'] });
@@ -110,7 +129,13 @@ export function useTaskWebSocket(
             queryClient.invalidateQueries({ queryKey: ['references'] });
           } else if (data.status === 'FAILURE' || data.status === 'ERROR') {
             taskCompletedRef.current = true;
-            optionsRef.current?.onError?.(data.error || 'Task failed');
+            setIsCompleted(true);
+            if (
+              currentOptions &&
+              typeof currentOptions.onError === 'function'
+            ) {
+              currentOptions.onError(data.error || 'Task failed');
+            }
           }
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
@@ -190,9 +215,10 @@ export function useTaskWebSocket(
   return {
     status,
     isConnected,
-    isCompleted: taskCompletedRef.current,
+    isCompleted: isCompleted,
     disconnect: () => {
       taskCompletedRef.current = true;
+      setIsCompleted(true);
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }

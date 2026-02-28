@@ -246,11 +246,13 @@ export function FiltersSidebar({
 }: FiltersSidebarProps) {
   const isMobile = useIsMobile();
 
-  onDeleteKeyword = can('modifyKeyword', userRole)
+  // Create local constants instead of reassigning destructured props
+  // to satisfy React Compiler requirements
+  const effectiveOnDeleteKeyword = can('modifyKeyword', userRole)
     ? onDeleteKeyword
     : undefined;
 
-  onDeleteSearchMethod = can('uploadFiles', userRole)
+  const effectiveOnDeleteSearchMethod = can('uploadFiles', userRole)
     ? onDeleteSearchMethod
     : undefined;
 
@@ -291,20 +293,21 @@ export function FiltersSidebar({
       const stored = localStorage.getItem(
         `filtersSidebar_${reviewId}_sections`
       );
-      return stored
-        ? JSON.parse(stored)
-        : {
-            opinionsStatuses: true,
-            include: true,
-            exclude: true,
-            labels: true,
-            searchMethods: true,
-            publicationTypes: true,
-            publicationYears: true,
-            fileStatus: true,
-            assignees: true,
-            layout: true,
-          };
+      if (!stored) {
+        return {
+          opinionsStatuses: true,
+          include: true,
+          exclude: true,
+          labels: true,
+          searchMethods: true,
+          publicationTypes: true,
+          publicationYears: true,
+          fileStatus: true,
+          assignees: true,
+          layout: true,
+        };
+      }
+      return JSON.parse(stored);
     } catch {
       return {
         opinionsStatuses: true,
@@ -325,7 +328,11 @@ export function FiltersSidebar({
   const [searchFilter, setSearchFilter] = useState(() => {
     if (typeof window === 'undefined') return '';
     try {
-      return localStorage.getItem(`filtersSidebar_${reviewId}_search`) || '';
+      const stored = localStorage.getItem(`filtersSidebar_${reviewId}_search`);
+      if (!stored) {
+        return '';
+      }
+      return stored;
     } catch {
       return '';
     }
@@ -771,7 +778,7 @@ export function FiltersSidebar({
                   checked={selectedIncludeKeywords.includes(keyword.name)}
                   onCheckedChange={() => onIncludeKeywordToggle(keyword.name)}
                   onDelete={
-                    onDeleteKeyword
+                    effectiveOnDeleteKeyword
                       ? () => setDeleteConfirmKeyword(keyword)
                       : undefined
                   }
@@ -879,7 +886,7 @@ export function FiltersSidebar({
                   checked={selectedExcludeKeywords.includes(keyword.name)}
                   onCheckedChange={() => onExcludeKeywordToggle(keyword.name)}
                   onDelete={
-                    onDeleteKeyword
+                    effectiveOnDeleteKeyword
                       ? () => setDeleteConfirmKeyword(keyword)
                       : undefined
                   }
@@ -947,7 +954,7 @@ export function FiltersSidebar({
                   onCheckedChange={() => onSearchMethodToggle(sm.id)}
                   count={sm.count}
                   onDelete={
-                    onDeleteSearchMethod
+                    effectiveOnDeleteSearchMethod
                       ? () => setDeleteConfirmSearchMethod(sm)
                       : undefined
                   }
@@ -1186,8 +1193,8 @@ export function FiltersSidebar({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (deleteConfirmKeyword && onDeleteKeyword) {
-                  onDeleteKeyword(deleteConfirmKeyword);
+                if (deleteConfirmKeyword && effectiveOnDeleteKeyword) {
+                  effectiveOnDeleteKeyword(deleteConfirmKeyword);
                   setDeleteConfirmKeyword(null);
                 }
               }}
@@ -1246,8 +1253,11 @@ export function FiltersSidebar({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (deleteConfirmSearchMethod && onDeleteSearchMethod) {
-                  onDeleteSearchMethod(deleteConfirmSearchMethod);
+                if (
+                  deleteConfirmSearchMethod &&
+                  effectiveOnDeleteSearchMethod
+                ) {
+                  effectiveOnDeleteSearchMethod(deleteConfirmSearchMethod);
                   setDeleteConfirmSearchMethod(null);
                 }
               }}

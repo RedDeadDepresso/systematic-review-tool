@@ -102,7 +102,7 @@ export function LabelPopover({
   };
 
   // Apply labels
-  const handleApply = async () => {
+  const handleApply = () => {
     const checkedIds = Object.entries(labelStates)
       .filter(([_, state]) => state === 'checked')
       .map(([id]) => Number(id));
@@ -118,18 +118,25 @@ export function LabelPopover({
       return;
 
     setIsApplying(true);
-    try {
-      await assignLabelsMutation.mutateAsync({
+    assignLabelsMutation.mutate(
+      {
         review: reviewId,
         referenceIds: selectedReferenceIds,
         checkedLabelIds: checkedIds,
         indeterminateLabelIds: indeterminateIds,
-      });
-      onLabelsApplied?.();
-      setOpen(false);
-    } finally {
-      setIsApplying(false);
-    }
+      },
+      {
+        onSuccess: () => {
+          onLabelsApplied?.();
+          setOpen(false);
+          setIsApplying(false);
+        },
+        onError: (error) => {
+          console.error('Error applying labels: ', error);
+          setIsApplying(false);
+        },
+      }
+    );
   };
 
   useEffect(() => {
@@ -164,18 +171,25 @@ export function LabelPopover({
 
       e.preventDefault();
       setIsApplying(true);
-      try {
-        await assignLabelsMutation.mutateAsync({
+      assignLabelsMutation.mutate(
+        {
           review: reviewId,
           referenceIds: selectedReferenceIds,
           checkedLabelIds: [matched.id],
           indeterminateLabelIds: [],
-        });
-        onLabelsApplied?.();
-        setOpen(false);
-      } finally {
-        setIsApplying(false);
-      }
+        },
+        {
+          onSuccess: () => {
+            onLabelsApplied?.();
+            setOpen(false);
+            setIsApplying(false);
+          },
+          onError: (error) => {
+            console.error('Error applying labels: ', error);
+            setIsApplying(false);
+          },
+        }
+      );
     };
 
     window.addEventListener('keydown', handleKeyDown);

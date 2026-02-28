@@ -116,6 +116,8 @@ export function useReviewChat({
   }, [userMemberId]);
 
   const queryClient = useQueryClient();
+  // Keep a mutable ref pointing to the latest `connect` implementation
+  const connectRef = useRef<() => void>(() => {});
 
   // Update reviewId ref when it changes
   useEffect(() => {
@@ -173,15 +175,17 @@ export function useReviewChat({
         console.log('Chat message received:', data);
 
         if (data.type === 'message_history') {
-          const validMessages = (data.messages || [])
-            .map((msg: any) => camelCaseMessage(msg))
-            .filter((msg: ChatMessage) => {
-              if (!msg.id || !msg.createdAt) {
-                console.warn('Invalid message in history:', msg);
-                return false;
-              }
-              return true;
-            });
+          const rawMessages = Array.isArray(data.messages) ? data.messages : [];
+          const mappedMessages = rawMessages.map((msg: any) =>
+            camelCaseMessage(msg)
+          );
+          const validMessages = mappedMessages.filter((msg: ChatMessage) => {
+            if (!msg.id || !msg.createdAt) {
+              console.warn('Invalid message in history:', msg);
+              return false;
+            }
+            return true;
+          });
 
           setMessages(validMessages);
 
@@ -307,11 +311,17 @@ export function useReviewChat({
         );
 
         reconnectTimeoutRef.current = setTimeout(() => {
-          connect();
+          // call via ref to avoid declaration-order issues during compilation
+          connectRef.current();
         }, delay);
       }
     };
   }, [reviewId, enabled, isDrawerOpen, queryClient]);
+
+  // Keep the connect ref up-to-date
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   useEffect(() => {
     if (reviewId && userMemberId && enabled) {

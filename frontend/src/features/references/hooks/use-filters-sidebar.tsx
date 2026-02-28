@@ -36,7 +36,10 @@ export function useFiltersSidebarState(reviewId: number) {
       const stored = localStorage.getItem(
         `filtersSidebar_${reviewId}_sections`
       );
-      return stored ? JSON.parse(stored) : DEFAULT_SECTIONS;
+      if (!stored) {
+        return DEFAULT_SECTIONS;
+      }
+      return JSON.parse(stored);
     } catch {
       return DEFAULT_SECTIONS;
     }
@@ -47,7 +50,11 @@ export function useFiltersSidebarState(reviewId: number) {
     if (typeof window === 'undefined') return '';
 
     try {
-      return localStorage.getItem(`filtersSidebar_${reviewId}_search`) || '';
+      const stored = localStorage.getItem(`filtersSidebar_${reviewId}_search`);
+      if (!stored) {
+        return '';
+      }
+      return stored;
     } catch {
       return '';
     }

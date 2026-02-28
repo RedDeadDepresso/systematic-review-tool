@@ -1,7 +1,7 @@
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { useFetchScreeningFullText } from '@/features/references/hooks/use-references';
 import { createFileRoute } from '@tanstack/react-router';
-import { useContext, useState, useEffect, useCallback } from 'react';
+import { useContext, useState, useEffect } from 'react';
 import { ReferencesTable } from '@/features/references/components/references/references-table';
 import { FiltersSidebar } from '@/features/references/components/references/filters-sidebar';
 import { ScreeningReferenceDrawer } from '@/features/references/components/references/reference-drawer';
@@ -97,27 +97,21 @@ function RouteComponent() {
   const deleteSearchMethod = useDeleteSearchMethod(reviewId);
   const deleteLabel = useDeleteLabel();
 
-  const handleDeleteLabel = useCallback(
-    (label: LabelCount) => {
-      deleteLabel.mutate(label.id, {
-        onSuccess: () => {
-          invalidateQuery();
-        },
-      });
-    },
-    [deleteLabel]
-  );
+  const handleDeleteLabel = (label: LabelCount) => {
+    deleteLabel.mutate(label.id, {
+      onSuccess: () => {
+        invalidateQuery();
+      },
+    });
+  };
 
-  const handleDeleteSearchMethod = useCallback(
-    (searchMethod: SearchMethod) => {
-      deleteSearchMethod.mutate(searchMethod.id, {
-        onSuccess: () => {
-          invalidateQuery();
-        },
-      });
-    },
-    [deleteSearchMethod]
-  );
+  const handleDeleteSearchMethod = (searchMethod: SearchMethod) => {
+    deleteSearchMethod.mutate(searchMethod.id, {
+      onSuccess: () => {
+        invalidateQuery();
+      },
+    });
+  };
 
   const fetchReview = useFetchReview(reviewId);
 
@@ -148,15 +142,12 @@ function RouteComponent() {
     ui.sortedReferences
   );
 
-  const handleExport = useCallback(
-    (exportType: ExportType) => {
-      const filename = `review-${reviewId}-screening-full-text${exportType === 'all' ? '' : '-filtered'}.bib`;
-      exportType === 'all'
-        ? exportScreeningFullText(filename)
-        : exportScreeningFullText(filename, queryParams);
-    },
-    [queryParams]
-  );
+  const handleExport = (exportType: ExportType) => {
+    const filename = `review-${reviewId}-screening-full-text${exportType === 'all' ? '' : '-filtered'}.bib`;
+    exportType === 'all'
+      ? exportScreeningFullText(filename)
+      : exportScreeningFullText(filename, queryParams);
+  };
 
   const bulkUpsertReferenceOpinions = useBulkUpsertReferenceOpinions();
 
@@ -165,6 +156,10 @@ function RouteComponent() {
     status: OpinionStatus,
     reasonId?: number | null
   ) => {
+    const shouldNavigateNext =
+      referenceIds.length === 1 &&
+      referenceIds[0] === ui.highlightedReferenceId;
+
     try {
       await bulkUpsertReferenceOpinions.mutateAsync({
         payload: {
@@ -175,11 +170,9 @@ function RouteComponent() {
         },
       });
       invalidateQuery();
-      if (
-        referenceIds.length === 1 &&
-        referenceIds[0] === ui.highlightedReferenceId
-      )
+      if (shouldNavigateNext) {
         ui.handleNavigateDetail('next');
+      }
     } catch (error) {
       console.error('Failed to update reference: ', error);
     }

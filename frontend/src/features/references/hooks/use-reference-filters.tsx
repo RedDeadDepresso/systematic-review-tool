@@ -94,6 +94,7 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     OpinionStatus[]
   >(['Undecided']);
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [isDebouncing, setIsDebouncing] = useState(false);
 
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -103,6 +104,7 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
       clearTimeout(timeoutRef.current);
     }
 
+    setIsDebouncing(true);
     timeoutRef.current = setTimeout(() => {
       setDebouncedSearchMethodIds(searchMethodIds);
       setDebouncedIncludeKeywords(includeKeywords);
@@ -115,11 +117,13 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
       setDebouncedDuplicateStatuses(duplicateStatuses);
       setDebouncedSearchQuery(searchQuery);
       setDebouncedOpinionStatuses(opinionStatuses);
+      setIsDebouncing(false);
     }, debounceDelay);
 
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
+        setIsDebouncing(false);
       }
     };
   }, [
@@ -453,6 +457,6 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     handleResetAllFilters,
 
     // Utility
-    isDebouncing: timeoutRef.current !== undefined,
+    isDebouncing: isDebouncing,
   };
 }

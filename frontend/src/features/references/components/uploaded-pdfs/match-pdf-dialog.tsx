@@ -112,9 +112,8 @@ export function MatchPDFDialog({
       if (success) onOpenChange(false);
     } catch (error) {
       console.error('Import failed:', error);
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   const handleAutoMatch = async () => {
@@ -124,9 +123,8 @@ export function MatchPDFDialog({
       if (success) onOpenChange(false);
     } catch (error) {
       console.error('Auto match failed:', error);
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   const hasSelections = getMappings().length > 0;
