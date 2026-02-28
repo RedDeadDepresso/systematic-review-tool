@@ -73,20 +73,19 @@ export function useFileUpload(
     [uploadReviewReferences, reviewId, onSuccess]
   );
 
-  const handleMatch = useCallback(
-    async (mappings: ReferencePDFMapping[]): Promise<boolean> => {
-      try {
-        await attachPDFsToReferences.mutateAsync({ reviewId, mappings });
-        setOpenMatchDialog(false);
-        onSuccess();
-        invalidateUploadedPDFs();
-        return true;
-      } catch (error) {
-        return false;
-      }
-    },
-    [attachPDFsToReferences, reviewId, onSuccess]
-  );
+  const handleMatch = async (
+    mappings: ReferencePDFMapping[]
+  ): Promise<boolean> => {
+    try {
+      await attachPDFsToReferences.mutateAsync({ reviewId, mappings });
+      setOpenMatchDialog(false);
+      onSuccess();
+      invalidateUploadedPDFs();
+      return true;
+    } catch (error) {
+      return false;
+    }
+  };
 
   const combinedReferences = useMemo(() => {
     if (!openMatchDialog || !references) return [];
@@ -109,7 +108,7 @@ export function useFileUpload(
     highlightedReferenceId,
   ]);
 
-  const handleAutoMatch = useCallback(async (): Promise<boolean> => {
+  const handleAutoMatch = async (): Promise<boolean> => {
     const referenceIds =
       selectedReferenceIds.length > 0
         ? selectedReferenceIds
@@ -125,7 +124,7 @@ export function useFileUpload(
     } catch (error) {
       return false;
     }
-  }, [selectedReferenceIds, reviewId, highlightedReferenceId, onSuccess]);
+  };
 
   return {
     openUploadBibDialog,

@@ -39,12 +39,12 @@ export function useReferenceUI<T extends ReferenceType>(
   // Auto-collapse sidebars on mobile
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 768) {
-        setIsSourcesSidebarCollapsed(true);
-        setIsFiltersSidebarCollapsed(true);
-      } else if (window.innerWidth >= 1024) {
+      if (window.innerWidth >= 1280) {
         setIsSourcesSidebarCollapsed(false);
         setIsFiltersSidebarCollapsed(false);
+      } else {
+        setIsSourcesSidebarCollapsed(true);
+        setIsFiltersSidebarCollapsed(true);
       }
     };
 

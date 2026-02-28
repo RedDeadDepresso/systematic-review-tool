@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import {
   Popover,
   PopoverContent,
@@ -24,8 +24,6 @@ export function ScreeningCriteriaPopover({
   open,
   onOpenChange,
 }: ScreeningCriteriaPopoverProps) {
-  const [popoverShouldStayOpen, _] = useState(false);
-
   // Keyboard shortcut
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -43,8 +41,7 @@ export function ScreeningCriteriaPopover({
     <Popover
       open={open}
       onOpenChange={(val) => {
-        if (popoverShouldStayOpen && !val) return;
-        onOpenChange(val);
+        if (val) onOpenChange(true);
       }}
     >
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>

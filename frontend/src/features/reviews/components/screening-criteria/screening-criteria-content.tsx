@@ -82,12 +82,16 @@ export function ScreeningCriteriaContent({
 
   const handleAddCriteria = async () => {
     if (!newCriteriaName.trim()) return;
+
+    // compute criteria kind before try block to avoid value blocks in try/catch
+    const criteriaKind = activeTab === 'inclusion' ? 'Inclusive' : 'Exclusive';
+
     try {
       await createCriteria.mutateAsync({
         review: reviewId,
         name: newCriteriaName.trim(),
         description: newCriteriaDescription.trim(),
-        kind: activeTab === 'inclusion' ? 'Inclusive' : 'Exclusive',
+        kind: criteriaKind,
       });
       setNewCriteriaName('');
       setNewCriteriaDescription('');

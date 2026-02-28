@@ -40,26 +40,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-
-// ---------------------------------------------------------------------------
-// useIsMobile
-// ---------------------------------------------------------------------------
-
-function useIsMobile(breakpoint = 768) {
-  const [isMobile, setIsMobile] = React.useState(
-    () => typeof window !== 'undefined' && window.innerWidth < breakpoint
-  );
-
-  React.useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mql.addEventListener('change', handler);
-    setIsMobile(mql.matches);
-    return () => mql.removeEventListener('change', handler);
-  }, [breakpoint]);
-
-  return isMobile;
-}
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // ---------------------------------------------------------------------------
 // DataTableColumnToggle
@@ -116,11 +97,6 @@ interface DataTableSortHeaderProps {
   label: string;
 }
 
-/**
- * Drop-in replacement for the old `<Button variant="ghost">` sort header.
- * Renders a text trigger with a directional arrow when active, or a chevron
- * when inactive. Clicking opens a dropdown with Ascending / Descending options.
- */
 export function DataTableSortHeader({
   column,
   label,

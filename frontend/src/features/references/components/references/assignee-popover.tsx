@@ -83,11 +83,12 @@ export function AssigneePopover({
           assigneeId: selectedAssigneeId,
         });
       }
-      onAssigneeApplied?.();
+      if (onAssigneeApplied) onAssigneeApplied();
       setOpen(false);
-    } finally {
-      setIsApplying(false);
+    } catch (error) {
+      console.error('Error assigning reference', error);
     }
+    setIsApplying(false);
   };
 
   const handleOpenChange = (state: boolean) => {

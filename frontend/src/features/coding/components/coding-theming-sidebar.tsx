@@ -1,4 +1,14 @@
 import { useState, useMemo, useCallback } from 'react';
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  type DragStartEvent,
+  type DragEndEvent,
+} from '@dnd-kit/core';
 import { MainThemeCard } from '@/features/coding/components/main-themes/main-theme-card';
 import { SubThemeCard } from '@/features/coding/components/sub-themes/sub-theme-card';
 import { CodeCard } from '@/features/coding/components/codes/code-card';
@@ -17,6 +27,7 @@ import { useCodingTheming } from '@/features/coding/hooks/use-coding-theming';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Code } from '@/features/coding/types/codes';
+import type { SubTheme } from '@/features/coding/types/sub-themes';
 import { useFetchReview } from '@/features/reviews/hooks/use-reviews';
 
 interface CodingThemingSidebarProps {
@@ -25,6 +36,40 @@ interface CodingThemingSidebarProps {
   isOpen: boolean;
   handleJumpToCode: (code: Code) => void;
 }
+
+// ── Droppable flat-list zones ─────────────────────────────────────────────────
+
+function DroppableCodesList({ children }: { children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: 'codes-list' });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'space-y-2 min-h-[60px] p-2 bg-background/50 rounded-md border border-dashed transition-colors',
+        isOver ? 'border-primary bg-primary/10' : 'border-border'
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+function DroppableSubThemesList({ children }: { children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: 'subthemes-list' });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'space-y-2 min-h-[60px] p-2 bg-background/50 rounded-md border border-dashed transition-colors',
+        isOver ? 'border-primary bg-primary/10' : 'border-border'
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export function CodingThemingSidebar({
   reviewId,
@@ -36,7 +81,6 @@ export function CodingThemingSidebar({
     codes,
     subThemes,
     mainThemes,
-    draggedItem,
     handleCreateCode,
     handleCreateSubTheme,
     handleCreateMainTheme,
@@ -46,15 +90,14 @@ export function CodingThemingSidebar({
     handleDeleteCode,
     handleDeleteSubTheme,
     handleDeleteMainTheme,
-    handleDragStart,
-    handleDragEnd,
-    handleDropCodeOnSubTheme,
-    handleDropSubThemeOnMainTheme,
-    handleRemoveCodeFromSubTheme,
-    handleRemoveSubThemeFromMainTheme,
+    handleMoveCode,
+    handleMoveSubTheme,
   } = useCodingTheming(reviewId);
-  const fetchReview = useFetchReview(reviewId);
 
+  const fetchReview = useFetchReview(reviewId);
+  const userRole = fetchReview.data?.userRole ?? 'Viewer';
+
+  // ── Section open/search state ─────────────────────────────────────────────
   const [codesOpen, setCodesOpen] = useState(true);
   const [subThemesOpen, setSubThemesOpen] = useState(true);
   const [mainThemesOpen, setMainThemesOpen] = useState(true);
@@ -66,6 +109,7 @@ export function CodingThemingSidebar({
   const [filterByCurrentReference, setFilterByCurrentReference] =
     useState(false);
 
+  // ── Expand/collapse state ─────────────────────────────────────────────────
   const [expandedCodes, setExpandedCodes] = useState<Set<string>>(
     new Set(codes.map((c) => c.id))
   );
@@ -76,11 +120,71 @@ export function CodingThemingSidebar({
     new Set(mainThemes.map((mt) => mt.id))
   );
 
+  // ── Drag overlay state ────────────────────────────────────────────────────
+  const [activeCode, setActiveCode] = useState<Code | null>(null);
+  const [activeSubTheme, setActiveSubTheme] = useState<SubTheme | null>(null);
+
+  // ── dnd-kit sensors ───────────────────────────────────────────────────────
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  // ── Drag handlers ─────────────────────────────────────────────────────────
+  const handleDragStart = (event: DragStartEvent) => {
+    const data = event.active.data.current as
+      | { type: 'code'; id: string }
+      | { type: 'subTheme'; id: number };
+
+    if (data.type === 'code') {
+      setActiveCode(codesMap[data.id] ?? null);
+    } else if (data.type === 'subTheme') {
+      setActiveSubTheme(subThemesMap[data.id] ?? null);
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveCode(null);
+    setActiveSubTheme(null);
+
+    if (!over) return;
+
+    const data = active.data.current as
+      | { type: 'code'; id: string }
+      | { type: 'subTheme'; id: number };
+    const overId = over.id as string;
+
+    if (data.type === 'code') {
+      if (overId === 'codes-list') {
+        handleMoveCode(data.id, null);
+      } else if (overId.startsWith('subtheme-')) {
+        const subThemeId = Number(overId.replace('subtheme-', ''));
+        const code = codesMap[data.id];
+        if (code && code.subTheme !== subThemeId) {
+          handleMoveCode(data.id, subThemeId);
+        }
+      }
+      return;
+    }
+
+    if (data.type === 'subTheme') {
+      if (overId === 'subthemes-list') {
+        handleMoveSubTheme(data.id, null);
+      } else if (overId.startsWith('maintheme-')) {
+        const mainThemeId = Number(overId.replace('maintheme-', ''));
+        const subTheme = subThemesMap[data.id];
+        if (subTheme && subTheme.mainTheme !== mainThemeId) {
+          handleMoveSubTheme(data.id, mainThemeId);
+        }
+      }
+    }
+  };
+
+  // ── Toggle helpers ────────────────────────────────────────────────────────
   const handleToggleCode = useCallback((id: string) => {
     setExpandedCodes((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   }, []);
@@ -88,8 +192,7 @@ export function CodingThemingSidebar({
   const handleToggleSubTheme = useCallback((id: number) => {
     setExpandedSubThemes((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   }, []);
@@ -97,17 +200,17 @@ export function CodingThemingSidebar({
   const handleToggleMainTheme = useCallback((id: number) => {
     setExpandedMainThemes((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   }, []);
 
+  // ── Derived maps ──────────────────────────────────────────────────────────
   const allCodeIds = useMemo(() => new Set(codes.map((c) => c.id)), [codes]);
-  const codesMap = useMemo(() => {
-    return Object.fromEntries(codes.map((code) => [code.id, code]));
-  }, [codes]);
-
+  const codesMap = useMemo(
+    () => Object.fromEntries(codes.map((c) => [c.id, c])),
+    [codes]
+  );
   const allSubThemeIds = useMemo(
     () => new Set(subThemes.map((st) => st.id)),
     [subThemes]
@@ -117,6 +220,7 @@ export function CodingThemingSidebar({
     [subThemes]
   );
 
+  // ── Expand/collapse all ───────────────────────────────────────────────────
   const handleExpandAllCodes = () => setExpandedCodes(new Set(allCodeIds));
   const handleCollapseAllCodes = () => setExpandedCodes(new Set());
   const handleExpandAllSubThemes = () =>
@@ -126,44 +230,40 @@ export function CodingThemingSidebar({
     setExpandedMainThemes(new Set(mainThemes.map((mt) => mt.id)));
   const handleCollapseAllMainThemes = () => setExpandedMainThemes(new Set());
 
+  // ── Filtered lists ────────────────────────────────────────────────────────
   const filteredCodes = useMemo(() => {
     let result = codes;
-
-    // Filter by current reference (only if enabled and referenceId exists)
     if (filterByCurrentReference && referenceId != null) {
-      result = result.filter((code) => code.reference === referenceId);
+      result = result.filter((c) => c.reference === referenceId);
     }
-
-    // Search filter
     if (codesSearch.trim()) {
-      const search = codesSearch.toLowerCase();
+      const s = codesSearch.toLowerCase();
       result = result.filter(
-        (code) =>
-          code.name.toLowerCase().includes(search) ||
-          code?.comment?.toLowerCase().includes(search)
+        (c) =>
+          c.name.toLowerCase().includes(s) ||
+          c?.comment?.toLowerCase().includes(s)
       );
     }
-
     return result;
   }, [codes, codesSearch, filterByCurrentReference, referenceId]);
 
   const filteredSubThemes = useMemo(() => {
     if (!subThemesSearch.trim()) return subThemes;
-    const search = subThemesSearch.toLowerCase();
+    const s = subThemesSearch.toLowerCase();
     return subThemes.filter(
       (st) =>
-        st.name.toLowerCase().includes(search) ||
-        st.description.toLowerCase().includes(search)
+        st.name.toLowerCase().includes(s) ||
+        st.description.toLowerCase().includes(s)
     );
   }, [subThemes, subThemesSearch]);
 
   const filteredMainThemes = useMemo(() => {
     if (!mainThemesSearch.trim()) return mainThemes;
-    const search = mainThemesSearch.toLowerCase();
+    const s = mainThemesSearch.toLowerCase();
     return mainThemes.filter(
       (mt) =>
-        mt.name.toLowerCase().includes(search) ||
-        mt.description.toLowerCase().includes(search)
+        mt.name.toLowerCase().includes(s) ||
+        mt.description.toLowerCase().includes(s)
     );
   }, [mainThemes, mainThemesSearch]);
 
@@ -189,241 +289,272 @@ export function CodingThemingSidebar({
         </div>
       </div>
 
-      {/* Highlights list */}
-      <ScrollArea className="flex-1">
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
-          {/* Codes Section */}
-          <Collapsible open={codesOpen} onOpenChange={setCodesOpen}>
-            <div className="flex items-center justify-between">
-              <CollapsibleTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="flex items-center gap-1 p-1 h-auto"
-                >
-                  {codesOpen ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
-                  )}
-                  <span className="font-medium text-sm">Codes</span>
-                  <span className="text-xs text-muted-foreground ml-1">
-                    ({codes.length})
-                  </span>
-                </Button>
-              </CollapsibleTrigger>
-              <CreateItemDialog type="code" onCreate={handleCreateCode}>
-                <Button size="icon" variant="ghost" className="h-6 w-6">
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
-              </CreateItemDialog>
-            </div>
-            <CollapsibleContent className="mt-2 space-y-2">
-              <SectionSearch
-                value={codesSearch}
-                onChange={setCodesSearch}
-                placeholder="Search codes..."
-                compact
-                onExpandAll={handleExpandAllCodes}
-                onCollapseAll={handleCollapseAllCodes}
-              />
-              <div className="flex items-center gap-2 px-1">
-                <Checkbox
-                  id="filter-current-ref"
-                  checked={filterByCurrentReference}
-                  onCheckedChange={(checked) =>
-                    setFilterByCurrentReference(checked === true)
-                  }
+      {/* Content */}
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <ScrollArea className="flex-1">
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {/* ── Codes Section ── */}
+            <Collapsible open={codesOpen} onOpenChange={setCodesOpen}>
+              <div className="flex items-center justify-between">
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex items-center gap-1 p-1 h-auto"
+                  >
+                    {codesOpen ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                    <span className="font-medium text-sm">Codes</span>
+                    <span className="text-xs text-muted-foreground ml-1">
+                      ({codes.length})
+                    </span>
+                  </Button>
+                </CollapsibleTrigger>
+                <CreateItemDialog type="code" onCreate={handleCreateCode}>
+                  <Button size="icon" variant="ghost" className="h-6 w-6">
+                    <Plus className="h-3.5 w-3.5" />
+                  </Button>
+                </CreateItemDialog>
+              </div>
+              <CollapsibleContent className="mt-2 space-y-2">
+                <SectionSearch
+                  value={codesSearch}
+                  onChange={setCodesSearch}
+                  placeholder="Search codes..."
+                  compact
+                  onExpandAll={handleExpandAllCodes}
+                  onCollapseAll={handleCollapseAllCodes}
                 />
-                <Label
-                  htmlFor="filter-current-ref"
-                  className="text-xs text-muted-foreground cursor-pointer"
-                >
-                  Filter by current reference
-                </Label>
-              </div>
-              <div className="space-y-2 min-h-[60px] p-2 bg-background/50 rounded-md border border-dashed border-border">
-                {filteredCodes.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-4">
-                    {codesSearch ? 'No matching codes' : 'No codes yet'}
-                  </p>
-                ) : (
-                  filteredCodes.map((code) => (
-                    <CodeCard
-                      key={code.id}
-                      userRole={fetchReview.data?.userRole || 'Viewer'}
-                      code={code}
-                      onEdit={handleEditCode}
-                      onDelete={handleDeleteCode}
-                      onDragStart={() => handleDragStart('code', code.id)}
-                      onDragEnd={handleDragEnd}
-                      onJump={handleJumpToCode}
-                      compact
-                      isExpanded={expandedCodes.has(code.id)}
-                      onToggleExpand={handleToggleCode}
-                    />
-                  ))
-                )}
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-
-          {/* Sub Themes Section */}
-          <Collapsible open={subThemesOpen} onOpenChange={setSubThemesOpen}>
-            <div className="flex items-center justify-between">
-              <CollapsibleTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="flex items-center gap-1 p-1 h-auto"
-                >
-                  {subThemesOpen ? (
-                    <ChevronDown className="h-4 w-4" />
+                <div className="flex items-center gap-2 px-1">
+                  <Checkbox
+                    id="filter-current-ref"
+                    checked={filterByCurrentReference}
+                    onCheckedChange={(checked) =>
+                      setFilterByCurrentReference(checked === true)
+                    }
+                  />
+                  <Label
+                    htmlFor="filter-current-ref"
+                    className="text-xs text-muted-foreground cursor-pointer"
+                  >
+                    Filter by current reference
+                  </Label>
+                </div>
+                <DroppableCodesList>
+                  {filteredCodes.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">
+                      {codesSearch ? 'No matching codes' : 'No codes yet'}
+                    </p>
                   ) : (
-                    <ChevronRight className="h-4 w-4" />
+                    filteredCodes.map((code) => (
+                      <CodeCard
+                        key={code.id}
+                        userRole={userRole}
+                        code={code}
+                        onEdit={handleEditCode}
+                        onDelete={handleDeleteCode}
+                        onJump={handleJumpToCode}
+                        compact
+                        isExpanded={expandedCodes.has(code.id)}
+                        onToggleExpand={handleToggleCode}
+                      />
+                    ))
                   )}
-                  <span className="font-medium text-sm">Sub Themes</span>
-                  <span className="text-xs text-muted-foreground ml-1">
-                    ({subThemes.length})
-                  </span>
-                </Button>
-              </CollapsibleTrigger>
-              <CreateItemDialog type="subTheme" onCreate={handleCreateSubTheme}>
-                <Button size="icon" variant="ghost" className="h-6 w-6">
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
-              </CreateItemDialog>
-            </div>
-            <CollapsibleContent className="mt-2 space-y-2">
-              <SectionSearch
-                value={subThemesSearch}
-                onChange={setSubThemesSearch}
-                placeholder="Search sub themes..."
-                compact
-                onExpandAll={handleExpandAllSubThemes}
-                onCollapseAll={handleCollapseAllSubThemes}
-              />
-              <div className="space-y-2 min-h-[60px] p-2 bg-background/50 rounded-md border border-dashed border-border">
-                {filteredSubThemes.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-4">
-                    {subThemesSearch
-                      ? 'No matching sub themes'
-                      : 'No sub themes yet'}
-                  </p>
-                ) : (
-                  filteredSubThemes.map((subTheme) => (
-                    <SubThemeCard
-                      key={subTheme.id}
-                      userRole={fetchReview.data?.userRole || 'Viewer'}
-                      subTheme={subTheme}
-                      codesMap={codesMap}
-                      onEdit={handleEditSubTheme}
-                      onDelete={handleDeleteSubTheme}
-                      onDragStart={() =>
-                        handleDragStart('subTheme', subTheme.id)
-                      }
-                      onDragEnd={handleDragEnd}
-                      onDropCode={() => handleDropCodeOnSubTheme(subTheme.id)}
-                      onRemoveCode={handleRemoveCodeFromSubTheme}
-                      onEditCode={handleEditCode}
-                      onDeleteCode={handleDeleteCode}
-                      isDraggingCode={draggedItem?.type === 'code'}
-                      compact
-                      isExpanded={expandedSubThemes.has(subTheme.id)}
-                      onToggleExpand={handleToggleSubTheme}
-                      onJumpCode={handleJumpToCode}
-                      expandedCodes={expandedCodes}
-                      onToggleCode={handleToggleCode}
-                    />
-                  ))
-                )}
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+                </DroppableCodesList>
+              </CollapsibleContent>
+            </Collapsible>
 
-          {/* Main Themes Section */}
-          <Collapsible open={mainThemesOpen} onOpenChange={setMainThemesOpen}>
-            <div className="flex items-center justify-between">
-              <CollapsibleTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="flex items-center gap-1 p-1 h-auto"
+            {/* ── Sub Themes Section ── */}
+            <Collapsible open={subThemesOpen} onOpenChange={setSubThemesOpen}>
+              <div className="flex items-center justify-between">
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex items-center gap-1 p-1 h-auto"
+                  >
+                    {subThemesOpen ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                    <span className="font-medium text-sm">Sub Themes</span>
+                    <span className="text-xs text-muted-foreground ml-1">
+                      ({subThemes.length})
+                    </span>
+                  </Button>
+                </CollapsibleTrigger>
+                <CreateItemDialog
+                  type="subTheme"
+                  onCreate={handleCreateSubTheme}
                 >
-                  {mainThemesOpen ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
-                  )}
-                  <span className="font-medium text-sm">Main Themes</span>
-                  <span className="text-xs text-muted-foreground ml-1">
-                    ({mainThemes.length})
-                  </span>
-                </Button>
-              </CollapsibleTrigger>
-              <CreateItemDialog
-                type="mainTheme"
-                onCreate={handleCreateMainTheme}
-              >
-                <Button size="icon" variant="ghost" className="h-6 w-6">
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
-              </CreateItemDialog>
-            </div>
-            <CollapsibleContent className="mt-2 space-y-2">
-              <SectionSearch
-                value={mainThemesSearch}
-                onChange={setMainThemesSearch}
-                placeholder="Search main themes..."
-                compact
-                onExpandAll={handleExpandAllMainThemes}
-                onCollapseAll={handleCollapseAllMainThemes}
-              />
-              <div className="space-y-2 min-h-[60px] p-2 bg-background/50 rounded-md border border-dashed border-border">
-                {filteredMainThemes.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-4">
-                    {mainThemesSearch
-                      ? 'No matching main themes'
-                      : 'No main themes yet'}
-                  </p>
-                ) : (
-                  filteredMainThemes.map((mainTheme) => (
-                    <MainThemeCard
-                      key={mainTheme.id}
-                      userRole={fetchReview.data?.userRole || 'Viewer'}
-                      mainTheme={mainTheme}
-                      codesMap={codesMap}
-                      subThemesMap={subThemesMap}
-                      onEdit={handleEditMainTheme}
-                      onDelete={handleDeleteMainTheme}
-                      onDropSubTheme={() =>
-                        handleDropSubThemeOnMainTheme(mainTheme.id)
-                      }
-                      onRemoveSubTheme={handleRemoveSubThemeFromMainTheme}
-                      onEditSubTheme={handleEditSubTheme}
-                      onDeleteSubTheme={handleDeleteSubTheme}
-                      onDropCode={handleDropCodeOnSubTheme}
-                      onRemoveCode={handleRemoveCodeFromSubTheme}
-                      onEditCode={handleEditCode}
-                      onDeleteCode={handleDeleteCode}
-                      isDraggingSubTheme={draggedItem?.type === 'subTheme'}
-                      isDraggingCode={draggedItem?.type === 'code'}
-                      compact
-                      isExpanded={expandedMainThemes.has(mainTheme.id)}
-                      onToggleExpand={handleToggleMainTheme}
-                      onJumpCode={handleJumpToCode}
-                      expandedSubThemes={expandedSubThemes}
-                      onToggleSubTheme={handleToggleSubTheme}
-                      expandedCodes={expandedCodes}
-                      onToggleCode={handleToggleCode}
-                    />
-                  ))
-                )}
+                  <Button size="icon" variant="ghost" className="h-6 w-6">
+                    <Plus className="h-3.5 w-3.5" />
+                  </Button>
+                </CreateItemDialog>
               </div>
-            </CollapsibleContent>
-          </Collapsible>
-        </div>
-      </ScrollArea>
+              <CollapsibleContent className="mt-2 space-y-2">
+                <SectionSearch
+                  value={subThemesSearch}
+                  onChange={setSubThemesSearch}
+                  placeholder="Search sub themes..."
+                  compact
+                  onExpandAll={handleExpandAllSubThemes}
+                  onCollapseAll={handleCollapseAllSubThemes}
+                />
+                <DroppableSubThemesList>
+                  {filteredSubThemes.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">
+                      {subThemesSearch
+                        ? 'No matching sub themes'
+                        : 'No sub themes yet'}
+                    </p>
+                  ) : (
+                    filteredSubThemes.map((subTheme) => (
+                      <SubThemeCard
+                        key={subTheme.id}
+                        userRole={userRole}
+                        subTheme={subTheme}
+                        codesMap={codesMap}
+                        onEdit={handleEditSubTheme}
+                        onDelete={handleDeleteSubTheme}
+                        onRemoveCode={(codeId) => handleMoveCode(codeId, null)}
+                        onEditCode={handleEditCode}
+                        onDeleteCode={handleDeleteCode}
+                        compact
+                        isExpanded={expandedSubThemes.has(subTheme.id)}
+                        onToggleExpand={handleToggleSubTheme}
+                        onJumpCode={handleJumpToCode}
+                        expandedCodes={expandedCodes}
+                        onToggleCode={handleToggleCode}
+                      />
+                    ))
+                  )}
+                </DroppableSubThemesList>
+              </CollapsibleContent>
+            </Collapsible>
+
+            {/* ── Main Themes Section ── */}
+            <Collapsible open={mainThemesOpen} onOpenChange={setMainThemesOpen}>
+              <div className="flex items-center justify-between">
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex items-center gap-1 p-1 h-auto"
+                  >
+                    {mainThemesOpen ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                    <span className="font-medium text-sm">Main Themes</span>
+                    <span className="text-xs text-muted-foreground ml-1">
+                      ({mainThemes.length})
+                    </span>
+                  </Button>
+                </CollapsibleTrigger>
+                <CreateItemDialog
+                  type="mainTheme"
+                  onCreate={handleCreateMainTheme}
+                >
+                  <Button size="icon" variant="ghost" className="h-6 w-6">
+                    <Plus className="h-3.5 w-3.5" />
+                  </Button>
+                </CreateItemDialog>
+              </div>
+              <CollapsibleContent className="mt-2 space-y-2">
+                <SectionSearch
+                  value={mainThemesSearch}
+                  onChange={setMainThemesSearch}
+                  placeholder="Search main themes..."
+                  compact
+                  onExpandAll={handleExpandAllMainThemes}
+                  onCollapseAll={handleCollapseAllMainThemes}
+                />
+                <div className="space-y-2 min-h-[60px] p-2 bg-background/50 rounded-md border border-dashed border-border">
+                  {filteredMainThemes.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">
+                      {mainThemesSearch
+                        ? 'No matching main themes'
+                        : 'No main themes yet'}
+                    </p>
+                  ) : (
+                    filteredMainThemes.map((mainTheme) => (
+                      <MainThemeCard
+                        key={mainTheme.id}
+                        userRole={userRole}
+                        mainTheme={mainTheme}
+                        codesMap={codesMap}
+                        subThemesMap={subThemesMap}
+                        onEdit={handleEditMainTheme}
+                        onDelete={handleDeleteMainTheme}
+                        onRemoveSubTheme={(subThemeId) =>
+                          handleMoveSubTheme(subThemeId, null)
+                        }
+                        onEditSubTheme={handleEditSubTheme}
+                        onDeleteSubTheme={handleDeleteSubTheme}
+                        onRemoveCode={(codeId) => handleMoveCode(codeId, null)}
+                        onEditCode={handleEditCode}
+                        onDeleteCode={handleDeleteCode}
+                        compact
+                        isExpanded={expandedMainThemes.has(mainTheme.id)}
+                        onToggleExpand={handleToggleMainTheme}
+                        onJumpCode={handleJumpToCode}
+                        expandedSubThemes={expandedSubThemes}
+                        onToggleSubTheme={handleToggleSubTheme}
+                        expandedCodes={expandedCodes}
+                        onToggleCode={handleToggleCode}
+                      />
+                    ))
+                  )}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        </ScrollArea>
+
+        {/* ── Drag overlay ── */}
+        <DragOverlay dropAnimation={null}>
+          {activeCode && (
+            <CodeCard
+              userRole={userRole}
+              code={activeCode}
+              onEdit={() => {}}
+              onDelete={() => {}}
+              compact
+              isExpanded={expandedCodes.has(activeCode.id)}
+              onToggleExpand={() => {}}
+              isOverlay
+            />
+          )}
+          {activeSubTheme && (
+            <SubThemeCard
+              userRole={userRole}
+              subTheme={activeSubTheme}
+              codesMap={codesMap}
+              onEdit={() => {}}
+              onDelete={() => {}}
+              onRemoveCode={() => {}}
+              onEditCode={() => {}}
+              onDeleteCode={() => {}}
+              compact
+              isExpanded={expandedSubThemes.has(activeSubTheme.id)}
+              onToggleExpand={() => {}}
+              expandedCodes={expandedCodes}
+              onToggleCode={() => {}}
+              isOverlay
+            />
+          )}
+        </DragOverlay>
+      </DndContext>
     </div>
   );
 }

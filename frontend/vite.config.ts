@@ -11,8 +11,15 @@ export default defineConfig({
   plugins: [
     tanstackRouter({ autoCodeSplitting: true }),
     { enforce: 'pre', ...mdx({ jsxImportSource: 'react' }) },
-    viteReact({ include: /\.(jsx|tsx|mdx)$/ }),
-    tailwindcss(),
+viteReact({
+  include: /\.(jsx|tsx|mdx)$/,
+  babel: {
+    plugins: [
+      ["babel-plugin-react-compiler"]
+    ]
+    }
+} ),    
+  tailwindcss(),
   ],
   resolve: {
     alias: {

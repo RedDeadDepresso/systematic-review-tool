@@ -37,7 +37,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useIsMobile } from '@/hooks/use-mobile';
 import type {
   ArticleViewLayout,
   OpinionStatus,
@@ -52,6 +51,13 @@ import type {
 } from '@/features/references/api/references';
 import type { ReviewRole } from '@/features/reviews/types/reviews';
 import { can } from '@/lib/permissions';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
+import { useLocalStorage, useMediaQuery } from 'usehooks-ts';
 
 interface FiltersSidebarProps {
   reviewId: number;
@@ -194,6 +200,32 @@ const CheckboxItem: React.FC<CheckboxItemProps> = ({
   </div>
 );
 
+type Section = {
+  opinionStatuses: boolean;
+  include: boolean;
+  exclude: boolean;
+  labels: boolean;
+  searchMethods: boolean;
+  publicationTypes: boolean;
+  publicationYears: boolean;
+  fileStatus: boolean;
+  assignees: boolean;
+  layout: boolean;
+};
+
+const defaultSections: Section = {
+  opinionStatuses: true,
+  include: true,
+  exclude: true,
+  labels: true,
+  searchMethods: true,
+  publicationTypes: true,
+  publicationYears: true,
+  fileStatus: true,
+  assignees: true,
+  layout: true,
+};
+
 export function FiltersSidebar({
   reviewId,
   userRole,
@@ -243,93 +275,33 @@ export function FiltersSidebar({
   onOpionStatusToggle,
   articleViewLayout,
   onArticleViewLayoutChange,
+  onToggleCollapse,
 }: FiltersSidebarProps) {
-  const isMobile = useIsMobile();
+  const isSmallScreen = useMediaQuery('(max-width: 1280px)');
 
-  onDeleteKeyword = can('modifyKeyword', userRole)
+  // Create local constants instead of reassigning destructured props
+  // to satisfy React Compiler requirements
+  const effectiveOnDeleteKeyword = can('modifyKeyword', userRole)
     ? onDeleteKeyword
     : undefined;
 
-  onDeleteSearchMethod = can('uploadFiles', userRole)
+  const effectiveOnDeleteSearchMethod = can('uploadFiles', userRole)
     ? onDeleteSearchMethod
     : undefined;
 
   // PERSISTENT STATE - survives data changes
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  type Section = {
-    opinionStatuses: boolean;
-    include: boolean;
-    exclude: boolean;
-    labels: boolean;
-    searchMethods: boolean;
-    publicationTypes: boolean;
-    publicationYears: boolean;
-    fileStatus: boolean;
-    assignees: boolean;
-    layout: boolean;
-  };
-
   // Initialize section states from localStorage
-  const [sections, setSections] = useState<Section>(() => {
-    if (typeof window === 'undefined') {
-      return {
-        opinionsStatuses: true,
-        include: true,
-        exclude: true,
-        labels: true,
-        searchMethods: true,
-        publicationTypes: true,
-        publicationYears: true,
-        fileStatus: true,
-        assignees: true,
-        layout: true,
-      };
-    }
+  const [sections, setSections] = useLocalStorage<Section>(
+    `filtersSidebar_${reviewId}_sections`,
+    defaultSections
+  );
 
-    try {
-      const stored = localStorage.getItem(
-        `filtersSidebar_${reviewId}_sections`
-      );
-      return stored
-        ? JSON.parse(stored)
-        : {
-            opinionsStatuses: true,
-            include: true,
-            exclude: true,
-            labels: true,
-            searchMethods: true,
-            publicationTypes: true,
-            publicationYears: true,
-            fileStatus: true,
-            assignees: true,
-            layout: true,
-          };
-    } catch {
-      return {
-        opinionsStatuses: true,
-        include: true,
-        exclude: true,
-        labels: true,
-        searchMethods: true,
-        publicationTypes: true,
-        publicationYears: true,
-        fileStatus: true,
-        assignees: true,
-        layout: true,
-      };
-    }
-  });
-
-  // Initialize search filter from localStorage
-  const [searchFilter, setSearchFilter] = useState(() => {
-    if (typeof window === 'undefined') return '';
-    try {
-      return localStorage.getItem(`filtersSidebar_${reviewId}_search`) || '';
-    } catch {
-      return '';
-    }
-  });
+  const [searchFilter, setSearchFilter] = useLocalStorage<string>(
+    `filtersSidebar_${reviewId}_search`,
+    ''
+  );
 
   // Save sections to localStorage whenever they change
   useEffect(() => {
@@ -519,8 +491,8 @@ export function FiltersSidebar({
   };
 
   useEffect(() => {
-    if (isMobile) onArticleViewLayoutChange?.('title-only');
-  }, [isMobile]);
+    if (isSmallScreen) onArticleViewLayoutChange?.('title-only');
+  }, [isSmallScreen]);
 
   useEffect(() => {
     if (isSearchOpen && searchInputRef.current) {
@@ -575,8 +547,8 @@ export function FiltersSidebar({
 
   if (isCollapsed) return null;
 
-  return (
-    <aside className="w-64 sm:w-72 border-l border-border bg-card flex flex-col h-full">
+  const sidebarContent = (
+    <>
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         {isSearchOpen ? (
@@ -771,7 +743,7 @@ export function FiltersSidebar({
                   checked={selectedIncludeKeywords.includes(keyword.name)}
                   onCheckedChange={() => onIncludeKeywordToggle(keyword.name)}
                   onDelete={
-                    onDeleteKeyword
+                    effectiveOnDeleteKeyword
                       ? () => setDeleteConfirmKeyword(keyword)
                       : undefined
                   }
@@ -879,7 +851,7 @@ export function FiltersSidebar({
                   checked={selectedExcludeKeywords.includes(keyword.name)}
                   onCheckedChange={() => onExcludeKeywordToggle(keyword.name)}
                   onDelete={
-                    onDeleteKeyword
+                    effectiveOnDeleteKeyword
                       ? () => setDeleteConfirmKeyword(keyword)
                       : undefined
                   }
@@ -947,7 +919,7 @@ export function FiltersSidebar({
                   onCheckedChange={() => onSearchMethodToggle(sm.id)}
                   count={sm.count}
                   onDelete={
-                    onDeleteSearchMethod
+                    effectiveOnDeleteSearchMethod
                       ? () => setDeleteConfirmSearchMethod(sm)
                       : undefined
                   }
@@ -1093,15 +1065,15 @@ export function FiltersSidebar({
           >
             <div className="space-y-1">
               <label
-                aria-disabled={isMobile}
+                aria-disabled={isSmallScreen}
                 className={cn(
                   'flex items-center gap-3 py-1.5 rounded px-2 -mx-2',
-                  isMobile
+                  isSmallScreen
                     ? 'opacity-50 cursor-not-allowed pointer-events-none'
                     : 'cursor-pointer hover:bg-muted/50'
                 )}
                 onClick={() => {
-                  if (isMobile) return;
+                  if (isSmallScreen) return;
                   onArticleViewLayoutChange?.('title-abstract');
                 }}
               >
@@ -1138,15 +1110,15 @@ export function FiltersSidebar({
                 <span className="text-sm">Title only view</span>
               </label>
               <label
-                aria-disabled={isMobile}
+                aria-disabled={isSmallScreen}
                 className={cn(
                   'flex items-center gap-3 py-1.5 rounded px-2 -mx-2',
-                  isMobile
+                  isSmallScreen
                     ? 'opacity-50 cursor-not-allowed pointer-events-none'
                     : 'cursor-pointer hover:bg-muted/50'
                 )}
                 onClick={() => {
-                  if (isMobile) return;
+                  if (isSmallScreen) return;
                   onArticleViewLayoutChange?.('title-file');
                 }}
               >
@@ -1186,8 +1158,8 @@ export function FiltersSidebar({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (deleteConfirmKeyword && onDeleteKeyword) {
-                  onDeleteKeyword(deleteConfirmKeyword);
+                if (deleteConfirmKeyword && effectiveOnDeleteKeyword) {
+                  effectiveOnDeleteKeyword(deleteConfirmKeyword);
                   setDeleteConfirmKeyword(null);
                 }
               }}
@@ -1246,8 +1218,11 @@ export function FiltersSidebar({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (deleteConfirmSearchMethod && onDeleteSearchMethod) {
-                  onDeleteSearchMethod(deleteConfirmSearchMethod);
+                if (
+                  deleteConfirmSearchMethod &&
+                  effectiveOnDeleteSearchMethod
+                ) {
+                  effectiveOnDeleteSearchMethod(deleteConfirmSearchMethod);
                   setDeleteConfirmSearchMethod(null);
                 }
               }}
@@ -1258,6 +1233,28 @@ export function FiltersSidebar({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </>
+  );
+
+  if (isSmallScreen) {
+    return (
+      <Drawer
+        open={!isCollapsed}
+        onOpenChange={(o) => !o && onToggleCollapse()}
+      >
+        <DrawerContent className="h-[85vh] flex flex-col">
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>Filters</DrawerTitle>
+          </DrawerHeader>
+          {sidebarContent}
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
+  return (
+    <aside className="w-64 sm:w-72 border-l border-border bg-card flex flex-col h-full">
+      {sidebarContent}
     </aside>
   );
 }

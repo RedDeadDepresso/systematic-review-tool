@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import CommentForm from '@/components/blocks/pdf-dialog/comment-form';
 import {
   type GhostHighlight,
@@ -18,7 +18,7 @@ interface ExpandableTipProps {
 
 const ExpandableTip = ({ addHighlight }: ExpandableTipProps) => {
   const [compact, setCompact] = useState(true);
-  const selectionRef = useRef<PdfSelection | null>(null);
+  const [selection, setSelection] = useState<PdfSelection | null>(null);
 
   const {
     getCurrentSelection,
@@ -31,17 +31,37 @@ const ExpandableTip = ({ addHighlight }: ExpandableTipProps) => {
     updateTipPosition!();
   }, [compact]);
 
+  const handleAddClick = () => {
+    const sel = getCurrentSelection();
+    if (!sel) return;
+    sel.makeGhostHighlight();
+    setSelection(sel);
+    setCompact(false);
+  };
+
+  const handleSubmit = (name: string, comment: string) => {
+    if (!selection) return;
+
+    addHighlight(
+      {
+        content: selection.content,
+        type: selection.type,
+        position: selection.position,
+      },
+      name,
+      comment
+    );
+
+    removeGhostHighlight();
+    setTip(null);
+    setSelection(null);
+    setCompact(true);
+  };
+
   return (
     <div className="rounded-lg border bg-popover p-1 shadow-lg">
       {compact ? (
-        <Button
-          size="sm"
-          onClick={() => {
-            setCompact(false);
-            selectionRef.current = getCurrentSelection();
-            selectionRef.current!.makeGhostHighlight();
-          }}
-        >
+        <Button size="sm" onClick={handleAddClick}>
           <Plus className="mr-1 h-4 w-4" />
           Add code
         </Button>
@@ -49,21 +69,12 @@ const ExpandableTip = ({ addHighlight }: ExpandableTipProps) => {
         <CommentForm
           placeHolderName="Add a name"
           placeHolderComment="Your comment..."
-          content={selectionRef.current!.content}
-          onSubmit={(name, comment) => {
-            addHighlight(
-              {
-                content: selectionRef.current!.content,
-                type: selectionRef.current!.type,
-                position: selectionRef.current!.position,
-              },
-              name,
-              comment
-            );
-
-            removeGhostHighlight();
-            setTip(null);
-          }}
+          content={
+            typeof selection?.content === 'string'
+              ? undefined
+              : selection?.content
+          }
+          onSubmit={handleSubmit}
         />
       )}
     </div>

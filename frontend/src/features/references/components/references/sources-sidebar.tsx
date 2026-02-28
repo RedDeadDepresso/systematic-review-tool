@@ -31,6 +31,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useState } from 'react';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
+import { useMediaQuery } from 'usehooks-ts';
 
 interface SourcesSidebarProps {
   reviewId: number;
@@ -48,6 +55,7 @@ interface SourcesSidebarProps {
   onDetectDuplicates: () => void;
   onResolveDuplicates: () => void;
   onDeleteSearchMethod?: (searchMethod: SearchMethod) => void;
+  onToggleCollapse: () => void;
 }
 
 export function SourcesSidebar({
@@ -65,6 +73,7 @@ export function SourcesSidebar({
   onDetectDuplicates,
   onResolveDuplicates,
   onDeleteSearchMethod,
+  onToggleCollapse,
 }: SourcesSidebarProps) {
   const duplicateStatuses = [
     { key: 'Unresolved', icon: Clock, label: 'Unresolved' },
@@ -74,14 +83,12 @@ export function SourcesSidebar({
   ];
   const [deleteConfirmSearchMethod, setDeleteConfirmSearchMethod] =
     useState<SearchMethod | null>(null);
+  const isSmallScreen = useMediaQuery('(max-width: 1280px)');
 
-  return (
-    <aside
-      className={cn(
-        'w-56 sm:w-64 border-r border-border flex flex-col h-full',
-        isCollapsed && 'hidden'
-      )}
-    >
+  if (isCollapsed) return null;
+
+  const sidebarContent = (
+    <>
       <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
         <h2 className="text-sm font-medium text-sidebar-foreground">
           All Data
@@ -259,6 +266,28 @@ export function SourcesSidebar({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </>
+  );
+
+  if (isSmallScreen) {
+    return (
+      <Drawer
+        open={!isCollapsed}
+        onOpenChange={(o) => !o && onToggleCollapse()}
+      >
+        <DrawerContent className="h-[85vh] flex flex-col">
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>Filters</DrawerTitle>
+          </DrawerHeader>
+          {sidebarContent}
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
+  return (
+    <aside className="w-56 sm:w-64 border-r border-border flex flex-col h-full">
+      {sidebarContent}
     </aside>
   );
 }

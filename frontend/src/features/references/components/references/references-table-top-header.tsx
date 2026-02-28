@@ -93,7 +93,7 @@ export function TableTopHeader({
           </Button>
         )}
         <h1 className="text-sm sm:text-lg font-semibold">
-          <span className="hidden sm:inline">Showing </span>
+          <span className="hidden xl:inline">Showing </span>
           {filteredCount === totalCount
             ? `${totalCount}`
             : `${filteredCount} / ${totalCount}`}{' '}
@@ -150,7 +150,7 @@ export function TableTopHeader({
         {onAddData && can('addData', userRole) && (
           <Button variant="outline" size="sm" onClick={onAddData}>
             <Upload className="h-4 w-4" />
-            <span className="hidden sm:inline">Add articles</span>
+            <span className="hidden xl:inline">Add articles</span>
           </Button>
         )}
         {onExport && (
@@ -158,7 +158,7 @@ export function TableTopHeader({
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
                 <Download className="h-4 w-4 sm:mr-1" />
-                <span className="hidden sm:inline">Export</span>
+                <span className="hidden xl:inline">Export</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="start">
@@ -175,7 +175,7 @@ export function TableTopHeader({
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm">
               <ArrowUpDown className="h-4 w-4 sm:mr-1" />
-              <span className="hidden sm:inline">Sort</span>
+              <span className="hidden xl:inline">Sort</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -207,7 +207,7 @@ export function TableTopHeader({
         </DropdownMenu>
         <Button variant="outline" size="sm" onClick={onToggleRightCollapse}>
           <Filter className="h-4 w-4 sm:mr-1" />
-          <span className="hidden sm:inline">Filters</span>
+          <span className="hidden xl:inline">Filters</span>
         </Button>
       </div>
     </div>

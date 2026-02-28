@@ -1,7 +1,7 @@
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { useFetchReviewData } from '@/features/references/hooks/use-references';
 import { createFileRoute } from '@tanstack/react-router';
-import { useContext, useState, useEffect, useCallback } from 'react';
+import { useContext, useState, useEffect } from 'react';
 import { SourcesSidebar } from '@/features/references/components/references/sources-sidebar';
 import { ReferencesTable } from '@/features/references/components/references/references-table';
 import { FiltersSidebar } from '@/features/references/components/references/filters-sidebar';
@@ -115,35 +115,26 @@ function RouteComponent() {
 
   const deleteLabel = useDeleteLabel();
 
-  const handleDeleteLabel = useCallback(
-    (label: LabelCount) => {
-      deleteLabel.mutate(label.id, {
-        onSuccess: () => {
-          invalidateQuery();
-        },
-      });
-    },
-    [deleteLabel]
-  );
+  const handleDeleteLabel = (label: LabelCount) => {
+    deleteLabel.mutate(label.id, {
+      onSuccess: () => {
+        invalidateQuery();
+      },
+    });
+  };
 
-  const handleDeleteSearchMethod = useCallback(
-    (searchMethod: SearchMethod) => {
-      deleteSearchMethod.mutate(searchMethod.id, {
-        onSuccess: invalidateQuery,
-      });
-    },
-    [deleteSearchMethod]
-  );
+  const handleDeleteSearchMethod = (searchMethod: SearchMethod) => {
+    deleteSearchMethod.mutate(searchMethod.id, {
+      onSuccess: invalidateQuery,
+    });
+  };
 
-  const handleExport = useCallback(
-    (exportType: ExportType) => {
-      const filename = `review-${reviewId}-review-data${exportType === 'all' ? '' : '-filtered'}.bib`;
-      exportType === 'all'
-        ? exportReviewData(filename)
-        : exportReviewData(filename, queryParams);
-    },
-    [queryParams]
-  );
+  const handleExport = (exportType: ExportType) => {
+    const filename = `review-${reviewId}-review-data${exportType === 'all' ? '' : '-filtered'}.bib`;
+    exportType === 'all'
+      ? exportReviewData(filename)
+      : exportReviewData(filename, queryParams);
+  };
 
   if (error) {
     return (
@@ -228,6 +219,9 @@ function RouteComponent() {
             }
             onResolveDuplicates={() => setIsResolveDuplicatesOpen(true)}
             onDeleteSearchMethod={handleDeleteSearchMethod}
+            onToggleCollapse={() =>
+              ui.setIsSourcesSidebarCollapsed(!ui.isSourcesSidebarCollapsed)
+            }
           />
 
           <div className="flex flex-col flex-1 min-h-0">

@@ -5,6 +5,8 @@ import {
   Sparkles,
   ArrowLeft,
   ArrowRight,
+  File,
+  Triangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -44,15 +46,7 @@ export function ResolveDuplicatesDialog({
           <div className="flex items-center justify-between gap-2 sm:gap-4 pr-6">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <div className="w-5 h-5 sm:w-6 sm:h-6 bg-gray-900 rounded flex items-center justify-center flex-shrink-0">
-                <svg
-                  className="w-3 h-3 sm:w-4 sm:h-4 text-white"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M9 12h6M9 16h6M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+                <File className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
               </div>
               <h2 className="text-base sm:text-lg font-semibold truncate">
                 {showAutoResolver ? 'Auto-Resolver' : 'Resolve Duplicates'}
@@ -347,13 +341,7 @@ export function ResolveDuplicatesDialog({
                 {/* Progress */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-xs sm:text-sm">
-                    <svg
-                      className="w-4 h-4 text-purple-600 flex-shrink-0"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path d="M7 14l5-5 5 5H7z" />
-                    </svg>
+                    <Triangle className="w-4 h-4 text-purple-600 shrink-0" />
                     <span className="font-medium">
                       {data.resolved} Done | {data.remaining} Left
                     </span>
