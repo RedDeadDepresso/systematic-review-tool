@@ -1,9 +1,8 @@
-import type React from 'react';
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Pencil, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import { useDroppable } from '@dnd-kit/core';
 import { SubThemeCard } from '@/features/coding/components/sub-themes/sub-theme-card';
 import { EditItemDialog } from '@/features/coding/components/edit-item-dialog';
 import { DeleteConfirmationDialog } from '@/features/coding/components/delete-confirmation-dialog';
@@ -22,16 +21,12 @@ interface MainThemeCardProps {
     id: number,
     options?: { deleteSubThemes?: boolean; deleteCodes?: boolean }
   ) => void;
-  onDropSubTheme: () => void;
   onRemoveSubTheme: (subThemeId: number) => void;
   onEditSubTheme: (id: number, name: string, description: string) => void;
   onDeleteSubTheme: (id: number, options?: { deleteCodes?: boolean }) => void;
-  onDropCode: (subThemeId: number) => void;
   onRemoveCode: (codeId: string) => void;
   onEditCode: (id: string, name: string, description: string) => void;
   onDeleteCode: (id: string) => void;
-  isDraggingSubTheme?: boolean;
-  isDraggingCode?: boolean;
   compact?: boolean;
   isExpanded?: boolean;
   onToggleExpand?: (id: number) => void;
@@ -49,16 +44,12 @@ export function MainThemeCard({
   subThemesMap,
   onEdit,
   onDelete,
-  onDropSubTheme,
   onRemoveSubTheme,
   onEditSubTheme,
   onDeleteSubTheme,
-  onDropCode,
   onRemoveCode,
   onEditCode,
   onDeleteCode,
-  isDraggingSubTheme,
-  isDraggingCode,
   compact = false,
   isExpanded = true,
   onToggleExpand,
@@ -68,53 +59,30 @@ export function MainThemeCard({
   expandedCodes,
   onToggleCode,
 }: MainThemeCardProps) {
-  const [isDragOver, setIsDragOver] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  const handleDragOver = (e: React.DragEvent) => {
-    if (isDraggingSubTheme) {
-      e.preventDefault();
-      setIsDragOver(true);
-    }
-  };
+  // Sub-themes (and codes inside sub-themes) can be dropped here
+  const { setNodeRef, isOver } = useDroppable({
+    id: `maintheme-${mainTheme.id}`,
+  });
 
-  const handleDragLeave = () => {
-    setIsDragOver(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    if (isDraggingSubTheme) {
-      onDropSubTheme();
-    }
-  };
-
-  const handleToggle = () => {
-    onToggleExpand?.(mainTheme.id);
-  };
-
-  const handleDeleteClick = () => {
-    setDeleteDialogOpen(true);
-  };
-
+  const handleToggle = () => onToggleExpand?.(mainTheme.id);
+  const handleDeleteClick = () => setDeleteDialogOpen(true);
   const handleConfirmDelete = (options?: {
     deleteSubThemes?: boolean;
     deleteCodes?: boolean;
-  }) => {
-    onDelete(mainTheme.id, options);
-  };
+  }) => onDelete(mainTheme.id, options);
 
   return (
     <>
       <Card
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        className={`transition-all ${compact ? 'bg-secondary' : 'bg-card'} ${isDragOver ? 'ring-2 ring-primary bg-primary/5' : ''}`}
+        className={`transition-colors ${compact ? 'bg-secondary' : 'bg-card'} ${
+          isOver ? 'ring-2 ring-primary bg-primary/5' : ''
+        }`}
       >
         <CardHeader className={compact ? 'p-2 pb-1' : 'p-4 pb-2'}>
           <div className="flex items-start gap-2">
+            {/* Expand toggle */}
             <Button
               variant="ghost"
               size="icon"
@@ -127,20 +95,27 @@ export function MainThemeCard({
                 <ChevronRight className={compact ? 'h-3 w-3' : 'h-4 w-4'} />
               )}
             </Button>
+
             <div className="flex-1 min-w-0">
               <p
-                className={`font-medium text-card-foreground ${compact ? 'text-xs' : 'text-sm'}`}
+                className={`font-medium text-card-foreground ${
+                  compact ? 'text-xs' : 'text-sm'
+                }`}
               >
                 {mainTheme.name}
               </p>
               {isExpanded && (
                 <p
-                  className={`text-muted-foreground line-clamp-2 mt-1 ${compact ? 'text-[10px]' : 'text-xs'}`}
+                  className={`text-muted-foreground line-clamp-2 mt-1 ${
+                    compact ? 'text-[10px]' : 'text-xs'
+                  }`}
                 >
                   {mainTheme.description}
                 </p>
               )}
             </div>
+
+            {/* Actions */}
             <div className="flex items-center gap-1 shrink-0">
               <EditItemDialog
                 type="mainTheme"
@@ -165,29 +140,40 @@ export function MainThemeCard({
                 onClick={handleDeleteClick}
               >
                 <Trash2
-                  className={`${compact ? 'h-2.5 w-2.5' : 'h-3.5 w-3.5'} text-destructive`}
+                  className={`${
+                    compact ? 'h-2.5 w-2.5' : 'h-3.5 w-3.5'
+                  } text-destructive`}
                 />
               </Button>
             </div>
           </div>
         </CardHeader>
+
         {isExpanded && (
           <CardContent className={compact ? 'p-2 pt-0' : 'p-4 pt-2'}>
+            {/* Drop zone for sub-themes */}
             <div
-              className={`${compact ? 'min-h-[40px] p-2 space-y-2' : 'min-h-[60px] p-3 space-y-3'} rounded border border-dashed ${
-                isDragOver ? 'border-primary bg-primary/10' : 'border-border'
+              ref={setNodeRef}
+              className={`${
+                compact
+                  ? 'min-h-[40px] p-2 space-y-2'
+                  : 'min-h-[60px] p-3 space-y-3'
+              } rounded border border-dashed transition-colors ${
+                isOver ? 'border-primary bg-primary/10' : 'border-border'
               }`}
             >
               {mainTheme.subThemeIds.length === 0 ? (
                 <p
-                  className={`text-xs text-muted-foreground text-center ${compact ? 'py-2' : 'py-4'}`}
+                  className={`text-xs text-muted-foreground text-center ${
+                    compact ? 'py-2' : 'py-4'
+                  }`}
                 >
                   Drop sub themes here
                 </p>
               ) : (
                 mainTheme.subThemeIds.map((subThemeId) => {
                   const subTheme = subThemesMap[subThemeId];
-                  if (!subTheme) return null; // safety check
+                  if (!subTheme) return null;
                   return (
                     <SubThemeCard
                       userRole={userRole}
@@ -196,12 +182,10 @@ export function MainThemeCard({
                       codesMap={codesMap}
                       onEdit={onEditSubTheme}
                       onDelete={onDeleteSubTheme}
-                      onDropCode={() => onDropCode(subTheme.id)}
                       onRemoveCode={onRemoveCode}
                       onEditCode={onEditCode}
                       onDeleteCode={onDeleteCode}
                       onRemove={() => onRemoveSubTheme(subTheme.id)}
-                      isDraggingCode={isDraggingCode}
                       compact
                       nested
                       onJumpCode={onJumpCode}

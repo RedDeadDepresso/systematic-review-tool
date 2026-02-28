@@ -40,10 +40,6 @@ export function useCodingTheming(reviewId: number) {
   const [codes, setCodes] = useState<Code[]>([]);
   const [subThemes, setSubThemes] = useState<SubTheme[]>([]);
   const [mainThemes, setMainThemes] = useState<MainTheme[]>([]);
-  const [draggedItem, setDraggedItem] = useState<{
-    type: 'code' | 'subTheme';
-    id: number | string;
-  } | null>(null);
 
   useEffect(() => {
     if (fetchCodes.data) setCodes(fetchCodes.data);
@@ -51,18 +47,15 @@ export function useCodingTheming(reviewId: number) {
     if (fetchMainThemes.data) setMainThemes(fetchMainThemes.data);
   }, [fetchCodes.data, fetchSubThemes.data, fetchMainThemes.data]);
 
-  // Create handlers
+  // ── Create ────────────────────────────────────────────────────────────────
+
   const handleCreateCode = async (name: string, comment: string) => {
     return new Promise<boolean>((resolve) => {
       createCode.mutate(
         { name, comment, review: reviewId },
         {
-          onSuccess: () => {
-            resolve(true);
-          },
-          onError: () => {
-            resolve(false);
-          },
+          onSuccess: () => resolve(true),
+          onError: () => resolve(false),
         }
       );
     });
@@ -71,18 +64,10 @@ export function useCodingTheming(reviewId: number) {
   const handleCreateSubTheme = (name: string, description: string) => {
     return new Promise<boolean>((resolve) => {
       createSubTheme.mutate(
+        { name, description, review: reviewId },
         {
-          name: name,
-          description: description,
-          review: reviewId,
-        },
-        {
-          onSuccess: () => {
-            resolve(true);
-          },
-          onError: () => {
-            resolve(false);
-          },
+          onSuccess: () => resolve(true),
+          onError: () => resolve(false),
         }
       );
     });
@@ -91,24 +76,17 @@ export function useCodingTheming(reviewId: number) {
   const handleCreateMainTheme = (name: string, description: string) => {
     return new Promise<boolean>((resolve) => {
       createMainTheme.mutate(
+        { name, description, review: reviewId },
         {
-          name: name,
-          description: description,
-          review: reviewId,
-        },
-        {
-          onSuccess: () => {
-            resolve(true);
-          },
-          onError: () => {
-            resolve(false);
-          },
+          onSuccess: () => resolve(true),
+          onError: () => resolve(false),
         }
       );
     });
   };
 
-  // Edit handlers
+  // ── Edit ─────────────────────────────────────────────────────────────────
+
   const handleEditCode = (id: string, name: string, comment: string) => {
     updateCode.mutate({ id, payload: { name, comment } });
   };
@@ -129,7 +107,8 @@ export function useCodingTheming(reviewId: number) {
     updateMainTheme.mutate({ id, payload: { name, description } });
   };
 
-  // Delete handlers
+  // ── Delete ────────────────────────────────────────────────────────────────
+
   const handleDeleteCode = (id: string) => {
     deleteCode.mutate({ id, reviewId });
   };
@@ -138,94 +117,35 @@ export function useCodingTheming(reviewId: number) {
     id: number,
     _options?: { deleteCodes?: boolean }
   ) => {
-    deleteSubTheme.mutate(
-      { id, reviewId }
-      // {
-      //   onSuccess: () => {
-      //     if (subTheme && !options?.deleteCodes) {
-      //       setCodes((prev) => [
-      //         ...prev,
-      //         ...subTheme.codeIds.map(
-      //           (cid) => codes.find((c) => c.id === cid)!
-      //         ),
-      //       ]);
-      //     }
-      //   },
-      // }
-    );
+    deleteSubTheme.mutate({ id, reviewId });
   };
 
   const handleDeleteMainTheme = (
     id: number,
     _options?: { deleteSubThemes?: boolean; deleteCodes?: boolean }
   ) => {
-    deleteMainTheme.mutate(
-      { id, reviewId }
-      // {
-      //   onSuccess: () => {
-      //     if (!options?.deleteSubThemes) {
-      //       setSubThemes((prev) => [
-      //         ...prev,
-      //         ...mainTheme.subThemeIds.map(
-      //           (sid) => subThemes.find((st) => st.id === sid)!
-      //         ),
-      //       ]);
-      //     } else if (!options?.deleteCodes) {
-      //       const allCodeIds = mainTheme.subThemeIds.flatMap(
-      //         (sid) => subThemes.find((st) => st.id === sid)!.codeIds
-      //       );
-      //       setCodes((prev) => [
-      //         ...prev,
-      //         ...allCodeIds.map((cid) => codes.find((c) => c.id === cid)!),
-      //       ]);
-      //     }
-      //   },
-      // }
-    );
+    deleteMainTheme.mutate({ id, reviewId });
   };
 
-  // Drag and drop handlers
-  const handleDragStart = (type: 'code' | 'subTheme', id: number | string) => {
-    setDraggedItem({ type, id });
+  // ── Drag & Drop (called from DndContext onDragEnd in the route) ───────────
+
+  /**
+   * Move a code to a sub-theme (or null to remove from any sub-theme).
+   */
+  const handleMoveCode = (codeId: string, subThemeId: number | null) => {
+    updateCode.mutate({ id: codeId, payload: { subTheme: subThemeId } });
   };
 
-  const handleDragEnd = () => {
-    setDraggedItem(null);
-  };
-
-  const handleDropCodeOnSubTheme = (subThemeId: number) => {
-    if (!draggedItem || draggedItem.type !== 'code') return;
-
-    // Find the code in the flat codes array
-    const code = codes.find((c) => c.id === draggedItem.id);
-    if (!code) return;
-
-    updateCode.mutate({ id: code.id, payload: { subTheme: subThemeId } });
-
-    setDraggedItem(null);
-  };
-
-  const handleDropSubThemeOnMainTheme = (mainThemeId: number) => {
-    if (!draggedItem || draggedItem.type !== 'subTheme') return;
-
-    const subThemeId = draggedItem.id;
-
-    updateSubTheme.mutate({
-      id: Number(subThemeId),
-      payload: { mainTheme: mainThemeId },
-    });
-
-    setDraggedItem(null);
-  };
-
-  const handleRemoveCodeFromSubTheme = (codeId: string) => {
-    updateCode.mutate({ id: codeId, payload: { subTheme: null } });
-  };
-
-  const handleRemoveSubThemeFromMainTheme = (subThemeId: number) => {
+  /**
+   * Move a sub-theme to a main-theme (or null to remove from any main-theme).
+   */
+  const handleMoveSubTheme = (
+    subThemeId: number,
+    mainThemeId: number | null
+  ) => {
     updateSubTheme.mutate({
       id: subThemeId,
-      payload: { mainTheme: null },
+      payload: { mainTheme: mainThemeId },
     });
   };
 
@@ -236,7 +156,6 @@ export function useCodingTheming(reviewId: number) {
     isCodesLoading: fetchCodes.isLoading,
     isSubThemesLoading: fetchSubThemes.isLoading,
     isMainThemesLoading: fetchMainThemes.isLoading,
-    draggedItem,
     handleCreateCode,
     handleCreateSubTheme,
     handleCreateMainTheme,
@@ -246,11 +165,7 @@ export function useCodingTheming(reviewId: number) {
     handleDeleteCode,
     handleDeleteSubTheme,
     handleDeleteMainTheme,
-    handleDragStart,
-    handleDragEnd,
-    handleDropCodeOnSubTheme,
-    handleDropSubThemeOnMainTheme,
-    handleRemoveCodeFromSubTheme,
-    handleRemoveSubThemeFromMainTheme,
+    handleMoveCode,
+    handleMoveSubTheme,
   };
 }
