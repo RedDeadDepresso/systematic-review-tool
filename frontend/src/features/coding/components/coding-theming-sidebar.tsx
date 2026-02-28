@@ -206,30 +206,19 @@ export function CodingThemingSidebar({
   }, []);
 
   // ── Derived maps ──────────────────────────────────────────────────────────
-  // group related memoization so the React compiler can preserve it easily
-  const { allCodeIds, codesMap } = useMemo(() => {
-    const ids = new Set<string>();
-    const map: Record<string, Code> = {};
-
-    for (const c of codes) {
-      ids.add(c.id);
-      map[c.id] = c;
-    }
-
-    return { allCodeIds: ids, codesMap: map };
-  }, [codes]);
-
-  const { allSubThemeIds, subThemesMap } = useMemo(() => {
-    const ids = new Set<number>();
-    const map: Record<number, SubTheme> = {};
-
-    for (const st of subThemes) {
-      ids.add(st.id);
-      map[st.id] = st;
-    }
-
-    return { allSubThemeIds: ids, subThemesMap: map };
-  }, [subThemes]);
+  const allCodeIds = useMemo(() => new Set(codes.map((c) => c.id)), [codes]);
+  const codesMap = useMemo(
+    () => Object.fromEntries(codes.map((c) => [c.id, c])),
+    [codes]
+  );
+  const allSubThemeIds = useMemo(
+    () => new Set(subThemes.map((st) => st.id)),
+    [subThemes]
+  );
+  const subThemesMap = useMemo(
+    () => Object.fromEntries(subThemes.map((st) => [st.id, st])),
+    [subThemes]
+  );
 
   // ── Expand/collapse all ───────────────────────────────────────────────────
   const handleExpandAllCodes = () => setExpandedCodes(new Set(allCodeIds));

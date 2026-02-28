@@ -9,6 +9,8 @@ import {
   XCircle,
   FileText,
   CalendarIcon,
+  ExternalLink,
+  Paperclip,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
@@ -703,21 +705,22 @@ export function DataExtractionTable({
                       <td className="px-4 py-3">
                         {ref.file ? (
                           <Button
-                            variant="link"
+                            className="flex gap-2 w-full"
                             size="sm"
-                            className="text-primary p-0 h-auto"
                             onClick={() => onOpenPDF(ref.id)}
                           >
-                            View PDF
+                            <ExternalLink />
+                            View
                           </Button>
                         ) : (
                           <Button
+                            className="flex gap-2 w-full"
                             variant="outline"
                             size="sm"
-                            className="text-primary border-primary/30 bg-primary/5 hover:bg-primary/10"
                             onClick={() => onAttachPDF(ref.id)}
                           >
-                            Attach PDF
+                            <Paperclip />
+                            Attach
                           </Button>
                         )}
                       </td>
