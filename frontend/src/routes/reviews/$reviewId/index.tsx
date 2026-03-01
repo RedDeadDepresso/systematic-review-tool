@@ -17,7 +17,7 @@ import {
 import { useDetectDuplicateReferences } from '@/features/reviews/hooks/use-reviews';
 import { Spinner } from '@/components/ui/spinner';
 import { useContext, useEffect, useState } from 'react';
-import { ResolveDuplicatesDialog } from '@/features/references/components/reference-duplicates/resolve-duplicates-dialog';
+import { ResolveDuplicatesDialog } from '@/features/references/components/reference-clusters/resolve-duplicates-dialog';
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { FileUploadDialog } from '@/components/blocks/file-upload-dialog';
 import { ReviewMembersTable } from '@/features/reviews/components/review-members/review-members-table';
@@ -209,7 +209,7 @@ function ReviewPage() {
                           {data?.duplicateDetectionStatus === 'Not Started' &&
                           data?.referenceCount !== 0
                             ? '?'
-                            : (data?.duplicatePairsCount ?? 0)}
+                            : (data?.duplicateClustersCount ?? 0)}
                         </p>
                       )}
                     </div>
@@ -253,7 +253,7 @@ function ReviewPage() {
                           {data?.duplicateDetectionStatus === 'Not Started' &&
                           data?.referenceCount !== 0
                             ? '?'
-                            : (data?.duplicatePairsUnresolvedCount ?? 0)}
+                            : (data?.duplicateClustersUnresolvedCount ?? 0)}
                         </p>
                       )}
                     </div>
@@ -262,7 +262,7 @@ function ReviewPage() {
                         className="w-full bg-gray-200 text-gray-600 hover:bg-gray-300"
                         disabled={
                           data?.duplicateDetectionStatus === 'Not Started' ||
-                          !data?.duplicatePairsUnresolvedCount ||
+                          !data?.duplicateClustersUnresolvedCount ||
                           data?.referenceCount === 0
                         }
                         onClick={() => setIsOpen(true)}

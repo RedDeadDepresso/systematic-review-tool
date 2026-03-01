@@ -20,8 +20,8 @@ export type Review = {
   members: ReviewMember[];
   isBlinded: boolean;
   duplicateDetectionStatus: string;
-  duplicatePairsCount: number | null;
-  duplicatePairsUnresolvedCount: number | null;
+  duplicateClustersCount: number | null;
+  duplicateClustersUnresolvedCount: number | null;
   duplicateResolvedCount: number;
   duplicateNotDuplicateCount: number;
   duplicateDeletedCount: number;
