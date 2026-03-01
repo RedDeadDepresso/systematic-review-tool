@@ -14,6 +14,7 @@ import {
   FileText,
   Upload,
   FileSymlink,
+  Save,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,6 +46,7 @@ export interface ReviewDataFooterProps {
   highlightedReferenceId: number | null;
   onAttachPDF?: () => void;
   onMatchPDF?: () => void;
+  onSavedPDF?: () => void;
   onLabelsApplied?: () => void;
 }
 
@@ -131,6 +133,7 @@ interface ActionButtonsProps {
   selectedRefs: number[];
   onAttachPDF?: () => void;
   onMatchPDF?: () => void;
+  onSavedPDF?: () => void;
   onLabelsApplied?: () => void;
 }
 
@@ -140,6 +143,7 @@ function ActionButtons({
   selectedRefs,
   onAttachPDF,
   onMatchPDF,
+  onSavedPDF,
   onLabelsApplied,
 }: ActionButtonsProps) {
   const attachButton = can('uploadFiles', userRole) && (
@@ -163,6 +167,10 @@ function ActionButtons({
         <DropdownMenuItem onClick={onMatchPDF}>
           <FileSymlink className="h-3 w-3" />
           Match
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onSavedPDF}>
+          <Save className="h-3 w-3" />
+          Saved
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -265,6 +273,7 @@ export function ReviewDataFooter({
   highlightedReferenceId,
   onAttachPDF,
   onMatchPDF,
+  onSavedPDF,
   onLabelsApplied,
 }: ReviewDataFooterProps) {
   const selectedRefs = useSelectedRefs(
@@ -282,6 +291,7 @@ export function ReviewDataFooter({
           selectedRefs={selectedRefs}
           onAttachPDF={onAttachPDF}
           onMatchPDF={onMatchPDF}
+          onSavedPDF={onSavedPDF}
           onLabelsApplied={onLabelsApplied}
         />
       </div>
@@ -306,6 +316,7 @@ export function ScreeningFooter({
   highlightedReferenceId,
   onAttachPDF,
   onMatchPDF,
+  onSavedPDF,
   onLabelsApplied,
   opinionStatus,
   onOpinionApplied,
@@ -436,6 +447,7 @@ export function ScreeningFooter({
           selectedRefs={selectedRefs}
           onAttachPDF={onAttachPDF}
           onMatchPDF={onMatchPDF}
+          onSavedPDF={onSavedPDF}
           onLabelsApplied={onLabelsApplied}
         />
       </div>
@@ -460,6 +472,7 @@ export function ExtractionFooter({
   highlightedReferenceId,
   onAttachPDF,
   onMatchPDF,
+  onSavedPDF,
   onLabelsApplied,
 }: ReviewDataFooterProps) {
   const selectedRefs = useSelectedRefs(
@@ -511,6 +524,7 @@ export function ExtractionFooter({
           selectedRefs={selectedRefs}
           onAttachPDF={onAttachPDF}
           onMatchPDF={onMatchPDF}
+          onSavedPDF={onSavedPDF}
           onLabelsApplied={onLabelsApplied}
         />
       </div>

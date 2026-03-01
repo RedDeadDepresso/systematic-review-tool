@@ -33,6 +33,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useDeleteSearchMethod } from '@/features/reviews/hooks/use-search-methods';
 import { useDeleteLabel } from '@/features/references/hooks/use-labels';
+import { SavedPDFDialog } from '@/features/references/components/uploaded-pdfs/saved-pdf-dialog';
 
 export const Route = createFileRoute('/reviews/$reviewId/review-data')({
   component: RouteComponent,
@@ -191,6 +192,13 @@ function RouteComponent() {
           onAutoMatch={fileUpload.handleAutoMatch}
         />
       )}
+      {fileUpload.openSavedPDFDialog && (
+        <SavedPDFDialog
+          reviewId={reviewId}
+          open={fileUpload.openSavedPDFDialog}
+          onOpenChange={fileUpload.setopenSavedPDFDialog}
+        />
+      )}
       <div className="h-full flex flex-col overflow-hidden bg-background">
         <div className="flex flex-1 overflow-hidden">
           {/* Sources Sidebar */}
@@ -285,6 +293,7 @@ function RouteComponent() {
                     onLabelsApplied={invalidateQuery}
                     onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
                     onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
+                    onSavedPDF={() => fileUpload.setopenSavedPDFDialog(true)}
                   />
                 )}
               </div>
@@ -308,6 +317,7 @@ function RouteComponent() {
                   onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
                   onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
                   onOpenPDF={ui.handleOpenPDF}
+                  onSavedPDF={() => fileUpload.setopenSavedPDFDialog(true)}
                 />
               )}
 
@@ -438,6 +448,7 @@ function RouteComponent() {
             onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
             onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
             onOpenPDF={ui.handleOpenPDF}
+            onSavedPDF={() => fileUpload.setopenSavedPDFDialog(true)}
           />
         )}
       </div>

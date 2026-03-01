@@ -25,6 +25,7 @@ export function useFileUpload(
   const [openUploadBibDialog, setOpenUploadBibDialog] = useState(false);
   const [openUploadPDFDialog, setOpenUploadPDFDialog] = useState(false);
   const [openMatchDialog, setOpenMatchDialog] = useState(false);
+  const [openSavedPDFDialog, setopenSavedPDFDialog] = useState(false);
 
   const usefetchUploadedPDFs = useFetchUploadedPDFs(reviewId);
   const uploadPDF = useUploadPDF();
@@ -133,6 +134,8 @@ export function useFileUpload(
     setOpenUploadPDFDialog,
     openMatchDialog,
     setOpenMatchDialog,
+    openSavedPDFDialog,
+    setopenSavedPDFDialog,
     uploadedPDFs: usefetchUploadedPDFs.data || [],
     handleUploadPDF,
     handleUploadReferences,

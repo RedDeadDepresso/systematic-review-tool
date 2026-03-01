@@ -37,6 +37,7 @@ import { useScreeningStats } from '@/features/reviews/hooks/use-screening-stats'
 import { cn } from '@/lib/utils';
 import { useDeleteSearchMethod } from '@/features/reviews/hooks/use-search-methods';
 import { useDeleteLabel } from '@/features/references/hooks/use-labels';
+import { SavedPDFDialog } from '@/features/references/components/uploaded-pdfs/saved-pdf-dialog';
 
 export const Route = createFileRoute('/reviews/$reviewId/full-text-screening')({
   component: RouteComponent,
@@ -211,6 +212,7 @@ function RouteComponent() {
               highlightedReferenceId={ui.openPDFId}
               onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
               onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
+              onSavedPDF={() => fileUpload.setopenSavedPDFDialog(true)}
               onOpinionApplied={handleOpinionApplied}
               opinionStatus={ui.PDFOpinionStatus}
             />
@@ -231,6 +233,13 @@ function RouteComponent() {
           uploadedPDFs={fileUpload.uploadedPDFs}
           onImport={fileUpload.handleMatch}
           onAutoMatch={fileUpload.handleAutoMatch}
+        />
+      )}
+      {fileUpload.openSavedPDFDialog && (
+        <SavedPDFDialog
+          reviewId={reviewId}
+          open={fileUpload.openSavedPDFDialog}
+          onOpenChange={fileUpload.setopenSavedPDFDialog}
         />
       )}
       <AddDataDialog
@@ -303,6 +312,7 @@ function RouteComponent() {
                     onLabelsApplied={invalidateQuery}
                     onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
                     onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
+                    onSavedPDF={() => fileUpload.setopenSavedPDFDialog(true)}
                     onOpinionApplied={handleOpinionApplied}
                   />
                 )}
@@ -325,6 +335,7 @@ function RouteComponent() {
                   onLabelsApplied={invalidateQuery}
                   onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
                   onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
+                  onSavedPDF={() => fileUpload.setopenSavedPDFDialog(true)}
                   onOpenPDF={ui.handleOpenPDF}
                   onOpinionApplied={handleOpinionApplied}
                 />
@@ -455,6 +466,7 @@ function RouteComponent() {
             onLabelsApplied={invalidateQuery}
             onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
             onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
+            onSavedPDF={() => fileUpload.setopenSavedPDFDialog(true)}
             onOpenPDF={ui.handleOpenPDF}
             onOpinionApplied={handleOpinionApplied}
           />
