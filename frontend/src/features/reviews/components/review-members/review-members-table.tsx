@@ -52,6 +52,8 @@ import {
   DataTableColumnToggle,
   DataTableSortHeader,
 } from '@/components/blocks/data-table';
+import InvitationDialog from '@/features/reviews/components/review-invitations/invitation-dialog';
+import { UserPlus } from 'lucide-react';
 
 export function createColumns(
   userRole: ReviewRole,
@@ -233,6 +235,7 @@ export function ReviewMembersTable({
 
   const updateMember = useUpdateReviewMember();
   const deleteMember = useDeleteReviewMember();
+  const [openInvitationDialog, setOpenInvitationDialog] = React.useState(false);
 
   const onUpdateRole = (memberId: number, role: ReviewRole) => {
     updateMember.mutate({ id: memberId, reviewId, payload: { role } });
@@ -278,7 +281,24 @@ export function ReviewMembersTable({
           className="max-w-sm"
         />
       }
-      toolbarActions={<DataTableColumnToggle table={table} />}
+      toolbarActions={
+        <>
+          {can('modifyReview', userRole) && (
+            <>
+              <InvitationDialog
+                reviewId={reviewId}
+                open={openInvitationDialog}
+                onOpenChange={setOpenInvitationDialog}
+              />
+              <Button size="sm" onClick={() => setOpenInvitationDialog(true)}>
+                <UserPlus />
+                <span className="hidden lg:inline">Invite</span>
+              </Button>
+            </>
+          )}
+          <DataTableColumnToggle table={table} />
+        </>
+      }
     />
   );
 }

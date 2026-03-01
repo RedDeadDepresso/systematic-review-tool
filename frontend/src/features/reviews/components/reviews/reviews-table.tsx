@@ -256,11 +256,7 @@ export function ReviewsTable({
             open={openCreateDialog}
             onOpenChange={setOpenCreateDialog}
           />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setOpenCreateDialog(true)}
-          >
+          <Button size="sm" onClick={() => setOpenCreateDialog(true)}>
             <IconPlus />
             <span className="hidden lg:inline">Create Review</span>
           </Button>
