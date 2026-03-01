@@ -289,6 +289,7 @@ function RouteComponent() {
                     onOpenDetail={ui.handleOpenDetail}
                     viewLayout={articleViewLayout}
                     onOpenPDF={ui.handleOpenPDF}
+                    onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
                     isLoading={isLoading}
                   />
                 </ReferencesTable>
