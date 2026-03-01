@@ -13,6 +13,7 @@ import {
 interface ReferenceDetailPanelProps {
   reference: Reference | null;
   onClose: () => void;
+  onOpenPDF: (referenceId: number) => void;
   highlightIncludeKeywords?: string[];
   highlightExcludeKeywords?: string[];
   children?: ReactNode;
@@ -21,6 +22,7 @@ interface ReferenceDetailPanelProps {
 export function ReferenceDetailPanel({
   reference,
   onClose,
+  onOpenPDF,
   highlightIncludeKeywords = [],
   highlightExcludeKeywords = [],
   children,
@@ -63,6 +65,7 @@ export function ReferenceDetailPanel({
         highlightIncludeKeywords={highlightIncludeKeywords}
         highlightExcludeKeywords={highlightExcludeKeywords}
         showNotes={true}
+        onOpenPDF={onOpenPDF}
       />
 
       {/* Footer */}

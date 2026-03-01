@@ -16,6 +16,7 @@ import { NotesList } from '@/features/references/components/notes/note';
 import { OpinionBadge } from '@/features/references/components/references/opinion-badge';
 import { AssigneeBadge } from '@/features/references/components/references/assignee-badge';
 import { LabelBadge } from '@/features/references/components/labels/label-badge';
+import { PDFBadge } from '@/features/references/components/references/references-table-row';
 
 function DetailSection({
   icon: Icon,
@@ -57,6 +58,7 @@ export interface ReferenceContentProps {
   highlightDifference?: boolean;
   showNotes?: boolean;
   noScroll?: boolean;
+  onOpenPDF?: (refId: number) => void;
 }
 
 function diffClass(
@@ -88,6 +90,7 @@ export function ReferenceContent({
   highlightDifference,
   highlightIncludeKeywords = [],
   highlightExcludeKeywords = [],
+  onOpenPDF = (_: number) => {},
   showNotes = false,
   noScroll = false,
 }: ReferenceContentProps) {
@@ -104,6 +107,10 @@ export function ReferenceContent({
           reference.labels?.length > 0) && (
           <DetailSection icon={Tags} label="Labels">
             <div className="flex flex-wrap gap-2 mb-3">
+              {reference.file && (
+                <PDFBadge onClick={() => onOpenPDF(reference.id)} />
+              )}
+
               {/* Opinions */}
               {reference.opinions?.length > 0 && (
                 <>
@@ -113,13 +120,12 @@ export function ReferenceContent({
                 </>
               )}
 
-              {/* Assignee + Labels */}
-              {(reference.assignee || reference.labels?.length > 0) && (
-                <>
-                  {reference.assignee && (
-                    <AssigneeBadge assignee={reference.assignee} />
-                  )}
+              {reference.assignee && (
+                <AssigneeBadge assignee={reference.assignee} />
+              )}
 
+              {reference.labels?.length > 0 && (
+                <>
                   {reference.labels?.map((label) => (
                     <LabelBadge key={label.id} label={label} />
                   ))}

@@ -306,6 +306,7 @@ function RouteComponent() {
                   onLabelsApplied={invalidateQuery}
                   onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
                   onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
+                  onOpenPDF={ui.handleOpenPDF}
                 />
               )}
 
@@ -435,6 +436,7 @@ function RouteComponent() {
             onLabelsApplied={invalidateQuery}
             onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
             onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
+            onOpenPDF={ui.handleOpenPDF}
           />
         )}
       </div>

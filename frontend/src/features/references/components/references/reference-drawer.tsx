@@ -19,6 +19,7 @@ interface ReferenceDrawerProps {
   reference: Reference;
   onClose: () => void;
   onNavigate: (direction: 'prev' | 'next') => void;
+  onOpenPDF: (referenceId: number) => void;
   hasPrev: boolean;
   hasNext: boolean;
   highlightIncludeKeywords?: string[];
@@ -30,6 +31,7 @@ export function ReferenceDrawer({
   reference,
   onClose,
   onNavigate,
+  onOpenPDF,
   hasPrev,
   hasNext,
   highlightIncludeKeywords = [],
@@ -115,6 +117,7 @@ export function ReferenceDrawer({
           highlightIncludeKeywords={highlightIncludeKeywords}
           highlightExcludeKeywords={highlightExcludeKeywords}
           showNotes={true}
+          onOpenPDF={onOpenPDF}
         />
 
         {/* Footer */}
