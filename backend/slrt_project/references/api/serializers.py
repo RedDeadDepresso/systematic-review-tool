@@ -1,5 +1,3 @@
-import os
-
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 
@@ -24,7 +22,7 @@ class UploadedPDFSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
 
     def get_name(self, obj):
-        return os.path.basename(obj.file.name)
+        return str(obj)
 
     class Meta:
         model = UploadedPDF
