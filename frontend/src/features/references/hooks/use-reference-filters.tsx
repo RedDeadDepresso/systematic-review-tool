@@ -275,6 +275,20 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     [enableOpinions]
   );
 
+  // Add before the return statement
+  const activeFilterCount =
+    searchMethodIds.length +
+    includeKeywords.length +
+    excludeKeywords.length +
+    labelIds.length +
+    publicationTypes.length +
+    publicationYears.length +
+    (fileStatus !== 'all' ? 1 : 0) +
+    assigneeIds.length +
+    duplicateStatuses.length +
+    opinionStatuses.length +
+    (searchQuery.trim() ? 1 : 0);
+
   // Reset all filters
   const handleResetAllFilters = useCallback(() => {
     if (enableSearchMethods) setSearchMethodIds([]);
@@ -353,6 +367,7 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     handleResetAllFilters,
 
     // Utility
+    activeFilterCount,
     isDebouncing,
   };
 }

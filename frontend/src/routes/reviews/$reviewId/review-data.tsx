@@ -228,6 +228,7 @@ function RouteComponent() {
             {/* Table Header */}
             <TableTopHeader
               userRole={fetchReview.data?.userRole || 'Viewer'}
+              activeFilterCount={filters.activeFilterCount}
               filteredCount={data?.filteredCount || 0}
               totalCount={data?.totalCount || 0}
               searchQuery={filters.searchQuery}

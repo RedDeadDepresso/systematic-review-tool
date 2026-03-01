@@ -117,6 +117,7 @@ interface CollapsibleSectionProps {
   icon: React.ReactNode;
   isOpen: boolean;
   onToggle: () => void;
+  activeCount?: number;
   actions?: React.ReactNode;
   children: React.ReactNode;
 }
@@ -127,6 +128,7 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   isOpen,
   onToggle,
   actions,
+  activeCount,
   children,
 }) => (
   <div className="border-b border-border">
@@ -137,6 +139,11 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
       <div className="flex items-center gap-2">
         {icon}
         <span className="text-sm font-medium">{title}</span>
+        {activeCount != null && activeCount > 0 && (
+          <span className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-semibold h-4 min-w-4 px-1 leading-none">
+            {activeCount}
+          </span>
+        )}
       </div>
       <div className="flex items-center gap-1">
         {actions}
@@ -490,6 +497,18 @@ export function FiltersSidebar({
     layout: true,
   };
 
+  const activeCounts = {
+    opinionStatuses: selectedOpinionStatuses.length,
+    include: selectedIncludeKeywords.length,
+    exclude: selectedExcludeKeywords.length,
+    labels: selectedLabels.length,
+    searchMethods: selectedSearchMethods.length,
+    publicationTypes: selectedPublicationTypes.length,
+    publicationYears: selectedPublicationYears.length,
+    fileStatus: selectedFileStatus !== 'all' ? 1 : 0,
+    assignees: selectedAssignees.length,
+  };
+
   useEffect(() => {
     if (isSmallScreen) onArticleViewLayoutChange?.('title-only');
   }, [isSmallScreen]);
@@ -624,6 +643,7 @@ export function FiltersSidebar({
                 opinionStatuses: !prev.opinionStatuses,
               }))
             }
+            activeCount={activeCounts.opinionStatuses}
           >
             <div className="space-y-1">
               <CheckboxItem
@@ -656,6 +676,7 @@ export function FiltersSidebar({
             }
             isOpen={sections.include}
             onToggle={() => toggleSection('include')}
+            activeCount={activeCounts.include}
             actions={
               <>
                 <Button
@@ -764,6 +785,7 @@ export function FiltersSidebar({
             }
             isOpen={sections.exclude}
             onToggle={() => toggleSection('exclude')}
+            activeCount={activeCounts.exclude}
             actions={
               <>
                 <Button
@@ -868,6 +890,7 @@ export function FiltersSidebar({
             icon={<Tag className="w-4 h-4 text-muted-foreground" />}
             isOpen={sections.labels}
             onToggle={() => toggleSection('labels')}
+            activeCount={activeCounts.labels}
           >
             <div className="space-y-1">
               <CheckboxItem
@@ -902,6 +925,7 @@ export function FiltersSidebar({
             icon={<Search className="w-4 h-4 text-muted-foreground" />}
             isOpen={sections.searchMethods}
             onToggle={() => toggleSection('searchMethods')}
+            activeCount={activeCounts.searchMethods}
           >
             <div className="space-y-1">
               <CheckboxItem
@@ -936,6 +960,7 @@ export function FiltersSidebar({
             icon={<Book className="w-4 h-4 text-muted-foreground" />}
             isOpen={sections.publicationTypes}
             onToggle={() => toggleSection('publicationTypes')}
+            activeCount={activeCounts.publicationTypes}
           >
             <div className="space-y-1">
               <CheckboxItem
@@ -969,6 +994,7 @@ export function FiltersSidebar({
             icon={<Calendar className="w-4 h-4 text-muted-foreground" />}
             isOpen={sections.publicationYears}
             onToggle={() => toggleSection('publicationYears')}
+            activeCount={activeCounts.publicationYears}
           >
             <div className="space-y-1">
               <CheckboxItem
@@ -998,6 +1024,7 @@ export function FiltersSidebar({
             icon={<FileText className="w-4 h-4 text-muted-foreground" />}
             isOpen={sections.fileStatus}
             onToggle={() => toggleSection('fileStatus')}
+            activeCount={activeCounts.fileStatus}
           >
             <div className="space-y-1">
               <CheckboxItem
@@ -1029,6 +1056,7 @@ export function FiltersSidebar({
             icon={<User className="w-4 h-4 text-muted-foreground" />}
             isOpen={sections.assignees}
             onToggle={() => toggleSection('assignees')}
+            activeCount={activeCounts.assignees}
           >
             <div className="space-y-1">
               <CheckboxItem
