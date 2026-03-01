@@ -221,38 +221,296 @@ class UploadedPDF(models.Model):
         return f"{self.name}.pdf"
 
 
-class ReferenceDuplicatePair(models.Model):
-    review = models.ForeignKey("reviews.Review", on_delete=models.CASCADE)
-    reference1 = models.ForeignKey(
-        "Reference", on_delete=models.CASCADE, related_name="duplicate_reference1"
+class ReferenceCluster(models.Model):
+    """
+    One cluster of duplicate (or near-duplicate) References.
+
+    Every Reference belongs to at most one unresolved cluster.
+    After resolution the cluster is archived with a canonical reference recorded.
+    """
+
+    class Status(models.TextChoices):
+        UNRESOLVED = "unresolved", "Unresolved"
+        AUTO_RESOLVED = "auto_resolved", "Auto-Resolved"
+        MANUALLY_RESOLVED = "manually_resolved", "Manually Resolved"
+        DISMISSED = "dismissed", "Dismissed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    review = models.ForeignKey(
+        "reviews.Review",
+        on_delete=models.CASCADE,
+        related_name="duplicate_clusters",
     )
-    reference2 = models.ForeignKey(
-        "Reference", on_delete=models.CASCADE, related_name="duplicate_reference2"
+    status = models.CharField(
+        max_length=30,
+        choices=Status.choices,
+        default=Status.UNRESOLVED,
+        db_index=True,
     )
-    similarity_score = models.FloatField()
-    resolved = models.BooleanField(default=False)
-    auto_resolved = models.BooleanField(
-        default=False, help_text="True if resolved automatically by the system"
+    # Set when resolved – the reference we decided to keep
+    canonical_reference = models.ForeignKey(
+        "references.Reference",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="canonical_in_clusters",
+    )
+    # Highest pairwise similarity score in the cluster (for UI sorting)
+    max_similarity_score = models.FloatField(default=0.0)
+    # True when every member had a matching DOI (perfect hard match cluster)
+    doi_match = models.BooleanField(default=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        "reviews.ReviewMember",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="resolved_clusters",
     )
 
     class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["review", "reference1", "reference2"],
-                name="unique_duplicatepair_per_review_refs",
-            ),
+        app_label = "references"
+        indexes = [
+            models.Index(fields=["review", "status"]),
+            models.Index(fields=["review", "doi_match"]),
         ]
 
-    @classmethod
-    def _find_pairs(cls, queryset, threshold=0.5, weights=None):
-        """Find similar Reference pairs using multiple fields."""
-        if weights is None:
-            weights = {"title": 0.5, "abstract": 0.3, "authors": 0.15, "journal": 0.05}
+    def __str__(self) -> str:
+        return f"Cluster {self.id} ({self.status})"
 
-        table = Reference._meta.db_table
-        ids = list(queryset.values_list("id", flat=True))
-        if not ids:
+    @property
+    def size(self) -> int:
+        return self.members.count()
+
+
+class ReferenceClusterMember(models.Model):
+    """
+    Membership of a Reference in a ReferenceCluster.
+
+    Each reference appears in at most one *active* (unresolved) cluster per review.
+    Historical memberships (from resolved clusters) are kept for audit.
+    """
+
+    class Role(models.TextChoices):
+        CANONICAL = "canonical", "Canonical (kept)"
+        DUPLICATE = "duplicate", "Duplicate (removed)"
+        PENDING = "pending", "Pending"
+
+    cluster = models.ForeignKey(
+        ReferenceCluster,
+        on_delete=models.CASCADE,
+        related_name="members",
+    )
+    reference = models.ForeignKey(
+        "references.Reference",
+        on_delete=models.CASCADE,
+        related_name="cluster_memberships",
+    )
+    role = models.CharField(
+        max_length=20,
+        choices=Role.choices,
+        default=Role.PENDING,
+    )
+    # Best pairwise similarity this reference achieved within the cluster
+    best_similarity_score = models.FloatField(default=0.0)
+    # Whether this member was matched via DOI (hard match)
+    doi_matched = models.BooleanField(default=False)
+    # Completeness score at time of cluster creation (cached for sorting)
+    completeness_score = models.FloatField(default=0.0)
+
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = "references"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["cluster", "reference"],
+                name="unique_reference_per_cluster",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["reference", "role"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Member {self.reference_id} in {self.cluster_id} [{self.role}]"
+
+
+# ---------------------------------------------------------------------------
+# Union-Find helper
+# ---------------------------------------------------------------------------
+
+
+class UnionFind:
+    """Weighted quick-union with path compression."""
+
+    def __init__(self):
+        self.parent: dict[int, int] = {}
+        self.rank: dict[int, int] = {}
+
+    def find(self, x: int) -> int:
+        if x not in self.parent:
+            self.parent[x] = x
+            self.rank[x] = 0
+        if self.parent[x] != x:
+            self.parent[x] = self.find(self.parent[x])
+        return self.parent[x]
+
+    def union(self, x: int, y: int) -> None:
+        rx, ry = self.find(x), self.find(y)
+        if rx == ry:
+            return
+        if self.rank[rx] < self.rank[ry]:
+            rx, ry = ry, rx
+        self.parent[ry] = rx
+        if self.rank[rx] == self.rank[ry]:
+            self.rank[rx] += 1
+
+    def clusters(self) -> dict[int, list[int]]:
+        """Return {root: [member_ids]} for clusters with ≥2 members."""
+        groups: dict[int, list[int]] = {}
+        for node in self.parent:
+            root = self.find(node)
+            groups.setdefault(root, []).append(node)
+        return {root: members for root, members in groups.items() if len(members) >= 2}
+
+
+# ---------------------------------------------------------------------------
+# Cluster detector
+# ---------------------------------------------------------------------------
+
+
+class DuplicateClusterDetector:
+    """
+    Finds duplicate clusters for a queryset of References.
+
+    Strategy
+    --------
+    1. DOI hard-match: group references that share the same non-empty DOI.
+    2. Fuzzy pg_trgm similarity: weighted score across title/abstract/authors/journal.
+    3. Union-Find merges both signals into clusters.
+    """
+
+    DEFAULT_WEIGHTS = {
+        "title": 0.50,
+        "abstract": 0.30,
+        "authors": 0.15,
+        "journal": 0.05,
+    }
+
+    def __init__(
+        self,
+        queryset,
+        fuzzy_threshold: float = 0.50,
+        weights: dict | None = None,
+    ):
+        # local import to avoid circularity
+
+        self.queryset = queryset
+        self.fuzzy_threshold = fuzzy_threshold
+        self.weights = weights or self.DEFAULT_WEIGHTS
+        self.Reference = Reference
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def detect(self) -> list[dict]:
+        """
+        Returns a list of cluster dicts:
+          {
+            "reference_ids": [int, ...],
+            "doi_match": bool,
+            "pairs": [(id1, id2, score), ...],
+          }
+        """
+        ids = list(self.queryset.values_list("id", flat=True))
+        if len(ids) < 2:
             return []
+
+        uf = UnionFind()
+        edge_scores: dict[tuple[int, int], float] = {}
+        doi_edges: set[tuple[int, int]] = set()
+
+        # 1. DOI hard matches
+        doi_pairs = self._find_doi_pairs(ids)
+        for id1, id2 in doi_pairs:
+            uf.union(id1, id2)
+            key = (min(id1, id2), max(id1, id2))
+            edge_scores[key] = 1.0
+            doi_edges.add(key)
+
+        # 2. Fuzzy matches
+        fuzzy_pairs = self._find_fuzzy_pairs(ids)
+        for id1, id2, score in fuzzy_pairs:
+            uf.union(id1, id2)
+            key = (min(id1, id2), max(id1, id2))
+            # Keep best score if the pair appeared via both signals
+            edge_scores[key] = max(edge_scores.get(key, 0.0), score)
+
+        # 3. Build cluster records
+        clusters_raw = uf.clusters()
+        result = []
+        for root, members in clusters_raw.items():
+            member_set = set(members)
+            cluster_pairs = [
+                (k[0], k[1], v)
+                for k, v in edge_scores.items()
+                if k[0] in member_set and k[1] in member_set
+            ]
+            is_doi = all(
+                (min(id1, id2), max(id1, id2)) in doi_edges
+                for id1, id2 in [(p[0], p[1]) for p in cluster_pairs]
+            ) and bool(cluster_pairs)
+            result.append(
+                {
+                    "reference_ids": members,
+                    "doi_match": is_doi,
+                    "pairs": cluster_pairs,
+                }
+            )
+        return result
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _find_doi_pairs(self, ids: list[int]) -> list[tuple[int, int]]:
+        """
+        Find pairs of references that share the same non-empty, non-null DOI.
+        Normalises DOI to lowercase and strips whitespace in Python (fast enough
+        for DOI matching; avoids needing a custom SQL function).
+        """
+        table = self.Reference._meta.db_table
+        pairs: list[tuple[int, int]] = []
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"""
+                SELECT a.id, b.id
+                FROM {table} a
+                JOIN {table} b ON a.id < b.id
+                WHERE a.id = ANY(%(ids)s)
+                  AND b.id = ANY(%(ids)s)
+                  AND a.doi <> ''
+                  AND b.doi <> ''
+                  AND lower(trim(a.doi)) = lower(trim(b.doi))
+                """,
+                {"ids": ids},
+            )
+            pairs = cursor.fetchall()
+
+        return [(int(r[0]), int(r[1])) for r in pairs]
+
+    def _find_fuzzy_pairs(self, ids: list[int]) -> list[tuple[int, int, float]]:
+        """
+        Find pairs above the fuzzy threshold using pg_trgm similarity.
+        Returns [(id1, id2, weighted_score), ...] where id1 < id2.
+        """
+        table = self.Reference._meta.db_table
+        w = self.weights
 
         with connection.cursor() as cursor:
             cursor.execute(
@@ -261,321 +519,382 @@ class ReferenceDuplicatePair(models.Model):
                     a.id AS id1,
                     b.id AS id2,
                     (
-                        similarity(a.title, b.title) * %(title_weight)s +
-                        similarity(a.abstract, b.abstract) * %(abstract_weight)s +
-                        similarity(a.authors, b.authors) * %(authors_weight)s +
-                        similarity(a.journal, b.journal) * %(journal_weight)s
+                        similarity(a.title,    b.title)    * %(w_title)s +
+                        similarity(a.abstract, b.abstract) * %(w_abstract)s +
+                        similarity(a.authors,  b.authors)  * %(w_authors)s +
+                        similarity(a.journal,  b.journal)  * %(w_journal)s
                     ) AS sim
                 FROM {table} a
                 JOIN {table} b ON a.id < b.id
                 WHERE a.id = ANY(%(ids)s)
-                AND b.id = ANY(%(ids)s)
-                AND (
-                    similarity(a.title, b.title) * %(title_weight)s +
-                    similarity(a.abstract, b.abstract) * %(abstract_weight)s +
-                    similarity(a.authors, b.authors) * %(authors_weight)s +
-                    similarity(a.journal, b.journal) * %(journal_weight)s
-                ) > %(threshold)s
+                  AND b.id = ANY(%(ids)s)
+                  AND (
+                    similarity(a.title,    b.title)    * %(w_title)s +
+                    similarity(a.abstract, b.abstract) * %(w_abstract)s +
+                    similarity(a.authors,  b.authors)  * %(w_authors)s +
+                    similarity(a.journal,  b.journal)  * %(w_journal)s
+                  ) > %(threshold)s
                 ORDER BY sim DESC
                 """,
                 {
                     "ids": ids,
-                    "threshold": threshold,
-                    "title_weight": weights["title"],
-                    "abstract_weight": weights["abstract"],
-                    "authors_weight": weights["authors"],
-                    "journal_weight": weights["journal"],
+                    "threshold": self.fuzzy_threshold,
+                    "w_title": w["title"],
+                    "w_abstract": w["abstract"],
+                    "w_authors": w["authors"],
+                    "w_journal": w["journal"],
                 },
             )
-            return cursor.fetchall()
+            rows = cursor.fetchall()
 
-    @classmethod
-    @transaction.atomic
-    def _create_pairs(cls, review, raw_pairs):
-        """
-        Create DuplicatePair objects from detected pairs.
-        Skip pairs that already exist (resolved or not).
-        Only sets duplicate_status to 'Unresolved' for new pairs.
-        """
-        # Get existing pairs to avoid recreating them
-        existing_pairs = set(
-            cls.objects.filter(review=review).values_list(
-                "reference1_id", "reference2_id"
-            )
-        )
+        return [(int(r[0]), int(r[1]), float(r[2])) for r in rows]
 
-        to_create = []
-        new_reference_ids = set()
 
-        for r in raw_pairs:
-            pair_key = (r[0], r[1])
-            # Skip if this pair already exists
-            if pair_key not in existing_pairs:
-                to_create.append(
-                    ReferenceDuplicatePair(
-                        review=review,
-                        reference1_id=r[0],
-                        reference2_id=r[1],
-                        similarity_score=r[2],
-                    )
-                )
-                new_reference_ids.update([r[0], r[1]])
+# ---------------------------------------------------------------------------
+# Completeness scorer (same logic as before, now standalone)
+# ---------------------------------------------------------------------------
 
-        created = len(cls.objects.bulk_create(to_create, ignore_conflicts=True))
 
-        # Only update references that are part of NEW pairs AND currently marked as 'Unique'
-        if new_reference_ids:
-            Reference.objects.filter(
-                id__in=new_reference_ids, duplicate_status="Unique"
-            ).update(duplicate_status="Unresolved")
+def calculate_completeness(reference) -> float:
+    score = 0.0
+    max_score = 10.5
 
-        return created
+    if reference.title:
+        score += min(2.0, len(reference.title) / 50)
+    if reference.abstract:
+        score += min(2.0, len(reference.abstract) / 200)
+    if reference.authors:
+        score += min(1.5, len(reference.authors) / 50)
+    if reference.journal:
+        score += 1.0
+    if reference.doi:
+        score += 1.5
+    if reference.publication_date:
+        score += 1.0
+    if reference.pages:
+        score += 0.5
+    if getattr(reference, "has_pdf", False):
+        score += 1.0
 
-    @classmethod
-    def create_pairs(cls, review, queryset, threshold=0.5):
-        """Find and create DuplicatePair objects from detected pairs. queryset is a Reference queryset."""
-        raw_pairs = cls._find_pairs(queryset, threshold)
-        created_count = cls._create_pairs(review, raw_pairs)
-        return created_count
+    return score / max_score if max_score > 0 else 0.0
 
-    @classmethod
-    def auto_resolve_duplicates(
-        cls,
-        review,
-        confidence_threshold=0.90,
-        criteria=None,
-        text_normalization=False,
-        preferred_search_method_id=None,
+
+# ---------------------------------------------------------------------------
+# Cluster manager
+# ---------------------------------------------------------------------------
+
+
+class DuplicateClusterManager:
+    """
+    Orchestrates cluster detection, persistence, and auto-resolution.
+
+    Usage
+    -----
+        manager = DuplicateClusterManager(review)
+        stats = manager.run(queryset=review.reference_set.filter(...))
+    """
+
+    def __init__(
+        self, review, fuzzy_threshold: float = 0.50, weights: dict | None = None
     ):
-        """
-        Auto-resolve duplicate pairs with high similarity and matching criteria
-        Uses PostgreSQL for text normalization
-        """
-        criteria = criteria or {}
+        self.review = review
+        self.fuzzy_threshold = fuzzy_threshold
+        self.weights = weights
 
-        # Get unresolved pairs with high confidence
-        high_confidence_pairs = cls.objects.filter(
-            review=review, resolved=False, similarity_score__gte=confidence_threshold
-        ).select_related(
-            "reference1",
-            "reference2",
-            "reference1__search_method",
-            "reference2__search_method",
+    # ------------------------------------------------------------------
+    # Detection + persistence
+    # ------------------------------------------------------------------
+
+    @transaction.atomic
+    def run(self, queryset=None) -> dict:
+        """
+        Detect clusters and persist new ones.
+        Returns stats dict.
+        """
+        # local import
+
+        if queryset is None:
+            queryset = Reference.objects.filter(review=self.review)
+
+        detector = DuplicateClusterDetector(
+            queryset,
+            fuzzy_threshold=self.fuzzy_threshold,
+            weights=self.weights,
+        )
+        raw_clusters = detector.detect()
+
+        # Load references for completeness scoring
+        ref_ids_all = {rid for c in raw_clusters for rid in c["reference_ids"]}
+        refs_by_id = {r.id: r for r in Reference.objects.filter(id__in=ref_ids_all)}
+
+        # Find which references are already in an unresolved cluster for this review
+        already_clustered = set(
+            ReferenceClusterMember.objects.filter(
+                cluster__review=self.review,
+                cluster__status=ReferenceCluster.Status.UNRESOLVED,
+                reference_id__in=ref_ids_all,
+            ).values_list("reference_id", flat=True)
         )
 
-        auto_resolved_count = 0
-        kept_references_count = 0
-        removed_references_count = 0
+        created_clusters = 0
+        skipped = 0
 
-        for pair in high_confidence_pairs:
-            ref1 = pair.reference1
-            ref2 = pair.reference2
+        for raw in raw_clusters:
+            member_ids = raw["reference_ids"]
+            new_ids = set(member_ids) - already_clustered
 
-            # Check additional criteria using PostgreSQL if text normalization is enabled
-            if text_normalization and any(
-                [
-                    criteria.get("authors"),
-                    criteria.get("title"),
-                    criteria.get("journal"),
-                    criteria.get("doi"),
-                    criteria.get("pages"),
-                ]
-            ):
-                # Build SQL query to check criteria using PostgreSQL normalization
-                criteria_match = cls._check_normalized_criteria(ref1, ref2, criteria)
-            else:
-                # Check criteria without normalization
-                criteria_match = cls._check_criteria(ref1, ref2, criteria)
-
-            if not criteria_match:
+            # All members already in active clusters → nothing to do
+            if not new_ids and not self._cluster_changed(raw, already_clustered):
+                skipped += 1
                 continue
 
-            # Determine which reference to keep
-            kept = None
-            removed = None
+            # Check if any of the new_ids' existing clusters should be merged
+            # For simplicity: create a new cluster for truly new groups.
+            # A production system might merge existing clusters here.
+            cluster = ReferenceCluster.objects.create(
+                review=self.review,
+                doi_match=raw["doi_match"],
+                max_similarity_score=max((p[2] for p in raw["pairs"]), default=0.0),
+            )
 
-            # Priority 1: Preferred search method
-            if preferred_search_method_id:
-                if (
-                    ref1.search_method_id == preferred_search_method_id
-                    and ref2.search_method_id != preferred_search_method_id
-                ):
-                    kept = ref1
-                    removed = ref2
-                elif (
-                    ref2.search_method_id == preferred_search_method_id
-                    and ref1.search_method_id != preferred_search_method_id
-                ):
-                    kept = ref2
-                    removed = ref1
+            # Build pair lookup for best_similarity_score per member
+            best_scores: dict[int, float] = {}
+            doi_members: set[int] = set()
 
-            # Priority 2: Completeness score (if search method didn't determine)
-            if not kept:
-                ref1_score = cls._calculate_completeness(ref1)
-                ref2_score = cls._calculate_completeness(ref2)
+            for id1, id2, score in raw["pairs"]:
+                best_scores[id1] = max(best_scores.get(id1, 0.0), score)
+                best_scores[id2] = max(best_scores.get(id2, 0.0), score)
 
-                if ref1_score >= ref2_score:
-                    kept = ref1
-                    removed = ref2
-                else:
-                    kept = ref2
-                    removed = ref1
+            if raw["doi_match"]:
+                doi_members.update(member_ids)
 
-            # Mark the removed one as duplicate
-            removed.duplicate_status = Reference.DuplicateStatus.DELETED
-            removed.save()
-
-            # Mark the kept one as unique
-            kept.duplicate_status = Reference.DuplicateStatus.RESOLVED
-            kept.save()
-
-            # Mark pair as auto-resolved
-            pair.resolved = True
-            pair.auto_resolved = True
-            pair.save()
-
-            auto_resolved_count += 1
-            kept_references_count += 1
-            removed_references_count += 1
+            members_to_create = []
+            for rid in member_ids:
+                ref = refs_by_id.get(rid)
+                members_to_create.append(
+                    ReferenceClusterMember(
+                        cluster=cluster,
+                        reference_id=rid,
+                        best_similarity_score=best_scores.get(rid, 0.0),
+                        doi_matched=rid in doi_members,
+                        completeness_score=calculate_completeness(ref) if ref else 0.0,
+                    )
+                )
+            ReferenceClusterMember.objects.bulk_create(members_to_create)
+            created_clusters += 1
 
         return {
-            "auto_resolved": auto_resolved_count,
-            "kept_references": kept_references_count,
-            "removed_references": removed_references_count,
+            "raw_clusters_found": len(raw_clusters),
+            "clusters_created": created_clusters,
+            "clusters_skipped": skipped,
         }
 
-    @classmethod
-    def _check_normalized_criteria(cls, ref1, ref2, criteria):
+    def _cluster_changed(self, raw: dict, already_clustered: set) -> bool:
+        """Heuristic: if any member is NOT yet clustered, the cluster is new/changed."""
+        return any(rid not in already_clustered for rid in raw["reference_ids"])
+
+    # ------------------------------------------------------------------
+    # Auto-resolution
+    # ------------------------------------------------------------------
+
+    @transaction.atomic
+    def auto_resolve(
+        self,
+        confidence_threshold: float = 0.90,
+        doi_clusters_always: bool = True,
+        preferred_search_method_id: int | None = None,
+        resolved_by=None,
+    ) -> dict:
         """
-        Check criteria using PostgreSQL's normalize_text function
+        Auto-resolve clusters where confidence is high enough.
+
+        doi_clusters_always=True → resolve DOI clusters regardless of score.
         """
-        with connection.cursor() as cursor:
-            conditions = []
-            params = []
 
-            if criteria.get("authors"):
-                conditions.append("normalize_text(%s) = normalize_text(%s)")
-                params.extend([ref1.authors or "", ref2.authors or ""])
+        clusters = ReferenceCluster.objects.filter(
+            review=self.review,
+            status=ReferenceCluster.Status.UNRESOLVED,
+        ).prefetch_related("members__reference")
 
-            if criteria.get("title"):
-                conditions.append("normalize_text(%s) = normalize_text(%s)")
-                params.extend([ref1.title or "", ref2.title or ""])
+        auto_resolved = 0
+        kept = 0
+        removed = 0
 
-            if criteria.get("journal"):
-                conditions.append("normalize_text(%s) = normalize_text(%s)")
-                params.extend([ref1.journal or "", ref2.journal or ""])
+        for cluster in clusters:
+            should_resolve = (
+                doi_clusters_always and cluster.doi_match
+            ) or cluster.max_similarity_score >= confidence_threshold
 
-            if criteria.get("doi"):
-                conditions.append("normalize_text(%s) = normalize_text(%s)")
-                params.extend([ref1.doi or "", ref2.doi or ""])
+            if not should_resolve:
+                continue
 
-            if criteria.get("pages"):
-                conditions.append("normalize_text(%s) = normalize_text(%s)")
-                params.extend([ref1.pages or "", ref2.pages or ""])
+            members = list(cluster.members.select_related("reference"))
+            if len(members) < 2:
+                continue
 
-            if criteria.get("year"):
-                year1 = ref1.publication_date.year if ref1.publication_date else None
-                year2 = ref2.publication_date.year if ref2.publication_date else None
-                if year1 != year2:
-                    return False
+            canonical_member = self._pick_canonical(members, preferred_search_method_id)
+            canonical_ref = canonical_member.reference
 
-            # If no text conditions, return True
-            if not conditions:
-                return True
+            # Update roles + reference statuses
+            ref_updates_canonical = []
+            ref_updates_duplicate = []
 
-            # Check all conditions in single query
-            sql = f"SELECT {' AND '.join(conditions)}"
-            cursor.execute(sql, params)
-            result = cursor.fetchone()
+            for m in members:
+                if m.id == canonical_member.id:
+                    m.role = ReferenceClusterMember.Role.CANONICAL
+                    ref_updates_canonical.append(m.reference_id)
+                else:
+                    m.role = ReferenceClusterMember.Role.DUPLICATE
+                    ref_updates_duplicate.append(m.reference_id)
 
-            return result[0] if result else False
+            ReferenceClusterMember.objects.bulk_update(members, ["role"])
 
-    @classmethod
-    def _check_criteria(cls, ref1, ref2, criteria):
+            # Update canonical reference
+            Reference.objects.filter(id__in=ref_updates_canonical).update(
+                duplicate_status=Reference.DuplicateStatus.RESOLVED
+            )
+            # Mark duplicates as deleted
+            Reference.objects.filter(id__in=ref_updates_duplicate).update(
+                duplicate_status=Reference.DuplicateStatus.DELETED
+            )
+
+            # Resolve the cluster
+            cluster.status = ReferenceCluster.Status.AUTO_RESOLVED
+            cluster.canonical_reference = canonical_ref
+            cluster.resolved_at = timezone.now()
+            cluster.resolved_by = resolved_by
+            cluster.save(
+                update_fields=[
+                    "status",
+                    "canonical_reference",
+                    "resolved_at",
+                    "resolved_by",
+                ]
+            )
+
+            auto_resolved += 1
+            kept += 1
+            removed += len(ref_updates_duplicate)
+
+        return {
+            "auto_resolved": auto_resolved,
+            "kept_references": kept,
+            "removed_references": removed,
+        }
+
+    @transaction.atomic
+    def manually_resolve(
+        self,
+        cluster: ReferenceCluster,
+        canonical_reference_id: int,
+        resolved_by=None,
+    ) -> None:
         """
-        Check criteria without normalization (exact match)
+        Manually resolve a cluster by choosing a canonical reference.
         """
-        if criteria.get("authors"):
-            if (ref1.authors or "") != (ref2.authors or ""):
-                return False
 
-        if criteria.get("title"):
-            if (ref1.title or "") != (ref2.title or ""):
-                return False
+        members = list(cluster.members.select_related("reference"))
 
-        if criteria.get("journal"):
-            if (ref1.journal or "") != (ref2.journal or ""):
-                return False
+        canonical_ids = [canonical_reference_id]
+        duplicate_ids = [
+            m.reference_id for m in members if m.reference_id != canonical_reference_id
+        ]
 
-        if criteria.get("year"):
-            year1 = ref1.publication_date.year if ref1.publication_date else None
-            year2 = ref2.publication_date.year if ref2.publication_date else None
-            if year1 != year2:
-                return False
+        for m in members:
+            if m.reference_id == canonical_reference_id:
+                m.role = ReferenceClusterMember.Role.CANONICAL
+            else:
+                m.role = ReferenceClusterMember.Role.DUPLICATE
+        ReferenceClusterMember.objects.bulk_update(members, ["role"])
 
-        if criteria.get("doi"):
-            if (ref1.doi or "") != (ref2.doi or ""):
-                return False
+        Reference.objects.filter(id__in=canonical_ids).update(
+            duplicate_status=Reference.DuplicateStatus.RESOLVED
+        )
+        Reference.objects.filter(id__in=duplicate_ids).update(
+            duplicate_status=Reference.DuplicateStatus.DELETED
+        )
 
-        if criteria.get("pages"):
-            if (ref1.pages or "") != (ref2.pages or ""):
-                return False
+        cluster.status = ReferenceCluster.Status.MANUALLY_RESOLVED
+        cluster.canonical_reference_id = canonical_reference_id
+        cluster.resolved_at = timezone.now()
+        cluster.resolved_by = resolved_by
+        cluster.save(
+            update_fields=[
+                "status",
+                "canonical_reference_id",
+                "resolved_at",
+                "resolved_by",
+            ]
+        )
 
-        return True
+    # ------------------------------------------------------------------
+    # Internal
+    # ------------------------------------------------------------------
 
-    @staticmethod
-    def _calculate_completeness(reference):
+    def _pick_canonical(
+        self,
+        members: list[ReferenceClusterMember],
+        preferred_search_method_id: int | None,
+    ) -> ReferenceClusterMember:
         """
-        Calculate how complete a reference is (0.0 to 1.0)
-        Higher score = more complete
+        Pick the best member to keep.
+
+        Priority:
+          1. DOI-matched member (hard evidence it's the "real" record)
+          2. Preferred search method
+          3. Highest completeness score
+          4. Tie-break: lowest id (deterministic)
         """
-        score = 0.0
-        max_score = 0.0
+        # 1. DOI match preferred
+        doi_members = [m for m in members if m.doi_matched]
+        if doi_members:
+            members = doi_members
 
-        # Title (required, but check length)
-        max_score += 2.0
-        if reference.title:
-            score += min(2.0, len(reference.title) / 50)  # Full points if >50 chars
+        # 2. Preferred search method
+        if preferred_search_method_id:
+            method_members = [
+                m
+                for m in members
+                if m.reference.search_method_id == preferred_search_method_id
+            ]
+            if method_members:
+                members = method_members
 
-        # Abstract
-        max_score += 2.0
-        if reference.abstract:
-            score += min(2.0, len(reference.abstract) / 200)
+        # 3. Best completeness, then lowest id
+        return max(members, key=lambda m: (m.completeness_score, -m.reference_id))
 
-        # Authors
-        max_score += 1.5
-        if reference.authors:
-            score += min(1.5, len(reference.authors) / 50)
 
-        # Journal
-        max_score += 1.0
-        if reference.journal:
-            score += 1.0
+# ---------------------------------------------------------------------------
+# Convenience: top-level run function (for tasks / management commands)
+# ---------------------------------------------------------------------------
 
-        # DOI (important!)
-        max_score += 1.5
-        if reference.doi:
-            score += 1.5
 
-        # Publication date
-        max_score += 1.0
-        if reference.publication_date:
-            score += 1.0
+def detect_and_persist_clusters(
+    review,
+    queryset=None,
+    fuzzy_threshold: float = 0.50,
+    weights: dict | None = None,
+) -> dict:
+    manager = DuplicateClusterManager(
+        review, fuzzy_threshold=fuzzy_threshold, weights=weights
+    )
+    return manager.run(queryset=queryset)
 
-        # Pages
-        max_score += 0.5
-        if reference.pages:
-            score += 0.5
 
-        # PDF file
-        max_score += 1.0
-        if reference.has_pdf:
-            score += 1.0
-
-        return (score / max_score) if max_score > 0 else 0.0
-
-    def __str__(self):
-        return f"DuplicatePair({self.reference1.id}, {self.reference2.id})"
+def auto_resolve_clusters(
+    review,
+    confidence_threshold: float = 0.90,
+    doi_clusters_always: bool = True,
+    preferred_search_method_id: int | None = None,
+    resolved_by=None,
+) -> dict:
+    manager = DuplicateClusterManager(review)
+    return manager.auto_resolve(
+        confidence_threshold=confidence_threshold,
+        doi_clusters_always=doi_clusters_always,
+        preferred_search_method_id=preferred_search_method_id,
+        resolved_by=resolved_by,
+    )
 
 
 class Reason(models.Model):
