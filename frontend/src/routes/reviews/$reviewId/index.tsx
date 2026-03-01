@@ -22,7 +22,6 @@ import { AppLayoutContext } from '@/context/app-layout-context';
 import { FileUploadDialog } from '@/components/blocks/file-upload-dialog';
 import { ReviewMembersTable } from '@/features/reviews/components/review-members/review-members-table';
 import { can } from '@/lib/permissions';
-import { StatsTabs } from '@/features/reviews/components/screening-stats/stats-tabs';
 import {
   Collapsible,
   CollapsibleContent,
@@ -31,6 +30,7 @@ import {
 import { ZoteroSyncPanel } from '@/features/integrations/components/zotero/zotero-sync-panel';
 import { useFetchReviewMembers } from '@/features/reviews/hooks/use-review-members';
 import { ScreeningCriteriaCard } from '@/features/reviews/components/screening-criteria/screening-criteria-card';
+import { StatsSection } from '@/features/reviews/components/screening-stats/stats-section';
 
 export const Route = createFileRoute('/reviews/$reviewId/')({
   component: ReviewPage,
@@ -368,46 +368,7 @@ function ReviewPage() {
         </Collapsible>
 
         {/* Statistics Section - Collapsible */}
-        <Collapsible>
-          <Card className="py-0">
-            <CollapsibleTrigger asChild>
-              <button className="group flex w-full items-center justify-between p-6 hover:bg-accent/50 transition-colors rounded-t-lg">
-                <h2 className="text-xl font-semibold text-foreground">
-                  Statistics
-                </h2>
-                <ChevronDownIcon className="h-5 w-5 transition-transform group-data-[state=open]:rotate-180" />
-              </button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="px-6 pb-6">
-                {isLoading ? (
-                  <div className="space-y-4">
-                    {/* Tabs skeleton */}
-                    <div className="flex gap-2 border-b">
-                      <Skeleton className="h-10 w-32" />
-                      <Skeleton className="h-10 w-32" />
-                      <Skeleton className="h-10 w-32" />
-                    </div>
-                    {/* Chart skeleton */}
-                    <div className="space-y-4">
-                      <div className="flex gap-4">
-                        <Skeleton className="h-16 w-32" />
-                        <Skeleton className="h-16 w-32" />
-                      </div>
-                      <Skeleton className="h-100 w-full" />
-                    </div>
-                  </div>
-                ) : (
-                  <StatsTabs
-                    screeningStats={data?.screeningStats || []}
-                    screeningOpinions={data?.screeningOpinions || []}
-                    fullTextOpinions={data?.fullTextOpinions || []}
-                  />
-                )}
-              </div>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
+        <StatsSection reviewId={reviewId} />
       </div>
     </>
   );
