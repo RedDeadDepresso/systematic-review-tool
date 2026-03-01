@@ -27,13 +27,13 @@ function StatsSkeleton() {
 }
 
 export function StatsTabs({ reviewId }: StatsTabsProps) {
-  const [screeningOpinionsEnabled, setScreeningOpinionsEnabled] =
-    useState(false);
-  const [fullTextOpinionsEnabled, setFullTextOpinionsEnabled] = useState(false);
   const fetchScreeningStats = useFetchScreeningStats({
     reviewId,
     enabled: true,
   });
+  const [screeningOpinionsEnabled, setScreeningOpinionsEnabled] =
+    useState(false);
+  const [fullTextOpinionsEnabled, setFullTextOpinionsEnabled] = useState(false);
   const fetchscreeningOpinions = useFetchScreeningOpinions({
     reviewId,
     enabled: screeningOpinionsEnabled,
@@ -43,8 +43,15 @@ export function StatsTabs({ reviewId }: StatsTabsProps) {
     enabled: fullTextOpinionsEnabled,
   });
 
+  const onTabChange = (value: string) => {
+    if (value === 'screening' && !screeningOpinionsEnabled)
+      setScreeningOpinionsEnabled(true);
+    if (value === 'fulltext' && !fullTextOpinionsEnabled)
+      setFullTextOpinionsEnabled(true);
+  };
+
   return (
-    <Tabs defaultValue="time" className="w-full">
+    <Tabs defaultValue="time" className="w-full" onValueChange={onTabChange}>
       <TabsList className="grid w-full grid-cols-3 h-auto">
         <TabsTrigger
           value="time"
@@ -56,7 +63,6 @@ export function StatsTabs({ reviewId }: StatsTabsProps) {
         <TabsTrigger
           value="screening"
           className="gap-1 sm:gap-2 flex-col sm:flex-row py-2"
-          onClick={() => setScreeningOpinionsEnabled(true)}
         >
           <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
           <span className="text-xs sm:text-sm">Screening</span>
@@ -64,7 +70,6 @@ export function StatsTabs({ reviewId }: StatsTabsProps) {
         <TabsTrigger
           value="fulltext"
           className="gap-1 sm:gap-2 flex-col sm:flex-row py-2"
-          onClick={() => setFullTextOpinionsEnabled(true)}
         >
           <FileCheck className="h-3 w-3 sm:h-4 sm:w-4" />
           <span className="text-xs sm:text-sm">Full-Text</span>
