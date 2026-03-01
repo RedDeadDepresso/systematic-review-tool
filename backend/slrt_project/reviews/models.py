@@ -2,6 +2,8 @@ import os
 import uuid
 
 from django.db import models
+from django.db.models import Count, F, Q, Value
+from django.db.models.functions import Concat
 
 
 # Create your models here.
@@ -24,6 +26,41 @@ class Review(models.Model):
     is_active = models.BooleanField(default=True)
     is_blinded = models.BooleanField(default=True)
     prisma_file = models.FileField(upload_to="prisma_diagrams/", blank=True, null=True)
+
+    def compute_opinion_stats(self, stage, user=None):
+        from slrt_project.references.models import (
+            ReferenceOpinion,
+            ReferenceOpinionStatus,
+        )
+
+        qs = ReferenceOpinion.objects.filter(
+            member__review=self,
+            stage=stage,
+        ).select_related("member__user")
+
+        if self.is_blinded and user:
+            qs = qs.filter(member__user=user)
+
+        stats = (
+            qs.values(
+                "member_id",
+                user_name=Concat(
+                    F("member__user__first_name"),
+                    Value(" "),
+                    F("member__user__last_name"),
+                ),
+                user_email=F("member__user__email"),
+            )
+            .annotate(
+                excluded=Count("id", filter=Q(status=ReferenceOpinionStatus.EXCLUDED)),
+                maybe=Count("id", filter=Q(status=ReferenceOpinionStatus.MAYBE)),
+                included=Count("id", filter=Q(status=ReferenceOpinionStatus.INCLUDED)),
+                total=Count("id"),
+            )
+            .order_by("-total")
+        )
+
+        return list(stats)
 
     def __str__(self):
         return self.title
