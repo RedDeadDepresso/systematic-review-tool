@@ -27,6 +27,7 @@ interface ReferenceRowProps {
   highlightIncludeKeywords: string[];
   highlightExcludeKeywords: string[];
   onOpenPDF: (referenceId: number) => void;
+  onAttachPDF?: () => void;
 }
 
 export function PDFBadge({
@@ -252,6 +253,7 @@ export function ReferenceRowTitleFile({
   highlightIncludeKeywords,
   highlightExcludeKeywords,
   onOpenPDF,
+  onAttachPDF,
 }: ReferenceRowProps) {
   return (
     <div
@@ -371,11 +373,7 @@ export function ReferenceRowTitleFile({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onOpenPDF(ref.id)}
-            >
+            <Button variant="outline" size="sm" onClick={() => onAttachPDF?.()}>
               <Paperclip />
             </Button>
           </TooltipTrigger>

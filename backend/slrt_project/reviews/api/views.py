@@ -43,12 +43,14 @@ from slrt_project.reviews.api.filters import ReviewFilter
 from slrt_project.reviews.api.serializers import (
     AddDataSerializer,
     ArticleCountSerializer,
+    OpinionStatsSerializer,
     ReviewInvitationCreateSerializer,
     ReviewInvitationSerializer,
     ReviewListSerializer,
     ReviewMemberSerializer,
     ReviewSerializer,
     ScreeningCriteriaSerializer,
+    ScreeningStatSerializer,
     SearchMethodSerializer,
 )
 from slrt_project.reviews.models import (
@@ -56,6 +58,7 @@ from slrt_project.reviews.models import (
     ReviewInvitation,
     ReviewMember,
     ScreeningCriteria,
+    ScreeningStat,
     SearchMethod,
 )
 from slrt_project.reviews.tasks import (
@@ -220,6 +223,38 @@ class ReviewViewSet(viewsets.ModelViewSet):
             members, many=True, context={"request": request}
         ).data
         return Response(members_data)
+
+    @action(detail=True, methods=["get"], url_path="screening-stats")
+    def screening_stats(self, request, pk=None):
+        review = self.get_object()
+        user = request.user
+
+        qs = ScreeningStat.objects.filter(member__review=review).select_related(
+            "member__user"
+        )
+
+        if review.is_blinded:
+            qs = qs.filter(member__user=user)
+
+        serializer = ScreeningStatSerializer(qs.order_by("-seconds"), many=True)
+
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["get"], url_path="screening-opinions")
+    def screening_opinions(self, request, pk=None):
+        review = self.get_object()
+        data = review.compute_opinion_stats(
+            ReferenceOpinion.Stage.SCREENING, request.user
+        )
+        return Response(OpinionStatsSerializer(data, many=True).data)
+
+    @action(detail=True, methods=["get"], url_path="full-text-opinions")
+    def full_text_opinions(self, request, pk=None):
+        review = self.get_object()
+        data = review.compute_opinion_stats(
+            ReferenceOpinion.Stage.FULL_TEXT, request.user
+        )
+        return Response(OpinionStatsSerializer(data, many=True).data)
 
     @action(detail=True, methods=["post"], url_path="upload-references")
     def upload_references(self, request, pk=None):

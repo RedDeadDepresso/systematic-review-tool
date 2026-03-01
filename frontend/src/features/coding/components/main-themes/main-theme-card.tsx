@@ -76,6 +76,7 @@ export function MainThemeCard({
   return (
     <>
       <Card
+        ref={setNodeRef}
         className={`transition-colors ${compact ? 'bg-secondary' : 'bg-card'} ${
           isOver ? 'ring-2 ring-primary bg-primary/5' : ''
         }`}
@@ -153,7 +154,6 @@ export function MainThemeCard({
           <CardContent className={compact ? 'p-2 pt-0' : 'p-4 pt-2'}>
             {/* Drop zone for sub-themes */}
             <div
-              ref={setNodeRef}
               className={`${
                 compact
                   ? 'min-h-[40px] p-2 space-y-2'

@@ -5,6 +5,7 @@ import type {
   SortField,
 } from '@/features/references/types/references';
 import type { ReferenceWithAnswers } from '@/features/extraction/types/extraction';
+import { useWindowSize } from 'usehooks-ts';
 
 type ReferenceType = Reference | ReferenceWithAnswers;
 
@@ -35,23 +36,13 @@ export function useReferenceUI<T extends ReferenceType>(
 
   // PDF dialog state
   const [openPDFId, setOpenPDFId] = useState<number | null>(null);
+  const { width } = useWindowSize();
 
-  // Auto-collapse sidebars on mobile
   useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth >= 1280) {
-        setIsSourcesSidebarCollapsed(false);
-        setIsFiltersSidebarCollapsed(false);
-      } else {
-        setIsSourcesSidebarCollapsed(true);
-        setIsFiltersSidebarCollapsed(true);
-      }
-    };
-
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    const isDesktop = width >= 1280;
+    setIsSourcesSidebarCollapsed(!isDesktop);
+    setIsFiltersSidebarCollapsed(!isDesktop);
+  }, [width]);
 
   // Sorted references
   const sortedReferences = useMemo(() => {

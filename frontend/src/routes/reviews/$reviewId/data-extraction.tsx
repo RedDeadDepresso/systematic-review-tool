@@ -11,6 +11,7 @@ import { useFetchReview } from '@/features/reviews/hooks/use-reviews';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useContext, useEffect } from 'react';
+import { SavedPDFDialog } from '@/features/references/components/uploaded-pdfs/saved-pdf-dialog';
 
 export const Route = createFileRoute('/reviews/$reviewId/data-extraction')({
   component: RouteComponent,
@@ -87,6 +88,13 @@ function RouteComponent() {
           onAutoMatch={fileUpload.handleAutoMatch}
         />
       )}
+      {fileUpload.openSavedPDFDialog && (
+        <SavedPDFDialog
+          reviewId={reviewId}
+          open={fileUpload.openSavedPDFDialog}
+          onOpenChange={fileUpload.setopenSavedPDFDialog}
+        />
+      )}
       <div className="h-full flex flex-col overflow-hidden bg-background">
         <DataExtractionTable
           reviewId={reviewId}
@@ -118,6 +126,7 @@ function RouteComponent() {
           }
           onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
           onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
+          onSavedPDF={() => fileUpload.setopenSavedPDFDialog(true)}
         />
       </div>
     </>

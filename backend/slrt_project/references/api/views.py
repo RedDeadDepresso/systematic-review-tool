@@ -685,6 +685,8 @@ class UploadedPDFViewSet(viewsets.ModelViewSet):
 
     serializer_class = UploadedPDFSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [filters.DjangoFilterBackend]
+    filterset_fields = ["review"]
 
     def get_queryset(self):
         user = self.request.user

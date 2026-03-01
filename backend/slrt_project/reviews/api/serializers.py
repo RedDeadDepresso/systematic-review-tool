@@ -1,9 +1,6 @@
-from django.db.models import Count, F, Q, Value
-from django.db.models.functions import Concat
 from rest_framework import serializers
 
 from slrt_project.integrations.models import ZoteroIntegration
-from slrt_project.references.models import ReferenceOpinion, ReferenceOpinionStatus
 from slrt_project.reviews.models import (
     Review,
     ReviewChatMessage,
@@ -104,10 +101,6 @@ class ReviewSerializer(serializers.ModelSerializer):
         read_only=True, allow_null=True
     )
 
-    screening_stats = serializers.SerializerMethodField()
-    screening_opinions = serializers.SerializerMethodField()
-    full_text_opinions = serializers.SerializerMethodField()
-
     date_created = serializers.DateTimeField(format="%d %b %Y", read_only=True)
 
     class Meta:
@@ -122,9 +115,6 @@ class ReviewSerializer(serializers.ModelSerializer):
             "is_blinded",
             "user_role",
             "user_member_id",
-            "screening_stats",
-            "screening_opinions",
-            "full_text_opinions",
             "duplicate_detection_status",
             "duplicate_resolved_count",
             "duplicate_not_duplicate_count",
@@ -138,60 +128,6 @@ class ReviewSerializer(serializers.ModelSerializer):
 
     def _get_user(self):
         return self.context.get("request").user
-
-    def get_screening_stats(self, obj):
-        user = self._get_user()
-
-        qs = ScreeningStat.objects.filter(member__review=obj).select_related(
-            "member__user"
-        )
-
-        if obj.is_blinded:
-            qs = qs.filter(member__user=user)
-
-        return ScreeningStatSerializer(qs.order_by("-seconds"), many=True).data
-
-    def get_screening_opinions(self, obj):
-        user = self._get_user()
-        data = self.compute_opinion_stats(obj, ReferenceOpinion.Stage.SCREENING, user)
-        return OpinionStatsSerializer(data, many=True).data
-
-    def get_full_text_opinions(self, obj):
-        user = self._get_user()
-        data = self.compute_opinion_stats(obj, ReferenceOpinion.Stage.FULL_TEXT, user)
-        return OpinionStatsSerializer(data, many=True).data
-
-    def compute_opinion_stats(self, review, stage, user=None):
-        """Optimised single-query aggregation for opinion stats."""
-
-        qs = ReferenceOpinion.objects.filter(
-            member__review=review,
-            stage=stage,
-        ).select_related("member__user")
-
-        if review.is_blinded and user:
-            qs = qs.filter(member__user=user)
-
-        stats = (
-            qs.values(
-                "member_id",
-                user_name=Concat(
-                    F("member__user__first_name"),
-                    Value(" "),
-                    F("member__user__last_name"),
-                ),
-                user_email=F("member__user__email"),
-            )
-            .annotate(
-                excluded=Count("id", filter=Q(status=ReferenceOpinionStatus.EXCLUDED)),
-                maybe=Count("id", filter=Q(status=ReferenceOpinionStatus.MAYBE)),
-                included=Count("id", filter=Q(status=ReferenceOpinionStatus.INCLUDED)),
-                total=Count("id"),
-            )
-            .order_by("-total")
-        )
-
-        return list(stats)
 
     def get_has_zotero_integration(self, obj):
         """Check if review has Zotero integration"""

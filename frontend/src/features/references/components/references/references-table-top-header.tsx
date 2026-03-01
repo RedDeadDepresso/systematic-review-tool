@@ -31,6 +31,7 @@ export type ExportType = 'all' | 'filtered';
 
 interface TableTopHeaderProps {
   userRole: ReviewRole;
+  activeFilterCount: number;
   filteredCount: number;
   totalCount: number;
   searchQuery?: string;
@@ -47,6 +48,7 @@ interface TableTopHeaderProps {
 
 export function TableTopHeader({
   userRole,
+  activeFilterCount,
   filteredCount,
   totalCount,
   searchQuery = '',
@@ -205,9 +207,20 @@ export function TableTopHeader({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button variant="outline" size="sm" onClick={onToggleRightCollapse}>
+        <Button
+          onClick={onToggleRightCollapse}
+          variant="outline"
+          size="sm"
+          className="relative inline-flex"
+        >
           <Filter className="h-4 w-4 sm:mr-1" />
           <span className="hidden xl:inline">Filters</span>
+
+          {activeFilterCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex items-center justify-center h-4 w-4 text-[10px] font-bold text-primary-foreground bg-primary rounded-full">
+              {activeFilterCount >= 10 ? '9+' : activeFilterCount}
+            </span>
+          )}
         </Button>
       </div>
     </div>

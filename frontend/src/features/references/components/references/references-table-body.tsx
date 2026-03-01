@@ -134,6 +134,7 @@ interface ReferenceTableBodyProps {
   onOpenDetail: (id: number) => void;
   viewLayout?: ArticleViewLayout;
   onOpenPDF: (referenceId: number) => void;
+  onAttachPDF: () => void;
   isLoading?: boolean;
 }
 
@@ -148,6 +149,7 @@ export function ReferencesTableBody({
   onOpenDetail,
   viewLayout = 'title-only',
   onOpenPDF,
+  onAttachPDF,
   isLoading = false,
 }: ReferenceTableBodyProps) {
   const handleRowClick = (id: number, e: React.MouseEvent) => {
@@ -193,6 +195,7 @@ export function ReferencesTableBody({
     highlightIncludeKeywords,
     highlightExcludeKeywords,
     onOpenPDF,
+    onAttachPDF,
   });
 
   const RowComponent =

@@ -1,25 +1,57 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ReviewScreeningStatsChart } from '@/features/reviews/components/screening-stats/screening-stats-chart';
 import { ReviewOpinionStatsChart } from '@/features/reviews/components/screening-stats/opinion-stats-chart';
-import type {
-  ScreeningStat,
-  OpinionStats,
-} from '@/features/reviews/types/screening-stats';
 import { Clock, FileCheck, FileText } from 'lucide-react';
+import { useState } from 'react';
+import {
+  useFetchFullTextOpinions,
+  useFetchScreeningOpinions,
+  useFetchScreeningStats,
+} from '@/features/reviews/hooks/use-screening-stats';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface StatsTabsProps {
-  screeningStats: ScreeningStat[];
-  screeningOpinions: OpinionStats[];
-  fullTextOpinions: OpinionStats[];
+  reviewId: number;
 }
 
-export function StatsTabs({
-  screeningStats,
-  screeningOpinions,
-  fullTextOpinions,
-}: StatsTabsProps) {
+function StatsSkeleton() {
   return (
-    <Tabs defaultValue="time" className="w-full">
+    <div className="space-y-4">
+      <div className="flex gap-4">
+        <Skeleton className="h-16 w-32" />
+        <Skeleton className="h-16 w-32" />
+      </div>
+      <Skeleton className="h-100 w-full" />
+    </div>
+  );
+}
+
+export function StatsTabs({ reviewId }: StatsTabsProps) {
+  const fetchScreeningStats = useFetchScreeningStats({
+    reviewId,
+    enabled: true,
+  });
+  const [screeningOpinionsEnabled, setScreeningOpinionsEnabled] =
+    useState(false);
+  const [fullTextOpinionsEnabled, setFullTextOpinionsEnabled] = useState(false);
+  const fetchscreeningOpinions = useFetchScreeningOpinions({
+    reviewId,
+    enabled: screeningOpinionsEnabled,
+  });
+  const fetchfullTextOpinions = useFetchFullTextOpinions({
+    reviewId,
+    enabled: fullTextOpinionsEnabled,
+  });
+
+  const onTabChange = (value: string) => {
+    if (value === 'screening' && !screeningOpinionsEnabled)
+      setScreeningOpinionsEnabled(true);
+    if (value === 'fulltext' && !fullTextOpinionsEnabled)
+      setFullTextOpinionsEnabled(true);
+  };
+
+  return (
+    <Tabs defaultValue="time" className="w-full" onValueChange={onTabChange}>
       <TabsList className="grid w-full grid-cols-3 h-auto">
         <TabsTrigger
           value="time"
@@ -45,21 +77,33 @@ export function StatsTabs({
       </TabsList>
 
       <TabsContent value="time" className="mt-4 sm:mt-6">
-        <ReviewScreeningStatsChart stats={screeningStats} />
+        {fetchScreeningStats.isLoading ? (
+          <StatsSkeleton />
+        ) : (
+          <ReviewScreeningStatsChart stats={fetchScreeningStats.data || []} />
+        )}
       </TabsContent>
 
       <TabsContent value="screening" className="mt-4 sm:mt-6">
-        <ReviewOpinionStatsChart
-          opinions={screeningOpinions}
-          stage="screening"
-        />
+        {fetchscreeningOpinions.isLoading ? (
+          <StatsSkeleton />
+        ) : (
+          <ReviewOpinionStatsChart
+            opinions={fetchscreeningOpinions.data || []}
+            stage="screening"
+          />
+        )}
       </TabsContent>
 
       <TabsContent value="fulltext" className="mt-4 sm:mt-6">
-        <ReviewOpinionStatsChart
-          opinions={fullTextOpinions}
-          stage="full-text"
-        />
+        {fetchfullTextOpinions.isLoading ? (
+          <StatsSkeleton />
+        ) : (
+          <ReviewOpinionStatsChart
+            opinions={fetchfullTextOpinions.data || []}
+            stage="full-text"
+          />
+        )}
       </TabsContent>
     </Tabs>
   );

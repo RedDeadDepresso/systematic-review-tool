@@ -1,8 +1,4 @@
 import type { User } from '@/features/users/types/auth';
-import type {
-  OpinionStats,
-  ScreeningStat,
-} from '@/features/reviews/types/screening-stats';
 
 export type ReviewRole = 'Owner' | 'Collaborator' | 'Reviewer' | 'Viewer';
 
@@ -23,9 +19,6 @@ export type Review = {
   userMemberId: number;
   members: ReviewMember[];
   isBlinded: boolean;
-  screeningStats: ScreeningStat[];
-  screeningOpinions: OpinionStats[];
-  fullTextOpinions: OpinionStats[];
   duplicateDetectionStatus: string;
   duplicatePairsCount: number | null;
   duplicatePairsUnresolvedCount: number | null;
