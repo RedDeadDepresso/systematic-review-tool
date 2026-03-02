@@ -140,7 +140,7 @@ export const useDetectDuplicateReferences = () => {
         if (!oldData) return oldData;
         return {
           ...oldData,
-          duplicatePairsCount: null,
+          duplicateClustersCount: null,
           duplicateDetectionStatus: 'Pending',
         };
       });

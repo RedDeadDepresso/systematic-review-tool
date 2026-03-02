@@ -16,11 +16,11 @@ from slrt_project.extraction.api.views import (
 )
 from slrt_project.integrations.api.views import ZoteroIntegrationViewSet
 from slrt_project.references.api.views import (
+    DuplicateClusterViewSet,
     KeywordViewSet,
     LabelViewSet,
     NoteViewSet,
     ReasonViewSet,
-    ReferenceDuplicatePairViewSet,
     ReferenceOpinionViewSet,
     ReferenceViewSet,
     ReviewDataViewSet,
@@ -42,11 +42,6 @@ router = DefaultRouter() if settings.DEBUG else SimpleRouter()
 
 router.register(r"reviews", ReviewViewSet, basename="review")
 router.register(
-    r"reference-duplicates",
-    ReferenceDuplicatePairViewSet,
-    basename="reference-duplicates",
-)
-router.register(
     r"review-invitations", ReviewInvitationViewSet, basename="review-invitation"
 )
 
@@ -61,6 +56,9 @@ router.register(
     r"reference-opinions", ReferenceOpinionViewSet, basename="reference-opinions"
 )
 router.register(r"uploaded-pdfs", UploadedPDFViewSet, basename="uploaded-pdf")
+router.register(
+    r"duplicate-clusters", DuplicateClusterViewSet, basename="duplicate-clusters"
+)
 
 router.register(r"keywords", KeywordViewSet, basename="keyword")
 router.register(r"notes", NoteViewSet, basename="note")

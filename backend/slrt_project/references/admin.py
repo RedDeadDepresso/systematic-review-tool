@@ -6,7 +6,7 @@ from slrt_project.references.models import (
     Note,
     Reason,
     Reference,
-    ReferenceDuplicatePair,
+    ReferenceCluster,
     ReferenceLabel,
     ReferenceOpinion,
     UploadedPDF,
@@ -21,5 +21,5 @@ admin.site.register(Keyword)
 admin.site.register(Note)
 admin.site.register(ReferenceOpinion)
 admin.site.register(Reason)
-admin.site.register(ReferenceDuplicatePair)
+admin.site.register(ReferenceCluster)
 admin.site.register(UploadedPDF)

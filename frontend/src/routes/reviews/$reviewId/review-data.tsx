@@ -11,7 +11,7 @@ import {
   TableTopHeader,
   type ExportType,
 } from '@/features/references/components/references/references-table-top-header';
-import { ResolveDuplicatesDialog } from '@/features/references/components/reference-duplicates/resolve-duplicates-dialog';
+import { ResolveDuplicatesDialog } from '@/features/references/components/reference-clusters/resolve-duplicates-dialog';
 import { FileUploadDialog } from '@/components/blocks/file-upload-dialog';
 import { MatchPDFDialog } from '@/features/references/components/uploaded-pdfs/match-pdf-dialog';
 import type { ArticleViewLayout } from '@/features/references/types/references';

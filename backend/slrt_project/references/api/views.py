@@ -10,6 +10,7 @@ from django.db import transaction
 from django.db.models import CharField, Count, F, OuterRef, Prefetch, Subquery
 from django.db.models.functions import ExtractYear, Lower
 from django.http import HttpResponse
+from django.utils import timezone
 from django_filters import rest_framework as filters
 from rest_framework import mixins, serializers, status, viewsets
 from rest_framework.decorators import action
@@ -18,32 +19,39 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from slrt_project.coding.models import Code
-from slrt_project.permissions import Permission, check_permission
-from slrt_project.references.api.filters import ReferenceFilter
+from slrt_project.permissions import (
+    PERMISSIONS,
+    Permission,
+    check_permission,
+    permission_denied_message,
+)
+from slrt_project.references.api.filters import DuplicateClusterFilter, ReferenceFilter
 from slrt_project.references.api.serializers import (
     AssignLabelsSerializer,
     AssignReferencesSerializer,
     AttachPDFsSerializer,
     AutoMatchSerializer,
     BulkCreateNoteSerializer,
+    DuplicateClusterSerializer,
     KeywordSerializer,
     LabelSerializer,
     NoteSerializer,
     ReasonSerializer,
-    ReferenceDuplicatePairSerializer,
     ReferenceOpinionSerializer,
     ReferenceOpinionUpsertSerializer,
     ReferenceSerializer,
     UploadedPDFSerializer,
 )
 from slrt_project.references.models import (
+    DuplicateClusterManager,
     ImmutableUnaccent,
     Keyword,
     Label,
     Note,
     Reason,
     Reference,
-    ReferenceDuplicatePair,
+    ReferenceCluster,
+    ReferenceClusterMember,
     ReferenceLabel,
     ReferenceOpinion,
     ReferenceOpinionStatus,
@@ -966,110 +974,224 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
         return Response(response_serializer.data)
 
 
-class ReferenceDuplicatePairViewSet(viewsets.ViewSet):
+class DuplicateClusterViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    ViewSet to handle reference duplicate detection and resolution.
-    - Detect: run duplicate detection (owner and collaborator)
-    - List: retrieve duplicate pairs (all members)
-    - Resolve: resolve duplicates (owner and collaborator)
+    ReadOnlyModelViewSet — clusters are created only by Celery tasks,
+    never directly via API. Write operations are custom actions.
     """
 
     permission_classes = [IsAuthenticated]
+    serializer_class = DuplicateClusterSerializer
+    filter_backends = [filters.DjangoFilterBackend]
+    filterset_class = DuplicateClusterFilter
 
-    def _get_review(self, require_manage_duplicates=False):
-        review = get_object_or_404(Review, pk=self.request.query_params.get("review"))
+    def get_queryset(self):
+        user = self.request.user
 
-        if require_manage_duplicates:
-            check_permission(Permission.MANAGE_DUPLICATES, self.request.user, review)
+        member_review_ids = ReviewMember.objects.filter(user=user).values_list(
+            "review_id", flat=True
+        )
 
-        else:
-            check_permission(Permission.ACCESS_REVIEW, self.request.user, review)
+        member_prefetch = Prefetch(
+            "members",
+            queryset=ReferenceClusterMember.objects.select_related(
+                "reference__search_method"
+            ).order_by("-completeness_score"),
+        )
 
-        return review
+        return (
+            ReferenceCluster.objects.filter(review_id__in=member_review_ids)
+            .prefetch_related(member_prefetch)
+            .select_related("review")
+            .order_by("-doi_match", "-max_similarity_score", "created_at")
+        )
 
-    def list(self, request):
-        """All members can view duplicates"""
-        review = self._get_review(require_manage_duplicates=False)
+    def list(self, request, *args, **kwargs):
+        """
+        Returns all clusters for a review with progress metadata.
+        """
+        qs = self.filter_queryset(self.get_queryset())
 
-        qs = ReferenceDuplicatePair.objects.filter(review=review)
-        total = qs.count()
-        resolved = qs.filter(resolved=True).count()
-        remaining = total - resolved
+        # Default to unresolved clusters
+        if "status" not in request.query_params:
+            qs = qs.filter(status=ReferenceCluster.Status.UNRESOLVED)
 
-        pair = qs.filter(resolved=False).first()
-        if not pair:
-            return Response(
-                {
-                    "detail": "No reference duplicate pair found.",
-                    "total": total,
-                    "resolved": resolved,
-                    "remaining": 0,
-                    "progress": 100,
-                },
-                status=status.HTTP_200_OK,
-            )
+        # Progress metadata scoped to the review
+        review_id = request.query_params.get("review")
+        total = resolved = remaining = 0
 
-        serializer = ReferenceDuplicatePairSerializer(pair)
+        if review_id:
+            all_qs = ReferenceCluster.objects.filter(review_id=review_id)
+            total = all_qs.count()
+            resolved = all_qs.filter(
+                status__in=[
+                    ReferenceCluster.Status.AUTO_RESOLVED,
+                    ReferenceCluster.Status.MANUALLY_RESOLVED,
+                    ReferenceCluster.Status.DISMISSED,
+                ]
+            ).count()
+            remaining = all_qs.filter(status=ReferenceCluster.Status.UNRESOLVED).count()
+
+        serializer = self.get_serializer(qs, many=True)
 
         return Response(
             {
-                "pair": serializer.data,
+                "clusters": serializer.data,
                 "total": total,
                 "resolved": resolved,
                 "remaining": remaining,
-                "current_index": resolved + 1,
-                "progress": round((resolved / total) * 100, 1) if total else 0,
+                "progress": round(resolved / total * 100, 1) if total > 0 else 0,
             }
         )
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], url_path="resolve")
     def resolve(self, request, pk=None):
-        """Only owner and collaborator can resolve duplicates"""
-        duplicate_pair = get_object_or_404(ReferenceDuplicatePair, pk=pk)
+        """
+        Manually resolve a cluster by choosing which reference to keep.
 
-        # Check if user is owner or collaborator of the review
-        check_permission(
-            Permission.MANAGE_DUPLICATES, request.user, duplicate_pair.review
+        Body: { canonicalReferenceId: int }
+        (djangorestframework-camelcase converts this to canonical_reference_id)
+        """
+        cluster = self.get_object()
+
+        member = self._require_duplicate_permission(cluster)
+        if isinstance(member, Response):
+            return member
+
+        if cluster.status != ReferenceCluster.Status.UNRESOLVED:
+            return Response(
+                {"error": f"Cluster is already '{cluster.status}'"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # djangorestframework-camelcase has already parsed canonicalReferenceId → canonical_reference_id
+        canonical_reference_id = request.data.get("canonical_reference_id")
+        if not canonical_reference_id:
+            return Response(
+                {"error": "canonicalReferenceId is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not cluster.members.filter(reference_id=canonical_reference_id).exists():
+            return Response(
+                {"error": "canonicalReferenceId is not a member of this cluster"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        manager = DuplicateClusterManager(cluster.review)
+        manager.manually_resolve(
+            cluster,
+            canonical_reference_id=int(canonical_reference_id),
+            resolved_by=member,
         )
 
-        try:
-            selection = int(request.data.get("selection"))
-        except (TypeError, ValueError):
-            return Response(
-                {"detail": "Selection must be an integer (1, 2, or 3)."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        logger.info(
+            f"Cluster {cluster.id} resolved by member {member.id}, "
+            f"canonical={canonical_reference_id}"
+        )
 
-        reference_1 = duplicate_pair.reference1
-        reference_2 = duplicate_pair.reference2
-
-        if selection == 1:
-            self.set_duplicate_statuses(reference_1, "Resolved", reference_2, "Deleted")
-        elif selection == 2:
-            self.set_duplicate_statuses(reference_1, "Deleted", reference_2, "Resolved")
-        elif selection == 3:
-            self.set_duplicate_statuses(
-                reference_1, "Not Duplicate", reference_2, "Not Duplicate"
-            )
-        else:
-            return Response(
-                {"detail": "Invalid selection. Must be 1, 2, or 3."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        duplicate_pair.resolved = True
-        duplicate_pair.save(update_fields=["resolved"])
         return Response(
-            {"detail": "Reference duplicate resolved successfully."},
-            status=status.HTTP_200_OK,
+            {
+                "message": "Cluster resolved",
+                "clusterId": str(cluster.id),
+                "canonicalReferenceId": canonical_reference_id,
+            }
         )
 
-    def set_duplicate_statuses(self, reference_1, status_1, reference_2, status_2):
-        reference_1.duplicate_status = status_1
-        reference_1.save(update_fields=["duplicate_status"])
+    @action(detail=True, methods=["post"], url_path="dismiss")
+    def dismiss(self, request, pk=None):
+        """
+        Dismiss a cluster as a false positive.
+        Restores all member references to NOT_DUPLICATE.
+        """
+        cluster = self.get_object()
 
-        reference_2.duplicate_status = status_2
-        reference_2.save(update_fields=["duplicate_status"])
+        member = self._require_duplicate_permission(cluster)
+        if isinstance(member, Response):
+            return member
+
+        if cluster.status != ReferenceCluster.Status.UNRESOLVED:
+            return Response(
+                {"error": f"Cluster is already '{cluster.status}'"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        cluster.status = ReferenceCluster.Status.DISMISSED
+        cluster.resolved_at = timezone.now()
+        cluster.resolved_by = member
+        cluster.save(update_fields=["status", "resolved_at", "resolved_by"])
+
+        Reference.objects.filter(cluster_memberships__cluster=cluster).update(
+            duplicate_status=Reference.DuplicateStatus.NOT_DUPLICATE
+        )
+
+        logger.info(f"Cluster {cluster.id} dismissed by member {member.id}")
+
+        return Response({"message": "Cluster dismissed", "clusterId": str(cluster.id)})
+
+    @action(detail=False, methods=["get"], url_path="stats")
+    def stats(self, request):
+        """
+        Aggregate cluster counts for the dashboard.
+        Requires: ?review=<id>
+        """
+        review_id = request.query_params.get("review")
+        if not review_id:
+            return Response(
+                {"error": "review query parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not ReviewMember.objects.filter(
+            review_id=review_id, user=request.user
+        ).exists():
+            return Response(
+                {"error": "You are not a member of this review"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        counts = (
+            ReferenceCluster.objects.filter(review_id=review_id)
+            .values("status")
+            .annotate(count=Count("id"))
+        )
+        count_map = {row["status"]: row["count"] for row in counts}
+
+        affected_refs = (
+            ReferenceClusterMember.objects.filter(
+                cluster__review_id=review_id,
+                cluster__status=ReferenceCluster.Status.UNRESOLVED,
+            )
+            .values("reference_id")
+            .distinct()
+            .count()
+        )
+
+        return Response(
+            {
+                "unresolved": count_map.get(ReferenceCluster.Status.UNRESOLVED, 0),
+                "autoResolved": count_map.get(ReferenceCluster.Status.AUTO_RESOLVED, 0),
+                "manuallyResolved": count_map.get(
+                    ReferenceCluster.Status.MANUALLY_RESOLVED, 0
+                ),
+                "dismissed": count_map.get(ReferenceCluster.Status.DISMISSED, 0),
+                "affectedReferences": affected_refs,
+            }
+        )
+
+    def _require_duplicate_permission(self, cluster) -> ReviewMember | Response:
+        try:
+            member = ReviewMember.objects.get(
+                review=cluster.review, user=self.request.user
+            )
+            if member.role not in PERMISSIONS[Permission.MANAGE_DUPLICATES]:
+                return permission_denied_message(Permission.MANAGE_DUPLICATES)
+            return member
+        except ReviewMember.DoesNotExist:
+            return Response(
+                {"error": "You are not a member of this review"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
 
 class KeywordViewSet(viewsets.ModelViewSet):

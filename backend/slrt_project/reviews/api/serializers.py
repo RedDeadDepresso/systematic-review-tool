@@ -96,8 +96,8 @@ class ReviewSerializer(serializers.ModelSerializer):
     duplicate_resolved_count = serializers.IntegerField(read_only=True)
     duplicate_not_duplicate_count = serializers.IntegerField(read_only=True)
     duplicate_deleted_count = serializers.IntegerField(read_only=True)
-    duplicate_pairs_count = serializers.IntegerField(read_only=True, allow_null=True)
-    duplicate_pairs_unresolved_count = serializers.IntegerField(
+    duplicate_clusters_count = serializers.IntegerField(read_only=True, allow_null=True)
+    duplicate_clusters_unresolved_count = serializers.IntegerField(
         read_only=True, allow_null=True
     )
 
@@ -119,8 +119,8 @@ class ReviewSerializer(serializers.ModelSerializer):
             "duplicate_resolved_count",
             "duplicate_not_duplicate_count",
             "duplicate_deleted_count",
-            "duplicate_pairs_unresolved_count",
-            "duplicate_pairs_count",
+            "duplicate_clusters_unresolved_count",
+            "duplicate_clusters_count",
         ]
 
     def get_user_role(self, obj):

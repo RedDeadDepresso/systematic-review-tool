@@ -8,7 +8,8 @@ from slrt_project.references.models import (
     Note,
     Reason,
     Reference,
-    ReferenceDuplicatePair,
+    ReferenceCluster,
+    ReferenceClusterMember,
     ReferenceLabel,
     ReferenceOpinion,
     ReferenceOpinionStatus,
@@ -171,15 +172,6 @@ class ReferenceOpinionSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class ReferenceDuplicatePairSerializer(serializers.ModelSerializer):
-    reference1 = BaseReferenceSerializer(read_only=True)
-    reference2 = BaseReferenceSerializer(read_only=True)
-
-    class Meta:
-        model = ReferenceDuplicatePair
-        fields = ["id", "reference1", "reference2", "similarity_score"]
-
-
 class KeywordSerializer(serializers.ModelSerializer):
     class Meta:
         model = Keyword
@@ -333,3 +325,35 @@ class ReasonSerializer(serializers.ModelSerializer):
         model = Reason
         fields = ["id", "name", "review"]
         read_only_fields = ["id"]
+
+
+class ClusterMemberSerializer(serializers.ModelSerializer):
+    reference = BaseReferenceSerializer()
+
+    class Meta:
+        model = ReferenceClusterMember
+        fields = [
+            "id",
+            "role",
+            "best_similarity_score",
+            "doi_matched",
+            "completeness_score",
+            "reference",
+        ]
+
+
+class DuplicateClusterSerializer(serializers.ModelSerializer):
+    members = ClusterMemberSerializer(many=True)
+
+    class Meta:
+        model = ReferenceCluster
+        fields = [
+            "id",
+            "status",
+            "doi_match",
+            "max_similarity_score",
+            "canonical_reference_id",
+            "created_at",
+            "resolved_at",
+            "members",
+        ]

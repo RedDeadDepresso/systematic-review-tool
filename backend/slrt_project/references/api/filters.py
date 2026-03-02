@@ -1,7 +1,7 @@
 from django.contrib.postgres.search import SearchQuery
 from django_filters import rest_framework as filters
 
-from slrt_project.references.models import Reference, ReferenceOpinion
+from slrt_project.references.models import Reference, ReferenceCluster, ReferenceOpinion
 
 
 # Reusable "InFilter" for numbers
@@ -101,3 +101,16 @@ class ReferenceFilter(filters.FilterSet):
         )
 
         return queryset.filter(**{f"{status_field}__in": value})
+
+
+class DuplicateClusterFilter(filters.FilterSet):
+    review = filters.NumberFilter(field_name="review_id")
+    status = filters.ChoiceFilter(choices=ReferenceCluster.Status.choices)
+    doi_match = filters.BooleanFilter(field_name="doi_match")
+    min_similarity = filters.NumberFilter(
+        field_name="max_similarity_score", lookup_expr="gte"
+    )
+
+    class Meta:
+        model = ReferenceCluster
+        fields = ["review", "status", "doi_match", "min_similarity"]

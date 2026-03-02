@@ -35,6 +35,7 @@ from slrt_project.permissions import (
 )
 from slrt_project.references.models import (
     Reference,
+    ReferenceCluster,
     ReferenceLabel,
     ReferenceOpinion,
     ReferenceOpinionStatus,
@@ -75,42 +76,22 @@ logger = logging.getLogger(__name__)
 
 
 class ReviewViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for managing reviews and related operations.
-
-    Provides standard CRUD operations plus custom actions:
-    - upload_references: Upload BibTeX file (owner/collaborator/reviewer)
-    - export_latex: Export themes table as LaTeX (any member)
-    - export_json: Export themes as JSON (any member)
-    """
-
     permission_classes = [IsAuthenticated]
     filter_backends = (filters.DjangoFilterBackend,)
     filterset_class = ReviewFilter
 
     def get_queryset(self):
         user = self.request.user
-
         base_qs = Review.objects.filter(members__user=user).distinct()
 
         owner_membership = ReviewMember.objects.filter(
-            review=OuterRef("pk"),
-            role=ReviewMember.Role.OWNER,
+            review=OuterRef("pk"), role=ReviewMember.Role.OWNER
         )
-
-        user_membership = ReviewMember.objects.filter(
-            review=OuterRef("pk"),
-            user=user,
-        )
-
+        user_membership = ReviewMember.objects.filter(review=OuterRef("pk"), user=user)
         search_method_exists = SearchMethod.objects.filter(
-            review=OuterRef("pk"),
-            file__gt="",
+            review=OuterRef("pk"), file__gt=""
         )
 
-        # ===============================
-        # LIST VIEW (lightweight)
-        # ===============================
         if self.action == "list":
             return base_qs.annotate(
                 owner_first_name=Subquery(
@@ -122,31 +103,21 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 owner_email=Subquery(owner_membership.values("user__email")[:1]),
                 user_role=Subquery(user_membership.values("role")[:1]),
                 reference_count=Case(
-                    When(
-                        Exists(search_method_exists),
-                        then=Value(None),
-                    ),
+                    When(Exists(search_method_exists), then=Value(None)),
                     default=Count("reference", distinct=True),
                     output_field=IntegerField(),
                 ),
             )
 
-        # ===============================
-        # DETAIL / RETRIEVE VIEW
-        # ===============================
-        queryset = base_qs.annotate(
+        # Detail view
+        return base_qs.annotate(
             user_role=Subquery(user_membership.values("role")[:1]),
             user_member_id=Subquery(user_membership.values("id")[:1]),
-            # Conditionally null reference_count
             reference_count=Case(
-                When(
-                    Exists(search_method_exists),
-                    then=Value(None),
-                ),
+                When(Exists(search_method_exists), then=Value(None)),
                 default=Count("reference", distinct=True),
                 output_field=IntegerField(),
             ),
-            # Duplicate reference status counts
             duplicate_resolved_count=Count(
                 "reference",
                 filter=Q(
@@ -166,21 +137,22 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 filter=Q(reference__duplicate_status=Reference.DuplicateStatus.DELETED),
                 distinct=True,
             ),
-            # Conditionally null duplicate pair counts
-            duplicate_pairs_count=Case(
+            duplicate_clusters_count=Case(
                 When(
                     duplicate_detection_status=Review.DuplicateDetectionStatus.COMPLETED,
-                    then=Count("referenceduplicatepair", distinct=True),
+                    then=Count("duplicate_clusters", distinct=True),
                 ),
                 default=Value(None),
                 output_field=IntegerField(),
             ),
-            duplicate_pairs_unresolved_count=Case(
+            duplicate_clusters_unresolved_count=Case(
                 When(
                     duplicate_detection_status=Review.DuplicateDetectionStatus.COMPLETED,
                     then=Count(
-                        "referenceduplicatepair",
-                        filter=Q(referenceduplicatepair__resolved=False),
+                        "duplicate_clusters",
+                        filter=Q(
+                            duplicate_clusters__status=ReferenceCluster.Status.UNRESOLVED
+                        ),
                         distinct=True,
                     ),
                 ),
@@ -188,7 +160,6 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 output_field=IntegerField(),
             ),
         )
-        return queryset
 
     def get_serializer_class(self):
         """Use different serializers for list vs detail views"""
@@ -768,23 +739,13 @@ class ReviewViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="detect-duplicates")
     def detect_duplicates(self, request, pk=None):
         """
-        Detect duplicate references asynchronously
-        Only owner, collaborator, and reviewer can detect duplicates
+        Kick off async cluster detection (DOI hard-match + fuzzy similarity).
         """
         review = self.get_object()
+        member = self._require_duplicate_permission(request, review)
+        if isinstance(member, Response):
+            return member
 
-        # Check user permission
-        try:
-            member = ReviewMember.objects.get(review=review, user=request.user)
-            if member.role not in PERMISSIONS[Permission.MANAGE_DUPLICATES]:
-                return permission_denied_message(Permission.MANAGE_DUPLICATES)
-        except ReviewMember.DoesNotExist:
-            return Response(
-                {"error": "You are not a member of this review"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        # Check current status
         match review.duplicate_detection_status:
             case Review.DuplicateDetectionStatus.PENDING:
                 return Response(
@@ -797,37 +758,29 @@ class ReviewViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        # Check if there are references to check
-        reference_count = Reference.objects.filter(review=review).count()
-
-        if reference_count == 0:
+        if not Reference.objects.filter(review=review).exists():
             return Response(
                 {"error": "No references found to check for duplicates"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Get threshold from request (optional)
         threshold = float(request.data.get("threshold", 0.5))
-
-        # Validate threshold
         if not (0.0 <= threshold <= 1.0):
             return Response(
-                {"error": "Threshold must be between 0.0 and 1.0"},
+                {"error": "threshold must be between 0.0 and 1.0"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Update status to pending
         review.duplicate_detection_status = Review.DuplicateDetectionStatus.PENDING
         review.save()
 
-        # Start async task
         task = detect_duplicates_task.delay(
-            review_id=review.id, member_id=member.id, threshold=threshold
+            review_id=review.id,
+            member_id=member.id,
+            threshold=threshold,
         )
 
-        logger.info(
-            f"Started duplicate detection task {task.id} for review {review.id}"
-        )
+        logger.info(f"Started detect_duplicates_task {task.id} for review {review.id}")
 
         return Response(
             {
@@ -842,57 +795,61 @@ class ReviewViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="auto-resolve-duplicates")
     def auto_resolve_duplicates(self, request, pk=None):
         """
-        Start automatic duplicate resolution
+        Auto-resolve high-confidence duplicate clusters.
+
+        Request body (all optional):
+          confidence_threshold      float  0.90   Min score to auto-resolve a fuzzy cluster.
+          detect_first              bool   true   Run detection before resolving.
+          fuzzy_threshold           float  0.50   Similarity threshold for detection step.
+          doi_clusters_always       bool   true   Always resolve DOI-matched clusters.
+          preferred_search_method_id int   null   Prefer references from this search method.
         """
         review = self.get_object()
+        member = self._require_duplicate_permission(request, review)
+        if isinstance(member, Response):
+            return member
 
-        # Check user permission
+        data = request.data
+
+        # Validate confidence_threshold
         try:
-            member = ReviewMember.objects.get(review=review, user=request.user)
-            if member.role not in PERMISSIONS[Permission.MANAGE_DUPLICATES]:
-                permission_denied_message(Permission.MANAGE_DUPLICATES)
-        except ReviewMember.DoesNotExist:
-            return Response(
-                {"error": "You are not a member of this review"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        # Get settings from request
-        confidence_threshold = request.data.get("confidence_threshold", 0.90)
-        create_pairs_first = request.data.get("create_pairs_first", True)
-        criteria = request.data.get("criteria", {})
-        text_normalization = request.data.get("text_normalization", False)
-        preferred_search_method_id = request.data.get("preferred_search_method_id")
-
-        # Validate confidence threshold
-        try:
-            confidence_threshold = float(confidence_threshold)
+            confidence_threshold = float(data.get("confidence_threshold", 0.90))
             if not (0.0 <= confidence_threshold <= 1.0):
                 raise ValueError
         except (ValueError, TypeError):
             return Response(
-                {"error": "confidence_threshold must be a number between 0.0 and 1.0"},
+                {"error": "confidence_threshold must be between 0.0 and 1.0"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Validate search method if provided
+        # Validate fuzzy_threshold
+        try:
+            fuzzy_threshold = float(data.get("fuzzy_threshold", 0.50))
+            if not (0.0 <= fuzzy_threshold <= 1.0):
+                raise ValueError
+        except (ValueError, TypeError):
+            return Response(
+                {"error": "fuzzy_threshold must be between 0.0 and 1.0"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        preferred_search_method_id = data.get("preferred_search_method_id")
         if preferred_search_method_id:
-            try:
-                SearchMethod.objects.get(id=preferred_search_method_id, review=review)
-            except SearchMethod.DoesNotExist:
+            if not SearchMethod.objects.filter(
+                id=preferred_search_method_id, review=review
+            ).exists():
                 return Response(
                     {"error": "Invalid search method"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        # Start async task
         task = auto_deduplicate_task.delay(
             review_id=review.id,
             member_id=member.id,
             confidence_threshold=confidence_threshold,
-            create_pairs_first=create_pairs_first,
-            criteria=criteria,
-            text_normalization=text_normalization,
+            detect_first=bool(data.get("detect_first", True)),
+            fuzzy_threshold=fuzzy_threshold,
+            doi_clusters_always=bool(data.get("doi_clusters_always", True)),
             preferred_search_method_id=preferred_search_method_id,
         )
 
@@ -900,14 +857,30 @@ class ReviewViewSet(viewsets.ModelViewSet):
             {
                 "message": "Auto-resolution started",
                 "task_id": task.id,
-                "confidence_threshold": confidence_threshold,
-                "criteria": criteria,
-                "text_normalization": text_normalization,
-                "preferred_search_method_id": preferred_search_method_id,
                 "status": "processing",
+                "confidence_threshold": confidence_threshold,
+                "fuzzy_threshold": fuzzy_threshold,
+                "doi_clusters_always": bool(data.get("doi_clusters_always", True)),
+                "preferred_search_method_id": preferred_search_method_id,
             },
             status=status.HTTP_202_ACCEPTED,
         )
+
+    def _require_duplicate_permission(self, request, review):
+        """
+        Returns the ReviewMember if the user has MANAGE_DUPLICATES permission,
+        otherwise returns a 403 Response.
+        """
+        try:
+            member = ReviewMember.objects.get(review=review, user=request.user)
+            if member.role not in PERMISSIONS[Permission.MANAGE_DUPLICATES]:
+                return permission_denied_message(Permission.MANAGE_DUPLICATES)
+            return member
+        except ReviewMember.DoesNotExist:
+            return Response(
+                {"error": "You are not a member of this review"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
     @action(detail=True, methods=["get"], url_path="search-methods")
     def search_methods(self, request, pk=None):
