@@ -10,6 +10,7 @@ import {
   LinkIcon,
   MessageSquare,
   Tags,
+  TextInitial,
   Users,
 } from 'lucide-react';
 import { NotesList } from '@/features/references/components/notes/note';
@@ -55,6 +56,7 @@ export interface ReferenceContentProps {
   highlightExcludeKeywords?: string[];
   compareWith?: Reference;
   side?: 'left' | 'right';
+  showTitle?: boolean;
   highlightDifference?: boolean;
   showNotes?: boolean;
   noScroll?: boolean;
@@ -87,6 +89,7 @@ export function ReferenceContent({
   reference,
   compareWith,
   side,
+  showTitle = false,
   highlightDifference,
   highlightIncludeKeywords = [],
   highlightExcludeKeywords = [],
@@ -102,6 +105,24 @@ export function ReferenceContent({
       )}
     >
       <div className="space-y-0">
+        {showTitle && (
+          <DetailSection
+            icon={TextInitial}
+            label="Title"
+            diffClassName={sectionDiff(
+              reference.title,
+              compareWith?.title,
+              side,
+              highlightDifference
+            )}
+          >
+            {highlightText(
+              reference.title,
+              highlightIncludeKeywords,
+              highlightExcludeKeywords
+            )}
+          </DetailSection>
+        )}
         {(reference.opinions?.length > 0 ||
           reference.assignee ||
           reference.labels?.length > 0) && (

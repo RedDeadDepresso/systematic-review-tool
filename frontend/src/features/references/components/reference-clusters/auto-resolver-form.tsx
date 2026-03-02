@@ -23,13 +23,17 @@ import { Switch } from '@/components/ui/switch';
 
 interface AutoResolverFormProps {
   reviewId: number;
+  detectFirst: boolean;
   onClose: () => void;
 }
 
-export function AutoResolverForm({ reviewId, onClose }: AutoResolverFormProps) {
+export function AutoResolverForm({
+  reviewId,
+  detectFirst,
+  onClose,
+}: AutoResolverFormProps) {
   const [confidenceThreshold, setConfidenceThreshold] = useState(90);
   const [fuzzyThreshold, setFuzzyThreshold] = useState(50);
-  const [detectFirst, setDetectFirst] = useState(true);
   const [doiClustersAlways, setDoiClustersAlways] = useState(true);
   const [preferredSearchMethodId, setPreferredSearchMethodId] =
     useState<string>('none');
@@ -49,52 +53,48 @@ export function AutoResolverForm({ reviewId, onClose }: AutoResolverFormProps) {
             ? null
             : parseInt(preferredSearchMethodId),
       },
-      {
-        onSuccess: () => onClose(),
-      }
+      { onSuccess: () => onClose() }
     );
   };
 
   return (
-    <div className="flex flex-col max-h-[85vh]">
-      {/* Header */}
-      <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
-        <div className="flex items-center gap-2">
-          <IconSparkles className="h-5 w-5 text-primary" />
-          <h3 className="text-lg font-semibold">Systematic Auto Resolver</h3>
-        </div>
-      </div>
-
+    <div className="flex flex-col min-h-0 flex-1">
       {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6 min-h-0">
-        {/* Info alert */}
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5 min-h-0">
+        {/* Context banner */}
         <Alert>
           <IconInfoCircle className="h-4 w-4" />
           <AlertDescription className="text-sm">
-            <span>
-              References are grouped into <strong>clusters</strong>. DOI matches
-              are resolved instantly; fuzzy matches use a weighted similarity
-              score across title, abstract, authors, and journal.{' '}
-              {/* <a href="#" className="text-primary hover:underline">
-              Learn more
-            </a> */}
-            </span>
+            {detectFirst ? (
+              <>
+                <strong>Find & Auto-Resolve:</strong> Detection will run first,
+                then high-confidence clusters are resolved automatically.
+                Anything below the threshold stays for manual review.
+              </>
+            ) : (
+              <>
+                <strong>Auto-Resolve existing clusters:</strong> No new
+                detection will run. Clusters already found will be resolved
+                based on the settings below.
+              </>
+            )}
           </AlertDescription>
         </Alert>
 
-        {/* DOI clusters */}
-        <div className="flex items-center justify-between p-4 rounded-lg border">
-          <div className="space-y-0.5 flex-1">
+        {/* DOI hard-match */}
+        <div className="flex items-center justify-between p-3.5 rounded-lg border">
+          <div className="space-y-0.5 flex-1 min-w-0 pr-4">
             <div className="flex items-center gap-2">
-              <IconLink className="h-4 w-4 text-muted-foreground" />
-              <Label className="font-medium">Always resolve DOI matches</Label>
+              <IconLink className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <Label className="font-medium leading-none">
+                Always resolve DOI matches
+              </Label>
               <Badge variant="secondary" className="text-xs">
                 Recommended
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground">
-              References sharing the same DOI are guaranteed duplicates —
-              resolve them regardless of the confidence threshold.
+            <p className="text-xs text-muted-foreground mt-1">
+              References sharing the same DOI are guaranteed duplicates.
             </p>
           </div>
           <Switch
@@ -104,13 +104,15 @@ export function AutoResolverForm({ reviewId, onClose }: AutoResolverFormProps) {
         </div>
 
         {/* Preferred source */}
-        <div className="space-y-2">
-          <Label htmlFor="preferred-source">Preferred source to keep</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="preferred-source" className="text-sm font-medium">
+            Preferred source to keep
+          </Label>
           <Select
             value={preferredSearchMethodId}
             onValueChange={setPreferredSearchMethodId}
           >
-            <SelectTrigger id="preferred-source">
+            <SelectTrigger id="preferred-source" className="h-9">
               <SelectValue placeholder="Choose source" />
             </SelectTrigger>
             <SelectContent>
@@ -125,34 +127,18 @@ export function AutoResolverForm({ reviewId, onClose }: AutoResolverFormProps) {
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            When duplicates are found, prefer keeping the reference from this
-            source. Falls back to completeness scoring when unavailable.
+            Prefer references from this source when duplicates are found.
           </p>
         </div>
 
-        {/* Detect first toggle */}
-        <div className="flex items-center justify-between p-4 rounded-lg border">
-          <div className="space-y-0.5 flex-1">
-            <div className="flex items-center gap-2">
-              <IconSparkles className="h-4 w-4 text-muted-foreground" />
-              <Label className="font-medium">Detect new clusters first</Label>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Run cluster detection before resolving. Disable if detection has
-              already been run and you only want to resolve existing clusters.
-            </p>
-          </div>
-          <Switch checked={detectFirst} onCheckedChange={setDetectFirst} />
-        </div>
-
-        {/* Detection threshold (shown only when detectFirst) */}
+        {/* Detection sensitivity — only relevant when detecting */}
         {detectFirst && (
-          <div className="space-y-4 pl-1">
+          <div className="space-y-3 p-3.5 rounded-lg border bg-muted/30">
             <div className="flex items-center justify-between">
-              <Label className="font-medium text-sm">
+              <Label className="text-sm font-medium">
                 Detection sensitivity
               </Label>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <input
                   type="number"
                   value={fuzzyThreshold}
@@ -160,7 +146,7 @@ export function AutoResolverForm({ reviewId, onClose }: AutoResolverFormProps) {
                     const v = parseInt(e.target.value);
                     if (v >= 30 && v <= 100) setFuzzyThreshold(v);
                   }}
-                  className="w-16 px-2 py-1 text-sm border rounded text-center"
+                  className="w-14 px-2 py-1 text-sm border rounded text-center bg-background"
                   min="30"
                   max="100"
                 />
@@ -173,72 +159,61 @@ export function AutoResolverForm({ reviewId, onClose }: AutoResolverFormProps) {
               min={30}
               max={100}
               step={1}
-              className="w-full"
             />
             <p className="text-xs text-muted-foreground">
-              Minimum weighted similarity to include a pair in a cluster. Lower
-              values cast a wider net but may surface more false positives.
+              Minimum weighted similarity to form a cluster. Lower = wider net,
+              more false positives.
             </p>
           </div>
         )}
 
         {/* Confidence threshold */}
-        <div className="space-y-4">
-          <Badge variant="secondary" className="gap-1">
-            <IconSparkles className="h-3 w-3" />
-            Auto-resolution confidence
-          </Badge>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">
-                Minimum cluster similarity to auto-resolve
-              </span>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  value={confidenceThreshold}
-                  onChange={(e) => {
-                    const v = parseInt(e.target.value);
-                    if (v >= 50 && v <= 100) setConfidenceThreshold(v);
-                  }}
-                  className="w-16 px-2 py-1 text-sm border rounded text-center"
-                  min="50"
-                  max="100"
-                />
-                <span className="text-sm font-medium">%</span>
-              </div>
+        <div className="space-y-3 p-3.5 rounded-lg border bg-muted/30">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-medium">
+              Auto-resolution confidence
+            </Label>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="number"
+                value={confidenceThreshold}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value);
+                  if (v >= 50 && v <= 100) setConfidenceThreshold(v);
+                }}
+                className="w-14 px-2 py-1 text-sm border rounded text-center bg-background"
+                min="50"
+                max="100"
+              />
+              <span className="text-sm font-medium">%</span>
             </div>
-            <Slider
-              value={[confidenceThreshold]}
-              onValueChange={(v) => setConfidenceThreshold(v[0])}
-              min={50}
-              max={100}
-              step={1}
-              className="w-full"
-            />
-            <p className="text-xs text-muted-foreground">
-              Clusters with a max similarity score above this threshold will be
-              automatically resolved. Clusters below this threshold remain for
-              manual review.
-            </p>
           </div>
+          <Slider
+            value={[confidenceThreshold]}
+            onValueChange={(v) => setConfidenceThreshold(v[0])}
+            min={50}
+            max={100}
+            step={1}
+          />
+          <p className="text-xs text-muted-foreground">
+            Clusters above this threshold are auto-resolved. Below it they stay
+            for manual review.
+          </p>
         </div>
 
-        {/* Low-threshold warning */}
         {confidenceThreshold < 87 && (
           <Alert variant="destructive">
             <IconAlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Warning:</strong> A threshold below 87% may auto-resolve
-              clusters that are not actual duplicates. Review results carefully.
+            <AlertDescription className="text-sm">
+              <strong>Warning:</strong> Below 87% may auto-resolve
+              non-duplicates. Review carefully.
             </AlertDescription>
           </Alert>
         )}
       </div>
 
       {/* Footer */}
-      <div className="flex-shrink-0 px-6 py-4 border-t">
+      <div className="flex-shrink-0 px-5 py-3.5 border-t">
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -246,15 +221,21 @@ export function AutoResolverForm({ reviewId, onClose }: AutoResolverFormProps) {
             disabled={autoResolveMutation.isPending}
             className="flex-1"
           >
-            Close
+            Cancel
           </Button>
           <Button
             onClick={handleAutoResolve}
             disabled={autoResolveMutation.isPending}
-            className="flex-1 gap-2"
+            className="flex-1 gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
           >
             <IconSparkles className="h-4 w-4" />
-            {autoResolveMutation.isPending ? 'Resolving...' : 'Resolve'}
+            {autoResolveMutation.isPending
+              ? detectFirst
+                ? 'Detecting…'
+                : 'Resolving…'
+              : detectFirst
+                ? 'Find & Resolve'
+                : 'Resolve'}
           </Button>
         </div>
       </div>

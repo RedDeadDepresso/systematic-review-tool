@@ -33,17 +33,25 @@ import { cn } from '@/lib/utils';
 interface ResolveDuplicatesDialogProps {
   reviewId: number;
   isOpen: boolean;
+  /**
+   * 'auto'   → open on the auto-resolver form  (default)
+   * 'manual' → open straight on the manual comparison view
+   */
+  initialView?: 'auto' | 'manual';
   onClose: () => void;
 }
 
 export function ResolveDuplicatesDialog({
   reviewId,
   isOpen,
+  initialView = 'auto',
   onClose,
 }: ResolveDuplicatesDialogProps) {
   const [highlightDifference, setHighlightDifference] = useState(true);
-  // Auto-resolver is shown first by default
-  const [showAutoResolver, setShowAutoResolver] = useState(true);
+  // Controlled by initialView prop — 'auto' shows the form, 'manual' shows comparisons
+  const [showAutoResolver, setShowAutoResolver] = useState(
+    initialView === 'auto'
+  );
   const [clusterIndex, setClusterIndex] = useState(0);
   const [comparingIndex, setComparingIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<'left' | 'right'>('left');
@@ -107,6 +115,15 @@ export function ResolveDuplicatesDialog({
     });
   }, [scrollLocked]);
 
+  // Sync showAutoResolver to initialView each time the dialog opens.
+  // Firing on isOpen===true (not false) means the state is updated in the same
+  // render cycle as the open transition — no open/close/open workaround needed.
+  useEffect(() => {
+    if (isOpen) {
+      setShowAutoResolver(initialView === 'auto');
+    }
+  }, [isOpen, initialView]);
+
   // Reset scroll position when cluster changes
   useEffect(() => {
     if (leftPaneRef.current) leftPaneRef.current.scrollTop = 0;
@@ -126,7 +143,7 @@ export function ResolveDuplicatesDialog({
   function handleKeep(member: ClusterMember) {
     if (!cluster) return;
     resolveMutation.mutate(
-      { clusterId: cluster.id, canonicalReferenceId: member.reference.id },
+      { clusterId: cluster.id, canonicalReferenceId: member.referenceId },
       { onSuccess: advanceCluster }
     );
   }
@@ -146,12 +163,15 @@ export function ResolveDuplicatesDialog({
     ? Math.round(cluster.maxSimilarityScore * 100)
     : 0;
   const hasNoClusters = !isLoading && clusters.length === 0;
+  // detectFirst = true when the user arrived via "Find & Auto-Resolve" (initialView='auto')
+  // and detection hasn't produced any clusters yet.
+  const detectFirst = initialView === 'auto' && hasNoClusters;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="w-full h-[100dvh] sm:h-auto p-0 gap-0 flex flex-col rounded-none sm:rounded-xl sm:max-h-[90vh] max-w-full sm:max-w-6xl sm:w-[90vw]">
         {/* ── Header ──────────────────────────────────────────────────────── */}
-        <div className="px-4 sm:px-5 py-3 border-b flex-shrink-0 bg-background">
+        <div className="px-4 sm:px-5 py-3 border-b flex-shrink-0 bg-background rounded-t-xl">
           <div className="flex items-center justify-between gap-3 pr-7">
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-6 h-6 bg-foreground rounded-md flex items-center justify-center flex-shrink-0">
@@ -197,6 +217,7 @@ export function ResolveDuplicatesDialog({
         {showAutoResolver ? (
           <AutoResolverForm
             reviewId={reviewId}
+            detectFirst={detectFirst}
             onClose={() => setShowAutoResolver(false)}
           />
         ) : (
@@ -272,7 +293,7 @@ export function ResolveDuplicatesDialog({
                   )}
                 </div>
 
-                {/* Right: scroll lock + dismiss */}
+                {/* Right: dismiss */}
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   <Button
                     variant="outline"
@@ -318,6 +339,7 @@ export function ResolveDuplicatesDialog({
                         reference={left.reference}
                         compareWith={right.reference}
                         side="left"
+                        showTitle={true}
                         highlightDifference={highlightDifference}
                         noScroll={true}
                       />
@@ -336,6 +358,7 @@ export function ResolveDuplicatesDialog({
                       <ReferenceContent
                         reference={right.reference}
                         compareWith={left.reference}
+                        showTitle={true}
                         side="right"
                         highlightDifference={highlightDifference}
                         noScroll={true}
@@ -380,6 +403,7 @@ export function ResolveDuplicatesDialog({
                         reference={left.reference}
                         compareWith={right.reference}
                         side="left"
+                        showTitle={true}
                         highlightDifference={highlightDifference}
                         noScroll
                       />
@@ -393,6 +417,7 @@ export function ResolveDuplicatesDialog({
                         reference={right.reference}
                         compareWith={left.reference}
                         side="right"
+                        showTitle={true}
                         highlightDifference={highlightDifference}
                         noScroll
                       />
@@ -551,7 +576,7 @@ function ReferencePaneHeader({
         mobile && 'px-0 mt-3'
       )}
     >
-      <p className="text-sm font-semibold leading-snug line-clamp-2 flex-1 min-w-0">
+      <p className="text-sm font-semibold leading-snug flex-1 min-w-0">
         {member.reference.title}
       </p>
       <div className="flex flex-col items-end gap-1 flex-shrink-0 ml-2">
@@ -565,7 +590,7 @@ function ReferencePaneHeader({
           </Badge>
         )}
         <span className="text-xs text-muted-foreground whitespace-nowrap">
-          {Math.round(member.completenessScore * 100)}%
+          {Math.round(member.completenessScore * 100)}% Completeness Score
         </span>
         {member.reference.searchMethod && (
           <span className="text-xs text-muted-foreground/70 whitespace-nowrap max-w-[100px] truncate">
