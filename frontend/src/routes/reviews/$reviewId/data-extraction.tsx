@@ -38,7 +38,7 @@ function RouteComponent() {
     },
     ui.selectedReferenceIds,
     ui.highlightedReferenceId,
-    ui.sortedReferences
+    ui.references
   );
 
   useEffect(() => {
@@ -98,7 +98,7 @@ function RouteComponent() {
       <div className="h-full flex flex-col overflow-hidden bg-background">
         <DataExtractionTable
           reviewId={reviewId}
-          references={ui.sortedReferences}
+          references={ui.references}
           questions={data?.questions || []}
           isLoading={isLoading}
           selectedReferenceIds={ui.selectedReferenceIds}

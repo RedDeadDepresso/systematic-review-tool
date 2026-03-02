@@ -7,14 +7,17 @@ import api from '@/api/client';
 import type { Keyword } from '@/features/references/types/keywords';
 
 /* ------------------ FETCH REFERENCES (LIST) ------------------ */
-export const fetchReferences = async (reviewId: number) => {
-  const res = await api.get('/references/', {
-    params: { review: reviewId },
-  });
-  return res.data;
-};
+export type OrderingField =
+  | 'title'
+  | '-title'
+  | 'authors'
+  | '-authors'
+  | 'publication_date'
+  | '-publication_date';
 
-export type FetchReviewDataParams = {
+// ─── Request params ────────────────────────────────────────────────────────────
+
+export interface FetchReviewDataParams {
   review: number;
   searchMethodIds?: number[];
   includeKeywords?: string[];
@@ -26,7 +29,13 @@ export type FetchReviewDataParams = {
   assigneeIds?: (number | null)[];
   duplicateStatuses?: string[];
   searchQuery?: string;
-};
+  // Pagination
+  limit?: number;
+  offset?: number;
+  // Sort — matches Django OrderingFilter field names
+  ordering?: OrderingField;
+  endpoint?: string;
+}
 
 export type LabelCount = {
   id: number;
@@ -74,10 +83,24 @@ export type FetchScreeningParams = {
   opinionStatuses?: OpinionStatus[];
 } & FetchReviewDataParams;
 
-export type FetchReviewDataParamsResponse = {
+export interface FetchReferencesResponse {
   references: Reference[];
+  /** Total references in the review regardless of filters */
   totalCount: number;
+  /** References matching current filters (used for header display) */
   filteredCount: number;
+  /** Total matching records for pagination */
+  count: number;
+  next: string | null;
+  previous: string | null;
+  offset: number;
+  limit: number;
+}
+
+/**
+ * Sidebar filter aggregations — fetched once, not re-fetched on sort/page.
+ */
+export interface FetchFilterCountsResponse {
   searchMethods: SearchMethod[];
   keywords: Keyword[];
   duplicateStatusCounts: DuplicateStatusCounts;
@@ -86,51 +109,61 @@ export type FetchReviewDataParamsResponse = {
   publicationYears: PublicationYear[];
   fileCounts: FileCounts;
   assignees: Assignee[];
-};
+}
 
 const paramsToSnakeCase = (
   params: FetchReviewDataParams | FetchScreeningParams
-) => {
-  return {
-    review: params.review,
-    search_method_ids: params.searchMethodIds,
-    include_keywords: params.includeKeywords,
-    exclude_keywords: params.excludeKeywords,
-    label_ids: params.labelIds,
-    publication_types: params.publicationTypes,
-    publication_years: params.publicationYears,
-    has_file: params.hasFile,
-    assignee_ids: params.assigneeIds,
-    duplicate_statuses: params.duplicateStatuses,
-    search: params.searchQuery,
-    opinion_statuses:
-      'opinionStatuses' in params ? params.opinionStatuses : undefined,
-  };
-};
+) => ({
+  review: params.review,
+  search_method_ids: params.searchMethodIds,
+  include_keywords: params.includeKeywords,
+  exclude_keywords: params.excludeKeywords,
+  label_ids: params.labelIds,
+  publication_types: params.publicationTypes,
+  publication_years: params.publicationYears,
+  has_file: params.hasFile,
+  assignee_ids: params.assigneeIds,
+  duplicate_statuses: params.duplicateStatuses,
+  search: params.searchQuery,
+  opinion_statuses:
+    'opinionStatuses' in params ? params.opinionStatuses : undefined,
+  // Pagination & ordering — passed through as-is (already snake_case)
+  limit: params.limit,
+  offset: params.offset,
+  ordering: params.ordering,
+});
 
-export const fetchReviewData = async (
-  params: FetchReviewDataParams
-): Promise<FetchReviewDataParamsResponse> => {
-  const res = await api.get('/review-data/', {
-    params: paramsToSnakeCase(params),
-  });
+// ─── API functions ─────────────────────────────────────────────────────────────
+
+// ─── Endpoint constants ────────────────────────────────────────────────────────
+
+export const ENDPOINTS = {
+  reviewData: '/review-data/',
+  screening: '/screening/',
+  screeningFullText: '/screening-full-text/',
+} as const;
+
+export type ReferencesEndpoint = (typeof ENDPOINTS)[keyof typeof ENDPOINTS];
+
+// ─── Single generic fetch ──────────────────────────────────────────────────────
+export const fetchReferences = async (
+  params: FetchReviewDataParams | FetchScreeningParams,
+  endpoint: ReferencesEndpoint | string = ENDPOINTS.reviewData
+): Promise<FetchReferencesResponse> => {
+  const res = await api.get(endpoint, { params: paramsToSnakeCase(params) });
   return res.data;
 };
 
-export const fetchScreening = async (
-  params: FetchScreeningParams
-): Promise<FetchReviewDataParamsResponse> => {
-  const res = await api.get('/screening/', {
-    params: paramsToSnakeCase(params),
-  });
-  return res.data;
-};
-
-export const fetchScreeningFullText = async (
-  params: FetchScreeningParams
-): Promise<FetchReviewDataParamsResponse> => {
-  const res = await api.get('/screening-full-text/', {
-    params: paramsToSnakeCase(params),
+/**
+ * Filter counts are endpoint-specific: /screening/filter-counts/ applies
+ * the stage filter server-side so counts differ from /review-data/.
+ */
+export const fetchFilterCounts = async (
+  reviewId: number,
+  endpoint: ReferencesEndpoint | string = ENDPOINTS.reviewData
+): Promise<FetchFilterCountsResponse> => {
+  const res = await api.get(`${endpoint}filter-counts/`, {
+    params: { review: reviewId },
   });
   return res.data;
 };
@@ -158,20 +191,19 @@ export const downloadBib = async (
   window.URL.revokeObjectURL(downloadUrl);
 };
 
-export const exportReviewData = (
+export const exportReferences = (
   filename: string,
+  endpoint: string,
   params?: FetchReviewDataParams
-) => downloadBib('/review-data/export/', filename, params);
+) => downloadBib(endpoint, filename, params);
 
-export const exportScreening = (
-  filename: string,
-  params?: FetchReviewDataParams
-) => downloadBib('/screening/export/', filename, params);
-
-export const exportScreeningFullText = (
-  filename: string,
-  params?: FetchReviewDataParams
-) => downloadBib('/screening-full-text/export/', filename, params);
+// Export aliases — keep so call sites don't need to change yet
+export const exportReviewData = (f: string, p?: FetchReviewDataParams) =>
+  exportReferences(f, ENDPOINTS.reviewData, p);
+export const exportScreening = (f: string, p?: FetchScreeningParams) =>
+  exportReferences(f, ENDPOINTS.screening, p);
+export const exportScreeningFullText = (f: string, p?: FetchScreeningParams) =>
+  exportReferences(f, ENDPOINTS.screeningFullText, p);
 
 /* ------------------ FETCH SINGLE REFERENCE ------------------ */
 export const fetchReference = async (referenceId: number) => {

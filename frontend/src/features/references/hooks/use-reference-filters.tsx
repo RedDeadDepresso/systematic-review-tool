@@ -1,4 +1,5 @@
 import type { OpinionStatus } from '@/features/references/types/references';
+import type { OrderingField } from '@/features/references/api/references';
 import { useState, useCallback } from 'react';
 import { useDebounceValue } from 'usehooks-ts';
 
@@ -14,6 +15,7 @@ export interface ReviewDataFilters {
   duplicateStatuses: string[];
   opinionStatuses: OpinionStatus[];
   searchQuery: string;
+  ordering: OrderingField;
 }
 
 export interface UseReviewDataFiltersOptions {
@@ -26,6 +28,7 @@ export interface UseReviewDataFiltersOptions {
   enableDuplicates?: boolean;
   enableOpinions?: boolean;
   debounceDelay?: number;
+  defaultOrdering?: OrderingField;
 }
 
 export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
@@ -45,10 +48,11 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     enableAssignees = true,
     enableDuplicates = false,
     enableOpinions = false,
-    debounceDelay = 500, // Default 500ms debounce
+    debounceDelay = 500,
+    defaultOrdering = 'title',
   } = options;
 
-  // Optimistic state (updates immediately for UI)
+  // ── Filter state ─────────────────────────────────────────────────────────────
   const [searchMethodIds, setSearchMethodIds] = useState<number[]>([]);
   const [includeKeywords, setIncludeKeywords] = useState<string[]>([]);
   const [excludeKeywords, setExcludeKeywords] = useState<string[]>([]);
@@ -60,10 +64,29 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
   >('all');
   const [assigneeIds, setAssigneeIds] = useState<(number | null)[]>([]);
   const [duplicateStatuses, setDuplicateStatuses] = useState<string[]>([]);
-  const [opinionStatuses, setOpinionStatuses] = useState<OpinionStatus[]>([
-    'Undecided',
-  ]);
+  const [opinionStatuses, setOpinionStatuses] = useState<OpinionStatus[]>(
+    enableOpinions ? ['Undecided'] : []
+  );
   const [searchQuery, setSearchQuery] = useState('');
+
+  // ── Ordering state — not debounced, applied immediately ───────────────────────
+  const [ordering, setOrdering] = useState<OrderingField>(defaultOrdering);
+
+  /**
+   * Toggle sort field.
+   * - First click on a new field → ascending
+   * - Second click on same field → descending
+   * - Third click → back to ascending (no "clear sort" to keep UX simple)
+   */
+  const handleOrderingChange = useCallback((field: any) => {
+    setOrdering((prev) => {
+      if (prev === field) return `-${field}` as OrderingField; // asc → desc
+      if (prev === `-${field}`) return field as OrderingField; // desc → asc
+      return field as OrderingField; // new field → asc
+    });
+  }, []);
+
+  // ── Debounced filters (sent to API) ───────────────────────────────────────────
   const optimisticFilters: ReviewDataFilters = {
     searchMethodIds,
     includeKeywords,
@@ -76,13 +99,16 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     duplicateStatuses,
     opinionStatuses,
     searchQuery,
+    ordering, // ordering is included in the debounced output so the API call resets offset
   };
+
   const [debouncedFilters, isDebouncing] = useDebounceValue(
     optimisticFilters,
     debounceDelay
   );
 
-  // Toggle handlers (update optimistic state immediately)
+  // ── Toggle handlers ────────────────────────────────────────────────────────────
+
   const handleSearchMethodToggle = useCallback(
     (id: number) => {
       if (!enableSearchMethods) return;
@@ -150,9 +176,9 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
   );
 
   const handleFileStatusChange = useCallback(
-    (status: 'all' | 'withFile' | 'withoutFile') => {
+    (s: 'all' | 'withFile' | 'withoutFile') => {
       if (!enableFileStatus) return;
-      setFileStatus(status);
+      setFileStatus(s);
     },
     [enableFileStatus]
   );
@@ -170,112 +196,93 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
   );
 
   const handleDuplicateStatusToggle = useCallback(
-    (status: string) => {
+    (s: string) => {
       if (!enableDuplicates) return;
       setDuplicateStatuses((prev) =>
-        prev.includes(status)
-          ? prev.filter((s) => s !== status)
-          : [...prev, status]
+        prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
       );
     },
     [enableDuplicates]
   );
 
   const handleOpinionStatusToggle = useCallback(
-    (status: OpinionStatus) => {
+    (s: OpinionStatus) => {
       if (!enableOpinions) return;
       setOpinionStatuses((prev) =>
-        prev.includes(status)
-          ? prev.filter((s) => s !== status)
-          : [...prev, status]
+        prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
       );
     },
     [enableOpinions]
   );
 
-  // Select all handlers
+  // ── Select all handlers ────────────────────────────────────────────────────────
+
   const handleSelectAllIncludeKeywords = useCallback(
-    (allKeywords: string[]) => {
+    (all: string[]) => {
       if (!enableKeywords) return;
-      setIncludeKeywords((prev) =>
-        prev.length === allKeywords.length ? [] : allKeywords
-      );
+      setIncludeKeywords((prev) => (prev.length === all.length ? [] : all));
     },
     [enableKeywords]
   );
 
   const handleSelectAllExcludeKeywords = useCallback(
-    (allKeywords: string[]) => {
+    (all: string[]) => {
       if (!enableKeywords) return;
-      setExcludeKeywords((prev) =>
-        prev.length === allKeywords.length ? [] : allKeywords
-      );
+      setExcludeKeywords((prev) => (prev.length === all.length ? [] : all));
     },
     [enableKeywords]
   );
 
   const handleSelectAllLabels = useCallback(
-    (allLabelIds: number[]) => {
+    (all: number[]) => {
       if (!enableLabels) return;
-      setLabelIds((prev) =>
-        prev.length === allLabelIds.length ? [] : allLabelIds
-      );
+      setLabelIds((prev) => (prev.length === all.length ? [] : all));
     },
     [enableLabels]
   );
 
   const handleSelectAllPublicationTypes = useCallback(
-    (allTypes: string[]) => {
+    (all: string[]) => {
       if (!enablePublicationFilters) return;
-      setPublicationTypes((prev) =>
-        prev.length === allTypes.length ? [] : allTypes
-      );
+      setPublicationTypes((prev) => (prev.length === all.length ? [] : all));
     },
     [enablePublicationFilters]
   );
 
   const handleSelectAllPublicationYears = useCallback(
-    (allYears: number[]) => {
+    (all: number[]) => {
       if (!enablePublicationFilters) return;
-      setPublicationYears((prev) =>
-        prev.length === allYears.length ? [] : allYears
-      );
+      setPublicationYears((prev) => (prev.length === all.length ? [] : all));
     },
     [enablePublicationFilters]
   );
 
   const handleSelectAllAssignees = useCallback(
-    (allAssigneeIds: (number | null)[]) => {
+    (all: (number | null)[]) => {
       if (!enableAssignees) return;
-      setAssigneeIds((prev) =>
-        prev.length === allAssigneeIds.length ? [] : allAssigneeIds
-      );
+      setAssigneeIds((prev) => (prev.length === all.length ? [] : all));
     },
     [enableAssignees]
   );
 
   const handleSelectAllSearchMethods = useCallback(
-    (allMethodIds: number[]) => {
+    (all: number[]) => {
       if (!enableSearchMethods) return;
-      setSearchMethodIds((prev) =>
-        prev.length === allMethodIds.length ? [] : allMethodIds
-      );
+      setSearchMethodIds((prev) => (prev.length === all.length ? [] : all));
     },
     [enableSearchMethods]
   );
 
-  // Select all handlers
   const handleSelectAllOpinionStatuses = useCallback(
-    (allOpinionStatuses: OpinionStatus[]) => {
+    (all: OpinionStatus[]) => {
       if (!enableOpinions) return;
-      setOpinionStatuses((prev) =>
-        prev.length === allOpinionStatuses.length ? [] : allOpinionStatuses
-      );
+      setOpinionStatuses((prev) => (prev.length === all.length ? [] : all));
     },
     [enableOpinions]
   );
 
-  // Add before the return statement
+  // ── Active filter count ────────────────────────────────────────────────────────
+
   const activeFilterCount =
     searchMethodIds.length +
     includeKeywords.length +
@@ -289,7 +296,8 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     opinionStatuses.length +
     (searchQuery.trim() ? 1 : 0);
 
-  // Reset all filters
+  // ── Reset ──────────────────────────────────────────────────────────────────────
+
   const handleResetAllFilters = useCallback(() => {
     if (enableSearchMethods) setSearchMethodIds([]);
     if (enableKeywords) {
@@ -306,6 +314,7 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     if (enableDuplicates) setDuplicateStatuses([]);
     setSearchQuery('');
     if (enableOpinions) setOpinionStatuses([]);
+    setOrdering(defaultOrdering);
   }, [
     enableSearchMethods,
     enableKeywords,
@@ -315,11 +324,13 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     enableAssignees,
     enableDuplicates,
     enableOpinions,
+    defaultOrdering,
   ]);
 
   return {
-    // Optimistic state (for UI - checkboxes show immediately)
     ALL_OPINION_STATUSES,
+
+    // Optimistic UI state
     searchMethodIds,
     includeKeywords,
     excludeKeywords,
@@ -331,8 +342,9 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     duplicateStatuses,
     searchQuery,
     opinionStatuses,
+    ordering,
 
-    // Debounced filters (for API calls)
+    // Debounced filters for API (includes ordering so offset resets on sort change)
     filters: debouncedFilters,
 
     // Setters
@@ -340,6 +352,9 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     setIncludeKeywords,
     setExcludeKeywords,
     setSearchMethodIds,
+
+    // Ordering
+    handleOrderingChange,
 
     // Toggle handlers
     handleSearchMethodToggle,
@@ -353,7 +368,7 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     handleDuplicateStatusToggle,
     handleOpinionStatusToggle,
 
-    // Select all handlers
+    // Select all
     handleSelectAllIncludeKeywords,
     handleSelectAllExcludeKeywords,
     handleSelectAllLabels,

@@ -1,4 +1,4 @@
-import { ArrowUp, ArrowDown, ChevronDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
@@ -8,56 +8,67 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import type { ArticleViewLayout } from '@/features/references/types/references';
+import type { OrderingField } from '@/features/references/api/references';
 
-type SortField = 'title' | 'date' | 'author';
-type SortDirection = 'asc' | 'desc';
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+type OrderingBase = 'title' | 'authors' | 'publication_date';
+
+function baseField(ordering: OrderingField): OrderingBase {
+  return ordering.replace(/^-/, '') as OrderingBase;
+}
+
+function isDesc(ordering: OrderingField): boolean {
+  return ordering.startsWith('-');
+}
+
+// ── SortDropdown ───────────────────────────────────────────────────────────────
 
 interface SortDropdownProps {
-  field: SortField;
+  field: OrderingBase;
   label: string;
-  currentField: SortField | null;
-  currentDirection: SortDirection;
-  onSort: (field: SortField, direction: SortDirection) => void;
+  currentOrdering: OrderingField;
+  onSelect: (ordering: OrderingField) => void;
 }
 
 function SortDropdown({
   field,
   label,
-  currentField,
-  currentDirection,
-  onSort,
+  currentOrdering,
+  onSelect,
 }: SortDropdownProps) {
-  const isActive = currentField === field;
+  const active = baseField(currentOrdering) === field;
+  const desc = isDesc(currentOrdering);
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-1 hover:text-foreground transition-colors">
+        <button className="flex items-center gap-1 hover:text-foreground transition-colors group">
           <span>{label}</span>
-          {isActive ? (
-            currentDirection === 'asc' ? (
-              <ArrowUp className="h-3 w-3 text-primary" />
-            ) : (
+          {active ? (
+            desc ? (
               <ArrowDown className="h-3 w-3 text-primary" />
+            ) : (
+              <ArrowUp className="h-3 w-3 text-primary" />
             )
           ) : (
-            <ChevronDown className="h-3 w-3" />
+            <ChevronsUpDown className="h-3 w-3 opacity-40 group-hover:opacity-70 transition-opacity" />
           )}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
+      <DropdownMenuContent align="start" className="w-36">
         <DropdownMenuItem
-          onClick={() => onSort(field, 'asc')}
-          className={cn(isActive && currentDirection === 'asc' && 'bg-accent')}
+          onClick={() => onSelect(field as OrderingField)}
+          className={cn(active && !desc && 'bg-accent font-medium')}
         >
-          <ArrowUp className="h-4 w-4 mr-2" />
+          <ArrowUp className="h-4 w-4 mr-2 flex-shrink-0" />
           Ascending
         </DropdownMenuItem>
         <DropdownMenuItem
-          onClick={() => onSort(field, 'desc')}
-          className={cn(isActive && currentDirection === 'desc' && 'bg-accent')}
+          onClick={() => onSelect(`-${field}` as OrderingField)}
+          className={cn(active && desc && 'bg-accent font-medium')}
         >
-          <ArrowDown className="h-4 w-4 mr-2" />
+          <ArrowDown className="h-4 w-4 mr-2 flex-shrink-0" />
           Descending
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -65,21 +76,21 @@ function SortDropdown({
   );
 }
 
+// ── TableSubHeader ─────────────────────────────────────────────────────────────
+
 interface TableSubHeaderProps {
   allSelected: boolean;
   onSelectAll: () => void;
-  sortField: SortField | null;
-  sortDirection: SortDirection;
-  onSortChange: (field: SortField, direction: SortDirection) => void;
+  ordering: OrderingField;
+  onOrderingChange: (ordering: OrderingField) => void;
   viewLayout: ArticleViewLayout;
 }
 
 export function TableSubHeader({
   allSelected,
   onSelectAll,
-  sortField,
-  sortDirection,
-  onSortChange,
+  ordering,
+  onOrderingChange,
   viewLayout,
 }: TableSubHeaderProps) {
   return (
@@ -93,41 +104,40 @@ export function TableSubHeader({
       ) : (
         <>
           <div className="w-6 sm:w-10" />
+
           <div className="flex-1 min-w-0">
             <SortDropdown
               field="title"
               label="Title"
-              currentField={sortField}
-              currentDirection={sortDirection}
-              onSort={onSortChange}
+              currentOrdering={ordering}
+              onSelect={onOrderingChange}
             />
           </div>
+
           <div className="hidden sm:block w-28">
             <SortDropdown
-              field="date"
+              field="publication_date"
               label="Date"
-              currentField={sortField}
-              currentDirection={sortDirection}
-              onSort={onSortChange}
+              currentOrdering={ordering}
+              onSelect={onOrderingChange}
             />
           </div>
+
           <div className="hidden md:block w-32">
             <SortDropdown
-              field="author"
+              field="authors"
               label="Author"
-              currentField={sortField}
-              currentDirection={sortDirection}
-              onSort={onSortChange}
+              currentOrdering={ordering}
+              onSelect={onOrderingChange}
             />
           </div>
+
           {viewLayout === 'title-file' && (
             <>
               <div className="hidden sm:block w-28">
-                <button className="flex items-center gap-1 hover:text-foreground transition-colors">
-                  <span>Full Text</span>
-                </button>
+                <span>Full Text</span>
               </div>
-              <div className="w-48 invisible">
+              <div className="w-48 invisible" aria-hidden>
                 <span>Buttons</span>
               </div>
             </>

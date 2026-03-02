@@ -6,12 +6,7 @@ export const fetchKeywords = async (params: {
   reviewId: number;
   isInclusive?: boolean;
 }) => {
-  const res = await api.get('/keywords/', {
-    params: {
-      review: params.reviewId,
-      is_inclusive: params.isInclusive,
-    },
-  });
+  const res = await api.get<Keyword[]>('/keywords/', { params });
   return res.data;
 };
 

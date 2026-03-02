@@ -62,7 +62,8 @@ import { useLocalStorage, useMediaQuery } from 'usehooks-ts';
 interface FiltersSidebarProps {
   reviewId: number;
   userRole: ReviewRole;
-  keywords: Keyword[];
+  includeKeywords: Keyword[];
+  excludeKeywords: Keyword[];
   labels: LabelCount[];
   publicationTypes: PublicationType[];
   publicationYears: PublicationYear[];
@@ -236,7 +237,8 @@ const defaultSections: Section = {
 export function FiltersSidebar({
   reviewId,
   userRole,
-  keywords,
+  includeKeywords,
+  excludeKeywords,
   selectedIncludeKeywords,
   selectedExcludeKeywords,
   labels,
@@ -355,8 +357,6 @@ export function FiltersSidebar({
   const addIncludeInputRef = useRef<HTMLInputElement>(null);
   const addExcludeInputRef = useRef<HTMLInputElement>(null);
 
-  const includeKeywords = keywords.filter((k) => k.isInclusive);
-  const excludeKeywords = keywords.filter((k) => !k.isInclusive);
   const [deleteConfirmKeyword, setDeleteConfirmKeyword] =
     useState<Keyword | null>(null);
   const [deleteConfirmLabel, setDeleteConfirmLabel] =
