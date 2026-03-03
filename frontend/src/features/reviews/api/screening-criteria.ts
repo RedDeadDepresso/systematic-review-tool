@@ -1,6 +1,6 @@
 import {
   type ScreeningCriteria,
-  type ScreeningCriteriaKind,
+  type ScreeningCriteriaType,
 } from '@/features/reviews/types/screening-criteria';
 import api from '@/api/client';
 
@@ -19,7 +19,7 @@ export const createScreeningCriteria = async (payload: {
   review: number;
   name: string;
   description: string;
-  kind: ScreeningCriteriaKind;
+  type: ScreeningCriteriaType;
 }) => {
   const res = await api.post<ScreeningCriteria>(
     '/screening-criteria/',
@@ -33,7 +33,7 @@ export const updateScreeningCriteria = async (
   criteriaId: number,
   payload: {
     name?: string;
-    kind?: ScreeningCriteriaKind;
+    type?: ScreeningCriteriaType;
     description?: string;
   }
 ) => {

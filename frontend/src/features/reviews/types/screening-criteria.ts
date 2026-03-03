@@ -1,8 +1,8 @@
-export type ScreeningCriteriaKind = 'Inclusive' | 'Exclusive';
+export type ScreeningCriteriaType = 'Inclusive' | 'Exclusive';
 
 export interface ScreeningCriteria {
   id: number;
   name: string;
   description: string;
-  kind: ScreeningCriteriaKind;
+  type: ScreeningCriteriaType;
 }
