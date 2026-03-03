@@ -7,7 +7,7 @@ import rest_framework.filters as drf_filters
 from django.contrib.postgres.search import TrigramSimilarity
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.db.models import CharField, Count, F, OuterRef, Prefetch, Subquery
+from django.db.models import CharField, Count, F, OuterRef, Prefetch, Q, Subquery
 from django.db.models.functions import ExtractYear, Lower
 from django.utils import timezone
 from django_filters import rest_framework as django_filters_backend
@@ -434,25 +434,30 @@ class ReferenceAggregationService:
     """
 
     @staticmethod
-    def build(base_qs, user, review):
-        return {
+    def build(base_qs, user, include_duplicate_status: bool = True):
+        result = {
             "search_methods": list(
-                SearchMethod.objects.filter(review=review)
-                .annotate(count=Count("reference"))
+                SearchMethod.objects.filter(reference__in=base_qs)
+                .annotate(count=Count("reference", filter=Q(reference__in=base_qs)))
+                .values("id", "name", "count")
+            ),
+            "labels": list(
+                Label.objects.filter(
+                    user=user,
+                    reference_labels__reference__in=base_qs,  # ← scoped
+                )
+                .annotate(
+                    count=Count(
+                        "reference_labels__reference",
+                        filter=Q(reference_labels__reference__in=base_qs),
+                    )
+                )
                 .values("id", "name", "count")
             ),
             "duplicate_status_counts": dict(
                 base_qs.values("duplicate_status")
                 .annotate(count=Count("id"))
                 .values_list("duplicate_status", "count")
-            ),
-            "labels": list(
-                Label.objects.filter(
-                    user=user,
-                    reference_labels__reference__review=review,
-                )
-                .annotate(count=Count("reference_labels__reference"))
-                .values("id", "name", "count")
             ),
             "publication_types": list(
                 base_qs.exclude(publication_type="")
@@ -482,6 +487,13 @@ class ReferenceAggregationService:
                 .annotate(count=Count("id"))
             ),
         }
+        if include_duplicate_status:
+            result["duplicate_status_counts"] = dict(
+                base_qs.values("duplicate_status")
+                .annotate(count=Count("id"))
+                .values_list("duplicate_status", "count")
+            )
+        return result
 
 
 # ── ReviewQuerysetMixin ────────────────────────────────────────────────────────
@@ -589,6 +601,29 @@ class ScreeningQuerysetMixin:
             )
         ).distinct()
 
+    def get_base_queryset_for_counts(self):
+        """Scopes counts to the references visible at this screening stage."""
+        stage = getattr(self, "stage", ReferenceOpinion.Stage.SCREENING)
+        base = super().get_base_queryset_for_counts()  # plain review queryset
+        base = base.exclude(duplicate_status__in=["Undecided", "Deleted"])
+        if stage == ReferenceOpinion.Stage.FULL_TEXT:
+            base = base.filter(in_full_text=True)
+        return base
+
+    @action(detail=False, methods=["get"], url_path="filter-counts")
+    def filter_counts(self, request, *args, **kwargs):
+        review = self.get_review()
+        if not review:
+            return Response({"error": "review parameter required"}, status=400)
+
+        base_qs = self.get_base_queryset_for_counts()
+        aggregations = ReferenceAggregationService.build(
+            base_qs,
+            request.user,
+            include_duplicate_status=False,  # meaningless at screening stage
+        )
+        return Response(aggregations)
+
 
 # ── ReviewDataViewSet ──────────────────────────────────────────────────────────
 
@@ -671,7 +706,7 @@ class ReviewDataViewSet(
             )
 
         base_qs = self.get_base_queryset_for_counts()
-        aggregations = ReferenceAggregationService.build(base_qs, request.user, review)
+        aggregations = ReferenceAggregationService.build(base_qs, request.user)
         return Response(aggregations)
 
     @action(detail=False, methods=["get"], url_path="export")
@@ -730,12 +765,6 @@ class ScreeningViewSet(ScreeningQuerysetMixin, ReviewDataViewSet):
     def get_queryset(self):
         return self.apply_screening(super().get_queryset(), stage=self.stage)
 
-    def get_base_queryset_for_counts(self):
-        return self.apply_screening(
-            super().get_base_queryset_for_counts(),
-            stage=ReferenceOpinion.Stage.SCREENING,
-        )
-
 
 class ScreeningFullTextViewSet(ScreeningQuerysetMixin, ReviewDataViewSet):
     filterset_class = ScreeningFilter
@@ -743,12 +772,6 @@ class ScreeningFullTextViewSet(ScreeningQuerysetMixin, ReviewDataViewSet):
 
     def get_queryset(self):
         return self.apply_screening(super().get_queryset(), stage=self.stage)
-
-    def get_base_queryset_for_counts(self):
-        return self.apply_screening(
-            super().get_base_queryset_for_counts(),
-            stage=ReferenceOpinion.Stage.FULL_TEXT,
-        )
 
 
 class UploadedPDFViewSet(viewsets.ModelViewSet):
