@@ -1182,7 +1182,7 @@ class ScreeningCriteriaViewSet(viewsets.ModelViewSet):
 
     serializer_class = ScreeningCriteriaSerializer
     permission_classes = [IsAuthenticated]
-    filterset_fields = ["review", "kind"]
+    filterset_fields = ["review", "type"]
 
     def get_queryset(self):
         """
