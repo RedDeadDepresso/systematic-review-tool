@@ -936,9 +936,13 @@ class ReferenceOpinion(models.Model):
 
 
 class Keyword(models.Model):
+    class Type(models.TextChoices):
+        INCLUSION = "inclusion"
+        EXCLUSION = "exclusion"
+
     review = models.ForeignKey("reviews.Review", on_delete=models.CASCADE)
     name = models.CharField(max_length=150)
-    is_inclusive = models.BooleanField()
+    type = models.CharField(max_length=20, choices=Type.choices)
 
 
 class Note(models.Model):

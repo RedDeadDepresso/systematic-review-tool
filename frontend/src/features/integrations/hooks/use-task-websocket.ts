@@ -89,56 +89,56 @@ export function useTaskWebSocket(
       };
 
       ws.onmessage = (event) => {
+        let data: TaskStatus | null = null;
         try {
-          const data: TaskStatus = JSON.parse(event.data);
-          console.log('WebSocket message received:', data);
-
-          setStatus(data);
-          const currentOptions = optionsRef.current;
-          if (
-            currentOptions &&
-            typeof currentOptions.onStatusChange === 'function'
-          ) {
-            currentOptions.onStatusChange(data);
-          }
-
-          // Handle progress updates
-          if (data.status === 'PROGRESS') {
-            if (
-              currentOptions &&
-              typeof currentOptions.onProgress === 'function'
-            ) {
-              currentOptions.onProgress(data);
-            }
-          }
-
-          // Handle completion
-          if (data.status === 'SUCCESS') {
-            taskCompletedRef.current = true;
-            setIsCompleted(true);
-            if (
-              currentOptions &&
-              typeof currentOptions.onSuccess === 'function'
-            ) {
-              currentOptions.onSuccess(data.result);
-            }
-
-            // Invalidate queries
-            queryClient.invalidateQueries({ queryKey: ['zotero-status'] });
-            queryClient.invalidateQueries({ queryKey: ['zotero-integration'] });
-            queryClient.invalidateQueries({ queryKey: ['references'] });
-          } else if (data.status === 'FAILURE' || data.status === 'ERROR') {
-            taskCompletedRef.current = true;
-            setIsCompleted(true);
-            if (
-              currentOptions &&
-              typeof currentOptions.onError === 'function'
-            ) {
-              currentOptions.onError(data.error || 'Task failed');
-            }
-          }
+          data = JSON.parse(event.data) as TaskStatus;
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
+          return;
+        }
+
+        console.log('WebSocket message received:', data);
+
+        setStatus(data);
+        const currentOptions = optionsRef.current;
+        if (
+          currentOptions &&
+          typeof currentOptions.onStatusChange === 'function'
+        ) {
+          currentOptions.onStatusChange(data);
+        }
+
+        // Handle progress updates
+        if (data.status === 'PROGRESS') {
+          if (
+            currentOptions &&
+            typeof currentOptions.onProgress === 'function'
+          ) {
+            currentOptions.onProgress(data);
+          }
+        }
+
+        // Handle completion
+        if (data.status === 'SUCCESS') {
+          taskCompletedRef.current = true;
+          setIsCompleted(true);
+          if (
+            currentOptions &&
+            typeof currentOptions.onSuccess === 'function'
+          ) {
+            currentOptions.onSuccess(data.result);
+          }
+
+          // Invalidate queries
+          queryClient.invalidateQueries({ queryKey: ['zotero-status'] });
+          queryClient.invalidateQueries({ queryKey: ['zotero-integration'] });
+          queryClient.invalidateQueries({ queryKey: ['references'] });
+        } else if (data.status === 'FAILURE' || data.status === 'ERROR') {
+          taskCompletedRef.current = true;
+          setIsCompleted(true);
+          if (currentOptions && typeof currentOptions.onError === 'function') {
+            currentOptions.onError(data.error || 'Task failed');
+          }
         }
       };
 

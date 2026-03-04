@@ -1,51 +1,129 @@
 import {
   updateReference,
   fetchReference,
-  fetchReviewData,
   uploadReferenceFile,
   attachPDFsToReferences,
   type FetchReviewDataParams,
-  fetchReferences,
   assignReferences,
   type AssignReferencesPayload,
-  fetchScreening,
-  fetchScreeningFullText,
   autoMatch,
+  fetchFilterCounts,
+  type FetchReferencesResponse,
+  type ReferencesEndpoint,
   type FetchScreeningParams,
+  ENDPOINTS,
+  fetchReferences,
 } from '@/features/references/api/references';
 import type { Reference } from '@/features/references/types/references';
 import type { UploadedPDF } from '@/features/references/types/uploaded-pdfs';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+} from '@tanstack/react-query';
 import type { AxiosError } from 'axios';
 import { toast } from 'sonner';
 
-export const useFetchReferences = (reviewId: number) => {
-  return useQuery({
-    queryKey: ['reviews', reviewId, 'references'],
-    queryFn: () => fetchReferences(reviewId),
+// ─── Query keys ────────────────────────────────────────────────────────────────
+
+// Updated referenceKeys to include endpoint
+export const referenceKeys = {
+  list: (
+    params: FetchReviewDataParams,
+    endpoint: ReferencesEndpoint = ENDPOINTS.reviewData
+  ) => ['reviews', params.review, endpoint, 'references', params] as const,
+  filterCounts: (
+    reviewId: number,
+    endpoint: ReferencesEndpoint = ENDPOINTS.reviewData
+  ) => ['reviews', reviewId, endpoint, 'filter-counts'] as const,
+};
+
+// ─── Infinite references (pagination + sort) ───────────────────────────────────
+
+/**
+ * Infinite scroll hook for the references table.
+ *
+ * Usage in the component:
+ *
+ *   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
+ *     useFetchReferences(params);
+ *
+ *   // Flatten pages into a single array:
+ *   const references = data?.pages.flatMap(p => p.references) ?? [];
+ *
+ * Trigger fetchNextPage when the user scrolls near the bottom of the list.
+ */
+export const useFetchReferences = <T extends Reference = Reference>(
+  params: Omit<FetchReviewDataParams | FetchScreeningParams, 'offset'>,
+  endpoint: ReferencesEndpoint | string = ENDPOINTS.reviewData
+) => {
+  const PAGE_SIZE = params.limit ?? 50;
+
+  return useInfiniteQuery<
+    FetchReferencesResponse<T>,
+    Error,
+    InfiniteData<FetchReferencesResponse<T>>,
+    readonly [string, number, string, string, object],
+    number
+  >({
+    queryKey: [
+      'reviews',
+      params.review,
+      endpoint,
+      'references',
+      { ...params, limit: PAGE_SIZE },
+    ] as const,
+    queryFn: ({ pageParam }) =>
+      fetchReferences(
+        { ...params, limit: PAGE_SIZE, offset: pageParam },
+        endpoint
+      ) as Promise<FetchReferencesResponse<T>>,
+    initialPageParam: 0,
+    getNextPageParam: (last) =>
+      last.next ? last.offset + last.limit : undefined,
+    getPreviousPageParam: (first) =>
+      first.previous && first.offset > 0
+        ? Math.max(0, first.offset - first.limit)
+        : undefined,
+    placeholderData: (prev) => prev,
   });
 };
 
-export const useFetchReviewData = (params: FetchReviewDataParams) => {
-  return useQuery({
-    queryKey: ['reviews', 'review-data', params],
-    queryFn: () => fetchReviewData(params),
-  });
-};
+/**
+ * Selector to flatten all pages into a single reference array.
+ * Memoised by React Query's structural equality check on `data`.
+ */
+export const selectFlatReferences = <T extends Reference = Reference>(
+  data: InfiniteData<FetchReferencesResponse<T>> | undefined
+): T[] => data?.pages.flatMap((p) => p.references) ?? [];
+/**
+ * Get counts from the first page (same for all pages).
+ */
+export const selectPageMeta = (
+  data: InfiniteData<FetchReferencesResponse> | undefined
+) =>
+  data?.pages[0]
+    ? {
+        totalCount: data.pages[0].totalCount,
+        filteredCount: data.pages[0].filteredCount,
+        totalMatchingCount: data.pages[0].count,
+      }
+    : { totalCount: 0, filteredCount: 0, totalMatchingCount: 0 };
 
-export const useFetchScreening = (params: FetchScreeningParams) => {
-  return useQuery({
-    queryKey: ['reviews', 'screening', params],
-    queryFn: () => fetchScreening(params),
-  });
-};
+// ─── Filter counts (sidebar aggregations) ─────────────────────────────────────
 
-export const useFetchScreeningFullText = (params: FetchScreeningParams) => {
-  return useQuery({
-    queryKey: ['reviews', 'screening-full-text', params],
-    queryFn: () => fetchScreeningFullText(params),
+export const useFetchFilterCounts = (
+  reviewId: number,
+  endpoint: ReferencesEndpoint | string = ENDPOINTS.reviewData
+) =>
+  useQuery({
+    queryKey: ['reviews', reviewId, endpoint, 'filter-counts'] as const,
+    queryFn: () => fetchFilterCounts(reviewId, endpoint),
+    staleTime: 2 * 60 * 1000,
+    enabled: !!reviewId,
   });
-};
 
 export const useFetchReference = (id: number) => {
   return useQuery({

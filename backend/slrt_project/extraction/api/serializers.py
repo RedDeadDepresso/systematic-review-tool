@@ -8,6 +8,7 @@ from slrt_project.extraction.models import (
     ExtractionQuestion,
     ExtractionSection,
 )
+from slrt_project.references.api.serializers import ReferenceSerializer
 from slrt_project.references.models import Reference
 
 
@@ -249,34 +250,15 @@ class ExtractionQuestionTableSerializer(serializers.ModelSerializer):
         ]
 
 
-class ReferenceTableSerializer(serializers.ModelSerializer):
-    """Serializer for references with their extraction answers"""
-
+class ReferenceTableSerializer(ReferenceSerializer):
     answers = serializers.SerializerMethodField()
-    labels = serializers.SerializerMethodField()
-    assignee = serializers.SerializerMethodField()
-    file = serializers.SerializerMethodField()
 
     class Meta:
         model = Reference
-        fields = [
-            "id",
-            "title",
-            "file",
+        fields = ReferenceSerializer.Meta.fields + [
             "answers",
             "is_extraction_completed",
-            "labels",
-            "assignee",
         ]
-
-    def get_file(self, obj):
-        request = self.context.get("request")
-
-        if obj.file:
-            url = obj.file.url
-            return request.build_absolute_uri(url) if request else url
-
-        return None
 
     def get_answers(self, obj):
         """Returns dict mapping question_id -> {id, value}"""
@@ -285,36 +267,6 @@ class ReferenceTableSerializer(serializers.ModelSerializer):
         for answer in obj.extraction_answers.all():
             answers[answer.question_id] = {"id": answer.id, "value": answer.value}
         return answers
-
-    def get_labels(self, obj):
-        """
-        Return labels applied to this reference for the current user only.
-        Expects that `obj` has a `prefetched_labels` prefetched attribute.
-        """
-
-        return [
-            {"id": rl.label.id, "name": rl.label.name, "color": rl.label.color}
-            for rl in obj.prefetched_labels
-        ]
-
-    def get_assignee(self, obj):
-        if not obj.assignee:
-            return None
-        return {
-            "id": obj.assignee.id,
-            "user": {
-                "first_name": obj.assignee.user.first_name,
-                "last_name": obj.assignee.user.last_name,
-                "email": obj.assignee.user.email,
-            },
-        }
-
-
-class ExtractionTableDataSerializer(serializers.Serializer):
-    """Combined serializer for all table data"""
-
-    questions = ExtractionQuestionTableSerializer(many=True)
-    references = ReferenceTableSerializer(many=True)
 
 
 class ExtractionAnswerNestedSerializer(serializers.ModelSerializer):

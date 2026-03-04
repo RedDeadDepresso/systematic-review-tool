@@ -494,10 +494,13 @@ export function ExtractionFooter({
           className="flex-1 gap-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:text-green-800 disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={isDisabled}
           onClick={() =>
-            bulkUpdateStatusMutation.mutate({
-              referenceIds: selectedReferenceIds,
-              isExtractionCompleted: true,
-            })
+            bulkUpdateStatusMutation.mutate(
+              {
+                referenceIds: selectedRefs,
+                isExtractionCompleted: true,
+              },
+              { onSuccess: onLabelsApplied }
+            )
           }
         >
           <CheckCircle2 className="h-4 w-4" />
@@ -509,10 +512,13 @@ export function ExtractionFooter({
           className="flex-1 gap-2 bg-transparent border-muted-foreground/30 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={isDisabled}
           onClick={() =>
-            bulkUpdateStatusMutation.mutate({
-              referenceIds: selectedReferenceIds,
-              isExtractionCompleted: false,
-            })
+            bulkUpdateStatusMutation.mutate(
+              {
+                referenceIds: selectedRefs,
+                isExtractionCompleted: false,
+              },
+              { onSuccess: onLabelsApplied }
+            )
           }
         >
           <XCircle className="h-4 w-4" />

@@ -8,22 +8,30 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from slrt_project.extraction.api.filters import ExtractionQuestionFilter
+from slrt_project.extraction.api.filters import (
+    ExtractionQuestionFilter,
+    ExtractionReferenceFilter,
+)
 from slrt_project.extraction.api.serializers import (
     BulkUpdateExtractionStatusSerializer,
     ExtractionAnswerBulkSerializer,
     ExtractionAnswerSerializer,
     ExtractionQuestionSerializer,
+    ExtractionQuestionTableSerializer,
     ExtractionSectionSerializer,
     ExtractionSectionWithQuestionsSerializer,
-    ExtractionTableDataSerializer,
+    ReferenceTableSerializer,
 )
 from slrt_project.extraction.models import (
     ExtractionAnswer,
     ExtractionQuestion,
     ExtractionSection,
 )
-from slrt_project.references.models import Reference, ReferenceLabel
+from slrt_project.references.api.views import (
+    ReferenceAggregationService,
+    ReviewDataViewSet,
+)
+from slrt_project.references.models import Reference
 
 
 class ExtractionSectionViewSet(viewsets.ModelViewSet):
@@ -107,55 +115,93 @@ class ExtractionAnswerViewSet(viewsets.ModelViewSet):
         )
 
 
-class ExtractionTableViewSet(viewsets.ViewSet):
+class ExtractionTableViewSet(ReviewDataViewSet):
     """
-    ViewSet for extraction table operations
+    Extraction table — inherits all filtering, ordering, and pagination
+    from ReviewDataViewSet. Only differences:
+      - base queryset scoped to in_extraction=True with answer prefetch
+      - returns questions alongside references in a single response
+      - no filter-counts action needed
     """
 
-    @action(detail=False, methods=["get"], url_path="table-data")
-    def table_data(self, request):
-        """
-        Get all data needed for extraction table in a single request
-        """
-        review_id = request.query_params.get("review")
+    filterset_class = ExtractionReferenceFilter
 
-        if not review_id:
-            return Response(
-                {"error": "review is required"}, status=status.HTTP_400_BAD_REQUEST
-            )
+    def get_base_queryset(self):
+        """Scope all queries to references that are in extraction."""
+        return super().get_base_queryset().filter(in_extraction=True)
 
-        # Get questions with sections, ordered
-        questions = (
-            ExtractionQuestion.objects.filter(section__review=review_id)
-            .select_related("section")
-            .order_by("section__order", "order")
-        )
-
-        # Get references with prefetched answers for efficiency
-        references = (
-            Reference.objects.filter(review=review_id, in_extraction=True)
+    def get_queryset(self):
+        """Add extraction-specific prefetches on top of the base queryset."""
+        return (
+            super()
+            .get_queryset()  # already filtered to in_extraction=True via get_base_queryset
             .prefetch_related(
                 Prefetch(
                     "extraction_answers",
                     queryset=ExtractionAnswer.objects.select_related("question"),
-                ),
-                Prefetch(
-                    "labels",
-                    queryset=ReferenceLabel.objects.filter(
-                        label__user=self.request.user
-                    ).select_related("label"),
-                    to_attr="prefetched_labels",
-                ),
+                )
             )
-            .select_related("assignee__user")
         )
 
-        serializer = ExtractionTableDataSerializer(
-            {"questions": questions, "references": references},
-            context={"request": request},
+    def get_base_queryset_for_counts(self):
+        """
+        Scope counts to in_extraction=True references.
+        Called by the inherited filter_counts action.
+        """
+        return super().get_base_queryset_for_counts().filter(in_extraction=True)
+
+    @action(detail=False, methods=["get"], url_path="filter-counts")
+    def filter_counts(self, request, *args, **kwargs):
+        review = self.get_review()
+        if not review:
+            return Response({"error": "review parameter required"}, status=400)
+
+        base_qs = self.get_base_queryset_for_counts()
+        aggregations = ReferenceAggregationService.build(
+            base_qs,
+            request.user,
+            include_duplicate_status=False,
+            include_extraction_counts=True,
         )
 
-        return Response(serializer.data)
+        return Response(aggregations)
+
+    def list(self, request, *args, **kwargs):
+        review = self.get_review()
+        if not review:
+            return Response(
+                {"error": "review is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        questions = (
+            ExtractionQuestion.objects.filter(section__review=review)
+            .select_related("section")
+            .order_by("section__order", "order")
+        )
+
+        # filter_queryset → applies ReferenceFilter + OrderingFilter
+        # paginate_queryset → applies ReferencePagination
+        filtered_qs = self.filter_queryset(self.get_queryset())
+        # Counts for the top header ("Showing X of Y")
+        total_count = self.get_base_queryset_for_counts().count()
+        filtered_count = filtered_qs.count()
+        page = self.paginate_queryset(filtered_qs)
+
+        references_serializer = ReferenceTableSerializer(
+            page, many=True, context={"request": request}
+        )
+        questions_serializer = ExtractionQuestionTableSerializer(
+            questions, many=True, context={"request": request}
+        )
+
+        # Wrap in the paginator's response so next/previous/count are included,
+        # then inject questions into the same envelope.
+        paginated_response = self.get_paginated_response(references_serializer.data)
+        paginated_response.data["questions"] = questions_serializer.data
+        paginated_response.data["total_count"] = total_count
+        paginated_response.data["filtered_count"] = filtered_count
+        return paginated_response
 
     @action(detail=False, methods=["get"], url_path="export-csv")
     def export_csv(self, request):
@@ -177,16 +223,7 @@ class ExtractionTableViewSet(viewsets.ViewSet):
         )
 
         # Get references with prefetched answers
-        references = (
-            Reference.objects.filter(review_id=review_id)
-            .prefetch_related(
-                Prefetch(
-                    "extraction_answers",
-                    queryset=ExtractionAnswer.objects.select_related("question"),
-                )
-            )
-            .order_by("id")
-        )
+        references = self.get_queryset().filter(review_id=review_id)
 
         # Create CSV response
         response = HttpResponse(content_type="text/csv")
@@ -197,14 +234,14 @@ class ExtractionTableViewSet(viewsets.ViewSet):
         writer = csv.writer(response)
 
         # Write header row
-        header = ["Title"]
+        header = ["Title", "URL", "DOI"]
         for question in questions:
             header.append(question.column_title)
         writer.writerow(header)
 
         # Write data rows
         for ref in references:
-            row = [ref.title]
+            row = [ref.title, ref.url, ref.doi]
 
             # Create answers dict for quick lookup
             answers_dict = {}

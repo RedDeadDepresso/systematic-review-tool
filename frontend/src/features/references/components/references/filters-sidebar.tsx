@@ -20,7 +20,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { Keyword } from '@/features/references/types/keywords';
+import type {
+  Keyword,
+  KeywordType,
+} from '@/features/references/types/keywords';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,7 +65,8 @@ import { useLocalStorage, useMediaQuery } from 'usehooks-ts';
 interface FiltersSidebarProps {
   reviewId: number;
   userRole: ReviewRole;
-  keywords: Keyword[];
+  includeKeywords: Keyword[];
+  excludeKeywords: Keyword[];
   labels: LabelCount[];
   publicationTypes: PublicationType[];
   publicationYears: PublicationYear[];
@@ -103,7 +107,7 @@ interface FiltersSidebarProps {
   excludeHighlightEnabled: boolean;
   onToggleIncludeHighlight: () => void;
   onToggleExcludeHighlight: () => void;
-  onCreateKeyword: (name: string, isInclusive: boolean) => void;
+  onCreateKeyword: (name: string, type: KeywordType) => void;
   onDeleteKeyword?: (keyword: Keyword) => void;
   onDeleteLabel?: (label: LabelCount) => void;
   onDeleteSearchMethod?: (searchMethod: SearchMethod) => void;
@@ -236,7 +240,8 @@ const defaultSections: Section = {
 export function FiltersSidebar({
   reviewId,
   userRole,
-  keywords,
+  includeKeywords,
+  excludeKeywords,
   selectedIncludeKeywords,
   selectedExcludeKeywords,
   labels,
@@ -355,8 +360,6 @@ export function FiltersSidebar({
   const addIncludeInputRef = useRef<HTMLInputElement>(null);
   const addExcludeInputRef = useRef<HTMLInputElement>(null);
 
-  const includeKeywords = keywords.filter((k) => k.isInclusive);
-  const excludeKeywords = keywords.filter((k) => !k.isInclusive);
   const [deleteConfirmKeyword, setDeleteConfirmKeyword] =
     useState<Keyword | null>(null);
   const [deleteConfirmLabel, setDeleteConfirmLabel] =
@@ -538,12 +541,12 @@ export function FiltersSidebar({
 
   const handleAddKeyword = (
     keyword: string,
-    isInclusive: boolean,
+    type: KeywordType,
     setShow: (show: boolean) => void,
     setKeyword: (keyword: string) => void
   ) => {
     if (keyword.trim()) {
-      onCreateKeyword(keyword.trim(), isInclusive);
+      onCreateKeyword(keyword.trim(), type);
       setKeyword('');
       setShow(false);
     }
@@ -552,12 +555,12 @@ export function FiltersSidebar({
   const handleKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement>,
     keyword: string,
-    isInclusive: boolean,
+    type: KeywordType,
     setShow: (show: boolean) => void,
     setKeyword: (keyword: string) => void
   ) => {
     if (e.key === 'Enter') {
-      handleAddKeyword(keyword, isInclusive, setShow, setKeyword);
+      handleAddKeyword(keyword, type, setShow, setKeyword);
     } else if (e.key === 'Escape') {
       setKeyword('');
       setShow(false);
@@ -734,7 +737,7 @@ export function FiltersSidebar({
                     handleKeyDown(
                       e,
                       newIncludeKeyword,
-                      true,
+                      'inclusion',
                       setShowAddIncludeInput,
                       setNewIncludeKeyword
                     )
@@ -843,7 +846,7 @@ export function FiltersSidebar({
                     handleKeyDown(
                       e,
                       newExcludeKeyword,
-                      false,
+                      'exclusion',
                       setShowAddExcludeInput,
                       setNewExcludeKeyword
                     )

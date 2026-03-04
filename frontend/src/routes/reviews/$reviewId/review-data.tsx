@@ -1,39 +1,39 @@
-import { AppLayoutContext } from '@/context/app-layout-context';
-import { useFetchReviewData } from '@/features/references/hooks/use-references';
 import { createFileRoute } from '@tanstack/react-router';
-import { useContext, useState, useEffect } from 'react';
-import { SourcesSidebar } from '@/features/references/components/references/sources-sidebar';
-import { ReferencesTable } from '@/features/references/components/references/references-table';
-import { FiltersSidebar } from '@/features/references/components/references/filters-sidebar';
-import { ReviewDataReferenceDrawer } from '@/features/references/components/references/reference-drawer';
-import { ReviewDataReferenceDetailPanel } from '@/features/references/components/references/reference-panel';
-import {
-  TableTopHeader,
-  type ExportType,
-} from '@/features/references/components/references/references-table-top-header';
+import { useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useContext, useEffect } from 'react';
+import { AppLayoutContext } from '@/context/app-layout-context';
+
+import { ReferenceTableLayout } from '@/features/references/components/references/reference-table-layout';
 import { ResolveDuplicatesDialog } from '@/features/references/components/reference-clusters/resolve-duplicates-dialog';
 import { FileUploadDialog } from '@/components/blocks/file-upload-dialog';
-import { MatchPDFDialog } from '@/features/references/components/uploaded-pdfs/match-pdf-dialog';
-import type { ArticleViewLayout } from '@/features/references/types/references';
+import { ReviewDataReferenceDetailPanel } from '@/features/references/components/references/reference-panel';
+import { ReviewDataReferenceDrawer } from '@/features/references/components/references/reference-drawer';
+import { ReviewDataFooter } from '@/features/references/components/references/references-table-footer';
+
+import {
+  useFetchReferences,
+  useFetchFilterCounts,
+  selectFlatReferences,
+  selectPageMeta,
+  referenceKeys,
+} from '@/features/references/hooks/use-references';
 import { useReferenceFilters } from '@/features/references/hooks/use-reference-filters';
 import { useReferenceUI } from '@/features/references/hooks/use-reference-ui';
 import { useKeywordManagement } from '@/features/references/hooks/use-keyword-management';
 import { useFileUpload } from '@/features/references/hooks/use-reference-file-upload';
-import { useQueryClient } from '@tanstack/react-query';
-import { ReferencesTableBody } from '@/features/references/components/references/references-table-body';
-import { ReviewDataFooter } from '@/features/references/components/references/references-table-footer';
-import { TableSubHeader } from '@/features/references/components/references/references-table-sub-header';
-import { PDFDialog } from '@/components/blocks/pdf-dialog/pdf-dialog';
+import { useDeleteSearchMethod } from '@/features/reviews/hooks/use-search-methods';
+import { useDeleteLabel } from '@/features/references/hooks/use-labels';
 import { useFetchReview } from '@/features/reviews/hooks/use-reviews';
+
 import {
+  ENDPOINTS,
   exportReviewData,
   type LabelCount,
   type SearchMethod,
 } from '@/features/references/api/references';
-import { cn } from '@/lib/utils';
-import { useDeleteSearchMethod } from '@/features/reviews/hooks/use-search-methods';
-import { useDeleteLabel } from '@/features/references/hooks/use-labels';
-import { SavedPDFDialog } from '@/features/references/components/uploaded-pdfs/saved-pdf-dialog';
+import type { ArticleViewLayout } from '@/features/references/types/references';
+import type { ExportType } from '@/features/references/components/references/references-table-top-header';
 
 export const Route = createFileRoute('/reviews/$reviewId/review-data')({
   component: RouteComponent,
@@ -44,7 +44,6 @@ function RouteComponent() {
   const { setPageTitle, setIsAuthenticated, setScroll } =
     useContext(AppLayoutContext);
   const queryClient = useQueryClient();
-  const deleteSearchMethod = useDeleteSearchMethod(reviewId);
 
   useEffect(() => {
     setPageTitle('Review Data');
@@ -52,7 +51,7 @@ function RouteComponent() {
     setScroll(false);
   }, []);
 
-  // Feature flags - all enabled
+  // ── Filters ───────────────────────────────────────────────────────────────
   const filters = useReferenceFilters({
     enableOpinions: false,
     enableSearchMethods: true,
@@ -63,81 +62,76 @@ function RouteComponent() {
     enableAssignees: true,
     enableDuplicates: true,
     debounceDelay: 1500,
+    defaultOrdering: 'title',
   });
 
-  // Highlight toggle states
-  const [includeHighlightEnabled, setIncludeHighlightEnabled] = useState(true);
-  const [excludeHighlightEnabled, setExcludeHighlightEnabled] = useState(true);
-
-  // Article view layout state
+  // ── Layout & toggles ──────────────────────────────────────────────────────
   const [articleViewLayout, setArticleViewLayout] =
     useState<ArticleViewLayout>('title-only');
-
-  // Resolve duplicates dialog
+  const [includeHighlightEnabled, setIncludeHighlightEnabled] = useState(true);
+  const [excludeHighlightEnabled, setExcludeHighlightEnabled] = useState(true);
   const [isResolveDuplicatesOpen, setIsResolveDuplicatesOpen] = useState(false);
 
-  // Fetch data
-  const queryParams = {
+  // ── Data fetching ─────────────────────────────────────────────────────────
+  const referencesQuery = useFetchReferences({
     review: reviewId,
     ...filters.filters,
-  };
+    limit: 50,
+  });
+  const { data: filterCounts } = useFetchFilterCounts(reviewId);
+  const references = selectFlatReferences(referencesQuery.data);
+  const { totalCount, filteredCount } = selectPageMeta(referencesQuery.data);
 
-  const { data, isLoading, error } = useFetchReviewData(queryParams);
-  const invalidateQuery = () => {
-    queryClient.invalidateQueries({
-      queryKey: ['reviews', 'review-data', queryParams],
-    });
-  };
+  // ── Review metadata ───────────────────────────────────────────────────────
   const fetchReview = useFetchReview(reviewId);
+  const userRole = fetchReview.data?.userRole ?? 'Viewer';
 
-  // UI state management
-  const ui = useReferenceUI(data?.references || []);
+  // ── Cache invalidation ────────────────────────────────────────────────────
+  const invalidateQuery = useCallback(() => {
+    queryClient.invalidateQueries({
+      queryKey: ['reviews', reviewId, ENDPOINTS.reviewData],
+    });
+    queryClient.invalidateQueries({
+      queryKey: referenceKeys.filterCounts(reviewId),
+    });
+  }, [queryClient, reviewId]);
 
-  // Keyword management
+  // ── Delete handlers ───────────────────────────────────────────────────────
+  const deleteSearchMethod = useDeleteSearchMethod(reviewId);
+  const deleteLabel = useDeleteLabel();
+  const handleDeleteLabel = (label: LabelCount) =>
+    deleteLabel.mutate(label.id, { onSuccess: invalidateQuery });
+  const handleDeleteSearchMethod = (sm: SearchMethod) =>
+    deleteSearchMethod.mutate(sm.id, { onSuccess: invalidateQuery });
+
+  // ── Sub-hooks ─────────────────────────────────────────────────────────────
+  const ui = useReferenceUI(references);
   const keywords = useKeywordManagement(
     reviewId,
-    data?.keywords,
     includeHighlightEnabled,
     excludeHighlightEnabled,
     filters.includeKeywords,
     filters.excludeKeywords,
-    (kws) => filters.setIncludeKeywords?.(kws),
-    (kws) => filters.setExcludeKeywords?.(kws)
+    (kws) => filters.setIncludeKeywords(kws),
+    (kws) => filters.setExcludeKeywords(kws)
   );
-
-  // File upload management
   const fileUpload = useFileUpload(
     reviewId,
     invalidateQuery,
     ui.selectedReferenceIds,
     ui.highlightedReferenceId,
-    ui.sortedReferences
+    ui.references
   );
 
-  const deleteLabel = useDeleteLabel();
-
-  const handleDeleteLabel = (label: LabelCount) => {
-    deleteLabel.mutate(label.id, {
-      onSuccess: () => {
-        invalidateQuery();
-      },
-    });
-  };
-
-  const handleDeleteSearchMethod = (searchMethod: SearchMethod) => {
-    deleteSearchMethod.mutate(searchMethod.id, {
-      onSuccess: invalidateQuery,
-    });
-  };
-
+  // ── Export ────────────────────────────────────────────────────────────────
   const handleExport = (exportType: ExportType) => {
     const filename = `review-${reviewId}-review-data${exportType === 'all' ? '' : '-filtered'}.bib`;
     exportType === 'all'
       ? exportReviewData(filename)
-      : exportReviewData(filename, queryParams);
+      : exportReviewData(filename, { review: reviewId, ...filters.filters });
   };
 
-  if (error) {
+  if (referencesQuery.isError) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-destructive">Error loading references</div>
@@ -145,301 +139,108 @@ function RouteComponent() {
     );
   }
 
+  const highlightedRef =
+    references.find((r) => r.id === ui.highlightedReferenceId) ?? null;
+
   return (
-    <>
-      {/* Dialogs */}
-      {ui.openPDFId && ui.openPDFReference && ui.openPDFReference.file && (
-        <PDFDialog
-          reviewId={reviewId}
-          referenceId={ui.openPDFId}
-          open={ui.openPDFReference !== null}
-          onOpenChange={ui.handleClosePDF}
-          title={ui.openPDFReference.title}
-          fileUrl={ui.openPDFReference.file}
-          userRole={fetchReview.data?.userRole || 'Viewer'}
-          hasNext={ui.hasOpenPDFReferenceNext}
-          hasPrev={ui.hasOpenPDFReferencePrev}
-          onNavigate={ui.handleOpenPDFNavigate}
-        />
-      )}
-      <ResolveDuplicatesDialog
-        reviewId={reviewId}
-        isOpen={isResolveDuplicatesOpen}
-        onClose={() => setIsResolveDuplicatesOpen(false)}
-      />
-      <FileUploadDialog
-        open={fileUpload.openUploadBibDialog}
-        onOpenChange={fileUpload.setOpenUploadBibDialog}
-        title="Upload References"
-        description="Add references to the review (BibTeX, RIS, or EndNote XML format)"
-        acceptedFormats=".bib,.ris,.xml"
-        fileTypeLabel="BibTeX/RIS/EndNote XML"
-        onUpload={fileUpload.handleUploadReferences}
-      />
-      <FileUploadDialog
-        open={fileUpload.openUploadPDFDialog}
-        onOpenChange={fileUpload.setOpenUploadPDFDialog}
-        onUpload={fileUpload.handleUploadPDF}
-        onAllSuccess={() => fileUpload.setOpenMatchDialog(true)}
-      />
-      {fileUpload.openMatchDialog && (
-        <MatchPDFDialog
-          open={fileUpload.openMatchDialog}
-          onOpenChange={fileUpload.setOpenMatchDialog}
-          references={fileUpload.combinedReferences}
-          uploadedPDFs={fileUpload.uploadedPDFs}
-          onImport={fileUpload.handleMatch}
-          onAutoMatch={fileUpload.handleAutoMatch}
-        />
-      )}
-      {fileUpload.openSavedPDFDialog && (
-        <SavedPDFDialog
-          reviewId={reviewId}
-          open={fileUpload.openSavedPDFDialog}
-          onOpenChange={fileUpload.setopenSavedPDFDialog}
-        />
-      )}
-      <div className="h-full flex flex-col overflow-hidden bg-background">
-        <div className="flex flex-1 overflow-hidden">
-          {/* Sources Sidebar */}
-          <SourcesSidebar
+    <ReferenceTableLayout
+      reviewId={reviewId}
+      userRole={userRole}
+      totalCount={totalCount}
+      filteredCount={filteredCount}
+      isLoading={referencesQuery.isLoading}
+      isFetchingNextPage={referencesQuery.isFetchingNextPage}
+      hasNextPage={referencesQuery.hasNextPage}
+      onLoadMore={referencesQuery.fetchNextPage}
+      searchMethods={filterCounts?.searchMethods ?? []}
+      labels={filterCounts?.labels ?? []}
+      publicationTypes={filterCounts?.publicationTypes ?? []}
+      publicationYears={filterCounts?.publicationYears ?? []}
+      fileCounts={filterCounts?.fileCounts ?? { withFile: 0, withoutFile: 0 }}
+      assignees={filterCounts?.assignees ?? []}
+      opinionStatuses={[]}
+      ui={ui}
+      fileUpload={fileUpload}
+      keywords={keywords}
+      filters={filters}
+      articleViewLayout={articleViewLayout}
+      setArticleViewLayout={setArticleViewLayout}
+      includeHighlightEnabled={includeHighlightEnabled}
+      setIncludeHighlightEnabled={setIncludeHighlightEnabled}
+      excludeHighlightEnabled={excludeHighlightEnabled}
+      setExcludeHighlightEnabled={setExcludeHighlightEnabled}
+      onDeleteLabel={handleDeleteLabel}
+      onDeleteSearchMethod={handleDeleteSearchMethod}
+      onExport={handleExport}
+      sourcesSidebar={{
+        duplicateStatusCounts: filterCounts?.duplicateStatusCounts ?? {
+          Unresolved: 0,
+          Deleted: 0,
+          'Not Duplicate': 0,
+          Resolved: 0,
+        },
+        onAddReferences: () => fileUpload.setOpenUploadBibDialog(true),
+        onDetectDuplicates: () =>
+          fileUpload.detectDuplicateReferences.mutate({ reviewId }),
+        onResolveDuplicates: () => setIsResolveDuplicatesOpen(true),
+      }}
+      extraDialogs={
+        <>
+          <ResolveDuplicatesDialog
             reviewId={reviewId}
-            searchMethods={data?.searchMethods || []}
-            userRole={fetchReview.data?.userRole || 'Viewer'}
-            selectedSearchMethodIds={filters.searchMethodIds}
-            onSearchMethodToggle={filters.handleSearchMethodToggle}
-            onSelectAllReferences={() => filters.setSearchMethodIds([])}
-            duplicateStatusCounts={
-              data?.duplicateStatusCounts || {
-                Unresolved: 0,
-                Deleted: 0,
-                'Not Duplicate': 0,
-                Resolved: 0,
-              }
-            }
-            selectedDuplicateStatuses={filters.duplicateStatuses}
-            onDuplicateStatusToggle={filters.handleDuplicateStatusToggle}
-            totalReferences={data?.totalCount || 0}
-            isCollapsed={ui.isSourcesSidebarCollapsed}
-            onAddReferences={() => fileUpload.setOpenUploadBibDialog(true)}
-            onDetectDuplicates={() =>
-              fileUpload.detectDuplicateReferences.mutate({ reviewId })
-            }
-            onResolveDuplicates={() => setIsResolveDuplicatesOpen(true)}
-            onDeleteSearchMethod={handleDeleteSearchMethod}
-            onToggleCollapse={() =>
-              ui.setIsSourcesSidebarCollapsed(!ui.isSourcesSidebarCollapsed)
-            }
+            isOpen={isResolveDuplicatesOpen}
+            onClose={() => setIsResolveDuplicatesOpen(false)}
           />
-
-          <div className="flex flex-col flex-1 min-h-0">
-            {/* Table Header */}
-            <TableTopHeader
-              userRole={fetchReview.data?.userRole || 'Viewer'}
-              activeFilterCount={filters.activeFilterCount}
-              filteredCount={data?.filteredCount || 0}
-              totalCount={data?.totalCount || 0}
-              searchQuery={filters.searchQuery}
-              onSearchChange={filters.setSearchQuery}
-              onSortChange={ui.handleSortChange}
-              isLeftCollapsed={ui.isSourcesSidebarCollapsed}
-              onToggleLeftCollapse={() =>
-                ui.setIsSourcesSidebarCollapsed(!ui.isSourcesSidebarCollapsed)
-              }
-              isRightCollapsed={ui.isFiltersSidebarCollapsed}
-              onToggleRightCollapse={() =>
-                ui.setIsFiltersSidebarCollapsed(!ui.isFiltersSidebarCollapsed)
-              }
-              onExport={handleExport}
-            />
-            <div className="flex flex-1 overflow-hidden">
-              <div
-                className={cn(
-                  'flex flex-col min-h-0 overflow-hidden min-w-0',
-                  articleViewLayout === 'title-abstract' ? 'w-80' : 'flex-1'
-                )}
-              >
-                {/* References Table */}
-                <ReferencesTable viewLayout={articleViewLayout}>
-                  <TableSubHeader
-                    allSelected={ui.allSelected}
-                    onSelectAll={ui.handleSelectAllReferences}
-                    sortField={ui.sortField}
-                    sortDirection={ui.sortDirection}
-                    onSortChange={ui.handleSortChange}
-                    viewLayout={articleViewLayout}
-                  />
-                  <ReferencesTableBody
-                    references={ui.sortedReferences}
-                    selectedReferenceIds={ui.selectedReferenceIds}
-                    highlightedReferenceId={ui.highlightedReferenceId}
-                    onSelectReference={ui.handleReferenceSelect}
-                    onHighlightReference={ui.handleHighlightReference}
-                    highlightIncludeKeywords={keywords.highlightIncludeKeywords}
-                    highlightExcludeKeywords={keywords.highlightExcludeKeywords}
-                    onOpenDetail={ui.handleOpenDetail}
-                    onOpenPDF={ui.handleOpenPDF}
-                    viewLayout={articleViewLayout}
-                    onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
-                    isLoading={isLoading}
-                  />
-                </ReferencesTable>
-                {articleViewLayout !== 'title-abstract' && (
-                  <ReviewDataFooter
-                    reviewId={reviewId}
-                    userRole={fetchReview.data?.userRole || 'Viewer'}
-                    selectedReferenceIds={ui.selectedReferenceIds}
-                    highlightedReferenceId={ui.highlightedReferenceId}
-                    onLabelsApplied={invalidateQuery}
-                    onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
-                    onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
-                    onSavedPDF={() => fileUpload.setopenSavedPDFDialog(true)}
-                  />
-                )}
-              </div>
-
-              {/* Detail Panel */}
-              {articleViewLayout === 'title-abstract' && (
-                <ReviewDataReferenceDetailPanel
-                  reviewId={reviewId}
-                  userRole={fetchReview.data?.userRole || 'Viewer'}
-                  reference={
-                    data?.references.find(
-                      (r) => r.id === ui.highlightedReferenceId
-                    ) || null
-                  }
-                  onClose={() => ui.handleHighlightReference(null)}
-                  selectedReferenceIds={ui.selectedReferenceIds}
-                  highlightedReferenceId={ui.highlightedReferenceId}
-                  highlightIncludeKeywords={keywords.highlightIncludeKeywords}
-                  highlightExcludeKeywords={keywords.highlightExcludeKeywords}
-                  onLabelsApplied={invalidateQuery}
-                  onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
-                  onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
-                  onOpenPDF={ui.handleOpenPDF}
-                  onSavedPDF={() => fileUpload.setopenSavedPDFDialog(true)}
-                />
-              )}
-
-              {/* Filters Sidebar */}
-              <FiltersSidebar
-                reviewId={reviewId}
-                userRole={fetchReview.data?.userRole || 'Viewer'}
-                keywords={keywords.allKeywords}
-                labels={data?.labels || []}
-                publicationTypes={data?.publicationTypes || []}
-                publicationYears={data?.publicationYears || []}
-                fileCounts={data?.fileCounts || { withFile: 0, withoutFile: 0 }}
-                assignees={data?.assignees || []}
-                searchMethods={data?.searchMethods || []}
-                opinionStatuses={[]}
-                selectedOpinionStatuses={filters.opinionStatuses}
-                selectedIncludeKeywords={filters.includeKeywords}
-                selectedExcludeKeywords={filters.excludeKeywords}
-                selectedLabels={filters.labelIds}
-                selectedPublicationTypes={filters.publicationTypes}
-                selectedPublicationYears={filters.publicationYears}
-                selectedFileStatus={filters.fileStatus}
-                selectedAssignees={filters.assigneeIds}
-                selectedSearchMethods={filters.searchMethodIds}
-                onIncludeKeywordToggle={filters.handleIncludeKeywordToggle}
-                onExcludeKeywordToggle={filters.handleExcludeKeywordToggle}
-                onOpionStatusToggle={filters.handleOpinionStatusToggle}
-                onSelectAllOpinionStatuses={() =>
-                  filters.handleSelectAllOpinionStatuses(
-                    filters.ALL_OPINION_STATUSES
-                  )
-                }
-                onSelectAllInclude={() => {
-                  // Get all include keywords from data
-                  const allIncludeKeywords = keywords.allKeywords
-                    .filter((k) => k.isInclusive)
-                    .map((k) => k.name);
-
-                  // Call the handler with the full list
-                  filters.handleSelectAllIncludeKeywords(allIncludeKeywords);
-                }}
-                onSelectAllExclude={() => {
-                  // Get all exclude keywords from data
-                  const allExcludeKeywords = keywords.allKeywords
-                    .filter((k) => !k.isInclusive)
-                    .map((k) => k.name);
-
-                  filters.handleSelectAllExcludeKeywords(allExcludeKeywords);
-                }}
-                onLabelToggle={filters.handleLabelToggle}
-                onSelectAllLabels={() => {
-                  // Get all label IDs from data
-                  const allLabelIds = (data?.labels || []).map((l) => l.id);
-                  filters.handleSelectAllLabels(allLabelIds);
-                }}
-                onPublicationTypeToggle={filters.handlePublicationTypeToggle}
-                onSelectAllPublicationTypes={() => {
-                  // Get all publication types from data
-                  const allTypes = (data?.publicationTypes || []).map(
-                    (pt) => pt.publicationType
-                  );
-                  filters.handleSelectAllPublicationTypes(allTypes);
-                }}
-                onPublicationYearToggle={filters.handlePublicationYearToggle}
-                onSelectAllPublicationYears={() => {
-                  // Get all years from data
-                  const allYears = (data?.publicationYears || []).map(
-                    (py) => py.year
-                  );
-                  filters.handleSelectAllPublicationYears(allYears);
-                }}
-                onFileStatusChange={filters.handleFileStatusChange}
-                onAssigneeToggle={filters.handleAssigneeToggle}
-                onSelectAllAssignees={() => {
-                  // Get all assignee IDs from data
-                  const allAssigneeIds = (data?.assignees || []).map(
-                    (a) => a.Id
-                  );
-                  filters.handleSelectAllAssignees(allAssigneeIds);
-                }}
-                onSearchMethodToggle={filters.handleSearchMethodToggle}
-                onSelectAllSearchMethods={() => {
-                  // Get all search method IDs from data
-                  const allMethodIds = (data?.searchMethods || []).map(
-                    (sm) => sm.id
-                  );
-                  filters.handleSelectAllSearchMethods(allMethodIds);
-                }}
-                onResetAllFilters={filters.handleResetAllFilters}
-                isCollapsed={ui.isFiltersSidebarCollapsed}
-                onToggleCollapse={() =>
-                  ui.setIsFiltersSidebarCollapsed(!ui.isFiltersSidebarCollapsed)
-                }
-                includeHighlightEnabled={includeHighlightEnabled}
-                excludeHighlightEnabled={excludeHighlightEnabled}
-                onToggleIncludeHighlight={() =>
-                  setIncludeHighlightEnabled(!includeHighlightEnabled)
-                }
-                onToggleExcludeHighlight={() =>
-                  setExcludeHighlightEnabled(!excludeHighlightEnabled)
-                }
-                onCreateKeyword={keywords.handleCreateKeyword}
-                onDeleteKeyword={keywords.handleDeleteKeyword}
-                onDeleteLabel={handleDeleteLabel}
-                onDeleteSearchMethod={handleDeleteSearchMethod}
-                articleViewLayout={articleViewLayout}
-                onArticleViewLayoutChange={setArticleViewLayout}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Reference Drawer */}
-        {ui.openDetail && (
+          <FileUploadDialog
+            open={fileUpload.openUploadBibDialog}
+            onOpenChange={fileUpload.setOpenUploadBibDialog}
+            title="Upload References"
+            description="Add references to the review (BibTeX, RIS, or EndNote XML format)"
+            acceptedFormats=".bib,.ris,.xml"
+            fileTypeLabel="BibTeX/RIS/EndNote XML"
+            onUpload={fileUpload.handleUploadReferences}
+          />
+        </>
+      }
+      footer={
+        <ReviewDataFooter
+          reviewId={reviewId}
+          userRole={userRole}
+          selectedReferenceIds={ui.selectedReferenceIds}
+          highlightedReferenceId={ui.highlightedReferenceId}
+          onLabelsApplied={invalidateQuery}
+          onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
+          onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
+          onSavedPDF={() => fileUpload.setopenSavedPDFDialog(true)}
+        />
+      }
+      detailPanel={
+        <ReviewDataReferenceDetailPanel
+          reviewId={reviewId}
+          userRole={userRole}
+          reference={highlightedRef}
+          onClose={() => ui.handleHighlightReference(null)}
+          selectedReferenceIds={ui.selectedReferenceIds}
+          highlightedReferenceId={ui.highlightedReferenceId}
+          highlightIncludeKeywords={keywords.highlightIncludeKeywords}
+          highlightExcludeKeywords={keywords.highlightExcludeKeywords}
+          onLabelsApplied={invalidateQuery}
+          onAttachPDF={() => fileUpload.setOpenUploadPDFDialog(true)}
+          onMatchPDF={() => fileUpload.setOpenMatchDialog(true)}
+          onOpenPDF={ui.handleOpenPDF}
+          onSavedPDF={() => fileUpload.setopenSavedPDFDialog(true)}
+        />
+      }
+      drawer={
+        ui.openDetail && (
           <ReviewDataReferenceDrawer
             reviewId={reviewId}
-            userRole={fetchReview.data?.userRole || 'Viewer'}
+            userRole={userRole}
             reference={ui.openDetail}
             onClose={ui.handleCloseDetail}
             onNavigate={ui.handleNavigateDetail}
             hasPrev={ui.currentDetailIndex > 0}
-            hasNext={ui.currentDetailIndex < ui.sortedReferences.length - 1}
+            hasNext={ui.currentDetailIndex < ui.references.length - 1}
             highlightIncludeKeywords={keywords.highlightIncludeKeywords}
             highlightExcludeKeywords={keywords.highlightExcludeKeywords}
             selectedReferenceIds={ui.selectedReferenceIds}
@@ -450,8 +251,8 @@ function RouteComponent() {
             onOpenPDF={ui.handleOpenPDF}
             onSavedPDF={() => fileUpload.setopenSavedPDFDialog(true)}
           />
-        )}
-      </div>
-    </>
+        )
+      }
+    />
   );
 }

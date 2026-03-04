@@ -1,7 +1,4 @@
-import type {
-  SortDirection,
-  SortField,
-} from '@/features/references/types/references';
+import type { OrderingField } from '@/features/references/api/references';
 import {
   ArrowUp,
   ArrowDown,
@@ -36,14 +33,32 @@ interface TableTopHeaderProps {
   totalCount: number;
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
-  onSortChange: (field: SortField, direction: SortDirection) => void;
+  ordering: OrderingField;
+  onOrderingChange: (ordering: OrderingField) => void;
   isLeftCollapsed?: boolean;
   onToggleLeftCollapse?: () => void;
   isRightCollapsed?: boolean;
   onToggleRightCollapse?: () => void;
   onAddData?: () => void;
+  extraExportActions?: React.ReactNode;
   onExport?: (exportType: ExportType) => void;
   breakButtonReviewId?: number;
+  extraActions?: React.ReactNode;
+}
+
+// Which ordering value is currently active and what direction
+function parseOrdering(ordering: OrderingField): {
+  field: 'title' | 'authors' | 'publication_date';
+  desc: boolean;
+} {
+  const desc = ordering.startsWith('-');
+  return {
+    field: ordering.replace(/^-/, '') as
+      | 'title'
+      | 'authors'
+      | 'publication_date',
+    desc,
+  };
 }
 
 export function TableTopHeader({
@@ -53,17 +68,22 @@ export function TableTopHeader({
   totalCount,
   searchQuery = '',
   onSearchChange,
+  ordering,
+  onOrderingChange,
   isLeftCollapsed,
   onToggleLeftCollapse,
   onToggleRightCollapse,
-  onSortChange,
   onAddData,
   onExport,
+  extraExportActions,
   breakButtonReviewId,
+  extraActions,
 }: TableTopHeaderProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(searchQuery !== '');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [draftSearch, setDraftSearch] = useState(searchQuery);
+
+  const { field: activeField, desc: activeDesc } = parseOrdering(ordering);
 
   const handleSearchClose = () => {
     setIsSearchOpen(false);
@@ -77,6 +97,13 @@ export function TableTopHeader({
     }
   }, [isSearchOpen]);
 
+  // Label shown on the Sort button reflects current sort
+  const sortLabel = {
+    title: 'Title',
+    authors: 'Author',
+    publication_date: 'Date',
+  }[activeField];
+
   return (
     <div className="flex items-center justify-between px-3 sm:px-6 py-3 border-b border-border bg-card">
       <div className="flex items-center gap-2 sm:gap-3">
@@ -88,9 +115,9 @@ export function TableTopHeader({
             onClick={onToggleLeftCollapse}
           >
             {isLeftCollapsed ? (
-              <ChevronRight className="h-4 w-4 sm:mr-1" />
+              <ChevronRight className="h-4 w-4" />
             ) : (
-              <ChevronLeft className="h-4 w-4 sm:mr-1" />
+              <ChevronLeft className="h-4 w-4" />
             )}
           </Button>
         )}
@@ -105,8 +132,9 @@ export function TableTopHeader({
           <ScreeningBreakButton reviewId={breakButtonReviewId} />
         )}
       </div>
+
       <div className="flex items-center gap-2">
-        {/* Search Bar */}
+        {/* Search */}
         <div className="flex items-center">
           {isSearchOpen ? (
             <div className="flex items-center gap-2 animate-in slide-in-from-right-4 duration-200">
@@ -118,12 +146,8 @@ export function TableTopHeader({
                   value={draftSearch}
                   onChange={(e) => setDraftSearch(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      onSearchChange?.(draftSearch);
-                    }
-                    if (e.key === 'Escape') {
-                      handleSearchClose();
-                    }
+                    if (e.key === 'Enter') onSearchChange?.(draftSearch);
+                    if (e.key === 'Escape') handleSearchClose();
                   }}
                   onBlur={() => onSearchChange?.(draftSearch)}
                   className="h-8 w-32 sm:w-64 pl-8 pr-8 text-sm"
@@ -149,73 +173,118 @@ export function TableTopHeader({
             </Button>
           )}
         </div>
+
         {onAddData && can('addData', userRole) && (
           <Button variant="outline" size="sm" onClick={onAddData}>
             <Upload className="h-4 w-4" />
-            <span className="hidden xl:inline">Add articles</span>
+            <span className="hidden xl:inline ml-1">Add articles</span>
           </Button>
         )}
+
         {onExport && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 sm:mr-1" />
-                <span className="hidden xl:inline">Export</span>
+                <Download className="h-4 w-4" />
+                <span className="hidden xl:inline ml-1">Export</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="start">
+            <DropdownMenuContent className="w-40" align="end">
               <DropdownMenuItem onSelect={() => onExport('all')}>
                 All
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => onExport('filtered')}>
                 Filtered
               </DropdownMenuItem>
+              {extraExportActions}
             </DropdownMenuContent>
           </DropdownMenu>
         )}
+
+        {extraActions}
+
+        {/* Sort dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm">
-              <ArrowUpDown className="h-4 w-4 sm:mr-1" />
-              <span className="hidden xl:inline">Sort</span>
+              <ArrowUpDown className="h-4 w-4" />
+              <span className="hidden xl:inline ml-1">
+                {sortLabel} {activeDesc ? '↓' : '↑'}
+              </span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onSortChange('title', 'asc')}>
-              <ArrowUp className="h-4 w-4 mr-2" />
-              Title A-Z
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem
+              onClick={() => onOrderingChange('title')}
+              className={
+                activeField === 'title' && !activeDesc
+                  ? 'bg-accent font-medium'
+                  : ''
+              }
+            >
+              <ArrowUp className="h-4 w-4 mr-2" /> Title A-Z
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onSortChange('title', 'desc')}>
-              <ArrowDown className="h-4 w-4 mr-2" />
-              Title Z-A
+            <DropdownMenuItem
+              onClick={() => onOrderingChange('-title')}
+              className={
+                activeField === 'title' && activeDesc
+                  ? 'bg-accent font-medium'
+                  : ''
+              }
+            >
+              <ArrowDown className="h-4 w-4 mr-2" /> Title Z-A
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onSortChange('date', 'desc')}>
-              <ArrowDown className="h-4 w-4 mr-2" />
-              Date (Newest)
+            <DropdownMenuItem
+              onClick={() => onOrderingChange('-publication_date')}
+              className={
+                activeField === 'publication_date' && activeDesc
+                  ? 'bg-accent font-medium'
+                  : ''
+              }
+            >
+              <ArrowDown className="h-4 w-4 mr-2" /> Date (Newest)
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onSortChange('date', 'asc')}>
-              <ArrowUp className="h-4 w-4 mr-2" />
-              Date (Oldest)
+            <DropdownMenuItem
+              onClick={() => onOrderingChange('publication_date')}
+              className={
+                activeField === 'publication_date' && !activeDesc
+                  ? 'bg-accent font-medium'
+                  : ''
+              }
+            >
+              <ArrowUp className="h-4 w-4 mr-2" /> Date (Oldest)
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onSortChange('author', 'asc')}>
-              <ArrowUp className="h-4 w-4 mr-2" />
-              Author A-Z
+            <DropdownMenuItem
+              onClick={() => onOrderingChange('authors')}
+              className={
+                activeField === 'authors' && !activeDesc
+                  ? 'bg-accent font-medium'
+                  : ''
+              }
+            >
+              <ArrowUp className="h-4 w-4 mr-2" /> Author A-Z
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onSortChange('author', 'desc')}>
-              <ArrowDown className="h-4 w-4 mr-2" />
-              Author Z-A
+            <DropdownMenuItem
+              onClick={() => onOrderingChange('-authors')}
+              className={
+                activeField === 'authors' && activeDesc
+                  ? 'bg-accent font-medium'
+                  : ''
+              }
+            >
+              <ArrowDown className="h-4 w-4 mr-2" /> Author Z-A
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
         <Button
           onClick={onToggleRightCollapse}
           variant="outline"
           size="sm"
           className="relative inline-flex"
         >
-          <Filter className="h-4 w-4 sm:mr-1" />
-          <span className="hidden xl:inline">Filters</span>
-
+          <Filter className="h-4 w-4" />
+          <span className="hidden xl:inline ml-1">Filters</span>
           {activeFilterCount > 0 && (
             <span className="absolute -top-1 -right-1 flex items-center justify-center h-4 w-4 text-[10px] font-bold text-primary-foreground bg-primary rounded-full">
               {activeFilterCount >= 10 ? '9+' : activeFilterCount}

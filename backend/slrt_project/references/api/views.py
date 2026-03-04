@@ -2,19 +2,20 @@ import logging
 import os
 import re
 
-import bibtexparser
 import pymupdf
+import rest_framework.filters as drf_filters
 from django.contrib.postgres.search import TrigramSimilarity
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.db.models import CharField, Count, F, OuterRef, Prefetch, Subquery
+from django.db.models import CharField, Count, F, OuterRef, Prefetch, Q, Subquery
 from django.db.models.functions import ExtractYear, Lower
 from django.http import HttpResponse
 from django.utils import timezone
-from django_filters import rest_framework as filters
+from django_filters import rest_framework as django_filters_backend
 from rest_framework import mixins, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
+from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -25,7 +26,11 @@ from slrt_project.permissions import (
     check_permission,
     permission_denied_message,
 )
-from slrt_project.references.api.filters import DuplicateClusterFilter, ReferenceFilter
+from slrt_project.references.api.filters import (
+    DuplicateClusterFilter,
+    ReferenceFilter,
+    ScreeningFilter,
+)
 from slrt_project.references.api.serializers import (
     AssignLabelsSerializer,
     AssignReferencesSerializer,
@@ -74,7 +79,7 @@ class ReferenceViewSet(viewsets.ModelViewSet):
 
     serializer_class = ReferenceSerializer
     permission_classes = [IsAuthenticated]
-    filter_backends = [filters.DjangoFilterBackend]
+    filter_backends = [django_filters_backend.DjangoFilterBackend]
     filterset_fields = ["review"]
 
     def get_queryset(self):
@@ -374,26 +379,149 @@ class ReferenceViewSet(viewsets.ModelViewSet):
         )
 
 
-class ReviewQuerysetMixin:
+# ── Pagination ────────────────────────────────────────────────────────────────
+
+
+class ReferencePagination(LimitOffsetPagination):
     """
-    Handles:
-    - Review permission checks
-    - Base reference queryset
-    - Label prefetching
+    Standard limit/offset pagination.
+
+    Frontend passes ?limit=50&offset=0 for page 1,
+    ?limit=50&offset=50 for page 2, etc.
+
+    Infinite scroll: fetch next page when the user scrolls near the bottom,
+    append results to the existing list.
     """
 
+    default_limit = 50
+    max_limit = 200
+
+    def get_paginated_response(self, data):
+        return Response(
+            {
+                "references": data,
+                "count": self.count,  # total matching references
+                "next": self.get_next_link(),
+                "previous": self.get_previous_link(),
+                "offset": self.offset,
+                "limit": self.limit,
+            }
+        )
+
+    def get_paginated_response_schema(self, schema):
+        return {
+            "type": "object",
+            "properties": {
+                "count": {"type": "integer"},
+                "next": {"type": "string", "nullable": True},
+                "previous": {"type": "string", "nullable": True},
+                "offset": {"type": "integer"},
+                "limit": {"type": "integer"},
+                "references": schema,
+            },
+        }
+
+
+# ── Aggregation service ────────────────────────────────────────────────────────
+
+
+class ReferenceAggregationService:
+    """
+    Computes sidebar filter counts from a base queryset scoped to a review.
+
+    Deliberately NOT filtered by the user's current filter selection —
+    the sidebar should always show global counts so users know what's
+    available before they apply filters.
+    """
+
+    @staticmethod
+    def build(
+        base_qs,
+        user,
+        include_duplicate_status: bool = True,
+        include_extraction_counts: bool = False,
+    ):
+        result = {
+            "search_methods": list(
+                SearchMethod.objects.filter(reference__in=base_qs)
+                .annotate(count=Count("reference", filter=Q(reference__in=base_qs)))
+                .values("id", "name", "count")
+            ),
+            "labels": list(
+                Label.objects.filter(
+                    user=user,
+                    reference_labels__reference__in=base_qs,  # ← scoped
+                )
+                .annotate(
+                    count=Count(
+                        "reference_labels__reference",
+                        filter=Q(reference_labels__reference__in=base_qs),
+                    )
+                )
+                .values("id", "name", "count")
+            ),
+            "duplicate_status_counts": dict(
+                base_qs.values("duplicate_status")
+                .annotate(count=Count("id"))
+                .values_list("duplicate_status", "count")
+            ),
+            "publication_types": list(
+                base_qs.exclude(publication_type="")
+                .values("publication_type")
+                .annotate(count=Count("id"))
+                .order_by("-count")
+            ),
+            "publication_years": list(
+                base_qs.filter(publication_date__isnull=False)
+                .annotate(year=ExtractYear("publication_date"))
+                .values("year")
+                .annotate(count=Count("id"))
+                .order_by("-year")
+            ),
+            "file_counts": {
+                "with_file": base_qs.exclude(file="").count(),
+                "without_file": base_qs.filter(file="").count(),
+            },
+            "assignees": list(
+                base_qs.filter(assignee__isnull=False)
+                .values(
+                    _id=F("assignee__id"),
+                    first_name=F("assignee__user__first_name"),
+                    last_name=F("assignee__user__last_name"),
+                    email=F("assignee__user__email"),
+                )
+                .annotate(count=Count("id"))
+            ),
+        }
+        if include_duplicate_status:
+            result["duplicate_status_counts"] = dict(
+                base_qs.values("duplicate_status")
+                .annotate(count=Count("id"))
+                .values_list("duplicate_status", "count")
+            )
+        if include_extraction_counts:
+            result["completedCount"] = base_qs.filter(
+                is_extraction_completed=True
+            ).count()
+            result["inProgressCount"] = base_qs.filter(
+                is_extraction_completed=False
+            ).count()
+        return result
+
+
+# ── ReviewQuerysetMixin ────────────────────────────────────────────────────────
+
+
+class ReviewQuerysetMixin:
     def get_review(self):
         if hasattr(self, "_review"):
             return self._review
-
         review_id = self.request.query_params.get("review")
         if not review_id:
             self._review = None
             return None
-
         review = get_object_or_404(Review, pk=review_id)
         check_permission(Permission.ACCESS_REVIEW, self.request.user, review)
-
         self._review = review
         return review
 
@@ -401,17 +529,11 @@ class ReviewQuerysetMixin:
         user = self.request.user
         review = self.get_review()
 
-        qs = Reference.objects.select_related(
-            "assignee",
-            "search_method",
-            "review",
-        )
-
+        qs = Reference.objects.select_related("assignee", "search_method", "review")
         if review:
             qs = qs.filter(review=review)
         else:
             qs = qs.filter(review__members__user=user)
-
         return qs.prefetch_related(
             Prefetch(
                 "labels",
@@ -423,6 +545,7 @@ class ReviewQuerysetMixin:
         )
 
     def get_base_queryset_for_counts(self):
+        """Unfiltered queryset used for aggregation counts."""
         review = self.get_review()
         return (
             Reference.objects.filter(review=review)
@@ -431,33 +554,21 @@ class ReviewQuerysetMixin:
         )
 
 
+# ── ScreeningQuerysetMixin ─────────────────────────────────────────────────────
+
+
 class ScreeningQuerysetMixin:
-    """
-    Screening-specific queryset modifications.
-    """
-
     def apply_screening(self, qs, stage=None):
-        """
-        Apply screening or full-text filters with opinion status.
-        - Uses cached screening_status / full_text_status fields.
-        - Respects blind mode: if review.is_blinded, only current user's opinion is considered.
-        - Stage is passed from the view; no query parameters needed.
-        """
-
         user = self.request.user
         review = self.get_review()
-
         if stage is None:
             stage = ReferenceOpinion.Stage.SCREENING
 
-        # Exclude deleted/undecided duplicates
         qs = qs.exclude(duplicate_status__in=["Undecided", "Deleted"])
 
-        # Full-text filtering implied by stage
         if stage == ReferenceOpinion.Stage.FULL_TEXT:
             qs = qs.filter(in_full_text=True)
 
-        # Determine cached status field
         status_field = (
             "full_text_status"
             if stage == ReferenceOpinion.Stage.FULL_TEXT
@@ -465,21 +576,17 @@ class ScreeningQuerysetMixin:
         )
 
         if review and review.is_blinded:
-            # Blind mode: current user's opinion only
             user_opinions = ReferenceOpinion.objects.filter(
                 reference=OuterRef("pk"),
                 member__user=user,
                 stage=stage,
             ).values("status")[:1]
-
             qs = qs.annotate(
                 effective_status=Subquery(user_opinions, output_field=CharField())
             )
         else:
-            # Non-blind: use cached status
             qs = qs.annotate(effective_status=F(status_field))
 
-        # Prefetch opinions for display
         opinions_qs = (
             ReferenceOpinion.objects.filter(stage=stage)
             .select_related("member__user", "reason")
@@ -504,59 +611,31 @@ class ScreeningQuerysetMixin:
             )
         ).distinct()
 
+    def get_base_queryset_for_counts(self):
+        """Scopes counts to the references visible at this screening stage."""
+        stage = getattr(self, "stage", ReferenceOpinion.Stage.SCREENING)
+        base = super().get_base_queryset_for_counts()  # plain review queryset
+        base = base.exclude(duplicate_status__in=["Undecided", "Deleted"])
+        if stage == ReferenceOpinion.Stage.FULL_TEXT:
+            base = base.filter(in_full_text=True)
+        return base
 
-class ReferenceAggregationService:
-    @staticmethod
-    def build(reference_qs, user, review):
-        base_qs = reference_qs.filter(review=review)
+    @action(detail=False, methods=["get"], url_path="filter-counts")
+    def filter_counts(self, request, *args, **kwargs):
+        review = self.get_review()
+        if not review:
+            return Response({"error": "review parameter required"}, status=400)
 
-        return {
-            "search_methods": (
-                SearchMethod.objects.filter(review=review)
-                .annotate(count=Count("reference"))
-                .values("id", "name", "count")
-            ),
-            "duplicate_status_counts": dict(
-                base_qs.values("duplicate_status")
-                .annotate(count=Count("id"))
-                .values_list("duplicate_status", "count")
-            ),
-            "labels": (
-                Label.objects.filter(
-                    user=user,
-                    reference_labels__reference__review=review,
-                )
-                .annotate(count=Count("reference_labels__reference"))
-                .values("id", "name", "count")
-            ),
-            "publication_types": (
-                base_qs.exclude(publication_type="")
-                .values("publication_type")
-                .annotate(count=Count("id"))
-                .order_by("-count")
-            ),
-            "publication_years": (
-                base_qs.filter(publication_date__isnull=False)
-                .annotate(year=ExtractYear("publication_date"))
-                .values("year")
-                .annotate(count=Count("id"))
-                .order_by("-year")
-            ),
-            "file_counts": {
-                "with_file": base_qs.exclude(file="").count(),
-                "without_file": base_qs.filter(file="").count(),
-            },
-            "assignees": list(
-                base_qs.filter(assignee__isnull=False)
-                .values(
-                    _id=F("assignee__id"),
-                    first_name=F("assignee__user__first_name"),
-                    last_name=F("assignee__user__last_name"),
-                    email=F("assignee__user__email"),
-                )
-                .annotate(count=Count("id"))
-            ),
-        }
+        base_qs = self.get_base_queryset_for_counts()
+        aggregations = ReferenceAggregationService.build(
+            base_qs,
+            request.user,
+            include_duplicate_status=False,  # meaningless at screening stage
+        )
+        return Response(aggregations)
+
+
+# ── ReviewDataViewSet ──────────────────────────────────────────────────────────
 
 
 class ReviewDataViewSet(
@@ -564,49 +643,86 @@ class ReviewDataViewSet(
 ):
     serializer_class = ReferenceSerializer
     permission_classes = [IsAuthenticated]
-    filter_backends = [filters.DjangoFilterBackend]
+    filter_backends = [
+        django_filters_backend.DjangoFilterBackend,
+        drf_filters.OrderingFilter,
+    ]
     filterset_class = ReferenceFilter
+    pagination_class = ReferencePagination
+
+    # Expose these fields for ?ordering= query param.
+    # Prefix with "-" for descending: ?ordering=-publication_date
+    ordering_fields = ["title", "authors", "publication_date"]
+    ordering = ["title"]  # default sort
 
     def get_queryset(self):
         return self.get_base_queryset()
 
     def list(self, request, *args, **kwargs):
+        """
+        Returns paginated references only.
+        totalCount and filteredCount are included for the header display.
+        Sidebar aggregation data is fetched separately via /filter-counts/.
+        """
         review = self.get_review()
         if not review:
             return Response(
                 {"error": "review parameter required"},
-                status=400,
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         queryset = self.filter_queryset(self.get_queryset())
 
+        # Counts for the top header ("Showing X of Y")
         total_count = self.get_base_queryset_for_counts().count()
         filtered_count = queryset.count()
 
+        # Paginate
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            response = self.get_paginated_response(serializer.data)
+            response.data["total_count"] = total_count
+            response.data["filtered_count"] = filtered_count
+            return response
+
+        # Fallback (pagination disabled)
         serializer = self.get_serializer(queryset, many=True)
-
-        aggregations = ReferenceAggregationService.build(
-            queryset,
-            request.user,
-            review,
-        )
-
         return Response(
             {
                 "references": serializer.data,
                 "total_count": total_count,
                 "filtered_count": filtered_count,
-                **aggregations,
             }
         )
 
+    @action(detail=False, methods=["get"], url_path="filter-counts")
+    def filter_counts(self, request, *args, **kwargs):
+        """
+        Returns sidebar filter aggregation data.
+
+        Always computed from the *unfiltered* base queryset so that sidebar
+        counts always reflect the full dataset — not just what's currently
+        visible after the user's filters are applied.
+
+        This endpoint is fetched ONCE when the page loads and whenever
+        the review changes, not on every sort/page change.
+        """
+        review = self.get_review()
+        if not review:
+            return Response(
+                {"error": "review parameter required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        base_qs = self.get_base_queryset_for_counts()
+        aggregations = ReferenceAggregationService.build(base_qs, request.user)
+        return Response(aggregations)
+
     @action(detail=False, methods=["get"], url_path="export")
     def export(self, request, *args, **kwargs):
-        """
-        Export filtered references as a BibTeX file using bibtexparser.
-        """
+        """Export filtered references as BibTeX (no pagination)."""
         queryset = self.filter_queryset(self.get_queryset())
-
         bib_content = self._references_to_bibtex(queryset)
 
         response = HttpResponse(bib_content, content_type="application/x-bibtex")
@@ -614,21 +730,16 @@ class ReviewDataViewSet(
         return response
 
     def _bibtex_str(self, value):
-        if value is None:
-            return ""
-        return str(value)
+        return "" if value is None else str(value)
 
     def _references_to_bibtex(self, references):
-        """
-        Convert a queryset of Reference objects into a BibTeX string using bibtexparser.
-        """
-        entries = []
+        import bibtexparser
 
+        entries = []
         for ref in references:
             cite_key = (
                 ref.doi.replace("/", "_") if ref.doi else f"{ref.review.id}_{ref.id}"
             )
-
             entry = {
                 "ENTRYTYPE": "article",
                 "ID": cite_key,
@@ -639,53 +750,37 @@ class ReviewDataViewSet(
                     ref.publication_date.year if ref.publication_date else ""
                 ),
             }
-
             if ref.doi:
                 entry["doi"] = ref.doi
             if ref.url:
                 entry["url"] = ref.url
-
-            # add labels if prefetched
             if hasattr(ref, "prefetched_labels") and ref.prefetched_labels:
-                labels = ", ".join(
-                    [ref_label.label.name for ref_label in ref.prefetched_labels]
+                entry["keywords"] = ", ".join(
+                    rl.label.name for rl in ref.prefetched_labels
                 )
-                entry["keywords"] = labels
-
             entries.append(entry)
-
         bib_database = bibtexparser.bibdatabase.BibDatabase()
         bib_database.entries = entries
-
         return bibtexparser.dumps(bib_database)
 
 
+# ── Screening subclasses (unchanged interface) ─────────────────────────────────
+
+
 class ScreeningViewSet(ScreeningQuerysetMixin, ReviewDataViewSet):
+    filterset_class = ScreeningFilter
     stage = ReferenceOpinion.Stage.SCREENING
 
     def get_queryset(self):
-        qs = super().get_queryset()
-        return self.apply_screening(qs, stage=self.stage)
-
-    def get_base_queryset_for_counts(self):
-        return self.apply_screening(
-            super().get_base_queryset_for_counts(),
-            stage=ReferenceOpinion.Stage.SCREENING,
-        )
+        return self.apply_screening(super().get_queryset(), stage=self.stage)
 
 
 class ScreeningFullTextViewSet(ScreeningQuerysetMixin, ReviewDataViewSet):
+    filterset_class = ScreeningFilter
     stage = ReferenceOpinion.Stage.FULL_TEXT
 
     def get_queryset(self):
-        qs = super().get_queryset()
-        return self.apply_screening(qs, stage=self.stage)
-
-    def get_base_queryset_for_counts(self):
-        return self.apply_screening(
-            super().get_base_queryset_for_counts(),
-            stage=ReferenceOpinion.Stage.FULL_TEXT,
-        )
+        return self.apply_screening(super().get_queryset(), stage=self.stage)
 
 
 class UploadedPDFViewSet(viewsets.ModelViewSet):
@@ -693,7 +788,7 @@ class UploadedPDFViewSet(viewsets.ModelViewSet):
 
     serializer_class = UploadedPDFSerializer
     permission_classes = [IsAuthenticated]
-    filter_backends = [filters.DjangoFilterBackend]
+    filter_backends = [django_filters_backend.DjangoFilterBackend]
     filterset_fields = ["review"]
 
     def get_queryset(self):
@@ -982,7 +1077,7 @@ class DuplicateClusterViewSet(viewsets.ReadOnlyModelViewSet):
 
     permission_classes = [IsAuthenticated]
     serializer_class = DuplicateClusterSerializer
-    filter_backends = [filters.DjangoFilterBackend]
+    filter_backends = [django_filters_backend.DjangoFilterBackend]
     filterset_class = DuplicateClusterFilter
 
     def get_queryset(self):
@@ -1203,8 +1298,8 @@ class KeywordViewSet(viewsets.ModelViewSet):
 
     serializer_class = KeywordSerializer
     permission_classes = [IsAuthenticated]
-    filter_backends = [filters.DjangoFilterBackend]
-    filterset_fields = ["review", "is_inclusive"]
+    filter_backends = [django_filters_backend.DjangoFilterBackend]
+    filterset_fields = ["review", "type"]
 
     def get_queryset(self):
         """
@@ -1256,7 +1351,7 @@ class NoteViewSet(viewsets.ModelViewSet):
 
     serializer_class = NoteSerializer
     permission_classes = [IsAuthenticated]
-    filter_backends = [filters.DjangoFilterBackend]
+    filter_backends = [django_filters_backend.DjangoFilterBackend]
     filterset_fields = ["reference"]
 
     def get_object(self):

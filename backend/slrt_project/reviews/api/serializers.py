@@ -184,7 +184,7 @@ class ReviewInvitationSerializer(serializers.ModelSerializer):
 class ScreeningCriteriaSerializer(serializers.ModelSerializer):
     class Meta:
         model = ScreeningCriteria
-        fields = ["id", "review", "name", "description", "kind"]
+        fields = ["id", "review", "name", "description", "type"]
         read_only_fields = ["id"]
 
 

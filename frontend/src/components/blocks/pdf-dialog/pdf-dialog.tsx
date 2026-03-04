@@ -77,6 +77,7 @@ type PDFDialogProps = {
   readOnly?: boolean;
   pendingHighlightId?: string | null;
   onPendingHighlightConsumed?: () => void;
+  onExtractionSuccess?: () => void;
   footer?: React.ReactNode;
 };
 
@@ -94,6 +95,7 @@ export const PDFDialog = ({
   userRole,
   pendingHighlightId,
   onPendingHighlightConsumed,
+  onExtractionSuccess,
   footer,
 }: PDFDialogProps) => {
   readOnly = readOnly || !can('modifyThemesCodes', userRole);
@@ -528,6 +530,7 @@ export const PDFDialog = ({
                   referenceId={referenceId}
                   reviewId={reviewId}
                   isOpen={extractionSidebarOpen}
+                  onExtractionSuccess={onExtractionSuccess}
                 />
                 <CodingThemingSidebar
                   reviewId={reviewId}

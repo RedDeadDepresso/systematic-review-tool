@@ -71,11 +71,11 @@ export function ScreeningCriteriaContent({
 
   const inclusionCriteria =
     fetchCriteria.data?.filter(
-      (c: ScreeningCriteria) => c.kind === 'Inclusive'
+      (c: ScreeningCriteria) => c.type === 'inclusion'
     ) ?? [];
   const exclusionCriteria =
     fetchCriteria.data?.filter(
-      (c: ScreeningCriteria) => c.kind === 'Exclusive'
+      (c: ScreeningCriteria) => c.type === 'exclusion'
     ) ?? [];
   const currentCriteria =
     activeTab === 'inclusion' ? inclusionCriteria : exclusionCriteria;
@@ -83,15 +83,15 @@ export function ScreeningCriteriaContent({
   const handleAddCriteria = async () => {
     if (!newCriteriaName.trim()) return;
 
-    // compute criteria kind before try block to avoid value blocks in try/catch
-    const criteriaKind = activeTab === 'inclusion' ? 'Inclusive' : 'Exclusive';
+    // compute criteria type before try block to avoid value blocks in try/catch
+    const criteriaType = activeTab === 'inclusion' ? 'inclusion' : 'exclusion';
 
     try {
       await createCriteria.mutateAsync({
         review: reviewId,
         name: newCriteriaName.trim(),
         description: newCriteriaDescription.trim(),
-        kind: criteriaKind,
+        type: criteriaType,
       });
       setNewCriteriaName('');
       setNewCriteriaDescription('');

@@ -27,7 +27,6 @@ class ReferenceFilter(filters.FilterSet):
     publication_years = filters.BaseInFilter(method="filter_publication_years")
     has_file = filters.BooleanFilter(method="filter_has_file")
     assignee_ids = filters.BaseInFilter(field_name="assignee_id", lookup_expr="in")
-    opinion_statuses = CharInFilter(method="filter_opinion_statuses")
 
     class Meta:
         model = Reference
@@ -87,6 +86,10 @@ class ReferenceFilter(filters.FilterSet):
             return queryset.exclude(file="")
         else:
             return queryset.filter(file="")
+
+
+class ScreeningFilter(ReferenceFilter):
+    opinion_statuses = CharInFilter(method="filter_opinion_statuses")
 
     def filter_opinion_statuses(self, queryset, name, value):
         if not value:

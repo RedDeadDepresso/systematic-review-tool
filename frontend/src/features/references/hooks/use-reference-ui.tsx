@@ -1,25 +1,67 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import type {
-  Reference,
-  SortDirection,
-  SortField,
-} from '@/features/references/types/references';
+import type { Reference } from '@/features/references/types/references';
 import type { ReferenceWithAnswers } from '@/features/extraction/types/extraction';
 import { useWindowSize } from 'usehooks-ts';
 
 type ReferenceType = Reference | ReferenceWithAnswers;
 
+// ── Scroll helper ──────────────────────────────────────────────────────────────
+
+/**
+ * Scrolls the row with the given referenceId into view inside the scrollable
+ * table container. Works for both the detail drawer and the PDF dialog.
+ *
+ * Uses [data-reference-id] attributes that must be placed on each row element.
+ * The scroll container is found by walking up from the row to the first
+ * overflow-y scrollable ancestor, so it works regardless of layout nesting.
+ */
+function scrollRowIntoView(referenceId: number) {
+  // Defer to the next paint so the highlight state has been applied first.
+  requestAnimationFrame(() => {
+    const row = document.querySelector<HTMLElement>(
+      `[data-reference-id="${referenceId}"]`
+    );
+    if (!row) return;
+
+    // Find the nearest scrollable ancestor (the virtual/overflow table container).
+    let container: HTMLElement | null = row.parentElement;
+    while (container && container !== document.body) {
+      const { overflowY } = window.getComputedStyle(container);
+      if (overflowY === 'auto' || overflowY === 'scroll') break;
+      container = container.parentElement;
+    }
+
+    if (!container || container === document.body) {
+      // Fallback: plain scrollIntoView
+      row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return;
+    }
+
+    const rowRect = row.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+
+    const isAbove = rowRect.top < containerRect.top;
+    const isBelow = rowRect.bottom > containerRect.bottom;
+
+    if (isAbove || isBelow) {
+      row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  });
+}
+
+// ── Hook ───────────────────────────────────────────────────────────────────────
+
 export function useReferenceUI<T extends ReferenceType>(
   references: T[],
   memberId?: number
 ) {
-  // Sidebar collapse states
+  // ── Sidebar collapse ──────────────────────────────────────────────────────
   const [isSourcesSidebarCollapsed, setIsSourcesSidebarCollapsed] =
     useState(true);
   const [isFiltersSidebarCollapsed, setIsFiltersSidebarCollapsed] =
     useState(true);
 
-  // Selection state
+  // ── Selection ──────────────────────────────────────────────────────────────
   const [selectedReferenceIds, setSelectedReferenceIds] = useState<number[]>(
     []
   );
@@ -27,80 +69,76 @@ export function useReferenceUI<T extends ReferenceType>(
     number | null
   >(null);
 
-  // Sorting state
-  const [sortField, setSortField] = useState<SortField | null>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-
-  // Drawer state
+  // ── Drawer ─────────────────────────────────────────────────────────────────
   const [openDetailId, setOpenDetailId] = useState<number | null>(null);
 
-  // PDF dialog state
+  // ── PDF dialog ─────────────────────────────────────────────────────────────
   const [openPDFId, setOpenPDFId] = useState<number | null>(null);
-  const { width } = useWindowSize();
 
+  // ── Responsive sidebar ─────────────────────────────────────────────────────
+  const { width } = useWindowSize();
   useEffect(() => {
     const isDesktop = width >= 1280;
     setIsSourcesSidebarCollapsed(!isDesktop);
     setIsFiltersSidebarCollapsed(!isDesktop);
   }, [width]);
 
-  // Sorted references
-  const sortedReferences = useMemo(() => {
-    if (!sortField) return references;
+  // ── Derived open items ─────────────────────────────────────────────────────
+  const openDetail = useMemo(
+    () =>
+      openDetailId
+        ? (references.find((r) => r.id === openDetailId) ?? null)
+        : null,
+    [openDetailId, references]
+  );
 
-    const refs = [...references];
-    refs.sort((a, b) => {
-      let aVal: string;
-      let bVal: string;
+  const openPDFReference = useMemo(
+    () =>
+      openPDFId ? (references.find((r) => r.id === openPDFId) ?? null) : null,
+    [openPDFId, references]
+  );
 
-      switch (sortField) {
-        case 'title':
-          aVal = a.title.toLowerCase();
-          bVal = b.title.toLowerCase();
-          break;
-        case 'date':
-          aVal = a.publicationDate || '';
-          bVal = b.publicationDate || '';
-          break;
-        case 'author':
-          aVal = a.authors.toLowerCase();
-          bVal = b.authors.toLowerCase();
-          break;
-        default:
-          return 0;
-      }
-
-      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    return refs;
-  }, [references, sortField, sortDirection]);
-
-  // Open detail reference
-  const openDetail = useMemo(() => {
-    if (!openDetailId) return null;
-    return references.find((r) => r.id === openDetailId) ?? null;
-  }, [openDetailId, references]);
-
-  const openPDFReference = useMemo(() => {
-    if (!openPDFId) return null;
-    return references.find((r) => r.id === openPDFId) ?? null;
-  }, [openPDFId, references]);
-
-  // Only defined when the PDF dialog is open and memberId is provided.
-  // Guards with 'opinions' in check since ReferenceWithAnswers has no opinions.
   const PDFOpinionStatus = useMemo(() => {
     if (!openPDFId || !memberId || !openPDFReference) return null;
     if (!('opinions' in openPDFReference)) return null;
+    if (!openPDFReference.opinions) return null;
     return (
       openPDFReference.opinions.find((o) => o.member.id === memberId)?.status ??
       null
     );
   }, [openPDFId, memberId, openPDFReference]);
 
-  // Handlers
+  // ── Indexes ────────────────────────────────────────────────────────────────
+  const currentDetailIndex =
+    openDetailId !== null
+      ? references.findIndex((r) => r.id === openDetailId)
+      : -1;
+
+  const currentPDFIndex =
+    openPDFId !== null ? references.findIndex((r) => r.id === openPDFId) : -1;
+
+  // ── PDF prev/next (skip references without a file) ────────────────────────
+  const prevPDFReference = useMemo(() => {
+    if (currentPDFIndex === -1) return null;
+    for (let i = currentPDFIndex - 1; i >= 0; i--) {
+      if (references[i].file) return references[i];
+    }
+    return null;
+  }, [currentPDFIndex, references]);
+
+  const nextPDFReference = useMemo(() => {
+    if (currentPDFIndex === -1) return null;
+    for (let i = currentPDFIndex + 1; i < references.length; i++) {
+      if (references[i].file) return references[i];
+    }
+    return null;
+  }, [currentPDFIndex, references]);
+
+  const hasOpenPDFReferencePrev = prevPDFReference !== null;
+  const hasOpenPDFReferenceNext = nextPDFReference !== null;
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+
   const handleReferenceSelect = useCallback((id: number) => {
     setSelectedReferenceIds((prev) =>
       prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
@@ -118,14 +156,6 @@ export function useReferenceUI<T extends ReferenceType>(
     setSelectedReferenceIds(allSelected ? [] : references.map((r) => r.id));
   }, [references, selectedReferenceIds]);
 
-  const handleSortChange = useCallback(
-    (field: SortField, direction: SortDirection) => {
-      setSortField(field);
-      setSortDirection(direction);
-    },
-    []
-  );
-
   const handleOpenDetail = useCallback((id: number) => {
     setOpenDetailId(id);
   }, []);
@@ -142,84 +172,42 @@ export function useReferenceUI<T extends ReferenceType>(
     setOpenPDFId(null);
   }, []);
 
+  /**
+   * Navigate the detail drawer to the prev/next reference.
+   * Also scrolls the table row into view so the highlighted row
+   * stays visible even when the list is long.
+   */
   const handleNavigateDetail = useCallback(
     (direction: 'prev' | 'next') => {
       if (highlightedReferenceId === null) return;
-      const currentIndex = sortedReferences.findIndex(
+      const currentIndex = references.findIndex(
         (r) => r.id === highlightedReferenceId
       );
       if (currentIndex === -1) return;
 
       const newIndex =
         direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
+      if (newIndex < 0 || newIndex >= references.length) return;
 
-      if (newIndex >= 0 && newIndex < sortedReferences.length) {
-        const newId = sortedReferences[newIndex].id;
+      const newId = references[newIndex].id;
+      setHighlightedReferenceId(newId);
+      if (openDetailId !== null) setOpenDetailId(newId);
 
-        setHighlightedReferenceId(newId);
-        if (openDetailId !== null) setOpenDetailId(newId);
-
-        // Auto-scroll to the new reference
-        setTimeout(() => {
-          const element = document.querySelector(
-            `[data-reference-id="${newId}"]`
-          );
-
-          if (element) {
-            const rect = element.getBoundingClientRect();
-
-            // Check if the element is NOT visible in the viewport
-            const isVisible =
-              rect.top >= 0 &&
-              rect.bottom <=
-                (window.innerHeight || document.documentElement.clientHeight);
-
-            if (!isVisible) {
-              element.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start',
-              });
-            }
-          }
-        }, 0);
-      }
+      scrollRowIntoView(newId);
     },
-    [sortedReferences, openDetailId, highlightedReferenceId]
+    [references, openDetailId, highlightedReferenceId]
   );
 
-  const currentDetailIndex =
-    openDetailId !== null
-      ? sortedReferences.findIndex((r) => r.id === openDetailId)
-      : -1;
-
-  const currentPDFIndex =
-    openPDFId !== null
-      ? sortedReferences.findIndex((r) => r.id === openPDFId)
-      : -1;
-
-  const prevPDFReference = useMemo(() => {
-    if (currentPDFIndex === -1) return null;
-    for (let i = currentPDFIndex - 1; i >= 0; i--) {
-      if (sortedReferences[i].file) return sortedReferences[i];
-    }
-    return null;
-  }, [currentPDFIndex, sortedReferences]);
-
-  const nextPDFReference = useMemo(() => {
-    if (currentPDFIndex === -1) return null;
-    for (let i = currentPDFIndex + 1; i < sortedReferences.length; i++) {
-      if (sortedReferences[i].file) return sortedReferences[i];
-    }
-    return null;
-  }, [currentPDFIndex, sortedReferences]);
-
-  const hasOpenPDFReferencePrev = prevPDFReference !== null;
-  const hasOpenPDFReferenceNext = nextPDFReference !== null;
-
+  /**
+   * Navigate the PDF dialog to the prev/next reference that has a file.
+   * Also scrolls the corresponding table row into view.
+   */
   const handleOpenPDFNavigate = useCallback(
     (direction: 'prev' | 'next') => {
       const target = direction === 'prev' ? prevPDFReference : nextPDFReference;
-      if (target) setOpenPDFId(target.id);
+      if (!target) return;
+      setOpenPDFId(target.id);
+      scrollRowIntoView(target.id);
     },
     [prevPDFReference, nextPDFReference]
   );
@@ -228,13 +216,13 @@ export function useReferenceUI<T extends ReferenceType>(
   const allSelected = total > 0 && selectedReferenceIds.length === total;
 
   return {
-    // Sidebar state
+    // Sidebar
     isSourcesSidebarCollapsed,
     setIsSourcesSidebarCollapsed,
     isFiltersSidebarCollapsed,
     setIsFiltersSidebarCollapsed,
 
-    // Selection state
+    // Selection
     selectedReferenceIds,
     highlightedReferenceId,
     handleReferenceSelect,
@@ -242,13 +230,10 @@ export function useReferenceUI<T extends ReferenceType>(
     handleSelectAllReferences,
     allSelected,
 
-    // Sorting state
-    sortField,
-    sortDirection,
-    sortedReferences,
-    handleSortChange,
+    // References
+    references,
 
-    // Detail drawer state
+    // Detail drawer
     openDetailId,
     openDetail,
     currentDetailIndex,
@@ -256,7 +241,7 @@ export function useReferenceUI<T extends ReferenceType>(
     handleCloseDetail,
     handleNavigateDetail,
 
-    // PDF state
+    // PDF dialog
     openPDFId,
     openPDFReference,
     PDFOpinionStatus,
