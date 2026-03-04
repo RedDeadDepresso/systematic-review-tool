@@ -68,10 +68,10 @@ class Review(models.Model):
 
 class ReviewMember(models.Model):
     class Role(models.TextChoices):
-        OWNER = "Owner"
-        COLLABORATOR = "Collaborator"
-        REVIEWER = "Reviewer"
-        VIEWER = "Viewer"
+        OWNER = "owner", "Owner"
+        COLLABORATOR = "collaborator", "Collaborator"
+        REVIEWER = "reviewer", "Reviewer"
+        VIEWER = "viewer", "Viewer"
 
     review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name="members")
     user = models.ForeignKey(
@@ -100,9 +100,9 @@ class ReviewMember(models.Model):
 
 class ReviewInvitation(models.Model):
     class Role(models.TextChoices):
-        COLLABORATOR = "Collaborator"
-        REVIEWER = "Reviewer"
-        VIEWER = "Viewer"
+        COLLABORATOR = "collaborator", "Collaborator"
+        REVIEWER = "reviewer", "Reviewer"
+        VIEWER = "viewer", "Viewer"
 
     email = models.EmailField()
     review = models.ForeignKey(Review, on_delete=models.CASCADE)
