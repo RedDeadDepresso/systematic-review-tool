@@ -87,9 +87,9 @@ function ReviewPage() {
 
   // ── Derived state ──────────────────────────────────────────────────────────
   const detectionStatus = data?.duplicateDetectionStatus;
-  const isPending = detectionStatus === 'Pending' || detectMutation.isPending;
-  const detectionDone = detectionStatus === 'Completed';
-  const detectionNotStarted = detectionStatus === 'Not Started';
+  const isPending = detectionStatus === 'pending' || detectMutation.isPending;
+  const detectionDone = detectionStatus === 'completed';
+  const detectionNotStarted = detectionStatus === 'not_started';
   const hasReferences = (data?.referenceCount ?? 0) > 0;
   const unresolvedCount = data?.duplicateClustersUnresolvedCount ?? 0;
   const totalClusters = data?.duplicateClustersCount ?? 0;
