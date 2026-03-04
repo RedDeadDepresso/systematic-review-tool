@@ -73,10 +73,10 @@ export type SearchMethod = {
 };
 
 export type DuplicateStatusCounts = {
-  Unresolved: number;
-  Deleted: number;
-  'Not Duplicate': number;
-  Resolved: number;
+  unresolved: number;
+  deleted: number;
+  notDuplicate: number;
+  resolved: number;
 };
 
 export type FetchScreeningParams = {
