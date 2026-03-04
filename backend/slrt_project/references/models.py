@@ -29,10 +29,10 @@ def reference_upload_path(instance, filename):
 
 
 class ReferenceOpinionStatus(models.TextChoices):
-    UNDECIDED = "Undecided"
-    EXCLUDED = "Excluded"
-    MAYBE = "Maybe"
-    INCLUDED = "Included"
+    UNDECIDED = "undecided", "Undecided"
+    EXCLUDED = "excluded", "Excluded"
+    MAYBE = "maybe", "Maybe"
+    INCLUDED = "included", "Included"
 
 
 class Reference(models.Model):
