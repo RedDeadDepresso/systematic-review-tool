@@ -234,14 +234,14 @@ class ExtractionTableViewSet(ReviewDataViewSet):
         writer = csv.writer(response)
 
         # Write header row
-        header = ["Title"]
+        header = ["Title", "URL", "DOI"]
         for question in questions:
             header.append(question.column_title)
         writer.writerow(header)
 
         # Write data rows
         for ref in references:
-            row = [ref.title]
+            row = [ref.title, ref.url, ref.doi]
 
             # Create answers dict for quick lookup
             answers_dict = {}
