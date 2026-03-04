@@ -57,7 +57,7 @@ export function useScreeningPage(
   const [excludeHighlightEnabled, setExcludeHighlightEnabled] = useState(true);
 
   const fetchReview = useFetchReview(reviewId);
-  const userRole = fetchReview.data?.userRole ?? 'Viewer';
+  const userRole = fetchReview.data?.userRole ?? 'viewer';
   const userMemberId = fetchReview.data?.userMemberId ?? undefined;
 
   const invalidateQuery = useCallback(() => {

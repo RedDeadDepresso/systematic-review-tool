@@ -230,7 +230,7 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
                     }
                     disabled={
                       fetchReview.isLoading ||
-                      fetchReview.data?.userRole !== 'Owner'
+                      can('modifyReview', fetchReview.data?.userRole)
                     }
                   />
                 </div>
@@ -350,7 +350,7 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
       {/* Screening Criteria Popover */}
       <ScreeningCriteriaPopover
         reviewId={reviewId}
-        userRole={fetchReview.data?.userRole || 'Viewer'}
+        userRole={fetchReview.data?.userRole || 'viewer'}
         open={showCriteriaPopover}
         onOpenChange={setShowCriteriaPopover}
         trigger={<button className="hidden" aria-hidden="true" />}

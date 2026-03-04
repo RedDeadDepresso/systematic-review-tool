@@ -54,6 +54,7 @@ import {
 } from '@/components/blocks/data-table';
 import InvitationDialog from '@/features/reviews/components/review-invitations/invitation-dialog';
 import { UserPlus } from 'lucide-react';
+import { capitalize } from '@/lib/capitalize';
 
 export function createColumns(
   userRole: ReviewRole,
@@ -115,7 +116,7 @@ export function createColumns(
       ),
       cell: ({ row }) => {
         const member = row.original;
-        if (can('modifyReview', userRole) && member.role !== 'Owner') {
+        if (can('modifyReview', userRole) && member.role !== 'owner') {
           return (
             <div className="flex justify-center">
               <Select
@@ -131,15 +132,15 @@ export function createColumns(
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Collaborator">Collaborator</SelectItem>
-                  <SelectItem value="Reviewer">Reviewer</SelectItem>
-                  <SelectItem value="Viewer">Viewer</SelectItem>
+                  <SelectItem value="collaborator">Collaborator</SelectItem>
+                  <SelectItem value="reviewer">Reviewer</SelectItem>
+                  <SelectItem value="viewer">Viewer</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           );
         }
-        return <span>{member.role}</span>;
+        return <span>{capitalize(member.role)}</span>;
       },
     },
     {
@@ -150,7 +151,7 @@ export function createColumns(
 
         return (
           <>
-            {can('modifyReview', userRole) && member.role !== 'Owner' && (
+            {can('modifyReview', userRole) && member.role !== 'owner' && (
               <>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -237,17 +238,23 @@ export function ReviewMembersTable({
   const deleteMember = useDeleteReviewMember();
   const [openInvitationDialog, setOpenInvitationDialog] = React.useState(false);
 
-  const onUpdateRole = (memberId: number, role: ReviewRole) => {
-    updateMember.mutate({ id: memberId, reviewId, payload: { role } });
-  };
+  const onUpdateRole = React.useCallback(
+    (memberId: number, role: ReviewRole) => {
+      updateMember.mutate({ id: memberId, reviewId, payload: { role } });
+    },
+    [updateMember, reviewId]
+  );
 
-  const onDelete = (memberId: number) => {
-    deleteMember.mutate({ id: memberId, reviewId });
-  };
+  const onDelete = React.useCallback(
+    (memberId: number) => {
+      deleteMember.mutate({ id: memberId, reviewId });
+    },
+    [deleteMember, reviewId]
+  );
 
   const columns = React.useMemo(
     () => createColumns(userRole, onUpdateRole, onDelete),
-    [userRole]
+    [userRole, onUpdateRole, onDelete]
   );
 
   const table = useReactTable({

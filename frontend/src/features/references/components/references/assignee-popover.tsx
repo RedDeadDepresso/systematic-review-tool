@@ -11,6 +11,7 @@ import {
 import { useAssignReferences } from '@/features/references/hooks/use-references';
 import type { ReviewMember } from '@/features/reviews/types/reviews';
 import { useFetchReviewMembers } from '@/features/reviews/hooks/use-review-members';
+import { capitalize } from '@/lib/capitalize';
 
 interface AssigneePopoverProps {
   reviewId: number;
@@ -40,7 +41,7 @@ export function AssigneePopover({
   );
 
   const assignableMembers = useMemo<ReviewMember[]>(() => {
-    return members.filter((m) => m.role === 'Reviewer' || m.role === 'Owner');
+    return members.filter((m) => m.role === 'reviewer' || m.role === 'owner');
   }, [members]);
 
   const filteredMemebers = useMemo(() => {
@@ -134,7 +135,7 @@ export function AssigneePopover({
                   <span className="text-sm truncate">
                     {member.user.displayName}
                     <span className="ml-2 text-xs text-muted-foreground">
-                      ({member.role})
+                      ({capitalize(member.role)})
                     </span>
                   </span>
                 </div>

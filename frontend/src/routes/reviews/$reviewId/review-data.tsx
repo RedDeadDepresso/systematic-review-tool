@@ -84,7 +84,7 @@ function RouteComponent() {
 
   // ── Review metadata ───────────────────────────────────────────────────────
   const fetchReview = useFetchReview(reviewId);
-  const userRole = fetchReview.data?.userRole ?? 'Viewer';
+  const userRole = fetchReview.data?.userRole ?? 'viewer';
 
   // ── Cache invalidation ────────────────────────────────────────────────────
   const invalidateQuery = useCallback(() => {

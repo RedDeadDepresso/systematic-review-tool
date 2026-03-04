@@ -325,7 +325,7 @@ function ReviewPage() {
 
         <ScreeningCriteriaCard
           reviewId={reviewId}
-          userRole={data?.userRole || 'Viewer'}
+          userRole={data?.userRole || 'viewer'}
         />
 
         {/* Members — collapsible */}
@@ -349,7 +349,7 @@ function ReviewPage() {
               <div className="px-6 pb-6">
                 <ReviewMembersTable
                   data={fetchReviewMembers.data || []}
-                  userRole={data?.userRole || 'Viewer'}
+                  userRole={data?.userRole || 'viewer'}
                   reviewId={reviewId}
                   isLoading={fetchReviewMembers.isLoading}
                 />

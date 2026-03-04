@@ -30,7 +30,7 @@ export default function InvitationDialog({
   onOpenChange,
 }: InvitationDialogProps) {
   const [emails, setEmails] = useState<string[]>([]);
-  const [role, setRole] = useState<InvitationRole>('Reviewer');
+  const [role, setRole] = useState<InvitationRole>('collaborator');
 
   const sendInviteMutation = useSendInvitations();
 
@@ -44,7 +44,7 @@ export default function InvitationDialog({
       {
         onSuccess: () => {
           setEmails([]);
-          setRole('Reviewer');
+          setRole('collaborator');
         },
       }
     );
@@ -68,9 +68,9 @@ export default function InvitationDialog({
               <SelectValue placeholder="Select role" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Collaborator">Collaborator</SelectItem>
-              <SelectItem value="Reviewer">Reviewer</SelectItem>
-              <SelectItem value="Viewer">Viewer</SelectItem>
+              <SelectItem value="collaborator">Collaborator</SelectItem>
+              <SelectItem value="reviewer">Reviewer</SelectItem>
+              <SelectItem value="viewer">viewer</SelectItem>
             </SelectContent>
           </Select>
         </div>
