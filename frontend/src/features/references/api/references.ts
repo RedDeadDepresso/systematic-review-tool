@@ -230,7 +230,7 @@ export const updateReference = async ({
   reviewId: number;
   referenceId: number;
   payload: {
-    status: 'Undecided' | 'Excluded' | 'Maybe' | 'Included';
+    status: OpinionStatus;
   };
 }) => {
   const res = await api.patch(`/references/${referenceId}/`, payload);

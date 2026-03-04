@@ -1,7 +1,7 @@
 import type { Label } from '@/features/references/types/labels';
 import type { ReviewMember } from '@/features/reviews/types/reviews';
 
-export type OpinionStatus = 'Undecided' | 'Included' | 'Excluded' | 'Maybe';
+export type OpinionStatus = 'undecided' | 'included' | 'excluded' | 'maybe';
 
 export type Stage = 'screening' | 'full-text';
 

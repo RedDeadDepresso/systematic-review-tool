@@ -36,10 +36,10 @@ export interface UseReferenceFiltersOptions {
 
 export function useReferenceFilters(options: UseReferenceFiltersOptions = {}) {
   const ALL_OPINION_STATUSES: OpinionStatus[] = [
-    'Undecided',
-    'Included',
-    'Maybe',
-    'Excluded',
+    'undecided',
+    'included',
+    'maybe',
+    'excluded',
   ];
 
   const {
@@ -69,7 +69,7 @@ export function useReferenceFilters(options: UseReferenceFiltersOptions = {}) {
   const [assigneeIds, setAssigneeIds] = useState<(number | null)[]>([]);
   const [duplicateStatuses, setDuplicateStatuses] = useState<string[]>([]);
   const [opinionStatuses, setOpinionStatuses] = useState<OpinionStatus[]>(
-    enableOpinions ? ['Undecided'] : []
+    enableOpinions ? ['undecided'] : []
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [isExtractionCompleted, setIsExtractionCompleted] = useState<
