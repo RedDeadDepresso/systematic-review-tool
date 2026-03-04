@@ -1,6 +1,6 @@
 import type { OpinionStatus } from '@/features/references/types/references';
 import type { OrderingField } from '@/features/references/api/references';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useDebounceValue } from 'usehooks-ts';
 
 export interface ReferenceFilters {
@@ -94,21 +94,38 @@ export function useReferenceFilters(options: UseReferenceFiltersOptions = {}) {
   }, []);
 
   // ── Debounced filters (sent to API) ───────────────────────────────────────────
-  const optimisticFilters: ReferenceFilters = {
-    searchMethodIds,
-    includeKeywords,
-    excludeKeywords,
-    labelIds,
-    publicationTypes,
-    publicationYears,
-    hasFile: fileStatus === 'all' ? undefined : fileStatus === 'withFile',
-    assigneeIds,
-    duplicateStatuses,
-    opinionStatuses,
-    searchQuery,
-    ordering,
-    isExtractionCompleted,
-  };
+  const optimisticFilters: ReferenceFilters = useMemo(
+    () => ({
+      searchMethodIds,
+      includeKeywords,
+      excludeKeywords,
+      labelIds,
+      publicationTypes,
+      publicationYears,
+      hasFile: fileStatus === 'all' ? undefined : fileStatus === 'withFile',
+      assigneeIds,
+      duplicateStatuses,
+      opinionStatuses,
+      searchQuery,
+      ordering,
+      isExtractionCompleted,
+    }),
+    [
+      searchMethodIds,
+      includeKeywords,
+      excludeKeywords,
+      labelIds,
+      publicationTypes,
+      publicationYears,
+      fileStatus,
+      assigneeIds,
+      duplicateStatuses,
+      opinionStatuses,
+      searchQuery,
+      ordering,
+      isExtractionCompleted,
+    ]
+  );
 
   const [debouncedFilters, isDebouncing] = useDebounceValue(
     optimisticFilters,
@@ -334,6 +351,7 @@ export function useReferenceFilters(options: UseReferenceFiltersOptions = {}) {
     enableAssignees,
     enableDuplicates,
     enableOpinions,
+    enableExtractionStatus,
     defaultOrdering,
   ]);
 
