@@ -30,10 +30,14 @@ import { toast } from 'sonner';
 
 // Updated referenceKeys to include endpoint
 export const referenceKeys = {
-  list: (params: FetchReviewDataParams, endpoint = ENDPOINTS.reviewData) =>
-    ['reviews', params.review, endpoint, 'references', params] as const,
-  filterCounts: (reviewId: number, endpoint = ENDPOINTS.reviewData) =>
-    ['reviews', reviewId, endpoint, 'filter-counts'] as const,
+  list: (
+    params: FetchReviewDataParams,
+    endpoint: ReferencesEndpoint = ENDPOINTS.reviewData
+  ) => ['reviews', params.review, endpoint, 'references', params] as const,
+  filterCounts: (
+    reviewId: number,
+    endpoint: ReferencesEndpoint = ENDPOINTS.reviewData
+  ) => ['reviews', reviewId, endpoint, 'filter-counts'] as const,
 };
 
 // ─── Infinite references (pagination + sort) ───────────────────────────────────
@@ -51,16 +55,16 @@ export const referenceKeys = {
  *
  * Trigger fetchNextPage when the user scrolls near the bottom of the list.
  */
-export const useFetchReferences = (
+export const useFetchReferences = <T extends Reference = Reference>(
   params: Omit<FetchReviewDataParams | FetchScreeningParams, 'offset'>,
   endpoint: ReferencesEndpoint | string = ENDPOINTS.reviewData
 ) => {
   const PAGE_SIZE = params.limit ?? 50;
 
   return useInfiniteQuery<
-    FetchReferencesResponse,
+    FetchReferencesResponse<T>,
     Error,
-    InfiniteData<FetchReferencesResponse>,
+    InfiniteData<FetchReferencesResponse<T>>,
     readonly [string, number, string, string, object],
     number
   >({
@@ -75,7 +79,7 @@ export const useFetchReferences = (
       fetchReferences(
         { ...params, limit: PAGE_SIZE, offset: pageParam },
         endpoint
-      ),
+      ) as Promise<FetchReferencesResponse<T>>,
     initialPageParam: 0,
     getNextPageParam: (last) =>
       last.next ? last.offset + last.limit : undefined,
@@ -91,10 +95,9 @@ export const useFetchReferences = (
  * Selector to flatten all pages into a single reference array.
  * Memoised by React Query's structural equality check on `data`.
  */
-export const selectFlatReferences = (
-  data: InfiniteData<FetchReferencesResponse> | undefined
-): Reference[] => data?.pages.flatMap((p) => p.references) ?? [];
-
+export const selectFlatReferences = <T extends Reference = Reference>(
+  data: InfiniteData<FetchReferencesResponse<T>> | undefined
+): T[] => data?.pages.flatMap((p) => p.references) ?? [];
 /**
  * Get counts from the first page (same for all pages).
  */

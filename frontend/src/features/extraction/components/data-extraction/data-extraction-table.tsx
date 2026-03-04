@@ -1,9 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, {
+  useState,
+  useMemo,
+  useRef,
+  useEffect,
+  useCallback,
+} from 'react';
 import {
   Plus,
-  Search,
-  Upload,
-  Download,
   ChevronDown,
   CheckCircle2,
   XCircle,
@@ -36,10 +39,10 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { Loader2 } from 'lucide-react';
 import { AddQuestionPopover } from '@/features/extraction/components/data-extraction/add-question-popover';
 import type {
   ExtractionQuestion,
-  ExtractionStatus,
   ReferenceWithAnswers,
 } from '@/features/extraction/types/extraction';
 import {
@@ -47,18 +50,32 @@ import {
   useDownloadCSVFile,
 } from '@/features/extraction/hooks/use-extraction-table';
 import { EditQuestionPopover } from '@/features/extraction/components/data-extraction/edit-question-popover';
-import { useQueryClient } from '@tanstack/react-query';
 import { AddDataDialog } from '@/components/blocks/add-data-dialog';
 import { DataExtractionSkeleton } from '@/features/extraction/components/data-extraction/data-extraction-skeleton';
 import { AssigneeBadge } from '@/features/references/components/references/assignee-badge';
 import { LabelBadge } from '@/features/references/components/labels/label-badge';
+import {
+  TableTopHeader,
+  type ExportType,
+} from '@/features/references/components/references/references-table-top-header';
+import type { OrderingField } from '@/features/references/api/references';
+import type { ReviewRole } from '@/features/reviews/types/reviews';
+import { highlightText } from '@/lib/highlight-text';
+
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+/** null = show all, true = completed only, false = in-progress only */
+export type ExtractionStatusFilter = boolean | null;
 
 interface DataExtractionTableProps {
   reviewId: number;
+  userRole: ReviewRole;
   questions: ExtractionQuestion[];
   references: ReferenceWithAnswers[];
   selectedReferenceIds: number[];
   highlightedReferenceId: number | null;
+  highlightIncludeKeywords: string[];
+  highlightExcludeKeywords: string[];
   allSelected: boolean;
   onSelectAll: () => void;
   onSelectReference: (id: number) => void;
@@ -66,20 +83,30 @@ interface DataExtractionTableProps {
   onOpenDetail: (id: number) => void;
   onOpenPDF: (referenceId: number) => void;
   onAttachPDF: (referenceId: number) => void;
+  onInvalidate: () => void;
+  onExport: (type: ExportType) => void;
   isLoading?: boolean;
+  isFetchingNextPage?: boolean;
+  hasNextPage?: boolean;
+  onLoadMore?: () => void;
+  totalCount: number;
+  filteredCount: number;
+  // Filters toolbar
+  activeFilterCount: number;
+  ordering: OrderingField;
+  onOrderingChange: (o: OrderingField) => void;
+  isFiltersSidebarCollapsed: boolean;
+  onToggleFiltersSidebar: () => void;
+  // Extraction status — server-side filter
+  extractionStatusFilter: ExtractionStatusFilter;
+  onExtractionStatusFilterChange: (v: ExtractionStatusFilter) => void;
+  // Counts for the dropdown labels (from filterCounts, not paginated pages)
+  completedCount: number;
+  inProgressCount: number;
 }
 
-const statusColors: Record<ExtractionStatus, string> = {
-  'in-progress': 'bg-amber-500',
-  completed: 'bg-green-500',
-};
+// ── CellEditor ─────────────────────────────────────────────────────────────────
 
-const statusLabels: Record<ExtractionStatus, string> = {
-  'in-progress': 'In Progress',
-  completed: 'Completed',
-};
-
-// Cell editor component for different question types
 function CellEditor({
   question,
   value,
@@ -97,36 +124,30 @@ function CellEditor({
   );
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
-  const handleSave = () => {
-    if (question.type === 'date' && date) {
-      onSave(format(date, 'yyyy-MM-dd'));
-    } else {
-      onSave(editValue);
-    }
+  const commit = () => {
+    if (question.type === 'date' && date) onSave(format(date, 'yyyy-MM-dd'));
+    else onSave(editValue);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSave();
+      commit();
     }
-    if (e.key === 'Escape') {
-      onCancel();
-    }
+    if (e.key === 'Escape') onCancel();
   };
 
-  // Single Select
   if (question.type === 'single-select' && question.options) {
     return (
       <Select
         value={editValue || '__clear__'}
-        onValueChange={(val) => {
-          const newValue = val === '__clear__' ? '' : val;
-          setEditValue(newValue);
-          onSave(newValue);
+        onValueChange={(v) => {
+          const val = v === '__clear__' ? '' : v;
+          setEditValue(val);
+          onSave(val);
         }}
         open
-        onOpenChange={(open) => !open && onCancel()}
+        onOpenChange={(o) => !o && onCancel()}
       >
         <SelectTrigger className="h-8 text-sm">
           <SelectValue placeholder="Select..." />
@@ -135,9 +156,9 @@ function CellEditor({
           <SelectItem value="__clear__">
             <span className="text-muted-foreground italic">Clear</span>
           </SelectItem>
-          {question.options.map((option) => (
-            <SelectItem key={option} value={option}>
-              {option}
+          {question.options.map((o) => (
+            <SelectItem key={o} value={o}>
+              {o}
             </SelectItem>
           ))}
         </SelectContent>
@@ -145,71 +166,62 @@ function CellEditor({
     );
   }
 
-  // Multi Select
   if (question.type === 'multi-select' && question.options) {
-    const selectedOptions = editValue
-      ? editValue.split(',').map((s) => s.trim())
-      : [];
-
+    const selected = editValue ? editValue.split(',').map((s) => s.trim()) : [];
     return (
-      <div className="space-y-1">
-        <Select
-          value="__placeholder__"
-          onValueChange={(val) => {
-            if (val === '__clear__') {
-              setEditValue('');
-              onSave('');
-              return;
+      <Select
+        value="__placeholder__"
+        onValueChange={(v) => {
+          if (v === '__clear__') {
+            setEditValue('');
+            onSave('');
+            return;
+          }
+          const next = selected.includes(v)
+            ? selected.filter((o) => o !== v)
+            : [...selected, v];
+          const val = next.join(', ');
+          setEditValue(val);
+          onSave(val);
+        }}
+        open
+        onOpenChange={(o) => !o && onCancel()}
+      >
+        <SelectTrigger className="h-8 text-sm">
+          <SelectValue
+            placeholder={
+              selected.length > 0 ? selected.join(', ') : 'Select...'
             }
-            const newOptions = selectedOptions.includes(val)
-              ? selectedOptions.filter((o) => o !== val)
-              : [...selectedOptions, val];
-            const newValue = newOptions.join(', ');
-            setEditValue(newValue);
-            onSave(newValue);
-          }}
-          open
-          onOpenChange={(open) => !open && onCancel()}
-        >
-          <SelectTrigger className="h-8 text-sm">
-            <SelectValue
-              placeholder={
-                selectedOptions.length > 0
-                  ? selectedOptions.join(', ')
-                  : 'Select...'
-              }
-            />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__clear__">
-              <span className="text-muted-foreground italic">Clear all</span>
+          />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__clear__">
+            <span className="text-muted-foreground italic">Clear all</span>
+          </SelectItem>
+          {question.options.map((o) => (
+            <SelectItem key={o} value={o}>
+              <div className="flex items-center gap-2">
+                <Checkbox checked={selected.includes(o)} />
+                {o}
+              </div>
             </SelectItem>
-            {question.options.map((option) => (
-              <SelectItem key={option} value={option}>
-                <div className="flex items-center gap-2">
-                  <Checkbox checked={selectedOptions.includes(option)} />
-                  {option}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+          ))}
+        </SelectContent>
+      </Select>
     );
   }
 
-  // Boolean (Yes/No)
   if (question.type === 'boolean') {
     return (
       <Select
         value={editValue || '__clear__'}
-        onValueChange={(val) => {
-          const newValue = val === '__clear__' ? '' : val;
-          setEditValue(newValue);
-          onSave(newValue);
+        onValueChange={(v) => {
+          const val = v === '__clear__' ? '' : v;
+          setEditValue(val);
+          onSave(val);
         }}
         open
-        onOpenChange={(open) => !open && onCancel()}
+        onOpenChange={(o) => !o && onCancel()}
       >
         <SelectTrigger className="h-8 text-sm">
           <SelectValue placeholder="Select..." />
@@ -225,14 +237,13 @@ function CellEditor({
     );
   }
 
-  // Number
   if (question.type === 'number') {
     return (
       <Input
         type="number"
         value={editValue}
         onChange={(e) => setEditValue(e.target.value)}
-        onBlur={handleSave}
+        onBlur={commit}
         onKeyDown={handleKeyDown}
         autoFocus
         className="h-8 text-sm"
@@ -240,7 +251,6 @@ function CellEditor({
     );
   }
 
-  // Date
   if (question.type === 'date') {
     return (
       <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
@@ -248,7 +258,7 @@ function CellEditor({
           <Button
             variant="outline"
             className={cn(
-              'h-8 text-sm justify-start text-left font-normal w-full',
+              'h-8 text-sm justify-start font-normal w-full',
               !date && 'text-muted-foreground'
             )}
             onClick={() => setIsCalendarOpen(true)}
@@ -261,10 +271,10 @@ function CellEditor({
           <Calendar
             mode="single"
             selected={date}
-            onSelect={(newDate) => {
-              setDate(newDate);
-              if (newDate) {
-                onSave(format(newDate, 'yyyy-MM-dd'));
+            onSelect={(d) => {
+              setDate(d);
+              if (d) {
+                onSave(format(d, 'yyyy-MM-dd'));
                 setIsCalendarOpen(false);
               }
             }}
@@ -289,12 +299,11 @@ function CellEditor({
     );
   }
 
-  // Free Text (default)
   return (
     <Input
       value={editValue}
       onChange={(e) => setEditValue(e.target.value)}
-      onBlur={handleSave}
+      onBlur={commit}
       onKeyDown={handleKeyDown}
       autoFocus
       className="h-8 text-sm"
@@ -302,7 +311,8 @@ function CellEditor({
   );
 }
 
-// Display component for cell values
+// ── CellDisplay ────────────────────────────────────────────────────────────────
+
 function CellDisplay({
   question,
   value,
@@ -310,68 +320,56 @@ function CellDisplay({
   question: ExtractionQuestion;
   value: string;
 }) {
-  if (!value) {
+  if (!value)
     return <span className="text-muted-foreground/50">Click to add</span>;
-  }
-
-  // Boolean display
-  if (question.type === 'boolean') {
+  if (question.type === 'boolean')
     return (
       <span>{value === 'true' ? 'Yes' : value === 'false' ? 'No' : value}</span>
     );
-  }
-
-  // Date display
   if (question.type === 'date') {
     try {
-      const date = new Date(value);
-      return <span>{format(date, 'PPP')}</span>;
+      return <span>{format(new Date(value), 'PPP')}</span>;
     } catch {
       return <span>{value}</span>;
     }
   }
-
-  // Multi-select display with badges
   if (question.type === 'multi-select') {
-    const options = value
+    const opts = value
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean);
-    if (options.length === 0) {
+    if (!opts.length)
       return <span className="text-muted-foreground/50">Click to add</span>;
-    }
     return (
       <div className="flex flex-wrap gap-1">
-        {options.map((option, i) => (
+        {opts.map((o, i) => (
           <span
             key={i}
             className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary"
           >
-            {option}
+            {o}
           </span>
         ))}
       </div>
     );
   }
-
-  // Default display
   return <span>{value}</span>;
 }
 
-// Helper function to generate consistent color from question ID
-const getQuestionColor = (questionId: number) => {
-  // Simple hash function for consistent colors
-  const hash = questionId * 2654435761;
-  const hue = hash % 360;
-  return `hsl(${hue}, 70%, 50%)`;
-};
+const getQuestionColor = (id: number) =>
+  `hsl(${(id * 2654435761) % 360}, 70%, 50%)`;
+
+// ── Component ──────────────────────────────────────────────────────────────────
 
 export function DataExtractionTable({
   reviewId,
+  userRole,
   questions,
   references,
   selectedReferenceIds,
   highlightedReferenceId,
+  highlightIncludeKeywords,
+  highlightExcludeKeywords,
   allSelected,
   onSelectAll,
   onSelectReference,
@@ -379,220 +377,216 @@ export function DataExtractionTable({
   onOpenDetail,
   onOpenPDF,
   onAttachPDF,
+  onInvalidate,
+  onExport,
   isLoading = false,
+  isFetchingNextPage,
+  hasNextPage,
+  onLoadMore,
+  totalCount,
+  filteredCount,
+  activeFilterCount,
+  ordering,
+  onOrderingChange,
+  isFiltersSidebarCollapsed,
+  onToggleFiltersSidebar,
+  extractionStatusFilter,
+  onExtractionStatusFilterChange,
+  completedCount,
+  inProgressCount,
 }: DataExtractionTableProps) {
-  const [statusFilter, setStatusFilter] = useState<ExtractionStatus | 'all'>(
-    'in-progress'
-  );
   const [editingCell, setEditingCell] = useState<{
     referenceId: number;
     questionId: number;
   } | null>(null);
-  const [isAddDataDialogOpen, setIsAddDataDialogOpen] =
-    useState<boolean>(false);
-  const queryClient = useQueryClient();
+  const [isAddDataDialogOpen, setIsAddDataDialogOpen] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
-  // Fetch table data (single API call)
   const saveAnswerMutation = useSaveExtractionAnswer();
   const exportCSVMutation = useDownloadCSVFile();
 
-  const totalCount = references.length;
+  // ── Infinite scroll ────────────────────────────────────────────────────────
+  const handleIntersect = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage)
+        onLoadMore?.();
+    },
+    [hasNextPage, isFetchingNextPage, onLoadMore]
+  );
 
-  // Filter references by status
-  const filteredReferences = useMemo(() => {
-    if (statusFilter === 'all') {
-      return references;
-    } else if (statusFilter === 'in-progress') {
-      return references.filter((ref) => !ref.isExtractionCompleted);
-    } else {
-      return references.filter((ref) => ref.isExtractionCompleted);
-    }
-  }, [references, statusFilter]);
-
-  // Find first incomplete reference for "Extract data" button
-  const firstIncompleteReference = useMemo(() => {
-    return references.find((ref) => !ref.isExtractionCompleted && ref.file);
-  }, [references]);
-
-  const handleExtractData = () => {
-    if (firstIncompleteReference) {
-      onOpenPDF(firstIncompleteReference.id);
-    }
-  };
-
-  const handleExportCSV = () => {
-    exportCSVMutation.mutate(reviewId);
-  };
-
-  const handleCellClick = (referenceId: number, questionId: number) => {
-    setEditingCell({ referenceId, questionId });
-  };
-
-  const handleCellSave = async (value: string) => {
-    if (!editingCell) return;
-
-    saveAnswerMutation.mutate({
-      reference: editingCell.referenceId,
-      question: editingCell.questionId,
-      value: value,
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(handleIntersect, {
+      rootMargin: '0px 0px 200px 0px',
+      threshold: 0,
     });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [handleIntersect]);
 
+  const firstIncompleteReference = useMemo(
+    () => references.find((r) => !r.isExtractionCompleted && r.file),
+    [references]
+  );
+
+  const statusLabel =
+    extractionStatusFilter === null
+      ? 'All'
+      : extractionStatusFilter
+        ? 'Completed'
+        : 'In Progress';
+
+  const handleCellSave = (value: string) => {
+    if (!editingCell) return;
+    saveAnswerMutation.mutate(
+      {
+        reference: editingCell.referenceId,
+        question: editingCell.questionId,
+        value,
+      },
+      { onSuccess: onInvalidate }
+    );
     setEditingCell(null);
   };
 
-  const handleCellCancel = () => {
-    setEditingCell(null);
-  };
-
-  const statusCounts = useMemo(() => {
-    return {
-      'in-progress': references.filter((r) => !r.isExtractionCompleted).length,
-      completed: references.filter((r) => r.isExtractionCompleted).length,
-    };
-  }, [references]);
-
-  // Row click handlers
   const handleRowClick = (id: number, e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
+    const t = e.target as HTMLElement;
     if (
-      target.closest('[data-checkbox-area]') ||
-      target.closest('button') ||
-      target.closest('input') ||
-      target.closest('[role="combobox"]') ||
-      target.closest('[data-radix-popper-content-wrapper]')
-    ) {
+      t.closest('[data-checkbox-area]') ||
+      t.closest('button') ||
+      t.closest('input') ||
+      t.closest('[role="combobox"]') ||
+      t.closest('[data-radix-popper-content-wrapper]')
+    )
       return;
-    }
     onHighlightReference(highlightedReferenceId === id ? null : id);
   };
 
   const handleRowDoubleClick = (id: number, e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
+    const t = e.target as HTMLElement;
     if (
-      target.closest('[data-checkbox-area]') ||
-      target.closest('button') ||
-      target.closest('input') ||
-      target.closest('[role="combobox"]') ||
-      target.closest('[data-radix-popper-content-wrapper]')
-    ) {
+      t.closest('[data-checkbox-area]') ||
+      t.closest('button') ||
+      t.closest('input') ||
+      t.closest('[role="combobox"]') ||
+      t.closest('[data-radix-popper-content-wrapper]')
+    )
       return;
-    }
     onOpenDetail(id);
-  };
-
-  const invalidateQuery = () => {
-    queryClient.invalidateQueries({
-      queryKey: ['extraction-table', reviewId],
-    });
   };
 
   return (
     <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-border bg-card">
-        <div className="flex items-center gap-3">
-          <span className="text-sm sm:text-base font-medium">
-            Showing {filteredReferences.length} / {totalCount}{' '}
-            <span className="capitalize">
-              {statusFilter === 'all' ? 'All' : statusLabels[statusFilter]}
-            </span>{' '}
-            Articles
-          </span>
-        </div>
-
-        {/* Progress bar */}
-        <div className="hidden sm:flex flex-1 max-w-md mx-6">
-          <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-            <div
-              className="h-full bg-primary transition-all duration-300"
-              style={{
-                width: `${(statusCounts.completed / totalCount) * 100}%`,
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-            <Search className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 bg-transparent hidden sm:flex"
-            onClick={() => setIsAddDataDialogOpen(true)}
-          >
-            <Upload className="h-4 w-4" />
-            Add articles
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 bg-transparent hidden sm:flex"
-            onClick={handleExportCSV}
+      {/* ── Shared top header ───────────────────────────────────────────── */}
+      <TableTopHeader
+        userRole={userRole}
+        activeFilterCount={activeFilterCount}
+        filteredCount={filteredCount}
+        totalCount={totalCount}
+        ordering={ordering}
+        onOrderingChange={onOrderingChange}
+        isRightCollapsed={isFiltersSidebarCollapsed}
+        onToggleRightCollapse={onToggleFiltersSidebar}
+        onExport={onExport}
+        extraExportActions={
+          <DropdownMenuItem
+            onSelect={() => exportCSVMutation.mutate(reviewId)}
             disabled={exportCSVMutation.isPending}
           >
-            <Download className="h-4 w-4" />
-            {exportCSVMutation.isPending ? 'Exporting...' : 'Export'}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 bg-transparent hidden sm:flex"
-            onClick={handleExtractData}
-            disabled={!firstIncompleteReference}
-          >
-            <FileText className="h-4 w-4" />
-            Extract data
-          </Button>
-        </div>
-      </div>
+            {exportCSVMutation.isPending
+              ? 'Exporting Table CSV...'
+              : 'Table CSV'}
+          </DropdownMenuItem>
+        }
+        onAddData={() => setIsAddDataDialogOpen(true)}
+        extraActions={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                firstIncompleteReference &&
+                onOpenPDF(firstIncompleteReference.id)
+              }
+              disabled={!firstIncompleteReference}
+            >
+              <FileText className="h-4 w-4" />
+              <span className="hidden xl:inline ml-1">Extract data</span>
+            </Button>
+          </>
+        }
+      />
 
-      {/* Status filter */}
-      <div className="flex items-center justify-between px-4 sm:px-6 py-2 border-b border-border bg-muted/30">
+      {/* ── Sub-header: select-all + progress + status filter ───────────── */}
+      <div className="flex items-center px-3 sm:px-6 py-3 border-b border-border bg-muted/50 gap-3 text-sm font-medium text-muted-foreground">
+        <div className="w-10 flex items-center">
+          <Checkbox checked={allSelected} onCheckedChange={onSelectAll} />
+        </div>
+
+        {/* Status filter */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="sm"
-              className="gap-2 text-foreground font-medium"
+              className="gap-1.5 text-muted-foreground font-medium h-7"
             >
-              <span className="capitalize">
-                {statusFilter === 'all' ? 'All' : statusLabels[statusFilter]}
-              </span>
-              <ChevronDown className="h-4 w-4" />
+              {statusLabel}
+              <ChevronDown className="h-3.5 w-3.5" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
+          <DropdownMenuContent align="start" className="w-44">
             <DropdownMenuItem
-              onClick={() => setStatusFilter('all')}
-              className={cn(statusFilter === 'all' && 'bg-accent')}
+              onClick={() => onExtractionStatusFilterChange(null)}
+              className={cn(
+                extractionStatusFilter === null && 'bg-accent font-medium'
+              )}
             >
               <div className="w-2 h-2 rounded-full mr-2 bg-primary" />
               All ({totalCount})
             </DropdownMenuItem>
-            {(Object.entries(statusLabels) as [ExtractionStatus, string][]).map(
-              ([status, label]) => (
-                <DropdownMenuItem
-                  key={status}
-                  onClick={() => setStatusFilter(status)}
-                  className={cn(statusFilter === status && 'bg-accent')}
-                >
-                  <div
-                    className={cn(
-                      'w-2 h-2 rounded-full mr-2',
-                      statusColors[status]
-                    )}
-                  />
-                  {label} ({statusCounts[status]})
-                </DropdownMenuItem>
-              )
-            )}
+            <DropdownMenuItem
+              onClick={() => onExtractionStatusFilterChange(false)}
+              className={cn(
+                extractionStatusFilter === false && 'bg-accent font-medium'
+              )}
+            >
+              <div className="w-2 h-2 rounded-full mr-2 bg-amber-500" />
+              In Progress ({inProgressCount})
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onExtractionStatusFilterChange(true)}
+              className={cn(
+                extractionStatusFilter === true && 'bg-accent font-medium'
+              )}
+            >
+              <div className="w-2 h-2 rounded-full mr-2 bg-green-500" />
+              Completed ({completedCount})
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {/* Progress bar */}
+        <div className="hidden md:flex items-center gap-2 flex-1 max-w-xs">
+          <div className="flex-1 bg-muted rounded-full h-1.5 overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all duration-300"
+              style={{
+                width:
+                  totalCount > 0
+                    ? `${(completedCount / totalCount) * 100}%`
+                    : '0%',
+              }}
+            />
+          </div>
+          <span className="text-xs shrink-0">
+            {completedCount}/{totalCount} done
+          </span>
+        </div>
       </div>
 
-      {/* Table - see next message for table content */}
+      {/* ── Table ───────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-auto">
         <table className="w-full border-collapse min-w-max">
           <thead className="sticky top-0 bg-card z-10">
@@ -607,41 +601,39 @@ export function DataExtractionTable({
                 Title
               </th>
               <th className="text-left text-sm font-medium text-muted-foreground py-3 w-24">
-                Completed?
+                Done?
               </th>
               <th className="text-left text-sm font-medium text-muted-foreground px-4 py-3 w-28">
                 PDF
               </th>
-              {questions.map((q) => {
-                return (
-                  <th
-                    key={q.id}
-                    className="text-left text-sm font-medium text-muted-foreground min-w-[120px] border-l border-border p-0"
-                  >
-                    <EditQuestionPopover
-                      reviewId={reviewId}
-                      onQuestionDeleted={invalidateQuery}
-                      onQuestionUpdated={invalidateQuery}
-                      question={q}
-                      trigger={
-                        <button
-                          type="button"
-                          className="flex items-center gap-2 w-full px-4 py-3 text-left hover:bg-muted/50 transition-colors cursor-pointer"
-                        >
-                          <div
-                            className="w-2 h-2 rounded-full shrink-0"
-                            style={{ backgroundColor: getQuestionColor(q.id) }}
-                          />
-                          <span className="truncate">{q.columnTitle}</span>
-                          {q.required && (
-                            <span className="text-destructive">*</span>
-                          )}
-                        </button>
-                      }
-                    />
-                  </th>
-                );
-              })}
+              {questions.map((q) => (
+                <th
+                  key={q.id}
+                  className="text-left text-sm font-medium text-muted-foreground min-w-[120px] border-l border-border p-0"
+                >
+                  <EditQuestionPopover
+                    reviewId={reviewId}
+                    onQuestionDeleted={onInvalidate}
+                    onQuestionUpdated={onInvalidate}
+                    question={q}
+                    trigger={
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 w-full px-4 py-3 text-left hover:bg-muted/50 transition-colors cursor-pointer"
+                      >
+                        <div
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: getQuestionColor(q.id) }}
+                        />
+                        <span className="truncate">{q.columnTitle}</span>
+                        {q.required && (
+                          <span className="text-destructive">*</span>
+                        )}
+                      </button>
+                    }
+                  />
+                </th>
+              ))}
               <th className="px-4 py-3 w-12 border-l border-border">
                 <AddQuestionPopover
                   reviewId={reviewId}
@@ -650,7 +642,7 @@ export function DataExtractionTable({
                       <Plus className="h-4 w-4" />
                     </Button>
                   }
-                  onQuestionAdded={invalidateQuery}
+                  onQuestionAdded={onInvalidate}
                 />
               </th>
             </tr>
@@ -660,146 +652,171 @@ export function DataExtractionTable({
               <DataExtractionSkeleton questionCount={questions.length} />
             ) : (
               <>
-                {filteredReferences.map((ref, index) => {
-                  return (
-                    <tr
-                      key={ref.id}
-                      onClick={(e) => handleRowClick(ref.id, e)}
-                      onDoubleClick={(e) => handleRowDoubleClick(ref.id, e)}
-                      className={cn(
-                        'border-b border-border hover:bg-muted/30 transition-colors cursor-pointer',
-                        selectedReferenceIds.includes(ref.id) && 'bg-primary/5',
-                        highlightedReferenceId === ref.id &&
-                          'bg-primary/10 ring-1 ring-primary/30'
+                {references.map((ref, index) => (
+                  <tr
+                    key={ref.id}
+                    data-reference-id={ref.id}
+                    onClick={(e) => handleRowClick(ref.id, e)}
+                    onDoubleClick={(e) => handleRowDoubleClick(ref.id, e)}
+                    className={cn(
+                      'border-b border-border hover:bg-muted/30 transition-colors cursor-pointer',
+                      selectedReferenceIds.includes(ref.id) && 'bg-primary/5',
+                      highlightedReferenceId === ref.id &&
+                        'bg-primary/10 ring-1 ring-primary/30'
+                    )}
+                  >
+                    <td className="px-4 py-3" data-checkbox-area>
+                      <Checkbox
+                        checked={selectedReferenceIds.includes(ref.id)}
+                        onCheckedChange={() => onSelectReference(ref.id)}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                      {index + 1}
+                    </td>
+                    <td className="px-4 py-3 max-w-[300px]">
+                      <button
+                        type="button"
+                        className="text-sm text-foreground line-clamp-2 text-left hover:text-primary hover:underline transition-colors w-full"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenDetail(ref.id);
+                        }}
+                      >
+                        {highlightText(
+                          ref.title,
+                          highlightIncludeKeywords,
+                          highlightExcludeKeywords
+                        )}
+                      </button>
+                      <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                        {ref.assignee && (
+                          <AssigneeBadge assignee={ref.assignee} />
+                        )}
+                        {ref.labels.map((label) => (
+                          <LabelBadge key={label.id} label={label} />
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {ref.isExtractionCompleted ? (
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-muted-foreground/50" />
                       )}
-                    >
-                      <td className="px-4 py-3" data-checkbox-area>
-                        <Checkbox
-                          checked={selectedReferenceIds.includes(ref.id)}
-                          onCheckedChange={() => onSelectReference(ref.id)}
-                        />
-                      </td>
-                      <td className="px-4 py-3 text-sm text-muted-foreground">
-                        {index + 1}
-                      </td>
-                      <td className="px-4 py-3 max-w-[300px]">
-                        <p className="text-sm text-foreground line-clamp-2 w-full">
-                          {ref.title}
-                        </p>
-                        <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                          {ref.assignee && (
-                            <AssigneeBadge assignee={ref.assignee} />
-                          )}
-                          {ref.labels.map((label) => (
-                            <LabelBadge key={label.id} label={label} />
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        {ref.isExtractionCompleted ? (
-                          <CheckCircle2 className="h-5 w-5 text-green-600" />
-                        ) : (
-                          <XCircle className="h-5 w-5 text-muted-foreground/50" />
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {ref.file ? (
-                          <Button
-                            className="flex gap-2 w-full"
-                            size="sm"
-                            onClick={() => onOpenPDF(ref.id)}
-                          >
-                            <ExternalLink />
-                            View
-                          </Button>
-                        ) : (
-                          <Button
-                            className="flex gap-2 w-full"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onAttachPDF(ref.id)}
-                          >
-                            <Paperclip />
-                            Attach
-                          </Button>
-                        )}
-                      </td>
-                      {questions.map((q) => {
-                        const answer = ref.answers[q.id];
-                        const isEditing =
-                          editingCell?.referenceId === ref.id &&
-                          editingCell?.questionId === q.id;
-
-                        return (
-                          <td
-                            key={q.id}
-                            className="px-4 py-3 border-l border-border"
-                            onClick={() =>
-                              !isEditing && handleCellClick(ref.id, q.id)
-                            }
-                          >
-                            {isEditing ? (
-                              <CellEditor
+                    </td>
+                    <td className="px-4 py-3">
+                      {ref.file ? (
+                        <Button
+                          className="flex gap-2 w-full"
+                          size="sm"
+                          onClick={() => onOpenPDF(ref.id)}
+                        >
+                          <ExternalLink className="h-4 w-4" /> View
+                        </Button>
+                      ) : (
+                        <Button
+                          className="flex gap-2 w-full"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onAttachPDF(ref.id)}
+                        >
+                          <Paperclip className="h-4 w-4" /> Attach
+                        </Button>
+                      )}
+                    </td>
+                    {questions.map((q) => {
+                      const answer = ref.answers[q.id];
+                      const isEditing =
+                        editingCell?.referenceId === ref.id &&
+                        editingCell?.questionId === q.id;
+                      return (
+                        <td
+                          key={q.id}
+                          className="px-4 py-3 border-l border-border"
+                          onClick={() =>
+                            !isEditing &&
+                            setEditingCell({
+                              referenceId: ref.id,
+                              questionId: q.id,
+                            })
+                          }
+                        >
+                          {isEditing ? (
+                            <CellEditor
+                              question={q}
+                              value={answer?.value || ''}
+                              onSave={handleCellSave}
+                              onCancel={() => setEditingCell(null)}
+                            />
+                          ) : (
+                            <div className="text-sm text-foreground cursor-pointer min-h-[32px] flex items-center">
+                              <CellDisplay
                                 question={q}
                                 value={answer?.value || ''}
-                                onSave={handleCellSave}
-                                onCancel={handleCellCancel}
                               />
-                            ) : (
-                              <div className="text-sm text-foreground cursor-pointer min-h-[32px] flex items-center">
-                                <CellDisplay
-                                  question={q}
-                                  value={answer?.value || ''}
-                                />
-                              </div>
-                            )}
-                          </td>
-                        );
-                      })}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td className="px-4 py-3 border-l border-border" />
+                  </tr>
+                ))}
+
+                {!isFetchingNextPage &&
+                  references.length < 14 &&
+                  Array.from({ length: 14 - references.length }).map((_, i) => (
+                    <tr
+                      key={`empty-${i}`}
+                      className="border-b border-border h-14"
+                    >
+                      <td className="px-4 py-3" />
+                      <td className="px-4 py-3 text-sm text-muted-foreground/50">
+                        {references.length + i + 1}
+                      </td>
+                      <td className="px-4 py-3" />
+                      <td className="px-4 py-3" />
+                      <td className="px-4 py-3" />
+                      {questions.map((q) => (
+                        <td
+                          key={q.id}
+                          className="px-4 py-3 border-l border-border"
+                        />
+                      ))}
                       <td className="px-4 py-3 border-l border-border" />
                     </tr>
-                  );
-                })}
-
-                {/* Empty rows */}
-                {filteredReferences.length < 14 &&
-                  Array.from({ length: 14 - filteredReferences.length }).map(
-                    (_, i) => (
-                      <tr
-                        key={`empty-${i}`}
-                        className="border-b border-border h-14"
-                      >
-                        <td className="px-4 py-3" />
-                        <td className="px-4 py-3 text-sm text-muted-foreground/50">
-                          {filteredReferences.length + i + 1}
-                        </td>
-                        <td className="px-4 py-3" />
-                        <td className="px-4 py-3" />
-                        <td className="px-4 py-3" />
-                        {questions.map((q) => (
-                          <td
-                            key={q.id}
-                            className="px-4 py-3 border-l border-border"
-                          />
-                        ))}
-                        <td className="px-4 py-3 border-l border-border" />
-                      </tr>
-                    )
-                  )}
+                  ))}
               </>
             )}
           </tbody>
         </table>
+
+        {/* Sentinel */}
+        <div
+          ref={sentinelRef}
+          className="py-4 flex items-center justify-center"
+        >
+          {isFetchingNextPage && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading more…
+            </div>
+          )}
+          {!hasNextPage && references.length > 0 && !isLoading && (
+            <p className="text-xs text-muted-foreground">
+              All {references.length} references loaded
+            </p>
+          )}
+        </div>
       </div>
 
-      {/* Add Data Dialog */}
       <AddDataDialog
         reviewId={reviewId}
         dataSources={['full-text', 'screening']}
         dataSink="extraction"
         open={isAddDataDialogOpen}
         onOpenChange={setIsAddDataDialogOpen}
-        onAdd={invalidateQuery}
+        onAdd={onInvalidate}
       />
     </div>
   );

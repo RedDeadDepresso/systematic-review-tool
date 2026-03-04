@@ -3,22 +3,24 @@ import type { OrderingField } from '@/features/references/api/references';
 import { useState, useCallback } from 'react';
 import { useDebounceValue } from 'usehooks-ts';
 
-export interface ReviewDataFilters {
+export interface ReferenceFilters {
   searchMethodIds: number[];
   includeKeywords: string[];
   excludeKeywords: string[];
   labelIds: number[];
   publicationTypes: string[];
   publicationYears: number[];
-  fileStatus: 'all' | 'withFile' | 'withoutFile';
+  hasFile?: boolean;
   assigneeIds: (number | null)[];
   duplicateStatuses: string[];
   opinionStatuses: OpinionStatus[];
   searchQuery: string;
   ordering: OrderingField;
+  /** null = no filter, true = completed only, false = in-progress only */
+  isExtractionCompleted: boolean | null;
 }
 
-export interface UseReviewDataFiltersOptions {
+export interface UseReferenceFiltersOptions {
   enableSearchMethods?: boolean;
   enableKeywords?: boolean;
   enableLabels?: boolean;
@@ -27,11 +29,12 @@ export interface UseReviewDataFiltersOptions {
   enableAssignees?: boolean;
   enableDuplicates?: boolean;
   enableOpinions?: boolean;
+  enableExtractionStatus?: boolean;
   debounceDelay?: number;
   defaultOrdering?: OrderingField;
 }
 
-export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
+export function useReferenceFilters(options: UseReferenceFiltersOptions = {}) {
   const ALL_OPINION_STATUSES: OpinionStatus[] = [
     'Undecided',
     'Included',
@@ -48,6 +51,7 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     enableAssignees = true,
     enableDuplicates = false,
     enableOpinions = false,
+    enableExtractionStatus = false,
     debounceDelay = 500,
     defaultOrdering = 'title',
   } = options;
@@ -68,6 +72,9 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     enableOpinions ? ['Undecided'] : []
   );
   const [searchQuery, setSearchQuery] = useState('');
+  const [isExtractionCompleted, setIsExtractionCompleted] = useState<
+    boolean | null
+  >(null);
 
   // ── Ordering state — not debounced, applied immediately ───────────────────────
   const [ordering, setOrdering] = useState<OrderingField>(defaultOrdering);
@@ -87,19 +94,20 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
   }, []);
 
   // ── Debounced filters (sent to API) ───────────────────────────────────────────
-  const optimisticFilters: ReviewDataFilters = {
+  const optimisticFilters: ReferenceFilters = {
     searchMethodIds,
     includeKeywords,
     excludeKeywords,
     labelIds,
     publicationTypes,
     publicationYears,
-    fileStatus,
+    hasFile: fileStatus === 'all' ? undefined : fileStatus === 'withFile',
     assigneeIds,
     duplicateStatuses,
     opinionStatuses,
     searchQuery,
-    ordering, // ordering is included in the debounced output so the API call resets offset
+    ordering,
+    isExtractionCompleted,
   };
 
   const [debouncedFilters, isDebouncing] = useDebounceValue(
@@ -294,7 +302,8 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     assigneeIds.length +
     duplicateStatuses.length +
     opinionStatuses.length +
-    (searchQuery.trim() ? 1 : 0);
+    (searchQuery.trim() ? 1 : 0) +
+    (isExtractionCompleted !== null ? 1 : 0);
 
   // ── Reset ──────────────────────────────────────────────────────────────────────
 
@@ -314,6 +323,7 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     if (enableDuplicates) setDuplicateStatuses([]);
     setSearchQuery('');
     if (enableOpinions) setOpinionStatuses([]);
+    if (enableExtractionStatus) setIsExtractionCompleted(null);
     setOrdering(defaultOrdering);
   }, [
     enableSearchMethods,
@@ -343,6 +353,8 @@ export function useReferenceFilters(options: UseReviewDataFiltersOptions = {}) {
     searchQuery,
     opinionStatuses,
     ordering,
+    isExtractionCompleted,
+    setIsExtractionCompleted,
 
     // Debounced filters for API (includes ordering so offset resets on sort change)
     filters: debouncedFilters,

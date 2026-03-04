@@ -144,7 +144,7 @@ export function useScreeningPage(
         exportType === 'filtered'
       );
       exportType === 'all'
-        ? exportFn(filename)
+        ? exportFn(filename, { review: reviewId })
         : exportFn(filename, queryParams);
     },
     [config, reviewId]

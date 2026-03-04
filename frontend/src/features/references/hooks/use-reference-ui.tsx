@@ -101,6 +101,7 @@ export function useReferenceUI<T extends ReferenceType>(
   const PDFOpinionStatus = useMemo(() => {
     if (!openPDFId || !memberId || !openPDFReference) return null;
     if (!('opinions' in openPDFReference)) return null;
+    if (!openPDFReference.opinions) return null;
     return (
       openPDFReference.opinions.find((o) => o.member.id === memberId)?.status ??
       null

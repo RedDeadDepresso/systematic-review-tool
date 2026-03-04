@@ -40,8 +40,10 @@ interface TableTopHeaderProps {
   isRightCollapsed?: boolean;
   onToggleRightCollapse?: () => void;
   onAddData?: () => void;
+  extraExportActions?: React.ReactNode;
   onExport?: (exportType: ExportType) => void;
   breakButtonReviewId?: number;
+  extraActions?: React.ReactNode;
 }
 
 // Which ordering value is currently active and what direction
@@ -73,7 +75,9 @@ export function TableTopHeader({
   onToggleRightCollapse,
   onAddData,
   onExport,
+  extraExportActions,
   breakButtonReviewId,
+  extraActions,
 }: TableTopHeaderProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(searchQuery !== '');
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -192,9 +196,12 @@ export function TableTopHeader({
               <DropdownMenuItem onSelect={() => onExport('filtered')}>
                 Filtered
               </DropdownMenuItem>
+              {extraExportActions}
             </DropdownMenuContent>
           </DropdownMenu>
         )}
+
+        {extraActions}
 
         {/* Sort dropdown */}
         <DropdownMenu>

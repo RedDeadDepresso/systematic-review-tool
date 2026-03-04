@@ -83,13 +83,14 @@ export type FetchScreeningParams = {
   opinionStatuses?: OpinionStatus[];
 } & FetchReviewDataParams;
 
-export interface FetchReferencesResponse {
-  references: Reference[];
-  /** Total references in the review regardless of filters */
+export type FetchExtractionParams = {
+  isExtractionCompleted?: boolean;
+} & FetchReviewDataParams;
+
+export interface FetchReferencesResponse<T extends Reference = Reference> {
+  references: T[];
   totalCount: number;
-  /** References matching current filters (used for header display) */
   filteredCount: number;
-  /** Total matching records for pagination */
   count: number;
   next: string | null;
   previous: string | null;
@@ -109,10 +110,12 @@ export interface FetchFilterCountsResponse {
   publicationYears: PublicationYear[];
   fileCounts: FileCounts;
   assignees: Assignee[];
+  completedCount?: number;
+  inProgressCount?: number;
 }
 
 const paramsToSnakeCase = (
-  params: FetchReviewDataParams | FetchScreeningParams
+  params: FetchReviewDataParams | FetchScreeningParams | FetchExtractionParams
 ) => ({
   review: params.review,
   search_method_ids: params.searchMethodIds,
@@ -128,6 +131,11 @@ const paramsToSnakeCase = (
   opinion_statuses:
     'opinionStatuses' in params ? params.opinionStatuses : undefined,
   // Pagination & ordering — passed through as-is (already snake_case)
+  is_extraction_completed:
+    'isExtractionCompleted' in params
+      ? params.isExtractionCompleted
+      : undefined,
+  // Pagination & ordering — passed through as-is (already snake_case)
   limit: params.limit,
   offset: params.offset,
   ordering: params.ordering,
@@ -141,6 +149,7 @@ export const ENDPOINTS = {
   reviewData: '/review-data/',
   screening: '/screening/',
   screeningFullText: '/screening-full-text/',
+  extraction: '/extraction/',
 } as const;
 
 export type ReferencesEndpoint = (typeof ENDPOINTS)[keyof typeof ENDPOINTS];
@@ -195,7 +204,7 @@ export const exportReferences = (
   filename: string,
   endpoint: string,
   params?: FetchReviewDataParams
-) => downloadBib(endpoint, filename, params);
+) => downloadBib(`${endpoint}export/`, filename, params);
 
 // Export aliases — keep so call sites don't need to change yet
 export const exportReviewData = (f: string, p?: FetchReviewDataParams) =>
@@ -204,6 +213,8 @@ export const exportScreening = (f: string, p?: FetchScreeningParams) =>
   exportReferences(f, ENDPOINTS.screening, p);
 export const exportScreeningFullText = (f: string, p?: FetchScreeningParams) =>
   exportReferences(f, ENDPOINTS.screeningFullText, p);
+export const exportExtraction = (f: string, p?: FetchScreeningParams) =>
+  exportReferences(f, ENDPOINTS.extraction, p);
 
 /* ------------------ FETCH SINGLE REFERENCE ------------------ */
 export const fetchReference = async (referenceId: number) => {
