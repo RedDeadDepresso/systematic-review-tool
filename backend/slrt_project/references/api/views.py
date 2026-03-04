@@ -9,6 +9,7 @@ from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import CharField, Count, F, OuterRef, Prefetch, Q, Subquery
 from django.db.models.functions import ExtractYear, Lower
+from django.http import HttpResponse
 from django.utils import timezone
 from django_filters import rest_framework as django_filters_backend
 from rest_framework import mixins, serializers, status, viewsets
@@ -434,7 +435,12 @@ class ReferenceAggregationService:
     """
 
     @staticmethod
-    def build(base_qs, user, include_duplicate_status: bool = True):
+    def build(
+        base_qs,
+        user,
+        include_duplicate_status: bool = True,
+        include_extraction_counts: bool = False,
+    ):
         result = {
             "search_methods": list(
                 SearchMethod.objects.filter(reference__in=base_qs)
@@ -493,6 +499,13 @@ class ReferenceAggregationService:
                 .annotate(count=Count("id"))
                 .values_list("duplicate_status", "count")
             )
+        if include_extraction_counts:
+            result["completedCount"] = base_qs.filter(
+                is_extraction_completed=True
+            ).count()
+            result["inProgressCount"] = base_qs.filter(
+                is_extraction_completed=False
+            ).count()
         return result
 
 
@@ -515,7 +528,6 @@ class ReviewQuerysetMixin:
     def get_base_queryset(self):
         user = self.request.user
         review = self.get_review()
-        from django.db.models import Prefetch
 
         qs = Reference.objects.select_related("assignee", "search_method", "review")
         if review:
@@ -547,8 +559,6 @@ class ReviewQuerysetMixin:
 
 class ScreeningQuerysetMixin:
     def apply_screening(self, qs, stage=None):
-        from django.db.models import Prefetch
-
         user = self.request.user
         review = self.get_review()
         if stage is None:
@@ -714,7 +724,6 @@ class ReviewDataViewSet(
         """Export filtered references as BibTeX (no pagination)."""
         queryset = self.filter_queryset(self.get_queryset())
         bib_content = self._references_to_bibtex(queryset)
-        from django.http import HttpResponse
 
         response = HttpResponse(bib_content, content_type="application/x-bibtex")
         response["Content-Disposition"] = 'attachment; filename="references.bib"'
