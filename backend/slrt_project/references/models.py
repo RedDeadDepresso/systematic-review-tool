@@ -37,11 +37,11 @@ class ReferenceOpinionStatus(models.TextChoices):
 
 class Reference(models.Model):
     class DuplicateStatus(models.TextChoices):
-        UNRESOLVED = "Unresolved"
-        DELETED = "Deleted"
-        NOT_DUPLICATE = "Not Duplicate"
-        RESOLVED = "Resolved"
-        UNIQUE = "Unique"
+        UNRESOLVED = "unresolved", "Unresolved"
+        DELETED = "deleted", "Deleted"
+        NOT_DUPLICATE = "not_duplicate", "Not Duplicate"
+        RESOLVED = "resolved", "Resolved"
+        UNIQUE = "unique", "Unique"
 
     review = models.ForeignKey("reviews.Review", on_delete=models.CASCADE)
     title = models.TextField()
@@ -681,6 +681,12 @@ class DuplicateClusterManager:
                     )
                 )
             ReferenceClusterMember.objects.bulk_create(members_to_create)
+
+            # Mark all members as unresolved duplicates on the reference itself
+            Reference.objects.filter(id__in=member_ids).update(
+                duplicate_status=Reference.DuplicateStatus.UNRESOLVED
+            )
+
             created_clusters += 1
 
         return {
