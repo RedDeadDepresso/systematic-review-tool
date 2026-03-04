@@ -1299,7 +1299,7 @@ class KeywordViewSet(viewsets.ModelViewSet):
     serializer_class = KeywordSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [django_filters_backend.DjangoFilterBackend]
-    filterset_fields = ["review", "is_inclusive"]
+    filterset_fields = ["review", "type"]
 
     def get_queryset(self):
         """

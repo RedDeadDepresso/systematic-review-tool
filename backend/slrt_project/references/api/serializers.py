@@ -175,7 +175,7 @@ class ReferenceOpinionSerializer(serializers.ModelSerializer):
 class KeywordSerializer(serializers.ModelSerializer):
     class Meta:
         model = Keyword
-        fields = ["id", "review", "name", "is_inclusive"]
+        fields = ["id", "review", "name", "type"]
         read_only_fields = ["id", "review"]
 
 

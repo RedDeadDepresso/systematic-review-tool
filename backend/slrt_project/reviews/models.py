@@ -118,8 +118,8 @@ class ReviewInvitation(models.Model):
 
 class ScreeningCriteria(models.Model):
     class Type(models.TextChoices):
-        INCLUSIVE = "Inclusive"
-        EXCLUSIVE = "Exclusive"
+        INCLUSION = "inclusion"
+        EXCLUSION = "exclusion"
 
     review = models.ForeignKey(Review, on_delete=models.CASCADE)
     name = models.CharField(max_length=150)
