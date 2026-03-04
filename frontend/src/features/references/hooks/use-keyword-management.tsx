@@ -4,7 +4,10 @@ import {
   useDeleteKeyword,
   useFetchKeywords,
 } from '@/features/references/hooks/use-keywords';
-import type { Keyword } from '@/features/references/types/keywords';
+import type {
+  Keyword,
+  KeywordType,
+} from '@/features/references/types/keywords';
 
 export function useKeywordManagement(
   reviewId: number,
@@ -17,11 +20,11 @@ export function useKeywordManagement(
 ) {
   const { data: includeKeywords = [] } = useFetchKeywords({
     reviewId,
-    isInclusive: true,
+    type: 'inclusion',
   });
   const { data: excludeKeywords = [] } = useFetchKeywords({
     reviewId,
-    isInclusive: false,
+    type: 'exclusion',
   });
   const createKeyword = useCreateKeyword();
   const deleteKeyword = useDeleteKeyword();
@@ -36,11 +39,11 @@ export function useKeywordManagement(
     : [];
 
   const handleCreateKeyword = useCallback(
-    (name: string, isInclusive: boolean) => {
+    (name: string, type: KeywordType) => {
       createKeyword.mutate({
         review: reviewId,
         name,
-        isInclusive,
+        type,
       });
     },
     [createKeyword, reviewId]
@@ -51,11 +54,11 @@ export function useKeywordManagement(
       {
         reviewId,
         keywordId: keyword.id,
-        isInclusive: keyword.isInclusive,
+        type: keyword.type,
       },
       {
         onSuccess: () => {
-          if (keyword.isInclusive) {
+          if (keyword.type === 'inclusion') {
             setSelectedIncludeKeywords(
               selectedIncludeKeywords.filter((k) => k !== keyword.name)
             );

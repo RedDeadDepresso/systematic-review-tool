@@ -1,10 +1,13 @@
-import type { Keyword } from '@/features/references/types/keywords';
+import type {
+  Keyword,
+  KeywordType,
+} from '@/features/references/types/keywords';
 import api from '@/api/client';
 
 /* ------------------ FETCH KEYWORDS ------------------ */
 export const fetchKeywords = async (params: {
   reviewId: number;
-  isInclusive?: boolean;
+  type?: KeywordType;
 }) => {
   const res = await api.get<Keyword[]>('/keywords/', { params });
   return res.data;
@@ -14,7 +17,7 @@ export const fetchKeywords = async (params: {
 export const createKeyword = async (payload: {
   review: number;
   name: string;
-  isInclusive: boolean;
+  type: KeywordType;
 }): Promise<Keyword> => {
   const res = await api.post('/keywords/', payload);
   return res.data;

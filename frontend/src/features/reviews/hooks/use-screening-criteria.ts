@@ -57,7 +57,7 @@ export const useUpdateScreeningCriteria = () => {
       reviewId: number;
       payload: {
         name?: string;
-        type?: 'Inclusive' | 'Exclusive';
+        type?: 'inclusion' | 'exclusion';
         description?: string;
       };
     }) => updateScreeningCriteria(criteriaId, payload),

@@ -71,11 +71,11 @@ export function ScreeningCriteriaContent({
 
   const inclusionCriteria =
     fetchCriteria.data?.filter(
-      (c: ScreeningCriteria) => c.type === 'Inclusive'
+      (c: ScreeningCriteria) => c.type === 'inclusion'
     ) ?? [];
   const exclusionCriteria =
     fetchCriteria.data?.filter(
-      (c: ScreeningCriteria) => c.type === 'Exclusive'
+      (c: ScreeningCriteria) => c.type === 'exclusion'
     ) ?? [];
   const currentCriteria =
     activeTab === 'inclusion' ? inclusionCriteria : exclusionCriteria;
@@ -84,7 +84,7 @@ export function ScreeningCriteriaContent({
     if (!newCriteriaName.trim()) return;
 
     // compute criteria type before try block to avoid value blocks in try/catch
-    const criteriaType = activeTab === 'inclusion' ? 'Inclusive' : 'Exclusive';
+    const criteriaType = activeTab === 'inclusion' ? 'inclusion' : 'exclusion';
 
     try {
       await createCriteria.mutateAsync({

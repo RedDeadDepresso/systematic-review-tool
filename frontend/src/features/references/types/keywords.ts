@@ -1,5 +1,7 @@
+export type KeywordType = 'inclusion' | 'exclusion';
+
 export type Keyword = {
   id: number;
   name: string;
-  isInclusive: boolean;
+  type: KeywordType;
 };
