@@ -11,9 +11,9 @@ from django.db.models.functions import Concat
 
 class Review(models.Model):
     class DuplicateDetectionStatus(models.TextChoices):
-        NOT_STARTED = "Not Started"
-        PENDING = "Pending"
-        COMPLETED = "Completed"
+        NOT_STARTED = "not_started", "Not Started"
+        PENDING = "pending", "Pending"
+        COMPLETED = "completed", "Completed"
 
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
