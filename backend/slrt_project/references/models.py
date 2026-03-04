@@ -390,6 +390,8 @@ class DuplicateClusterDetector:
     --------
     1. DOI hard-match: group references that share the same non-empty DOI.
     2. Fuzzy pg_trgm similarity: weighted score across title/abstract/authors/journal.
+       Empty fields are excluded from the denominator so they don't penalise
+       otherwise identical references.
     3. Union-Find merges both signals into clusters.
     """
 
@@ -406,8 +408,6 @@ class DuplicateClusterDetector:
         fuzzy_threshold: float = 0.50,
         weights: dict | None = None,
     ):
-        # local import to avoid circularity
-
         self.queryset = queryset
         self.fuzzy_threshold = fuzzy_threshold
         self.weights = weights or self.DEFAULT_WEIGHTS
@@ -480,11 +480,9 @@ class DuplicateClusterDetector:
     def _find_doi_pairs(self, ids: list[int]) -> list[tuple[int, int]]:
         """
         Find pairs of references that share the same non-empty, non-null DOI.
-        Normalises DOI to lowercase and strips whitespace in Python (fast enough
-        for DOI matching; avoids needing a custom SQL function).
+        Normalises DOI to lowercase and strips whitespace in SQL.
         """
         table = self.Reference._meta.db_table
-        pairs: list[tuple[int, int]] = []
 
         with connection.cursor() as cursor:
             cursor.execute(
@@ -500,14 +498,20 @@ class DuplicateClusterDetector:
                 """,
                 {"ids": ids},
             )
-            pairs = cursor.fetchall()
+            rows = cursor.fetchall()
 
-        return [(int(r[0]), int(r[1])) for r in pairs]
+        return [(int(r[0]), int(r[1])) for r in rows]
 
     def _find_fuzzy_pairs(self, ids: list[int]) -> list[tuple[int, int, float]]:
         """
         Find pairs above the fuzzy threshold using pg_trgm similarity.
         Returns [(id1, id2, weighted_score), ...] where id1 < id2.
+
+        Empty fields are excluded from both the numerator and denominator so
+        that two references with identical non-empty fields score 1.0 regardless
+        of how many fields are blank (e.g. no abstract → abstract weight dropped
+        from the denominator rather than contributing 0 to the numerator).
+        Title is always included since it is required on every reference.
         """
         table = self.Reference._meta.db_table
         w = self.weights
@@ -518,21 +522,45 @@ class DuplicateClusterDetector:
                 SELECT
                     a.id AS id1,
                     b.id AS id2,
+                    -- Numerator: similarity * weight, 0 when either side is empty
                     (
-                        similarity(a.title,    b.title)    * %(w_title)s +
-                        similarity(a.abstract, b.abstract) * %(w_abstract)s +
-                        similarity(a.authors,  b.authors)  * %(w_authors)s +
-                        similarity(a.journal,  b.journal)  * %(w_journal)s
+                        similarity(a.title, b.title) * %(w_title)s
+                        + similarity(a.abstract, b.abstract)
+                            * CASE WHEN a.abstract = '' OR b.abstract = '' THEN 0 ELSE %(w_abstract)s END
+                        + similarity(a.authors, b.authors)
+                            * CASE WHEN a.authors  = '' OR b.authors  = '' THEN 0 ELSE %(w_authors)s END
+                        + similarity(a.journal, b.journal)
+                            * CASE WHEN a.journal  = '' OR b.journal  = '' THEN 0 ELSE %(w_journal)s END
+                    )
+                    /
+                    -- Denominator: only weights for fields present on both sides
+                    NULLIF(
+                        %(w_title)s
+                        + CASE WHEN a.abstract = '' OR b.abstract = '' THEN 0 ELSE %(w_abstract)s END
+                        + CASE WHEN a.authors  = '' OR b.authors  = '' THEN 0 ELSE %(w_authors)s END
+                        + CASE WHEN a.journal  = '' OR b.journal  = '' THEN 0 ELSE %(w_journal)s END,
+                        0
                     ) AS sim
                 FROM {table} a
                 JOIN {table} b ON a.id < b.id
                 WHERE a.id = ANY(%(ids)s)
                   AND b.id = ANY(%(ids)s)
                   AND (
-                    similarity(a.title,    b.title)    * %(w_title)s +
-                    similarity(a.abstract, b.abstract) * %(w_abstract)s +
-                    similarity(a.authors,  b.authors)  * %(w_authors)s +
-                    similarity(a.journal,  b.journal)  * %(w_journal)s
+                    similarity(a.title, b.title) * %(w_title)s
+                    + similarity(a.abstract, b.abstract)
+                        * CASE WHEN a.abstract = '' OR b.abstract = '' THEN 0 ELSE %(w_abstract)s END
+                    + similarity(a.authors, b.authors)
+                        * CASE WHEN a.authors  = '' OR b.authors  = '' THEN 0 ELSE %(w_authors)s END
+                    + similarity(a.journal, b.journal)
+                        * CASE WHEN a.journal  = '' OR b.journal  = '' THEN 0 ELSE %(w_journal)s END
+                  )
+                  /
+                  NULLIF(
+                    %(w_title)s
+                    + CASE WHEN a.abstract = '' OR b.abstract = '' THEN 0 ELSE %(w_abstract)s END
+                    + CASE WHEN a.authors  = '' OR b.authors  = '' THEN 0 ELSE %(w_authors)s END
+                    + CASE WHEN a.journal  = '' OR b.journal  = '' THEN 0 ELSE %(w_journal)s END,
+                    0
                   ) > %(threshold)s
                 ORDER BY sim DESC
                 """,
@@ -551,7 +579,7 @@ class DuplicateClusterDetector:
 
 
 # ---------------------------------------------------------------------------
-# Completeness scorer (same logic as before, now standalone)
+# Completeness scorer
 # ---------------------------------------------------------------------------
 
 
