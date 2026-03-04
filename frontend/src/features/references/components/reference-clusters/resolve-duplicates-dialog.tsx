@@ -143,7 +143,7 @@ export function ResolveDuplicatesDialog({
   function handleKeep(member: ClusterMember) {
     if (!cluster) return;
     resolveMutation.mutate(
-      { clusterId: cluster.id, canonicalReferenceId: member.referenceId },
+      { clusterId: cluster.id, canonicalReferenceId: member.reference.id },
       { onSuccess: advanceCluster }
     );
   }

@@ -49,6 +49,7 @@ interface ExtractionFormSidebarProps {
   referenceId: number;
   reviewId: number;
   isOpen: boolean;
+  onExtractionSuccess?: () => void;
 }
 
 // Question input component based on type
@@ -307,6 +308,7 @@ export function ExtractionFormSidebar({
   referenceId,
   reviewId,
   isOpen,
+  onExtractionSuccess,
 }: ExtractionFormSidebarProps) {
   // Fetch form data using the optimized endpoint
   const { data, isLoading } = useQuery({
@@ -403,55 +405,41 @@ export function ExtractionFormSidebar({
     []
   );
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!hasChanges) return;
 
-    bulkSaveMutation.mutate(
-      {
-        referenceId: referenceId,
-        answers: changedAnswers,
-      },
-      {
-        onSuccess: () => {
-          setInitialAnswers(localAnswers);
-        },
-      }
-    );
-  }, [hasChanges, changedAnswers, referenceId, localAnswers, bulkSaveMutation]);
-
-  const handleMarkComplete = useCallback(async () => {
-    // Save answers first if there are changes
-    if (hasChanges) {
-      await new Promise<void>((resolve, reject) => {
-        bulkSaveMutation.mutate(
-          {
-            referenceId: referenceId,
-            answers: changedAnswers,
-          },
-          {
-            onSuccess: () => {
-              resolve();
-              setInitialAnswers(localAnswers);
-            },
-            onError: () => reject(),
-          }
-        );
-      });
-    }
-
-    // Mark as completed
-    bulkUpdateStatusMutation.mutate({
-      referenceIds: [referenceId],
-      isExtractionCompleted: true,
+    await bulkSaveMutation.mutateAsync({
+      referenceId,
+      answers: changedAnswers,
     });
+
+    setInitialAnswers(localAnswers);
+    onExtractionSuccess?.();
   }, [
     hasChanges,
-    changedAnswers,
     referenceId,
+    changedAnswers,
     localAnswers,
     bulkSaveMutation,
-    bulkUpdateStatusMutation,
+    onExtractionSuccess,
   ]);
+
+  const handleMarkComplete = useCallback(async () => {
+    try {
+      // Save first
+      await handleSave();
+
+      // Then mark complete
+      await bulkUpdateStatusMutation.mutateAsync({
+        referenceIds: [referenceId],
+        isExtractionCompleted: true,
+      });
+
+      onExtractionSuccess?.();
+    } catch (error) {
+      console.error(error);
+    }
+  }, [handleSave, referenceId, bulkUpdateStatusMutation, onExtractionSuccess]);
 
   const isSaving =
     bulkSaveMutation.isPending || bulkUpdateStatusMutation.isPending;

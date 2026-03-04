@@ -519,7 +519,7 @@ export function DataExtractionTable({
       />
 
       {/* ── Sub-header: select-all + progress + status filter ───────────── */}
-      <div className="flex items-center px-3 sm:px-6 py-3 border-b border-border bg-muted/50 gap-3 text-sm font-medium text-muted-foreground">
+      <div className="flex items-center px-4 py-3 border-b border-border bg-muted/50 gap-3 text-sm font-medium text-muted-foreground">
         <div className="w-10 flex items-center">
           <Checkbox checked={allSelected} onCheckedChange={onSelectAll} />
         </div>

@@ -11,7 +11,7 @@ import { useReferenceFilters } from '@/features/references/hooks/use-reference-f
 import { useFetchReview } from '@/features/reviews/hooks/use-reviews';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { useContext, useEffect, useCallback, useState } from 'react';
+import { useContext, useEffect, useCallback, useState, useRef } from 'react';
 import { SavedPDFDialog } from '@/features/references/components/uploaded-pdfs/saved-pdf-dialog';
 import { ExtractionReferenceDrawer } from '@/features/references/components/references/reference-drawer';
 import { FiltersSidebar } from '@/features/references/components/references/filters-sidebar';
@@ -100,8 +100,8 @@ function RouteComponent() {
     [deleteLabel, invalidateQuery]
   );
 
-  const [includeHighlightEnabled, setIncludeHighlightEnabled] = useState(true);
-  const [excludeHighlightEnabled, setExcludeHighlightEnabled] = useState(true);
+  const [includeHighlightEnabled, setIncludeHighlightEnabled] = useState(false);
+  const [excludeHighlightEnabled, setExcludeHighlightEnabled] = useState(false);
 
   const keywords = useKeywordManagement(
     reviewId,
@@ -120,6 +120,7 @@ function RouteComponent() {
     ui.highlightedReferenceId,
     ui.references
   );
+  const isPDFExtractionSuccess = useRef(false);
 
   // ── Export ────────────────────────────────────────────────────────────────
   const handleExport = useCallback(
@@ -148,14 +149,27 @@ function RouteComponent() {
           reviewId={reviewId}
           referenceId={ui.openPDFId}
           open
-          onOpenChange={ui.handleClosePDF}
+          onOpenChange={(open) => {
+            ui.handleClosePDF();
+            if (!open && isPDFExtractionSuccess.current) {
+              isPDFExtractionSuccess.current = false;
+              invalidateQuery();
+            }
+          }}
           title={ui.openPDFReference.title}
           fileUrl={ui.openPDFReference.file}
           readOnly={false}
           userRole={userRole}
           hasNext={ui.hasOpenPDFReferenceNext}
           hasPrev={ui.hasOpenPDFReferencePrev}
-          onNavigate={ui.handleOpenPDFNavigate}
+          onNavigate={(direction) => {
+            ui.handleOpenPDFNavigate(direction);
+            if (isPDFExtractionSuccess.current) {
+              isPDFExtractionSuccess.current = false;
+              invalidateQuery();
+            }
+          }}
+          onExtractionSuccess={() => (isPDFExtractionSuccess.current = true)}
         />
       )}
 

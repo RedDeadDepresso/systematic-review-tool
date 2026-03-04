@@ -74,7 +74,7 @@ export function useReferenceFilters(options: UseReferenceFiltersOptions = {}) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isExtractionCompleted, setIsExtractionCompleted] = useState<
     boolean | null
-  >(null);
+  >(false);
 
   // ── Ordering state — not debounced, applied immediately ───────────────────────
   const [ordering, setOrdering] = useState<OrderingField>(defaultOrdering);
@@ -309,18 +309,18 @@ export function useReferenceFilters(options: UseReferenceFiltersOptions = {}) {
   // ── Active filter count ────────────────────────────────────────────────────────
 
   const activeFilterCount =
-    searchMethodIds.length +
-    includeKeywords.length +
-    excludeKeywords.length +
-    labelIds.length +
-    publicationTypes.length +
-    publicationYears.length +
+    (enableSearchMethods ? searchMethodIds.length : 0) +
+    (enableKeywords ? includeKeywords.length : 0) +
+    (enableKeywords ? excludeKeywords.length : 0) +
+    (enableLabels ? labelIds.length : 0) +
+    (enablePublicationFilters ? publicationTypes.length : 0) +
+    (enablePublicationFilters ? publicationYears.length : 0) +
     (fileStatus !== 'all' ? 1 : 0) +
-    assigneeIds.length +
-    duplicateStatuses.length +
-    opinionStatuses.length +
+    (enableAssignees ? assigneeIds.length : 0) +
+    (enableExtractionStatus ? duplicateStatuses.length : 0) +
+    (enableOpinions ? opinionStatuses.length : 0) +
     (searchQuery.trim() ? 1 : 0) +
-    (isExtractionCompleted !== null ? 1 : 0);
+    (enableExtractionStatus && isExtractionCompleted !== null ? 1 : 0);
 
   // ── Reset ──────────────────────────────────────────────────────────────────────
 

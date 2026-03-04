@@ -514,7 +514,7 @@ export function ExtractionFooter({
           onClick={() =>
             bulkUpdateStatusMutation.mutate(
               {
-                referenceIds: selectedReferenceIds,
+                referenceIds: selectedRefs,
                 isExtractionCompleted: false,
               },
               { onSuccess: onLabelsApplied }
