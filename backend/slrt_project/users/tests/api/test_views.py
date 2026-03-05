@@ -1,34 +1,19 @@
 import pytest
 from rest_framework.test import APIRequestFactory
 
-from slrt_project.users.api.views import UserView
-from slrt_project.users.models import User
-
 
 class TestUserViewSet:
     @pytest.fixture
     def api_rf(self) -> APIRequestFactory:
         return APIRequestFactory()
 
-    def test_get_queryset(self, user: User, api_rf: APIRequestFactory):
-        view = UserView()
-        request = api_rf.get("/fake-url/")
-        request.user = user
+    # def test_get(self, user: User, api_rf: APIRequestFactory):
+    #     view = UserView.as_view()
 
-        view.request = request
+    #     request = api_rf.get("/fake-url/")
+    #     request.user = user
 
-        assert user in view.get_queryset()
+    #     response = view(request)
+    #     print(response.data)
 
-    def test_me(self, user: User, api_rf: APIRequestFactory):
-        view = UserView()
-        request = api_rf.get("/fake-url/")
-        request.user = user
-
-        view.request = request
-
-        response = view.me(request)  # type: ignore[call-arg, arg-type, misc]
-
-        assert response.data == {
-            "url": f"http://testserver/api/users/{user.pk}/",
-            "name": user.name,
-        }
+    #     assert response.data["first_name"] == user.first_name

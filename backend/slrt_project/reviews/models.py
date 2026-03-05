@@ -6,10 +6,20 @@ from django.db.models import Count, F, Q, Value
 from django.db.models.functions import Concat
 
 
-# Create your models here.
+# ---------------------------------------------------------------------------
+# Review
+# ---------------------------------------------------------------------------
 
 
 class Review(models.Model):
+    """
+    Represents a systematic literature review (SLR).
+
+    Each review has members, screening criteria, search methods, and chat
+    messages.  The `is_blinded` flag controls whether members can see each
+    other's opinions during screening.
+    """
+
     class DuplicateDetectionStatus(models.TextChoices):
         NOT_STARTED = "not_started", "Not Started"
         PENDING = "pending", "Pending"
@@ -18,26 +28,67 @@ class Review(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     date_created = models.DateTimeField(auto_now_add=True)
+
     duplicate_detection_status = models.CharField(
         max_length=20,
         choices=DuplicateDetectionStatus.choices,
         default=DuplicateDetectionStatus.NOT_STARTED,
     )
+
+    # Soft-delete flag: inactive reviews are hidden but not removed.
     is_active = models.BooleanField(default=True)
+
+    # When blinded, a reviewer can only see their own opinions (not teammates').
     is_blinded = models.BooleanField(default=True)
+
+    # Optional PRISMA flow diagram uploaded by the review owner.
     prisma_file = models.FileField(upload_to="prisma_diagrams/", blank=True, null=True)
 
-    def compute_opinion_stats(self, stage, user=None):
+    def __str__(self) -> str:
+        return self.title
+
+    # ------------------------------------------------------------------
+    # Opinion statistics
+    # ------------------------------------------------------------------
+
+    def compute_opinion_stats(self, stage, user=None) -> list[dict]:
+        """
+        Return per-member opinion counts (excluded / maybe / included / total)
+        for the given screening *stage*.
+
+        When the review is blinded and a *user* is supplied, only that user's
+        own stats are returned so that reviewers cannot see each other's work.
+
+        Args:
+            stage: The screening stage to filter on.
+            user:  The requesting user (required when `is_blinded` is True).
+
+        Returns:
+            A list of dicts ordered by total opinions descending, each
+            containing::
+
+                {
+                    "member_id": int,
+                    "user_name": str,
+                    "user_email": str,
+                    "excluded": int,
+                    "maybe": int,
+                    "included": int,
+                    "total": int,
+                }
+        """
+        # Import here to avoid circular imports between the reviews and
+        # references apps.
         from slrt_project.references.models import (
             ReferenceOpinion,
             ReferenceOpinionStatus,
         )
 
         qs = ReferenceOpinion.objects.filter(
-            member__review=self,
-            stage=stage,
+            member__review=self, stage=stage
         ).select_related("member__user")
 
+        # Blind mode: restrict to the requesting user's own opinions.
         if self.is_blinded and user:
             qs = qs.filter(member__user=user)
 
@@ -62,11 +113,20 @@ class Review(models.Model):
 
         return list(stats)
 
-    def __str__(self):
-        return self.title
+
+# ---------------------------------------------------------------------------
+# ReviewMember
+# ---------------------------------------------------------------------------
 
 
 class ReviewMember(models.Model):
+    """
+    Associates a user with a review and assigns them a role.
+
+    Each (review, user) pair is unique — a user can only hold one role per
+    review at a time.
+    """
+
     class Role(models.TextChoices):
         OWNER = "owner", "Owner"
         COLLABORATOR = "collaborator", "Collaborator"
@@ -87,18 +147,31 @@ class ReviewMember(models.Model):
             )
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.user.first_name} {self.user.last_name} ({self.user.email})"
 
     @property
-    def user_name(self):
-        """Get display name for the member"""
+    def user_name(self) -> str:
+        """Full name of the member, falling back to their e-mail address."""
         return (
             f"{self.user.first_name} {self.user.last_name}".strip() or self.user.email
         )
 
 
+# ---------------------------------------------------------------------------
+# ReviewInvitation
+# ---------------------------------------------------------------------------
+
+
 class ReviewInvitation(models.Model):
+    """
+    Pending invitation for an e-mail address to join a review.
+
+    Invitations are created by existing members with sufficient permissions
+    and are consumed when the invitee registers (or logs in) and accepts.
+    """
+
+    # Invited role is a subset of ReviewMember.Role — owners cannot be invited.
     class Role(models.TextChoices):
         COLLABORATOR = "collaborator", "Collaborator"
         REVIEWER = "reviewer", "Reviewer"
@@ -112,11 +185,22 @@ class ReviewInvitation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     role = models.CharField(max_length=20, choices=Role.choices)
 
-    def __str__(self):
-        return f"Invitation to {self.email} for review {self.review.id}"
+    def __str__(self) -> str:
+        return f"Invitation to {self.email} for review {self.review_id}"
+
+
+# ---------------------------------------------------------------------------
+# ScreeningCriteria
+# ---------------------------------------------------------------------------
 
 
 class ScreeningCriteria(models.Model):
+    """
+    Inclusion or exclusion criterion used during the screening stage.
+
+    Criteria names must be unique within a review.
+    """
+
     class Type(models.TextChoices):
         INCLUSION = "inclusion"
         EXCLUSION = "exclusion"
@@ -134,31 +218,63 @@ class ScreeningCriteria(models.Model):
             )
         ]
 
+    def __str__(self) -> str:
+        return f"[{self.type}] {self.name}"
+
+
+# ---------------------------------------------------------------------------
+# ScreeningStat
+# ---------------------------------------------------------------------------
+
 
 class ScreeningStat(models.Model):
-    member = models.ForeignKey(ReviewMember, on_delete=models.CASCADE)
+    """
+    Aggregated screening activity for a single review member.
+
+    Tracks total time spent (in seconds) and number of screening sessions so
+    that review owners can monitor progress.
+    """
+
+    # One stat row per member.
+    member = models.OneToOneField(
+        ReviewMember,
+        on_delete=models.CASCADE,
+        # Keep OneToOneField semantics; the UniqueConstraint below is
+        # kept for an explicit DB-level guarantee.
+    )
     seconds = models.IntegerField(default=0)
     sessions = models.IntegerField(default=0)
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["member"], name="unique_screening_stat_per_member"
+                fields=["member"],
+                name="unique_screening_stat_per_member",
             )
         ]
 
-    def __str__(self):
-        return f"{self.member} - {self.seconds}s ({self.sessions} sessions)"
+    def __str__(self) -> str:
+        return f"{self.member} — {self.seconds}s ({self.sessions} sessions)"
+
+
+# ---------------------------------------------------------------------------
+# ReviewChatMessage
+# ---------------------------------------------------------------------------
 
 
 class ReviewChatMessage(models.Model):
     """
-    Chat messages between review members and system notifications
+    A single message in a review's chat channel.
+
+    Messages are either sent by a human member or generated automatically by
+    the system (e.g., task completion notifications).  System messages may
+    carry structured data in the `metadata` JSON field.
     """
 
     review = models.ForeignKey(
         Review, on_delete=models.CASCADE, related_name="chat_messages"
     )
+    # Null for system messages.
     member = models.ForeignKey(
         ReviewMember,
         on_delete=models.CASCADE,
@@ -167,19 +283,12 @@ class ReviewChatMessage(models.Model):
         help_text="Review member who sent the message. Null for system messages.",
     )
     message = models.TextField()
-
-    # Flag for system messages
     is_system_message = models.BooleanField(
-        default=False, help_text="True if this is a system notification"
+        default=False,
+        help_text="True if this is a system notification.",
     )
-
-    # Optional: store additional data as JSON
-    metadata = models.JSONField(
-        null=True,
-        blank=True,
-        help_text="Additional data for system messages (e.g., task results)",
-    )
-
+    # Free-form JSON payload for system messages (e.g., task results).
+    metadata = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -189,16 +298,13 @@ class ReviewChatMessage(models.Model):
             models.Index(fields=["review", "is_system_message"]),
         ]
 
-    def __str__(self):
-        if self.is_system_message:
-            return f"System: {self.message[:50]}"
-        if self.member:
-            return f"{self.member.user.email}: {self.message[:50]}"
-        return f"Unknown: {self.message[:50]}"
+    def __str__(self) -> str:
+        prefix = self.user_name
+        return f"{prefix}: {self.message[:50]}"
 
     @property
-    def user_name(self):
-        """Get display name for the message sender"""
+    def user_name(self) -> str:
+        """Display name of the sender (or 'System' / 'Unknown' as fallbacks)."""
         if self.is_system_message:
             return "System"
         if self.member:
@@ -207,21 +313,38 @@ class ReviewChatMessage(models.Model):
         return "Unknown"
 
 
-def search_method_upload_path(instance, filename):
-    ext = filename.split(".")[-1]
-    new_filename = f"{uuid.uuid4()}.{ext}"
-    return os.path.join("search_methods", new_filename)
+# ---------------------------------------------------------------------------
+# SearchMethod
+# ---------------------------------------------------------------------------
+
+
+def search_method_upload_path(instance: "SearchMethod", filename: str) -> str:
+    """
+    Generate a unique storage path for each uploaded search-method file.
+
+    Using a UUID prevents filename collisions and avoids leaking the original
+    file name in the URL.
+    """
+    ext = filename.rsplit(".", 1)[-1]
+    return os.path.join("search_methods", f"{uuid.uuid4()}.{ext}")
 
 
 class SearchMethod(models.Model):
+    """
+    A named literature search run associated with a review.
+
+    Typically backed by a BibTeX file that is imported and then deleted to
+    free storage.
+    """
+
     review = models.ForeignKey(Review, on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
     file = models.FileField(
         upload_to=search_method_upload_path,
         null=True,
         blank=True,
-        help_text="Uploaded BibTeX file (deleted after successful import)",
+        help_text="Uploaded BibTeX file (deleted after successful import).",
     )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
