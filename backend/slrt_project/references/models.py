@@ -1,3 +1,38 @@
+"""
+Models for the references app.
+
+Domain overview
+---------------
+A Reference is a bibliographic record (paper, report, etc.) imported from a
+BibTeX, RIS, or EndNote file via a SearchMethod.  References flow through
+several stages:
+
+    Import → Screening → Full-Text Review → Extraction
+
+Duplicate detection runs as a background task and groups similar references
+into ReferenceCluster objects.  Each cluster is resolved either automatically
+(high-confidence) or manually by a review member.
+
+Model inventory
+---------------
+Label                   — user-owned colour-coded tag applied to references
+Reference               — core bibliographic record
+ReferenceLabel          — many-to-many junction: (Reference, Label, ReviewMember)
+UploadedPDF             — a PDF uploaded for matching against references
+ReferenceCluster        — a group of duplicate (or near-duplicate) references
+ReferenceClusterMember  — membership of a Reference in a ReferenceCluster
+Reason                  — named exclusion reason (per review)
+ReferenceOpinion        — a single member's verdict on a reference at one stage
+Keyword                 — inclusion / exclusion keyword for full-text search
+Note                    — free-text note left by a member on a reference
+
+Utility classes (not models)
+-----------------------------
+UnionFind               — weighted quick-union used by the duplicate detector
+DuplicateClusterDetector — finds clusters via DOI hard-match + pg_trgm fuzzy match
+DuplicateClusterManager  — orchestrates detection, persistence, and auto-resolution
+"""
+
 import uuid
 
 from django.contrib.postgres.indexes import GinIndex, OpClass
@@ -8,8 +43,23 @@ from django.db.models.functions import Lower
 from django.utils import timezone
 
 
-# Create your models here.
+# ===========================================================================
+# Label
+# ===========================================================================
+
+
 class Label(models.Model):
+    """
+    A colour-coded tag owned by a single user and applied to references.
+
+    Labels are personal — each user maintains their own set.  The
+    ``unique_label_per_user`` constraint prevents duplicate names for the
+    same user while allowing different users to create identically-named labels.
+
+    ``hotkey`` is an optional keyboard shortcut string used by the frontend
+    to apply the label quickly during screening.
+    """
+
     user = models.ForeignKey("users.User", on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
     color = models.CharField(max_length=50, default="#3b82f6")
@@ -24,11 +74,24 @@ class Label(models.Model):
         ]
 
 
+# ===========================================================================
+# Reference
+# ===========================================================================
+
+
 def reference_upload_path(instance, filename):
+    """
+    Generate a UUID-based storage path for reference PDF attachments.
+
+    Using a UUID prefix prevents collisions and avoids exposing the original
+    filename in the URL.
+    """
     return f"references/{uuid.uuid4()}/{filename}"
 
 
 class ReferenceOpinionStatus(models.TextChoices):
+    """Possible verdicts a reviewer can assign to a reference."""
+
     UNDECIDED = "undecided", "Undecided"
     EXCLUDED = "excluded", "Excluded"
     MAYBE = "maybe", "Maybe"
@@ -36,12 +99,43 @@ class ReferenceOpinionStatus(models.TextChoices):
 
 
 class Reference(models.Model):
+    """
+    A bibliographic record belonging to a review.
+
+    Lifecycle
+    ---------
+    1. Imported via a SearchMethod (BibTeX / RIS / EndNote).
+    2. Screened: members assign opinions (included/excluded/maybe).
+       The denormalised ``screening_status`` is updated asynchronously via
+       ``update_opinion_statuses``.
+    3. Promoted to full-text review (``in_full_text=True``) then extraction
+       (``in_extraction=True``).
+    4. Duplicate detection groups identical records into ReferenceCluster
+       objects.  Duplicates are soft-deleted by setting ``duplicate_status``
+       to DELETED — they are never physically removed.
+
+    Search
+    ------
+    ``search_vector`` is a PostgreSQL tsvector column updated by a DB trigger.
+    A GIN index makes full-text queries fast.  A trigram index on ``title``
+    (gin_trgm_ops) powers the fuzzy duplicate-detection similarity query.
+
+    Zotero integration
+    ------------------
+    ``zotero_key`` / ``zotero_version`` / ``last_synced`` track the record's
+    identity in a linked Zotero library.
+    """
+
     class DuplicateStatus(models.TextChoices):
         UNRESOLVED = "unresolved", "Unresolved"
         DELETED = "deleted", "Deleted"
         NOT_DUPLICATE = "not_duplicate", "Not Duplicate"
         RESOLVED = "resolved", "Resolved"
         UNIQUE = "unique", "Unique"
+
+    # ------------------------------------------------------------------
+    # Core bibliographic fields
+    # ------------------------------------------------------------------
 
     review = models.ForeignKey("reviews.Review", on_delete=models.CASCADE)
     title = models.TextField()
@@ -54,43 +148,91 @@ class Reference(models.Model):
     abstract = models.TextField(blank=True)
     doi = models.CharField(max_length=255, blank=True)
     url = models.URLField(max_length=500, blank=True)
+    pages = models.CharField(max_length=50, blank=True, default="")
+
+    # ------------------------------------------------------------------
+    # Attached PDF
+    # ------------------------------------------------------------------
+
     file = models.FileField(
-        upload_to=reference_upload_path, blank=True, null=True, max_length=255
+        upload_to=reference_upload_path,
+        blank=True,
+        null=True,
+        max_length=255,
+        help_text="PDF attachment, if any.",
     )
+
+    # ------------------------------------------------------------------
+    # Full-text search
+    # ------------------------------------------------------------------
+
+    # Populated by a DB trigger; never written from Python directly.
     search_vector = SearchVectorField(null=True, blank=True)
+
+    # ------------------------------------------------------------------
+    # Assignment & workflow flags
+    # ------------------------------------------------------------------
+
+    # Which reviewer this reference is currently assigned to (optional).
     assignee = models.ForeignKey(
-        "reviews.ReviewMember", null=True, on_delete=models.SET_NULL
+        "reviews.ReviewMember",
+        null=True,
+        on_delete=models.SET_NULL,
+        help_text="The reviewer this reference is currently assigned to.",
     )
     duplicate_status = models.CharField(
-        max_length=20, choices=DuplicateStatus.choices, default=DuplicateStatus.UNIQUE
+        max_length=20,
+        choices=DuplicateStatus.choices,
+        default=DuplicateStatus.UNIQUE,
     )
-    in_full_text = models.BooleanField(default=False)
-    in_extraction = models.BooleanField(default=False)
+    in_full_text = models.BooleanField(
+        default=False,
+        help_text="True once the reference has been promoted to the full-text stage.",
+    )
+    in_extraction = models.BooleanField(
+        default=False,
+        help_text="True once the reference has been promoted to the extraction stage.",
+    )
     is_extraction_completed = models.BooleanField(default=False)
 
-    zotero_key = models.CharField(max_length=100, blank=True, null=True)
-    zotero_version = models.IntegerField(default=0)
-    last_synced = models.DateTimeField(null=True, blank=True)
-    pages = models.CharField(max_length=50, blank=True, default="")
+    # ------------------------------------------------------------------
+    # Denormalised opinion status
+    # Updated by Reference.update_opinion_statuses() after each opinion change.
+    # ------------------------------------------------------------------
+
     screening_status = models.CharField(
         max_length=20,
         blank=True,
         default=ReferenceOpinionStatus.UNDECIDED,
+        help_text="Aggregated screening verdict (updated by update_opinion_statuses).",
     )
     full_text_status = models.CharField(
         max_length=20,
         blank=True,
         default=ReferenceOpinionStatus.UNDECIDED,
+        help_text="Aggregated full-text verdict (updated by update_opinion_statuses).",
     )
+
+    # ------------------------------------------------------------------
+    # Zotero sync fields
+    # ------------------------------------------------------------------
+
+    zotero_key = models.CharField(max_length=100, blank=True, null=True)
+    zotero_version = models.IntegerField(default=0)
+    last_synced = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         indexes = [
+            # Full-text search index.
             GinIndex(fields=["search_vector"], name="reference_search_vector_idx"),
+            # Trigram similarity index used by the duplicate detector.
             GinIndex(
-                OpClass(Lower("title"), "gin_trgm_ops"), name="reference_title_trgm_idx"
+                OpClass(Lower("title"), "gin_trgm_ops"),
+                name="reference_title_trgm_idx",
             ),
         ]
         constraints = [
+            # Prevent the same Zotero key appearing twice in one review.
             models.UniqueConstraint(
                 fields=["review", "zotero_key"],
                 name="unique_zotero_key_per_review",
@@ -98,8 +240,35 @@ class Reference(models.Model):
             )
         ]
 
+    # ------------------------------------------------------------------
+    # Class methods
+    # ------------------------------------------------------------------
+
     @classmethod
     def update_opinion_statuses(cls, reference_ids=None, stage=None):
+        """
+        Recompute and persist the denormalised opinion-status field for the
+        given references at the given stage.
+
+        Rules
+        -----
+        - Zero opinions → UNDECIDED.
+        - All opinions agree → use that status (INCLUDED / EXCLUDED / MAYBE).
+        - Conflicting opinions → UNDECIDED (reviewers disagree; needs resolution).
+
+        This method is called after every ``bulk-upsert`` so that the screening
+        list view can filter by ``screening_status`` / ``full_text_status``
+        without a subquery per row.
+
+        Args:
+            reference_ids: Optional list of Reference PKs to restrict the
+                           update.  When ``None``, all references are updated.
+            stage:         Must be ``ReferenceOpinion.Stage.SCREENING`` or
+                           ``ReferenceOpinion.Stage.FULL_TEXT``.
+
+        Raises:
+            ValueError: When ``stage`` is not one of the two valid choices.
+        """
         if stage not in [
             ReferenceOpinion.Stage.SCREENING,
             ReferenceOpinion.Stage.FULL_TEXT,
@@ -110,6 +279,7 @@ class Reference(models.Model):
         if reference_ids:
             refs_qs = refs_qs.filter(id__in=reference_ids)
 
+        # Aggregate opinion counts per reference in one DB round-trip.
         opinions = (
             ReferenceOpinion.objects.filter(
                 reference_id__in=refs_qs.values_list("id", flat=True),
@@ -122,30 +292,30 @@ class Reference(models.Model):
             )
         )
 
-        status_map = {}
-
+        status_map: dict[int, str] = {}
         for op in opinions:
             if op["distinct_count"] == 0:
+                # No opinions yet.
                 effective_status = ReferenceOpinionStatus.UNDECIDED
-
             elif op["distinct_count"] == 1:
-                # All same → use that status (Included, Excluded, Maybe)
+                # All reviewers agree — use that status directly.
                 effective_status = op["max_status"]
-
             else:
-                # Conflicting opinions → now UNDECIDED (not Maybe anymore)
+                # Mixed opinions — fall back to UNDECIDED until conflict is resolved.
                 effective_status = ReferenceOpinionStatus.UNDECIDED
 
             status_map[op["reference_id"]] = effective_status
 
-        # References without opinions
+        # Any reference without opinions gets UNDECIDED.
         all_ids = set(refs_qs.values_list("id", flat=True))
         for ref_id in all_ids:
             if ref_id not in status_map:
                 status_map[ref_id] = ReferenceOpinionStatus.UNDECIDED
 
+        # Single bulk UPDATE using a CASE expression.
         when_statements = [
-            When(id=ref_id, then=Value(status)) for ref_id, status in status_map.items()
+            When(id=ref_id, then=Value(status_val))
+            for ref_id, status_val in status_map.items()
         ]
 
         update_field = (
@@ -164,16 +334,34 @@ class Reference(models.Model):
             }
         )
 
+    # ------------------------------------------------------------------
+    # Properties
+    # ------------------------------------------------------------------
+
     @property
-    def has_pdf(self):
-        """Check if reference has a PDF file"""
+    def has_pdf(self) -> bool:
+        """True when a PDF file is attached to this reference."""
         return bool(self.file)
 
-    def __str__(self):
-        return f"{self.review.id} {self.id} {self.title}"
+    def __str__(self) -> str:
+        return f"{self.review_id} {self.id} {self.title}"
+
+
+# ===========================================================================
+# ReferenceLabel
+# ===========================================================================
 
 
 class ReferenceLabel(models.Model):
+    """
+    Associates a Label with a Reference, recording which ReviewMember applied it.
+
+    The ``unique_label_assignment`` constraint ensures that each label can only
+    be attached to a given reference once — a second application by a different
+    member would silently overwrite (via ``get_or_create``) rather than create
+    a duplicate.
+    """
+
     reference = models.ForeignKey(
         Reference,
         on_delete=models.CASCADE,
@@ -184,6 +372,7 @@ class ReferenceLabel(models.Model):
         on_delete=models.CASCADE,
         related_name="reference_labels",
     )
+    # The member who applied the label (for audit).
     member = models.ForeignKey("reviews.ReviewMember", on_delete=models.CASCADE)
 
     class Meta:
@@ -195,38 +384,80 @@ class ReferenceLabel(models.Model):
         ]
 
 
+# ===========================================================================
+# UploadedPDF
+# ===========================================================================
+
+
 class ImmutableUnaccent(Func):
+    """
+    Wraps the ``immutable_unaccent`` PostgreSQL function so it can be used
+    inside queryset annotations and subqueries.
+
+    The immutable variant is required for use in expression indexes.
+    """
+
     function = "immutable_unaccent"
     arity = 1
 
 
 class UploadedPDF(models.Model):
+    """
+    A PDF uploaded by a reviewer for later attachment to a Reference.
+
+    The auto-match endpoint attempts to pair uploaded PDFs with references via
+    DOI match, exact normalised title match, and trigram similarity (in that
+    order).  Once matched, the UploadedPDF row is deleted to free storage.
+    """
+
     review = models.ForeignKey(
         "reviews.Review",
         on_delete=models.CASCADE,
         related_name="uploaded_pdfs",
     )
-
     file = models.FileField(upload_to="uploaded_pdfs/", max_length=255)
+    # Display name (populated from the filename without extension by the view).
     name = models.TextField()
+    # DOI extracted from the first page of the PDF (null when not found).
     doi = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
         indexes = [
             models.Index(fields=["doi"]),
-            # GIN trgm index created via RunSQL in migration due to expression limitations
+            # A GIN trgm index on ``name`` is created via RunSQL in the migration
+            # because Django's index classes don't support expression indexes
+            # for text_pattern_ops.
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.name}.pdf"
+
+
+# ===========================================================================
+# ReferenceCluster
+# ===========================================================================
 
 
 class ReferenceCluster(models.Model):
     """
-    One cluster of duplicate (or near-duplicate) References.
+    A group of duplicate (or near-duplicate) references within a review.
 
-    Every Reference belongs to at most one unresolved cluster.
-    After resolution the cluster is archived with a canonical reference recorded.
+    Lifecycle
+    ---------
+    1. Created by ``DuplicateClusterManager.run()`` when duplicates are detected.
+       All member references receive ``duplicate_status = UNRESOLVED``.
+    2. Resolved either automatically (via ``auto_resolve``) or manually (via
+       ``manually_resolve``).  The winning reference receives
+       ``duplicate_status = RESOLVED``; the losers get ``DELETED``.
+    3. A cluster may be dismissed as a false positive — all members revert to
+       ``NOT_DUPLICATE``.
+
+    The ``doi_match`` flag distinguishes hard-matched clusters (exact DOI) from
+    fuzzy similarity clusters.  Hard-matched clusters are considered high-confidence
+    and are always auto-resolved when ``doi_clusters_always=True``.
+
+    ``max_similarity_score`` stores the highest pairwise similarity in the cluster
+    so the UI can sort clusters by confidence.
     """
 
     class Status(models.TextChoices):
@@ -235,6 +466,8 @@ class ReferenceCluster(models.Model):
         MANUALLY_RESOLVED = "manually_resolved", "Manually Resolved"
         DISMISSED = "dismissed", "Dismissed"
 
+    # UUID primary key: cluster IDs are exposed in the API and a UUID is harder
+    # to enumerate than a sequential integer.
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     review = models.ForeignKey(
         "reviews.Review",
@@ -247,7 +480,7 @@ class ReferenceCluster(models.Model):
         default=Status.UNRESOLVED,
         db_index=True,
     )
-    # Set when resolved – the reference we decided to keep
+    # Set when resolved — the reference we decided to keep.
     canonical_reference = models.ForeignKey(
         "references.Reference",
         null=True,
@@ -255,9 +488,9 @@ class ReferenceCluster(models.Model):
         on_delete=models.SET_NULL,
         related_name="canonical_in_clusters",
     )
-    # Highest pairwise similarity score in the cluster (for UI sorting)
+    # Highest pairwise similarity score across all pairs in the cluster.
     max_similarity_score = models.FloatField(default=0.0)
-    # True when every member had a matching DOI (perfect hard match cluster)
+    # True when every member was matched via DOI (hard match).
     doi_match = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -282,15 +515,29 @@ class ReferenceCluster(models.Model):
 
     @property
     def size(self) -> int:
+        """Number of references in this cluster."""
         return self.members.count()
+
+
+# ===========================================================================
+# ReferenceClusterMember
+# ===========================================================================
 
 
 class ReferenceClusterMember(models.Model):
     """
     Membership of a Reference in a ReferenceCluster.
 
-    Each reference appears in at most one *active* (unresolved) cluster per review.
-    Historical memberships (from resolved clusters) are kept for audit.
+    Each reference appears in at most one *active* (unresolved) cluster per
+    review.  Historical memberships from resolved clusters are kept for audit.
+
+    ``completeness_score`` is cached at detection time from
+    ``calculate_completeness()`` so the UI can sort potential canonical
+    candidates without recomputing it.
+
+    ``best_similarity_score`` is the highest pairwise similarity this
+    reference achieved within the cluster (0.0 for DOI-only matches where
+    no fuzzy score was computed).
     """
 
     class Role(models.TextChoices):
@@ -313,11 +560,9 @@ class ReferenceClusterMember(models.Model):
         choices=Role.choices,
         default=Role.PENDING,
     )
-    # Best pairwise similarity this reference achieved within the cluster
     best_similarity_score = models.FloatField(default=0.0)
-    # Whether this member was matched via DOI (hard match)
     doi_matched = models.BooleanField(default=False)
-    # Completeness score at time of cluster creation (cached for sorting)
+    # Cached completeness score (see calculate_completeness).
     completeness_score = models.FloatField(default=0.0)
 
     added_at = models.DateTimeField(auto_now_add=True)
@@ -338,30 +583,43 @@ class ReferenceClusterMember(models.Model):
         return f"Member {self.reference_id} in {self.cluster_id} [{self.role}]"
 
 
-# ---------------------------------------------------------------------------
-# Union-Find helper
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# Union-Find
+# ===========================================================================
 
 
 class UnionFind:
-    """Weighted quick-union with path compression."""
+    """
+    Weighted quick-union with path compression.
+
+    Used by ``DuplicateClusterDetector`` to merge DOI-matched and fuzzy-matched
+    reference pairs into disjoint groups (clusters).
+
+    Nodes are integer Reference PKs; they are lazily initialised on first
+    access, so no pre-allocation step is needed.
+    """
 
     def __init__(self):
         self.parent: dict[int, int] = {}
         self.rank: dict[int, int] = {}
 
     def find(self, x: int) -> int:
+        """Find the root of the component containing *x* (with path compression)."""
         if x not in self.parent:
+            # Lazily initialise: every node is its own root initially.
             self.parent[x] = x
             self.rank[x] = 0
         if self.parent[x] != x:
+            # Path compression: flatten the tree by pointing directly to the root.
             self.parent[x] = self.find(self.parent[x])
         return self.parent[x]
 
     def union(self, x: int, y: int) -> None:
+        """Merge the components containing *x* and *y* (union by rank)."""
         rx, ry = self.find(x), self.find(y)
         if rx == ry:
-            return
+            return  # already in the same component
+        # Attach the shorter tree under the taller one to keep the tree flat.
         if self.rank[rx] < self.rank[ry]:
             rx, ry = ry, rx
         self.parent[ry] = rx
@@ -369,7 +627,12 @@ class UnionFind:
             self.rank[rx] += 1
 
     def clusters(self) -> dict[int, list[int]]:
-        """Return {root: [member_ids]} for clusters with ≥2 members."""
+        """
+        Return ``{root: [member_ids]}`` for every component with ≥ 2 members.
+
+        Single-node components are excluded because a reference that matches
+        nothing is not a duplicate.
+        """
         groups: dict[int, list[int]] = {}
         for node in self.parent:
             root = self.find(node)
@@ -377,22 +640,25 @@ class UnionFind:
         return {root: members for root, members in groups.items() if len(members) >= 2}
 
 
-# ---------------------------------------------------------------------------
-# Cluster detector
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# DuplicateClusterDetector
+# ===========================================================================
 
 
 class DuplicateClusterDetector:
     """
-    Finds duplicate clusters for a queryset of References.
+    Finds duplicate clusters for a queryset of References using two signals:
 
-    Strategy
-    --------
-    1. DOI hard-match: group references that share the same non-empty DOI.
-    2. Fuzzy pg_trgm similarity: weighted score across title/abstract/authors/journal.
-       Empty fields are excluded from the denominator so they don't penalise
-       otherwise identical references.
-    3. Union-Find merges both signals into clusters.
+    1. **DOI hard-match** — references sharing the same non-empty, lowercased,
+       trimmed DOI are considered definite duplicates (score = 1.0).
+
+    2. **pg_trgm fuzzy similarity** — a weighted similarity score is computed
+       across title, abstract, authors, and journal.  Empty fields are
+       excluded from both numerator and denominator so that two references
+       with identical non-empty fields score 1.0 regardless of which optional
+       fields are blank.
+
+    Both signals feed a Union-Find structure to produce disjoint clusters.
     """
 
     DEFAULT_WEIGHTS = {
@@ -411,7 +677,6 @@ class DuplicateClusterDetector:
         self.queryset = queryset
         self.fuzzy_threshold = fuzzy_threshold
         self.weights = weights or self.DEFAULT_WEIGHTS
-        self.Reference = Reference
 
     # ------------------------------------------------------------------
     # Public API
@@ -419,51 +684,49 @@ class DuplicateClusterDetector:
 
     def detect(self) -> list[dict]:
         """
-        Returns a list of cluster dicts:
-          {
-            "reference_ids": [int, ...],
-            "doi_match": bool,
-            "pairs": [(id1, id2, score), ...],
-          }
+        Run detection and return a list of cluster dicts::
+
+            {
+                "reference_ids": [int, ...],
+                "doi_match":     bool,          # True when ALL pairs are DOI-matched
+                "pairs":         [(id1, id2, score), ...],
+            }
         """
         ids = list(self.queryset.values_list("id", flat=True))
         if len(ids) < 2:
             return []
 
         uf = UnionFind()
+        # Maps (min_id, max_id) → best similarity score seen for that pair.
         edge_scores: dict[tuple[int, int], float] = {}
         doi_edges: set[tuple[int, int]] = set()
 
-        # 1. DOI hard matches
-        doi_pairs = self._find_doi_pairs(ids)
-        for id1, id2 in doi_pairs:
+        # 1. DOI hard matches (score = 1.0).
+        for id1, id2 in self._find_doi_pairs(ids):
             uf.union(id1, id2)
             key = (min(id1, id2), max(id1, id2))
             edge_scores[key] = 1.0
             doi_edges.add(key)
 
-        # 2. Fuzzy matches
-        fuzzy_pairs = self._find_fuzzy_pairs(ids)
-        for id1, id2, score in fuzzy_pairs:
+        # 2. Fuzzy matches — keep the best score if a pair also had a DOI match.
+        for id1, id2, score in self._find_fuzzy_pairs(ids):
             uf.union(id1, id2)
             key = (min(id1, id2), max(id1, id2))
-            # Keep best score if the pair appeared via both signals
             edge_scores[key] = max(edge_scores.get(key, 0.0), score)
 
-        # 3. Build cluster records
-        clusters_raw = uf.clusters()
+        # 3. Build structured cluster records from the Union-Find components.
         result = []
-        for root, members in clusters_raw.items():
+        for root, members in uf.clusters().items():
             member_set = set(members)
             cluster_pairs = [
                 (k[0], k[1], v)
                 for k, v in edge_scores.items()
                 if k[0] in member_set and k[1] in member_set
             ]
-            is_doi = all(
-                (min(id1, id2), max(id1, id2)) in doi_edges
-                for id1, id2 in [(p[0], p[1]) for p in cluster_pairs]
-            ) and bool(cluster_pairs)
+            # A cluster is DOI-only when every pair was matched via DOI.
+            is_doi = bool(cluster_pairs) and all(
+                (min(p[0], p[1]), max(p[0], p[1])) in doi_edges for p in cluster_pairs
+            )
             result.append(
                 {
                     "reference_ids": members,
@@ -474,16 +737,17 @@ class DuplicateClusterDetector:
         return result
 
     # ------------------------------------------------------------------
-    # Internal helpers
+    # Private helpers
     # ------------------------------------------------------------------
 
     def _find_doi_pairs(self, ids: list[int]) -> list[tuple[int, int]]:
         """
-        Find pairs of references that share the same non-empty, non-null DOI.
-        Normalises DOI to lowercase and strips whitespace in SQL.
-        """
-        table = self.Reference._meta.db_table
+        Return all (id1, id2) pairs that share the same non-empty DOI.
 
+        Normalises to ``lower(trim(doi))`` in SQL so that capitalisation and
+        surrounding whitespace differences don't prevent matching.
+        """
+        table = Reference._meta.db_table
         with connection.cursor() as cursor:
             cursor.execute(
                 f"""
@@ -499,21 +763,25 @@ class DuplicateClusterDetector:
                 {"ids": ids},
             )
             rows = cursor.fetchall()
-
         return [(int(r[0]), int(r[1])) for r in rows]
 
     def _find_fuzzy_pairs(self, ids: list[int]) -> list[tuple[int, int, float]]:
         """
-        Find pairs above the fuzzy threshold using pg_trgm similarity.
-        Returns [(id1, id2, weighted_score), ...] where id1 < id2.
+        Return ``(id1, id2, weighted_score)`` for all pairs above the fuzzy
+        threshold.
 
-        Empty fields are excluded from both the numerator and denominator so
-        that two references with identical non-empty fields score 1.0 regardless
-        of how many fields are blank (e.g. no abstract → abstract weight dropped
-        from the denominator rather than contributing 0 to the numerator).
-        Title is always included since it is required on every reference.
+        Scoring
+        -------
+        Weighted average of pg_trgm similarities across title, abstract,
+        authors, and journal.  A field that is empty on *either* reference
+        is excluded from both the numerator and the denominator — this prevents
+        missing optional fields from pulling the score down for references that
+        are otherwise identical.
+
+        ``title`` is always included (non-nullable in the model); all other
+        fields use a ``CASE WHEN ... = '' THEN 0 ELSE weight END`` guard.
         """
-        table = self.Reference._meta.db_table
+        table = Reference._meta.db_table
         w = self.weights
 
         with connection.cursor() as cursor:
@@ -522,23 +790,27 @@ class DuplicateClusterDetector:
                 SELECT
                     a.id AS id1,
                     b.id AS id2,
-                    -- Numerator: similarity * weight, 0 when either side is empty
                     (
                         similarity(a.title, b.title) * %(w_title)s
                         + similarity(a.abstract, b.abstract)
-                            * CASE WHEN a.abstract = '' OR b.abstract = '' THEN 0 ELSE %(w_abstract)s END
+                            * CASE WHEN a.abstract = '' OR b.abstract = ''
+                                   THEN 0 ELSE %(w_abstract)s END
                         + similarity(a.authors, b.authors)
-                            * CASE WHEN a.authors  = '' OR b.authors  = '' THEN 0 ELSE %(w_authors)s END
+                            * CASE WHEN a.authors  = '' OR b.authors  = ''
+                                   THEN 0 ELSE %(w_authors)s END
                         + similarity(a.journal, b.journal)
-                            * CASE WHEN a.journal  = '' OR b.journal  = '' THEN 0 ELSE %(w_journal)s END
+                            * CASE WHEN a.journal  = '' OR b.journal  = ''
+                                   THEN 0 ELSE %(w_journal)s END
                     )
                     /
-                    -- Denominator: only weights for fields present on both sides
                     NULLIF(
                         %(w_title)s
-                        + CASE WHEN a.abstract = '' OR b.abstract = '' THEN 0 ELSE %(w_abstract)s END
-                        + CASE WHEN a.authors  = '' OR b.authors  = '' THEN 0 ELSE %(w_authors)s END
-                        + CASE WHEN a.journal  = '' OR b.journal  = '' THEN 0 ELSE %(w_journal)s END,
+                        + CASE WHEN a.abstract = '' OR b.abstract = ''
+                               THEN 0 ELSE %(w_abstract)s END
+                        + CASE WHEN a.authors  = '' OR b.authors  = ''
+                               THEN 0 ELSE %(w_authors)s END
+                        + CASE WHEN a.journal  = '' OR b.journal  = ''
+                               THEN 0 ELSE %(w_journal)s END,
                         0
                     ) AS sim
                 FROM {table} a
@@ -546,13 +818,16 @@ class DuplicateClusterDetector:
                 WHERE a.id = ANY(%(ids)s)
                   AND b.id = ANY(%(ids)s)
                   AND (
-                    similarity(a.title, b.title) * %(w_title)s
-                    + similarity(a.abstract, b.abstract)
-                        * CASE WHEN a.abstract = '' OR b.abstract = '' THEN 0 ELSE %(w_abstract)s END
-                    + similarity(a.authors, b.authors)
-                        * CASE WHEN a.authors  = '' OR b.authors  = '' THEN 0 ELSE %(w_authors)s END
-                    + similarity(a.journal, b.journal)
-                        * CASE WHEN a.journal  = '' OR b.journal  = '' THEN 0 ELSE %(w_journal)s END
+                        similarity(a.title, b.title) * %(w_title)s
+                        + similarity(a.abstract, b.abstract)
+                            * CASE WHEN a.abstract = '' OR b.abstract = ''
+                                   THEN 0 ELSE %(w_abstract)s END
+                        + similarity(a.authors, b.authors)
+                            * CASE WHEN a.authors  = '' OR b.authors  = ''
+                                   THEN 0 ELSE %(w_authors)s END
+                        + similarity(a.journal, b.journal)
+                            * CASE WHEN a.journal  = '' OR b.journal  = ''
+                                   THEN 0 ELSE %(w_journal)s END
                   )
                   /
                   NULLIF(
@@ -574,16 +849,34 @@ class DuplicateClusterDetector:
                 },
             )
             rows = cursor.fetchall()
-
         return [(int(r[0]), int(r[1]), float(r[2])) for r in rows]
 
 
-# ---------------------------------------------------------------------------
+# ===========================================================================
 # Completeness scorer
-# ---------------------------------------------------------------------------
+# ===========================================================================
 
 
 def calculate_completeness(reference) -> float:
+    """
+    Compute a normalised completeness score (0.0 – 1.0) for a reference.
+
+    Higher scores mean the record has more bibliographic fields populated
+    and/or longer content.  The score is used when selecting the canonical
+    reference from a duplicate cluster — the most complete record is kept.
+
+    Field weights
+    -------------
+    title            0 – 2.0   (proportional to length, capped)
+    abstract         0 – 2.0   (proportional to length, capped)
+    authors          0 – 1.5   (proportional to length, capped)
+    journal          1.0       (boolean: present or absent)
+    doi              1.5       (boolean)
+    publication_date 1.0       (boolean)
+    pages            0.5       (boolean)
+    file (PDF)       1.0       (boolean)
+    max_score        10.5
+    """
     score = 0.0
     max_score = 10.5
 
@@ -607,23 +900,28 @@ def calculate_completeness(reference) -> float:
     return score / max_score if max_score > 0 else 0.0
 
 
-# ---------------------------------------------------------------------------
-# Cluster manager
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# DuplicateClusterManager
+# ===========================================================================
 
 
 class DuplicateClusterManager:
     """
-    Orchestrates cluster detection, persistence, and auto-resolution.
+    Orchestrates cluster detection, persistence, and resolution for a review.
 
-    Usage
-    -----
+    Usage::
+
         manager = DuplicateClusterManager(review)
-        stats = manager.run(queryset=review.reference_set.filter(...))
+        stats = manager.run()                  # detect + persist
+        stats = manager.auto_resolve(...)      # resolve high-confidence clusters
+        manager.manually_resolve(cluster, 42)  # resolve a single cluster by hand
     """
 
     def __init__(
-        self, review, fuzzy_threshold: float = 0.50, weights: dict | None = None
+        self,
+        review,
+        fuzzy_threshold: float = 0.50,
+        weights: dict | None = None,
     ):
         self.review = review
         self.fuzzy_threshold = fuzzy_threshold
@@ -636,11 +934,20 @@ class DuplicateClusterManager:
     @transaction.atomic
     def run(self, queryset=None) -> dict:
         """
-        Detect clusters and persist new ones.
-        Returns stats dict.
-        """
-        # local import
+        Detect duplicate clusters and persist any new ones.
 
+        Clusters are only created when they contain at least one reference
+        that is not already in an active (unresolved) cluster — this prevents
+        re-creating clusters on repeated detection runs.
+
+        Returns a stats dict::
+
+            {
+                "raw_clusters_found": int,
+                "clusters_created":   int,
+                "clusters_skipped":   int,
+            }
+        """
         if queryset is None:
             queryset = Reference.objects.filter(review=self.review)
 
@@ -651,11 +958,11 @@ class DuplicateClusterManager:
         )
         raw_clusters = detector.detect()
 
-        # Load references for completeness scoring
+        # Pre-load references for completeness scoring (one DB query).
         ref_ids_all = {rid for c in raw_clusters for rid in c["reference_ids"]}
         refs_by_id = {r.id: r for r in Reference.objects.filter(id__in=ref_ids_all)}
 
-        # Find which references are already in an unresolved cluster for this review
+        # Which references are already in an active cluster?
         already_clustered = set(
             ReferenceClusterMember.objects.filter(
                 cluster__review=self.review,
@@ -671,50 +978,44 @@ class DuplicateClusterManager:
             member_ids = raw["reference_ids"]
             new_ids = set(member_ids) - already_clustered
 
-            # All members already in active clusters → nothing to do
+            # Skip if every member is already in an active cluster.
             if not new_ids and not self._cluster_changed(raw, already_clustered):
                 skipped += 1
                 continue
 
-            # Check if any of the new_ids' existing clusters should be merged
-            # For simplicity: create a new cluster for truly new groups.
-            # A production system might merge existing clusters here.
             cluster = ReferenceCluster.objects.create(
                 review=self.review,
                 doi_match=raw["doi_match"],
                 max_similarity_score=max((p[2] for p in raw["pairs"]), default=0.0),
             )
 
-            # Build pair lookup for best_similarity_score per member
+            # Cache per-member best similarity and DOI status for sorting.
             best_scores: dict[int, float] = {}
             doi_members: set[int] = set()
-
             for id1, id2, score in raw["pairs"]:
                 best_scores[id1] = max(best_scores.get(id1, 0.0), score)
                 best_scores[id2] = max(best_scores.get(id2, 0.0), score)
-
             if raw["doi_match"]:
                 doi_members.update(member_ids)
 
-            members_to_create = []
-            for rid in member_ids:
-                ref = refs_by_id.get(rid)
-                members_to_create.append(
+            ReferenceClusterMember.objects.bulk_create(
+                [
                     ReferenceClusterMember(
                         cluster=cluster,
                         reference_id=rid,
                         best_similarity_score=best_scores.get(rid, 0.0),
                         doi_matched=rid in doi_members,
-                        completeness_score=calculate_completeness(ref) if ref else 0.0,
+                        completeness_score=calculate_completeness(refs_by_id[rid])
+                        if rid in refs_by_id
+                        else 0.0,
                     )
-                )
-            ReferenceClusterMember.objects.bulk_create(members_to_create)
+                    for rid in member_ids
+                ]
+            )
 
-            # Mark all members as unresolved duplicates on the reference itself
             Reference.objects.filter(id__in=member_ids).update(
                 duplicate_status=Reference.DuplicateStatus.UNRESOLVED
             )
-
             created_clusters += 1
 
         return {
@@ -724,7 +1025,7 @@ class DuplicateClusterManager:
         }
 
     def _cluster_changed(self, raw: dict, already_clustered: set) -> bool:
-        """Heuristic: if any member is NOT yet clustered, the cluster is new/changed."""
+        """Return True when at least one member has not yet been clustered."""
         return any(rid not in already_clustered for rid in raw["reference_ids"])
 
     # ------------------------------------------------------------------
@@ -742,17 +1043,26 @@ class DuplicateClusterManager:
         """
         Auto-resolve clusters where confidence is high enough.
 
-        doi_clusters_always=True → resolve DOI clusters regardless of score.
-        """
+        A cluster is resolved when:
+        - ``doi_clusters_always=True`` and ``cluster.doi_match`` is True, **or**
+        - ``cluster.max_similarity_score >= confidence_threshold``.
 
+        The canonical reference is chosen by ``_pick_canonical``.
+
+        Returns::
+
+            {
+                "auto_resolved":      int,  # clusters resolved
+                "kept_references":    int,  # canonical references
+                "removed_references": int,  # duplicates marked DELETED
+            }
+        """
         clusters = ReferenceCluster.objects.filter(
             review=self.review,
             status=ReferenceCluster.Status.UNRESOLVED,
         ).prefetch_related("members__reference")
 
-        auto_resolved = 0
-        kept = 0
-        removed = 0
+        auto_resolved = kept = removed = 0
 
         for cluster in clusters:
             should_resolve = (
@@ -769,10 +1079,8 @@ class DuplicateClusterManager:
             canonical_member = self._pick_canonical(members, preferred_search_method_id)
             canonical_ref = canonical_member.reference
 
-            # Update roles + reference statuses
             ref_updates_canonical = []
             ref_updates_duplicate = []
-
             for m in members:
                 if m.id == canonical_member.id:
                     m.role = ReferenceClusterMember.Role.CANONICAL
@@ -783,16 +1091,13 @@ class DuplicateClusterManager:
 
             ReferenceClusterMember.objects.bulk_update(members, ["role"])
 
-            # Update canonical reference
             Reference.objects.filter(id__in=ref_updates_canonical).update(
                 duplicate_status=Reference.DuplicateStatus.RESOLVED
             )
-            # Mark duplicates as deleted
             Reference.objects.filter(id__in=ref_updates_duplicate).update(
                 duplicate_status=Reference.DuplicateStatus.DELETED
             )
 
-            # Resolve the cluster
             cluster.status = ReferenceCluster.Status.AUTO_RESOLVED
             cluster.canonical_reference = canonical_ref
             cluster.resolved_at = timezone.now()
@@ -816,6 +1121,10 @@ class DuplicateClusterManager:
             "removed_references": removed,
         }
 
+    # ------------------------------------------------------------------
+    # Manual resolution
+    # ------------------------------------------------------------------
+
     @transaction.atomic
     def manually_resolve(
         self,
@@ -824,9 +1133,11 @@ class DuplicateClusterManager:
         resolved_by=None,
     ) -> None:
         """
-        Manually resolve a cluster by choosing a canonical reference.
-        """
+        Resolve a cluster by explicitly nominating the canonical reference.
 
+        All other members are marked DUPLICATE / DELETED.  The cluster status
+        is set to MANUALLY_RESOLVED.
+        """
         members = list(cluster.members.select_related("reference"))
 
         canonical_ids = [canonical_reference_id]
@@ -835,10 +1146,11 @@ class DuplicateClusterManager:
         ]
 
         for m in members:
-            if m.reference_id == canonical_reference_id:
-                m.role = ReferenceClusterMember.Role.CANONICAL
-            else:
-                m.role = ReferenceClusterMember.Role.DUPLICATE
+            m.role = (
+                ReferenceClusterMember.Role.CANONICAL
+                if m.reference_id == canonical_reference_id
+                else ReferenceClusterMember.Role.DUPLICATE
+            )
         ReferenceClusterMember.objects.bulk_update(members, ["role"])
 
         Reference.objects.filter(id__in=canonical_ids).update(
@@ -871,20 +1183,21 @@ class DuplicateClusterManager:
         preferred_search_method_id: int | None,
     ) -> ReferenceClusterMember:
         """
-        Pick the best member to keep.
+        Choose the best member to keep as the canonical reference.
 
-        Priority:
-          1. DOI-matched member (hard evidence it's the "real" record)
-          2. Preferred search method
-          3. Highest completeness score
-          4. Tie-break: lowest id (deterministic)
+        Priority order
+        --------------
+        1. DOI-matched members (hard evidence of the "real" record).
+        2. Members from the preferred search method (if supplied).
+        3. Highest completeness score.
+        4. Lowest reference ID as a deterministic tie-break.
         """
-        # 1. DOI match preferred
+        # Prefer DOI-matched members if any exist.
         doi_members = [m for m in members if m.doi_matched]
         if doi_members:
             members = doi_members
 
-        # 2. Preferred search method
+        # Prefer the nominated search method if supplied.
         if preferred_search_method_id:
             method_members = [
                 m
@@ -894,13 +1207,13 @@ class DuplicateClusterManager:
             if method_members:
                 members = method_members
 
-        # 3. Best completeness, then lowest id
+        # Highest completeness wins; lowest ID breaks ties.
         return max(members, key=lambda m: (m.completeness_score, -m.reference_id))
 
 
-# ---------------------------------------------------------------------------
-# Convenience: top-level run function (for tasks / management commands)
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# Top-level convenience functions (used by Celery tasks / management commands)
+# ===========================================================================
 
 
 def detect_and_persist_clusters(
@@ -909,6 +1222,7 @@ def detect_and_persist_clusters(
     fuzzy_threshold: float = 0.50,
     weights: dict | None = None,
 ) -> dict:
+    """Detect duplicates and persist new clusters for *review*."""
     manager = DuplicateClusterManager(
         review, fuzzy_threshold=fuzzy_threshold, weights=weights
     )
@@ -922,6 +1236,7 @@ def auto_resolve_clusters(
     preferred_search_method_id: int | None = None,
     resolved_by=None,
 ) -> dict:
+    """Auto-resolve high-confidence clusters for *review*."""
     manager = DuplicateClusterManager(review)
     return manager.auto_resolve(
         confidence_threshold=confidence_threshold,
@@ -931,15 +1246,46 @@ def auto_resolve_clusters(
     )
 
 
+# ===========================================================================
+# Reason
+# ===========================================================================
+
+
 class Reason(models.Model):
+    """
+    A named exclusion reason for a review.
+
+    When a member excludes a reference they may optionally attach a Reason so
+    the review owner can understand why references were rejected at the
+    full-text stage.  Reasons appear in the PRISMA diagram's
+    ``excluded_reasons`` breakdown.
+    """
+
     review = models.ForeignKey("reviews.Review", on_delete=models.CASCADE)
     name = models.CharField(max_length=150)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
 
+# ===========================================================================
+# ReferenceOpinion
+# ===========================================================================
+
+
 class ReferenceOpinion(models.Model):
+    """
+    A single member's verdict on a reference at a specific screening stage.
+
+    The combination of (reference, member, stage) is unique — a member can
+    hold exactly one opinion per reference per stage.  Opinions are updated
+    in place via ``bulk-upsert``; the history is not preserved.
+
+    After each upsert, ``Reference.update_opinion_statuses()`` recomputes the
+    denormalised ``screening_status`` / ``full_text_status`` field on the
+    affected references.
+    """
+
     class Stage(models.TextChoices):
         SCREENING = "screening", "Screening"
         FULL_TEXT = "full-text", "Full-Text Screening"
@@ -956,6 +1302,7 @@ class ReferenceOpinion(models.Model):
         choices=Stage.choices,
         default=Stage.SCREENING,
     )
+    # Optional exclusion reason — only populated when status == EXCLUDED.
     reason = models.ForeignKey(Reason, null=True, on_delete=models.SET_NULL)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -969,7 +1316,19 @@ class ReferenceOpinion(models.Model):
         ]
 
 
+# ===========================================================================
+# Keyword
+# ===========================================================================
+
+
 class Keyword(models.Model):
+    """
+    A keyword used for inclusion or exclusion filtering during screening.
+
+    Keywords are stored per-review and matched against the reference
+    ``search_vector`` using PostgreSQL full-text search.
+    """
+
     class Type(models.TextChoices):
         INCLUSION = "inclusion"
         EXCLUSION = "exclusion"
@@ -979,21 +1338,38 @@ class Keyword(models.Model):
     type = models.CharField(max_length=20, choices=Type.choices)
 
 
+# ===========================================================================
+# Note
+# ===========================================================================
+
+
 class Note(models.Model):
+    """
+    A free-text note left by a reviewer on a specific reference.
+
+    ``created_at`` is set on creation; ``edited_at`` is updated on every
+    subsequent save.  Notes on blinded reviews are only visible to their author.
+    """
+
     member = models.ForeignKey(
-        "reviews.ReviewMember", on_delete=models.CASCADE, related_name="notes"
+        "reviews.ReviewMember",
+        on_delete=models.CASCADE,
+        related_name="notes",
     )
     reference = models.ForeignKey(
-        Reference, on_delete=models.CASCADE, related_name="notes"
+        Reference,
+        on_delete=models.CASCADE,
+        related_name="notes",
     )
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     edited_at = models.DateTimeField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
+        """Set ``edited_at`` whenever an existing note is modified."""
         if self.pk:
             self.edited_at = timezone.now()
         super().save(*args, **kwargs)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Note by {self.member} on {self.created_at.strftime('%d-%m-%Y %H:%M')}"
