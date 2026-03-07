@@ -51,6 +51,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from slrt_project.coding.models import Code
+from slrt_project.integrations.tasks import sync_single_reference_pdf
 from slrt_project.permissions import (
     PERMISSIONS,
     Permission,
@@ -103,7 +104,6 @@ from slrt_project.references.models import (
     ReferenceOpinionStatus,
     UploadedPDF,
 )
-from slrt_project.references.tasks import sync_single_reference_pdf
 from slrt_project.reviews.models import Review, ReviewMember, SearchMethod
 
 
