@@ -100,7 +100,7 @@ class TestMainThemeMeta:
 # ===========================================================================
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 class TestMainThemeDB:
     def test_factory_creates_row(self):
         theme = MainThemeFactory(name="Facilitators")
