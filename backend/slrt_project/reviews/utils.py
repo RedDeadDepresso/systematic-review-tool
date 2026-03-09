@@ -1,3 +1,29 @@
+"""
+Utility functions for the reviews app.
+
+Sections
+--------
+WebSocket messaging
+    ``send_review_chat_message`` — persist a ReviewChatMessage and broadcast
+    it to the review's WebSocket group via Django Channels.
+
+BibTeX parsing
+    ``parse_bibtex_date``, ``extract_bibtex_reference_fields`` — convert a
+    bibtexparser entry dict into an unsaved Reference.
+
+RIS parsing
+    ``parse_ris_date``, ``extract_ris_reference_fields`` — convert a rispy
+    entry dict into an unsaved Reference.
+
+EndNote XML parsing
+    ``parse_endnote_date``, ``get_endnote_text``, ``get_endnote_authors``,
+    ``extract_endnote_reference_fields`` — convert an lxml Element (<record>)
+    into an unsaved Reference.
+
+Miscellaneous
+    ``strip_ansi`` — remove ANSI escape sequences from a string.
+"""
+
 import logging
 import re
 from datetime import date
@@ -13,13 +39,38 @@ from slrt_project.reviews.models import ReviewChatMessage
 logger = logging.getLogger(__name__)
 
 
+# ===========================================================================
+# WebSocket messaging
+# ===========================================================================
+
+
 def send_review_chat_message(
-    review_id, member, message, is_system_message=False, metadata=None
+    review_id: int,
+    member,
+    message: str,
+    is_system_message: bool = False,
+    metadata: dict | None = None,
 ):
     """
-    Send a chat message to review and broadcast via WebSocket
+    Persist a ReviewChatMessage and broadcast it to the review's WebSocket group.
+
+    The message is always saved to the database first.  The WebSocket broadcast
+    is a best-effort operation — if the channel layer is unavailable (e.g. in
+    tests that don't configure Redis) a warning is logged and the saved message
+    is returned without raising.
+
+    Args:
+        review_id:         PK of the Review this message belongs to.
+        member:            ReviewMember who sent the message, or ``None`` for
+                           system-generated messages.
+        message:           Human-readable message text.
+        is_system_message: Mark the message as a system notification.
+        metadata:          Arbitrary JSON-serialisable dict attached to the
+                           message (e.g. ``{"action": "import_completed"}``).
+
+    Returns:
+        The saved ReviewChatMessage instance.
     """
-    # Save message to database
     chat_message = ReviewChatMessage.objects.create(
         review_id=review_id,
         member=member,
@@ -28,13 +79,13 @@ def send_review_chat_message(
         metadata=metadata,
     )
 
-    # Broadcast via WebSocket
     channel_layer = get_channel_layer()
 
     if not channel_layer:
         logger.warning("Channel layer not available, cannot broadcast message")
         return chat_message
 
+    # Build sender identity for the WebSocket payload.
     user_name = "System"
     user_id = None
     member_id = None
@@ -64,12 +115,16 @@ def send_review_chat_message(
         },
     )
 
-    logger.info(f"Sent message to review {review_id}: {message[:50]}")
+    logger.info("Sent message to review %s: %s", review_id, message[:50])
 
     return chat_message
 
 
-# ---- bibtex parsing utilities ----
+# ===========================================================================
+# BibTeX parsing utilities
+# ===========================================================================
+
+# Map three-letter BibTeX month abbreviations to integers.
 BIBTEX_MONTHS = {
     "jan": 1,
     "feb": 2,
@@ -85,6 +140,7 @@ BIBTEX_MONTHS = {
     "dec": 12,
 }
 
+# Map BibTeX entry types to our internal publication type strings.
 PUBLICATION_TYPES = {
     "article": "Journal Article",
     "book": "Book",
@@ -96,8 +152,20 @@ PUBLICATION_TYPES = {
 }
 
 
-def parse_bibtex_date(entry):
-    """Parse date from BibTeX entry"""
+def parse_bibtex_date(entry: dict) -> date | None:
+    """
+    Extract a publication date from a BibTeX entry dict.
+
+    Tries fields in this order:
+    1. ``date`` — ISO-style string (``"YYYY"`` or ``"YYYY-MM"`` or
+       ``"YYYY-MM-DD"``).  Splits on ``"-"`` and passes to ``date()``.
+    2. ``year`` + optional ``month`` — ``month`` is matched against
+       ``BIBTEX_MONTHS``; defaults to January when absent or unrecognised.
+
+    Returns ``None`` when neither ``date`` nor ``year`` is present, or when
+    the value cannot be parsed as an integer.
+    """
+    # Prefer ISO-style date string if present.
     raw_date = entry.get("date")
     if raw_date:
         try:
@@ -115,37 +183,50 @@ def parse_bibtex_date(entry):
     except ValueError:
         return None
 
-    month = entry.get("month")
-    if month:
-        month = month.lower()[:3]
-        month = BIBTEX_MONTHS.get(month, 1)
+    month_str = entry.get("month")
+    if month_str:
+        # Normalise to lowercase three-letter prefix (e.g. "January" → "jan").
+        month = BIBTEX_MONTHS.get(month_str.lower()[:3], 1)
     else:
         month = 1
 
     return date(year, month, 1)
 
 
-def extract_bibtex_reference_fields(review_id, search_method, entry):
-    """Extract reference fields from BibTeX entry"""
+def extract_bibtex_reference_fields(
+    review_id: int, search_method, entry: dict
+) -> Reference:
+    """
+    Convert a bibtexparser entry dict into an unsaved Reference.
+
+    Normalises DOIs by stripping ``"doi:"`` prefixes and ``"https://doi.org/"``
+    base URLs so all stored DOIs are in plain ``10.xxxx/yyyy`` form.
+
+    Args:
+        review_id:     PK of the owning Review.
+        search_method: SearchMethod instance for the import.
+        entry:         Dict from ``bibtexparser.load().entries``.
+
+    Returns:
+        Unsaved Reference instance (not yet written to the DB).
+    """
     publication_type = PUBLICATION_TYPES.get(
         entry.get("ENTRYTYPE", "").lower(), "Other"
     )
-
     publication_date = parse_bibtex_date(entry)
 
+    # BibTeX stores multiple authors joined by " and ".
     authors = (
         ", ".join(a.strip() for a in entry.get("author", "").split(" and "))
         if "author" in entry
         else ""
     )
 
+    # Journal name falls back to booktitle (conference proceedings).
     journal = entry.get("journal") or entry.get("booktitle") or ""
     article_customizations = entry.get("note") or entry.get("howpublished")
 
-    doi = entry.get("doi") or entry.get("DOI", "")
-    if doi:
-        doi = doi.lower().replace("doi:", "").replace("https://doi.org/", "").strip()
-
+    doi = _normalise_doi(entry.get("doi") or entry.get("DOI", ""))
     url = entry.get("url") or entry.get("URL", "")
 
     return Reference(
@@ -164,9 +245,11 @@ def extract_bibtex_reference_fields(review_id, search_method, entry):
     )
 
 
-# ---- ris parsing utilities ----
+# ===========================================================================
+# RIS parsing utilities
+# ===========================================================================
 
-# RIS type mapping
+# Map RIS type codes to our internal publication type strings.
 RIS_PUBLICATION_TYPES = {
     "JOUR": "Journal Article",
     "BOOK": "Book",
@@ -178,11 +261,17 @@ RIS_PUBLICATION_TYPES = {
 }
 
 
-def parse_ris_date(entry):
-    """Parse date from RIS entry"""
-    # RIS uses Y1 for primary date
-    year_str = entry.get("year") or entry.get("publication_year")
+def parse_ris_date(entry: dict) -> date | None:
+    """
+    Extract a publication date from a rispy entry dict.
 
+    RIS uses ``Y1`` for the primary date, which rispy maps to ``"year"`` or
+    ``"publication_year"``.  Month extraction is not attempted because RIS
+    month fields are inconsistently populated across databases.
+
+    Returns ``None`` when no year field is present or the value is non-numeric.
+    """
+    year_str = entry.get("year") or entry.get("publication_year")
     if not year_str:
         return None
 
@@ -191,25 +280,33 @@ def parse_ris_date(entry):
     except (ValueError, TypeError):
         return None
 
-    # Try to get month if available
-    month = 1
-
-    return date(year, month, 1)
+    return date(year, 1, 1)
 
 
-def extract_ris_reference_fields(review_id, search_method, entry):
-    """Extract reference fields from RIS entry"""
+def extract_ris_reference_fields(
+    review_id: int, search_method, entry: dict
+) -> Reference:
+    """
+    Convert a rispy entry dict into an unsaved Reference.
+
+    Args:
+        review_id:     PK of the owning Review.
+        search_method: SearchMethod instance for the import.
+        entry:         Dict from ``rispy.load()``.
+
+    Returns:
+        Unsaved Reference instance.
+    """
     publication_type = RIS_PUBLICATION_TYPES.get(
         entry.get("type_of_reference", "GEN"), "Miscellaneous"
     )
-
     publication_date = parse_ris_date(entry)
 
-    # RIS authors are in 'authors' field as a list
+    # rispy stores authors as a list under ``"authors"`` or ``"first_authors"``.
     authors_list = entry.get("authors") or entry.get("first_authors") or []
     authors = ", ".join(authors_list) if authors_list else ""
 
-    # Journal can be in various fields
+    # Journal name can appear in several fields depending on the exporting database.
     journal = (
         entry.get("journal_name")
         or entry.get("secondary_title")
@@ -217,38 +314,30 @@ def extract_ris_reference_fields(review_id, search_method, entry):
         or ""
     )
 
-    # Notes
-    article_customizations = entry.get("notes") or ""
+    doi = _normalise_doi(entry.get("doi", ""))
 
-    # DOI
-    doi = entry.get("doi", "")
-    if doi:
-        doi = doi.lower().replace("doi:", "").replace("https://doi.org/", "").strip()
+    # URL may be a plain string or a list; normalise to a single string.
+    url_raw = entry.get("url") or (
+        entry.get("urls", [""])[0] if entry.get("urls") else ""
+    )
+    url = url_raw or ""
 
-    # URL
-    url = entry.get("url") or entry.get("urls", [""])[0] if entry.get("urls") else ""
-
-    # Abstract
-    abstract = entry.get("abstract", "")
-
-    # Title - try multiple fields
-    title = entry.get("title")
-
-    if not title:
-        title = entry.get("primary_title")
-
-    if not title:
-        titles = entry.get("titles")
-        if titles and isinstance(titles, list):
-            title = titles[0]
-
-    if not title:
-        title = "No Title"
-
-    # Pages - can be start_page + end_page or just pages
+    # Page range — build from start/end pages when available.
     start_page = entry.get("start_page", "")
     end_page = entry.get("end_page", "")
     pages = f"{start_page}-{end_page}" if start_page and end_page else start_page or ""
+
+    # Title falls back through several field names.
+    title = (
+        entry.get("title")
+        or entry.get("primary_title")
+        or (
+            entry["titles"][0]
+            if entry.get("titles") and isinstance(entry["titles"], list)
+            else None
+        )
+        or "No Title"
+    )
 
     return Reference(
         review_id=review_id,
@@ -257,8 +346,8 @@ def extract_ris_reference_fields(review_id, search_method, entry):
         authors=authors,
         journal=journal,
         search_method=search_method,
-        article_customizations=article_customizations,
-        abstract=abstract,
+        article_customizations=entry.get("notes") or "",
+        abstract=entry.get("abstract", ""),
         doi=doi,
         url=url,
         publication_date=publication_date,
@@ -266,9 +355,19 @@ def extract_ris_reference_fields(review_id, search_method, entry):
     )
 
 
-# ---- EndNote XML parsing utilities ----
-def parse_endnote_date(record):
-    """Parse date from EndNote XML record"""
+# ===========================================================================
+# EndNote XML parsing utilities
+# ===========================================================================
+
+
+def parse_endnote_date(record) -> date | None:
+    """
+    Extract a publication date from an EndNote XML ``<record>`` element.
+
+    Looks for ``<dates><year>`` and optionally ``<dates><month>``.
+
+    Returns ``None`` when no year element is found or its text is non-numeric.
+    """
     dates = record.find(".//dates")
     if dates is None:
         return None
@@ -282,7 +381,6 @@ def parse_endnote_date(record):
     except (ValueError, TypeError):
         return None
 
-    # Try to get month
     month = 1
     month_elem = dates.find(".//month")
     if month_elem is not None and month_elem.text:
@@ -294,26 +392,35 @@ def parse_endnote_date(record):
     return date(year, month, 1)
 
 
-def get_endnote_text(record, path):
-    """Safely get text from EndNote XML element"""
+def get_endnote_text(record, path: str) -> str:
+    """
+    Safely retrieve the text of an XML element at ``path`` within ``record``.
+
+    Returns an empty string when the element is absent or has no text content,
+    so callers never need to guard against ``None``.
+    """
     elem = record.find(path)
     return elem.text if elem is not None and elem.text else ""
 
 
-def get_endnote_authors(record):
-    """Extract authors from EndNote XML record"""
+def get_endnote_authors(record) -> str:
+    """
+    Extract a comma-separated author string from an EndNote XML ``<record>``.
+
+    Checks ``<contributors><authors>`` first; falls back to
+    ``<contributors><secondary-authors>`` when the primary list is empty.
+    """
     authors = []
     contributors = record.find(".//contributors")
 
     if contributors is not None:
-        # Try authors first
         authors_section = contributors.find(".//authors")
         if authors_section is not None:
             for author in authors_section.findall(".//author"):
                 if author.text:
                     authors.append(author.text)
 
-        # If no authors, try secondary-authors
+        # Fall back to secondary authors if no primary authors were found.
         if not authors:
             secondary_authors = contributors.find(".//secondary-authors")
             if secondary_authors is not None:
@@ -324,15 +431,26 @@ def get_endnote_authors(record):
     return ", ".join(authors)
 
 
-def extract_endnote_reference_fields(review_id, search_method, record):
-    """Extract reference fields from EndNote XML record"""
-    # Get reference type
+def extract_endnote_reference_fields(
+    review_id: int, search_method, record
+) -> Reference:
+    """
+    Convert an lxml ``<record>`` element into an unsaved Reference.
+
+    Args:
+        review_id:     PK of the owning Review.
+        search_method: SearchMethod instance for the import.
+        record:        ``lxml.etree.Element`` for a single ``<record>`` node.
+
+    Returns:
+        Unsaved Reference instance.
+    """
+    # Reference type lives in a <ref-type name="..."> attribute.
     ref_type_elem = record.find(".//ref-type")
     ref_type_name = (
         ref_type_elem.get("name") if ref_type_elem is not None else "Miscellaneous"
     )
 
-    # Map EndNote types to our types
     endnote_type_map = {
         "Journal Article": "Journal Article",
         "Book": "Book",
@@ -342,10 +460,9 @@ def extract_endnote_reference_fields(review_id, search_method, record):
         "Thesis": "Thesis",
         "Report": "Technical Report",
     }
-
     publication_type = endnote_type_map.get(ref_type_name, "Miscellaneous")
 
-    # Get titles
+    # Primary title with fallback to secondary title.
     titles = record.find(".//titles")
     title = ""
     if titles is not None:
@@ -353,53 +470,38 @@ def extract_endnote_reference_fields(review_id, search_method, record):
         if title_elem is not None and title_elem.text:
             title = title_elem.text
 
-        # Fallback to secondary-title if no primary title
         if not title:
-            secondary_title = titles.find(".//secondary-title")
-            if secondary_title is not None and secondary_title.text:
-                title = secondary_title.text
+            secondary = titles.find(".//secondary-title")
+            if secondary is not None and secondary.text:
+                title = secondary.text
 
     if not title:
         title = "No Title"
 
-    # Get authors
     authors = get_endnote_authors(record)
 
-    # Get journal/periodical
-    periodical = record.find(".//periodical")
+    # Journal/periodical full title.
     journal = ""
+    periodical = record.find(".//periodical")
     if periodical is not None:
         full_title = periodical.find(".//full-title")
         if full_title is not None and full_title.text:
             journal = full_title.text
 
-    # Get pages
     pages_elem = record.find(".//pages")
     pages = pages_elem.text if pages_elem is not None and pages_elem.text else ""
 
-    # Get DOI
-    doi = get_endnote_text(record, ".//electronic-resource-num")
-    if doi:
-        doi = doi.lower().replace("doi:", "").replace("https://doi.org/", "").strip()
+    doi = _normalise_doi(get_endnote_text(record, ".//electronic-resource-num"))
 
-    # Get URL
-    urls = record.find(".//urls")
+    # URL is nested: <urls><related-urls><url>.
     url = ""
+    urls = record.find(".//urls")
     if urls is not None:
         related_urls = urls.find(".//related-urls")
         if related_urls is not None:
             url_elem = related_urls.find(".//url")
             if url_elem is not None and url_elem.text:
                 url = url_elem.text
-
-    # Get abstract
-    abstract = get_endnote_text(record, ".//abstract")
-
-    # Get notes
-    notes = get_endnote_text(record, ".//notes")
-
-    # Get date
-    publication_date = parse_endnote_date(record)
 
     return Reference(
         review_id=review_id,
@@ -408,18 +510,39 @@ def extract_endnote_reference_fields(review_id, search_method, record):
         authors=authors,
         journal=journal,
         search_method=search_method,
-        article_customizations=notes,
-        abstract=abstract,
+        article_customizations=get_endnote_text(record, ".//notes"),
+        abstract=get_endnote_text(record, ".//abstract"),
         doi=doi,
         url=url,
-        publication_date=publication_date,
+        publication_date=parse_endnote_date(record),
         pages=pages,
     )
 
 
-# ----  Ansi escape code stripping utility ----
+# ===========================================================================
+# Miscellaneous
+# ===========================================================================
+
 ANSI_ESCAPE = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
 
 
 def strip_ansi(text: str) -> str:
+    """Strip ANSI escape sequences (colour codes, cursor movement, etc.) from text."""
     return ANSI_ESCAPE.sub("", text)
+
+
+# ---------------------------------------------------------------------------
+# Private helpers
+# ---------------------------------------------------------------------------
+
+
+def _normalise_doi(doi: str) -> str:
+    """
+    Strip common DOI prefixes so all stored values are bare ``10.xxxx/yyyy``.
+
+    Handles ``"doi:"`` prefix (case-insensitive) and full ``https://doi.org/``
+    URLs.  Returns an empty string for falsy input.
+    """
+    if not doi:
+        return ""
+    return doi.lower().replace("doi:", "").replace("https://doi.org/", "").strip()

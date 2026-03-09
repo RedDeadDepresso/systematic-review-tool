@@ -263,14 +263,14 @@ class TestGetPermissions:
         return vs
 
     def test_destructive_actions_require_owner(self):
-        from slrt_project.permissions import IsReviewOwner
+        from slrt_project.shared.permissions import IsReviewOwner
 
         for action in ["update", "partial_update", "destroy"]:
             perms = self._vs(action).get_permissions()
             assert any(isinstance(p, IsReviewOwner) for p in perms), action
 
     def test_safe_actions_no_owner_required(self):
-        from slrt_project.permissions import IsReviewOwner
+        from slrt_project.shared.permissions import IsReviewOwner
 
         for action in ["list", "retrieve", "members", "screening_stats"]:
             perms = self._vs(action).get_permissions()
@@ -505,8 +505,8 @@ class TestMemberDestroyView:
 class TestSearchMethodDestroyView:
     @patch("slrt_project.reviews.api.views.check_permission")
     def test_checks_permission_then_deletes(self, mock_perm):
-        from slrt_project.permissions import Permission
         from slrt_project.reviews.api.views import SearchMethodDestroyView
+        from slrt_project.shared.permissions import Permission
 
         view = SearchMethodDestroyView()
         view.request = MagicMock()

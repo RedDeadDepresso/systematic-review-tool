@@ -40,7 +40,6 @@ from drf_spectacular.utils import extend_schema_field, extend_schema_serializer
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 
-from slrt_project.permissions import PERMISSIONS, Permission, permission_denied_message
 from slrt_project.references.models import (
     Keyword,
     Label,
@@ -56,6 +55,11 @@ from slrt_project.references.models import (
 )
 from slrt_project.reviews.api.serializers import ReviewMemberSerializer
 from slrt_project.reviews.models import Review, ReviewMember
+from slrt_project.shared.permissions import (
+    PERMISSIONS,
+    Permission,
+    permission_denied_message,
+)
 
 
 # ===========================================================================

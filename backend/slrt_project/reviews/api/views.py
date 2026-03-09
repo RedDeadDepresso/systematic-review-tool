@@ -40,13 +40,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from slrt_project.coding.models import MainTheme
-from slrt_project.permissions import (
-    PERMISSIONS,
-    IsReviewOwner,
-    Permission,
-    check_permission,
-    permission_denied_message,
-)
 from slrt_project.references.models import (
     Reference,
     ReferenceCluster,
@@ -94,6 +87,13 @@ from slrt_project.reviews.tasks import (
     import_references_task,
 )
 from slrt_project.reviews.utils import strip_ansi
+from slrt_project.shared.permissions import (
+    PERMISSIONS,
+    IsReviewOwner,
+    Permission,
+    check_permission,
+    permission_denied_message,
+)
 from vendor.prisma_flow_diagram.prisma import Prisma2020Diagram, plot_prisma2020_new
 from vendor.prisma_flow_diagram.validation import _human_issue
 

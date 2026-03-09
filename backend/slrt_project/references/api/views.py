@@ -52,12 +52,6 @@ from rest_framework.response import Response
 
 from slrt_project.coding.models import Code
 from slrt_project.integrations.tasks import sync_single_reference_pdf
-from slrt_project.permissions import (
-    PERMISSIONS,
-    Permission,
-    check_permission,
-    permission_denied_message,
-)
 from slrt_project.references.api.filters import (
     DuplicateClusterFilter,
     ReferenceFilter,
@@ -105,6 +99,12 @@ from slrt_project.references.models import (
     UploadedPDF,
 )
 from slrt_project.reviews.models import Review, ReviewMember, SearchMethod
+from slrt_project.shared.permissions import (
+    PERMISSIONS,
+    Permission,
+    check_permission,
+    permission_denied_message,
+)
 
 
 logger = logging.getLogger(__name__)

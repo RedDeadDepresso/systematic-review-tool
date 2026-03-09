@@ -46,8 +46,8 @@ from slrt_project.coding.api.serializers import (
     SubThemeSerializer,
 )
 from slrt_project.coding.models import Code, MainTheme, SubTheme
-from slrt_project.permissions import Permission, check_permission
 from slrt_project.reviews.models import Review, ReviewMember
+from slrt_project.shared.permissions import Permission, check_permission
 
 
 # ===========================================================================
