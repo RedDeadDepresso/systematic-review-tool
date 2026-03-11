@@ -41,6 +41,9 @@ lint-backend:
     - cd backend
     - ruff check .
     - ruff format --check .
+  rules:
+    - changes:
+        - backend/**
 
 # =====================================================
 # FRONTEND LINT
@@ -64,6 +67,9 @@ lint-frontend:
     - pnpm install --frozen-lockfile
     - pnpm lint
     - pnpm format
+  rules:
+    - changes:
+        - frontend/**
 
 # =====================================================
 # BACKEND TEST
@@ -104,6 +110,9 @@ test-backend:
       coverage_report:
         coverage_format: cobertura
         path: backend/coverage.xml
+  rules:
+    - changes:
+        - backend/**
 
 # =====================================================
 # FRONTEND TEST
@@ -126,6 +135,9 @@ test-frontend:
     - cd frontend
     - pnpm install --frozen-lockfile
     - pnpm test --coverage
+  rules:
+    - changes:
+        - frontend/**
 
 # =====================================================
 # DEPLOY
