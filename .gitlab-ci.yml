@@ -97,7 +97,7 @@ test-backend:
     - uv sync --frozen
     - . .venv/bin/activate
   script:
-    - pytest --cov=slrt_project --cov-report=xml --cov-report=term
+    - pytest -n auto --cov=slrt_project --cov-report=xml --cov-report=term
   artifacts:
     when: always
     reports:
