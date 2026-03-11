@@ -146,7 +146,13 @@ test-frontend:
 deploy-prod:
   stage: deploy
   image: alpine:latest
-  needs: ["lint-backend", "test-frontend"]
+  needs:
+    - job: lint-backend
+      optional: true
+    - job: test-frontend
+      optional: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
   before_script:
     - apk add --no-cache openssh docker-cli-compose
     - eval $(ssh-agent -s)
@@ -161,5 +167,3 @@ deploy-prod:
         git pull &&
         docker compose -f docker-compose.production.yml up --build -d --remove-orphans
       "
-  only:
-    - main
