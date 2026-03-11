@@ -14,6 +14,7 @@ import {
   ChatMessageCard,
   MemberAvatar,
 } from '@/features/reviews/components/review-chat/chat-message';
+import { capitalize } from '@/lib/capitalize';
 
 interface ChatDrawerProps {
   reviewId: number;
@@ -217,7 +218,7 @@ export function ChatDrawer({
                         </p>
                       </div>
                       <Badge variant="secondary" className="text-xs">
-                        {member.role}
+                        {capitalize(member.role)}
                       </Badge>
                     </div>
                   ))

@@ -95,7 +95,7 @@ export function CodingThemingSidebar({
   } = useCodingTheming(reviewId);
 
   const fetchReview = useFetchReview(reviewId);
-  const userRole = fetchReview.data?.userRole ?? 'Viewer';
+  const userRole = fetchReview.data?.userRole ?? 'viewer';
 
   // ── Section open/search state ─────────────────────────────────────────────
   const [codesOpen, setCodesOpen] = useState(true);

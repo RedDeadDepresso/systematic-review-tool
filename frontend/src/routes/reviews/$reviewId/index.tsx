@@ -87,9 +87,9 @@ function ReviewPage() {
 
   // ── Derived state ──────────────────────────────────────────────────────────
   const detectionStatus = data?.duplicateDetectionStatus;
-  const isPending = detectionStatus === 'Pending' || detectMutation.isPending;
-  const detectionDone = detectionStatus === 'Completed';
-  const detectionNotStarted = detectionStatus === 'Not Started';
+  const isPending = detectionStatus === 'pending' || detectMutation.isPending;
+  const detectionDone = detectionStatus === 'completed';
+  const detectionNotStarted = detectionStatus === 'not_started';
   const hasReferences = (data?.referenceCount ?? 0) > 0;
   const unresolvedCount = data?.duplicateClustersUnresolvedCount ?? 0;
   const totalClusters = data?.duplicateClustersCount ?? 0;
@@ -325,7 +325,7 @@ function ReviewPage() {
 
         <ScreeningCriteriaCard
           reviewId={reviewId}
-          userRole={data?.userRole || 'Viewer'}
+          userRole={data?.userRole || 'viewer'}
         />
 
         {/* Members — collapsible */}
@@ -349,7 +349,7 @@ function ReviewPage() {
               <div className="px-6 pb-6">
                 <ReviewMembersTable
                   data={fetchReviewMembers.data || []}
-                  userRole={data?.userRole || 'Viewer'}
+                  userRole={data?.userRole || 'viewer'}
                   reviewId={reviewId}
                   isLoading={fetchReviewMembers.isLoading}
                 />

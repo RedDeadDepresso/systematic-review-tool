@@ -21,20 +21,20 @@ export type ReviewPermission =
  * Define allowed roles for each permission
  */
 const permissions: Record<ReviewPermission, ReviewRole[]> = {
-  modifyReview: ['Owner'],
-  assign: ['Owner'],
-  invite: ['Owner'],
+  modifyReview: ['owner'],
+  assign: ['owner'],
+  invite: ['owner'],
 
-  modifyScreeningCriteria: ['Owner', 'Collaborator'],
-  uploadFiles: ['Owner', 'Collaborator'],
-  manageDuplicates: ['Owner', 'Collaborator'],
-  modifyThemesCodes: ['Owner', 'Collaborator'],
+  modifyScreeningCriteria: ['owner', 'collaborator'],
+  uploadFiles: ['owner', 'collaborator'],
+  manageDuplicates: ['owner', 'collaborator'],
+  modifyThemesCodes: ['owner', 'collaborator'],
 
-  modifyContent: ['Owner', 'Collaborator', 'Reviewer'],
-  modifyKeyword: ['Owner', 'Collaborator', 'Reviewer'],
-  modifyOpinion: ['Owner', 'Collaborator', 'Reviewer'],
-  modifyNote: ['Owner', 'Collaborator', 'Reviewer'],
-  addData: ['Owner', 'Collaborator'],
+  modifyContent: ['owner', 'collaborator', 'reviewer'],
+  modifyKeyword: ['owner', 'collaborator', 'reviewer'],
+  modifyOpinion: ['owner', 'collaborator', 'reviewer'],
+  modifyNote: ['owner', 'collaborator', 'reviewer'],
+  addData: ['owner', 'collaborator'],
 };
 
 /**

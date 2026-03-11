@@ -1,6 +1,6 @@
 import type { User } from '@/features/users/types/auth';
 
-export type ReviewRole = 'Owner' | 'Collaborator' | 'Reviewer' | 'Viewer';
+export type ReviewRole = 'owner' | 'collaborator' | 'reviewer' | 'viewer';
 
 export type ReviewMember = {
   id: number;
@@ -8,7 +8,7 @@ export type ReviewMember = {
   role: ReviewRole;
 };
 
-export type DuplicateDetectionStatus = 'Not Started' | 'Pending' | 'Completed';
+export type DuplicateDetectionStatus = 'not_started' | 'pending' | 'completed';
 
 export type Review = {
   title: string;
@@ -19,7 +19,7 @@ export type Review = {
   userMemberId: number;
   members: ReviewMember[];
   isBlinded: boolean;
-  duplicateDetectionStatus: string;
+  duplicateDetectionStatus: DuplicateDetectionStatus;
   duplicateClustersCount: number | null;
   duplicateClustersUnresolvedCount: number | null;
   duplicateResolvedCount: number;

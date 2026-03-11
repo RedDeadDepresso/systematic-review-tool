@@ -331,7 +331,7 @@ export function ScreeningFooter({
     {
       label: 'Include',
       icon: Check,
-      status: 'Included' as OpinionStatus,
+      status: 'included' as OpinionStatus,
       activeClassName:
         'bg-green-600 text-white border border-green-700 hover:bg-green-700',
       defaultClassName:
@@ -340,7 +340,7 @@ export function ScreeningFooter({
     {
       label: 'Maybe',
       icon: CircleQuestionMark,
-      status: 'Maybe' as OpinionStatus,
+      status: 'maybe' as OpinionStatus,
       activeClassName:
         'bg-yellow-500 text-white border border-yellow-600 hover:bg-yellow-600',
       defaultClassName:
@@ -349,7 +349,7 @@ export function ScreeningFooter({
     {
       label: 'Exclude',
       icon: X,
-      status: 'Excluded' as OpinionStatus,
+      status: 'excluded' as OpinionStatus,
       activeClassName:
         'bg-red-600 text-white border border-red-700 hover:bg-red-700',
       defaultClassName:
@@ -438,7 +438,7 @@ export function ScreeningFooter({
             </Button>
           }
           handleReasonApplied={(reasonId) =>
-            onOpinionApplied(selectedRefs, 'Excluded', reasonId)
+            onOpinionApplied(selectedRefs, 'excluded', reasonId)
           }
         />
         <ActionButtons

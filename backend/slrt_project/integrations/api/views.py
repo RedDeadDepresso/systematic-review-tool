@@ -1,15 +1,69 @@
+"""
+Views for the zotero_integration app.
+
+ViewSet inventory
+-----------------
+ZoteroIntegrationViewSet
+    Full CRUD for ZoteroIntegration, plus the following custom actions:
+
+    Standard CRUD
+        create          — validates via ZoteroConfigSerializer; rejects
+                          duplicate integrations for the same review.
+        update          — validates via ZoteroUpdateSerializer; enforces the
+                          sync_action guard when the library changes.
+        destroy         — requires an ``action`` param (keep/unlink/reset) and
+                          ``confirm=true`` for destructive actions.
+
+    Read actions
+        status          — returns is_configured, reference counts, last sync
+                          timestamps, and the 10 most recent sync log entries.
+        collections     — fetches all collections from the Zotero API.
+        deletion_preview — shows impact of each destroy action before commit.
+        task_status     — polls Celery task state by task ID.
+
+    Write actions
+        set_collection   — changes (or clears) the collection filter.
+        create_collection — creates a new collection in Zotero.
+        push            — enqueues push_references_to_zotero_task (async).
+        pull            — enqueues pull_references_from_zotero_task (async).
+        toggle_active   — enables or disables the integration.
+
+Helper
+------
+_reset_sync_data(review, action)
+    Clears Zotero metadata from references.  'reset' also removes PDFs;
+    'unlink' keeps PDFs.  Wrapped in a DB transaction.
+"""
+
 import logging
 
 from celery.result import AsyncResult
+from django.db import transaction
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from slrt_project.integrations.api.serializers import (
+    ZoteroCollectionsResponseSerializer,
     ZoteroConfigSerializer,
+    ZoteroCreateCollectionResponseSerializer,
+    ZoteroCreateCollectionSerializer,
+    ZoteroDeletionPreviewResponseSerializer,
+    ZoteroDestroyResponseSerializer,
     ZoteroIntegrationSerializer,
+    ZoteroPullSerializer,
+    ZoteroPushSerializer,
+    ZoteroSetCollectionResponseSerializer,
+    ZoteroSetCollectionSerializer,
+    ZoteroStatusResponseSerializer,
     ZoteroSyncLogSerializer,
+    ZoteroTaskResponseSerializer,
+    ZoteroTaskStatusResponseSerializer,
+    ZoteroToggleActiveResponseSerializer,
+    ZoteroUpdateResponseSerializer,
+    ZoteroUpdateSerializer,
 )
 from slrt_project.integrations.models import ZoteroIntegration, ZoteroSyncLog
 from slrt_project.integrations.services import ZoteroService
@@ -23,47 +77,84 @@ from slrt_project.references.models import Reference
 logger = logging.getLogger(__name__)
 
 
+# ===========================================================================
+# ZoteroIntegrationViewSet
+# ===========================================================================
+
+
+@extend_schema(tags=["Zotero Integration"])
 class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for managing Zotero integrations
+    Full CRUD + sync management for Zotero integrations.
+
+    Every review may have at most one integration.  The API key is always
+    encrypted at rest and is never returned in any response.
+
+    Filtering
+    ---------
+    ``?review=<pk>``  — optional on list; restricts results to a single review.
     """
 
     queryset = ZoteroIntegration.objects.all()
     serializer_class = ZoteroIntegrationSerializer
     permission_classes = [IsAuthenticated]
 
+    # ── Standard CRUD ─────────────────────────────────────────────────────
+
     def get_queryset(self):
-        """Filter integrations by review if provided"""
+        """
+        Return all integrations, optionally filtered to a single review.
+
+        ``?review=<pk>`` is optional on list — omitting it returns all
+        integrations visible to the caller (useful for admin UIs).
+        """
         queryset = super().get_queryset()
         review_id = self.request.query_params.get("review")
         if review_id:
             queryset = queryset.filter(review_id=review_id)
         return queryset
 
+    @extend_schema(
+        summary="Create a Zotero integration",
+        request=ZoteroConfigSerializer,
+        responses={
+            201: ZoteroIntegrationSerializer,
+            400: OpenApiResponse(
+                description="Validation error or duplicate integration"
+            ),
+        },
+    )
     def create(self, request, *args, **kwargs):
         """
-        Create a new Zotero integration
+        Create a new Zotero integration for a review.
+
+        Validates credentials via ZoteroConfigSerializer, rejects the request
+        if an integration already exists for the given review, then creates the
+        row with the API key encrypted via the model property setter.
         """
         serializer = ZoteroConfigSerializer(data=request.data)
-
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         review_id = serializer.validated_data["review"]
 
-        # Check if integration already exists
+        # Enforce the one-integration-per-review constraint at the API layer
+        # so callers receive a 400 (not a 500 from a DB unique violation).
         if ZoteroIntegration.objects.filter(review_id=review_id).exists():
             return Response(
                 {"error": "Zotero integration already exists for this review"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Create integration
+        # Assigning via integration.api_key (not _api_key) runs the Fernet
+        # encryption path before the row is written.
         integration = ZoteroIntegration.objects.create(
             review_id=review_id,
             library_id=serializer.validated_data["library_id"],
             api_key=serializer.validated_data["api_key"],
-            library_type=serializer.validated_data.get("library_type", "user"),
+            library_type=serializer.validated_data.get(
+                "library_type", ZoteroIntegration.LibraryType.USER
+            ),
             collection_key=serializer.validated_data.get("collection_key"),
             collection_name=serializer.validated_data.get("collection_name"),
             is_active=True,
@@ -74,44 +165,54 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
+    @extend_schema(
+        summary="Update a Zotero integration",
+        request=ZoteroUpdateSerializer,
+        responses={
+            200: ZoteroUpdateResponseSerializer,
+            400: OpenApiResponse(
+                description="Validation error or missing sync_action when library changes"
+            ),
+        },
+    )
     def update(self, request, *args, **kwargs):
-        """Update Zotero integration"""
+        """
+        Partially update an existing integration.
+
+        When ``library_id`` or ``library_type`` changes, ``sync_action``
+        must be one of ``reset`` / ``unlink`` / ``keep`` so the caller
+        explicitly chooses what happens to previously synced references.
+        """
         integration = self.get_object()
 
-        library_id = request.data.get("library_id")
-        api_key = request.data.get("api_key")
-        library_type = request.data.get("library_type")
-        sync_action = request.data.get("sync_action", "keep")
+        serializer = ZoteroUpdateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if library is changing
-        library_changing = (library_id and library_id != integration.library_id) or (
-            library_type and library_type != integration.library_type
+        data = serializer.validated_data
+        library_id = data.get("library_id")
+        api_key = data.get("api_key")
+        library_type = data.get("library_type")
+        sync_action = data.get("sync_action", "keep")
+
+        # Detect whether the target Zotero library is actually changing so we
+        # can enforce the sync_action guard and log accordingly.
+        # Wrapped in bool() because `None and expr` short-circuits to None, so
+        # `False or None` → None (not False) when library_type is absent.
+        library_changing = bool(
+            (library_id and library_id != integration.library_id)
+            or (library_type and library_type != integration.library_type)
         )
 
-        if library_changing:
-            # Library change detected - require explicit action
-            if sync_action not in ["reset", "unlink", "keep"]:
-                return Response(
-                    {
-                        "error": "Library configuration is changing",
-                        "message": (
-                            'You must specify sync_action: "reset" (clear all data), '
-                            '"unlink" (keep PDFs, clear keys), or "keep" (no changes)'
-                        ),
-                        "current_library_id": integration.library_id,
-                        "new_library_id": library_id,
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+        if library_changing and sync_action in ["reset", "unlink"]:
+            count = _reset_sync_data(integration.review, sync_action)
+            logger.info("Reset %d references with action '%s'", count, sync_action)
 
-            if sync_action in ["reset", "unlink"]:
-                count = self._reset_sync_data(integration.review, sync_action)
-                logger.info(f"Reset {count} references with action '{sync_action}'")
-
-        # Update fields
+        # Apply credential updates.
         if library_id:
             integration.library_id = library_id
         if api_key:
+            # Property setter encrypts before assignment.
             integration.api_key = api_key
         if library_type:
             integration.library_type = library_type
@@ -127,16 +228,44 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
             }
         )
 
+    @extend_schema(
+        summary="Delete a Zotero integration",
+        parameters=[
+            OpenApiParameter(
+                "action",
+                str,
+                description=(
+                    "How to handle synced references: "
+                    "'keep' (default) leaves data intact; "
+                    "'unlink' removes Zotero keys but keeps PDFs; "
+                    "'reset' removes keys and PDFs."
+                ),
+            ),
+            OpenApiParameter(
+                "confirm",
+                bool,
+                description="Must be 'true' for 'unlink' and 'reset' to proceed.",
+            ),
+        ],
+        responses={
+            200: ZoteroDestroyResponseSerializer,
+            400: OpenApiResponse(description="Invalid action or confirmation required"),
+        },
+    )
     def destroy(self, request, *args, **kwargs):
         """
-        Delete Zotero integration with configurable reference handling
+        Delete the integration with configurable reference handling.
+
+        Destructive actions (``unlink``, ``reset``) require ``?confirm=true``
+        so the caller acknowledges the impact shown in ``deletion_preview``.
+        Sync logs for the review are always deleted together with the
+        integration row.
         """
         integration = self.get_object()
-        action = request.query_params.get("action", "keep")
+        destroy_action = request.query_params.get("action", "keep")
         confirm = request.query_params.get("confirm", "false").lower() == "true"
 
-        # Validate action
-        if action not in ["keep", "unlink", "reset"]:
+        if destroy_action not in ["keep", "unlink", "reset"]:
             return Response(
                 {
                     "error": "Invalid action",
@@ -145,65 +274,155 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Require confirmation for destructive actions
-        if action in ["unlink", "reset"] and not confirm:
+        # Guard destructive actions behind an explicit confirmation flag.
+        if destroy_action in ["unlink", "reset"] and not confirm:
             references_count = Reference.objects.filter(
                 review=integration.review, zotero_key__isnull=False
             ).count()
-
             return Response(
                 {
                     "error": "Confirmation required",
-                    "message": f"This action will affect {references_count} synced references.",
+                    "message": (
+                        f"This action will affect {references_count} synced references."
+                    ),
                     "actions": {
                         "keep": "Keep all Zotero data and PDFs (safest)",
-                        "unlink": f"Remove Zotero keys from {references_count} references, keep PDFs",
-                        "reset": f"Remove Zotero keys AND PDFs from {references_count} references (destructive)",
+                        "unlink": (
+                            f"Remove Zotero keys from {references_count} references, keep PDFs"
+                        ),
+                        "reset": (
+                            f"Remove Zotero keys AND PDFs from {references_count} references (destructive)"
+                        ),
                     },
                     "confirm": "Add ?confirm=true to proceed",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Perform action on references
         affected_count = 0
-        if action != "keep":
-            affected_count = self._reset_sync_data(integration.review, action)
+        if destroy_action != "keep":
+            affected_count = _reset_sync_data(integration.review, destroy_action)
             logger.info(
-                f"Integration {integration.id} deleted with action '{action}'. "
-                f"Affected {affected_count} references."
+                "Integration %s deleted with action '%s'. Affected %d references.",
+                integration.id,
+                destroy_action,
+                affected_count,
             )
 
-        # Delete sync logs
+        # Remove all sync history for the review, then the integration itself.
         ZoteroSyncLog.objects.filter(review=integration.review).delete()
-
-        # Delete integration
         integration.delete()
 
         return Response(
             {
                 "message": "Zotero integration removed successfully",
-                "action_performed": action,
+                "action_performed": destroy_action,
                 "references_affected": affected_count,
                 "details": {
                     "keep": "All data kept intact",
                     "unlink": f"Unlinked {affected_count} references, kept PDFs",
                     "reset": f"Reset {affected_count} references, removed PDFs",
-                }.get(action),
+                }.get(destroy_action),
             }
         )
 
+    # ── Read actions ───────────────────────────────────────────────────────
+
+    @extend_schema(
+        summary="Get integration status and sync history",
+        responses={200: ZoteroStatusResponseSerializer},
+    )
+    @action(detail=True, methods=["get"])
+    def status(self, request, pk=None):
+        """
+        Return is_configured, reference counts, sync timestamps, and the
+        10 most recent sync log entries for this integration's review.
+        """
+        integration = self.get_object()
+
+        recent_syncs = ZoteroSyncLog.objects.filter(review=integration.review).order_by(
+            "-synced_at"
+        )[:10]
+
+        all_refs = Reference.objects.filter(review=integration.review)
+        total_refs = all_refs.count()
+        synced_refs = all_refs.filter(zotero_key__isnull=False).count()
+        with_pdfs = all_refs.exclude(file="").exclude(file__isnull=True).count()
+
+        return Response(
+            {
+                "is_configured": integration.is_configured,
+                "library_type": integration.library_type,
+                "collection_key": integration.collection_key,
+                "collection_name": integration.collection_name,
+                "last_push": integration.last_push_at,
+                "last_pull": integration.last_pull_at,
+                "last_sync_version": integration.last_sync_version,
+                "total_references": total_refs,
+                "synced_references": synced_refs,
+                "references_with_pdfs": with_pdfs,
+                "recent_syncs": ZoteroSyncLogSerializer(recent_syncs, many=True).data,
+            }
+        )
+
+    @extend_schema(
+        summary="List all collections in the Zotero library",
+        responses={
+            200: ZoteroCollectionsResponseSerializer,
+            400: OpenApiResponse(description="Integration not configured"),
+        },
+    )
+    @action(detail=True, methods=["get"])
+    def collections(self, request, pk=None):
+        """
+        Fetch all collections from the Zotero API for this integration.
+
+        Used to populate the collection picker in the UI.  Returns 400 if
+        the integration does not have valid credentials.
+        """
+        integration = self.get_object()
+
+        if not integration.is_configured:
+            return Response(
+                {"error": "Zotero integration not properly configured"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        library_id, api_key, library_type = integration.get_credentials()
+        zotero = ZoteroService(library_id, api_key, library_type)
+        raw_collections = zotero.get_collections()
+
+        return Response(
+            {
+                "collections": [
+                    {
+                        "key": col.get("key"),
+                        "version": col.get("version"),
+                        "name": col.get("data", {}).get("name", "Unnamed"),
+                        "parent_collection": col.get("data", {}).get(
+                            "parentCollection"
+                        ),
+                    }
+                    for col in raw_collections
+                ]
+            }
+        )
+
+    @extend_schema(
+        summary="Preview the impact of deleting this integration",
+        responses={200: ZoteroDeletionPreviewResponseSerializer},
+    )
     @action(detail=True, methods=["get"])
     def deletion_preview(self, request, pk=None):
         """
-        Preview what will happen when deleting this integration
+        Return a breakdown of how many references and PDFs each destroy
+        action would affect, without committing any changes.
         """
         integration = self.get_object()
 
         synced_refs = Reference.objects.filter(
             review=integration.review, zotero_key__isnull=False
         )
-
         synced_count = synced_refs.count()
         refs_with_pdfs = synced_refs.exclude(file="").exclude(file__isnull=True).count()
 
@@ -213,12 +432,14 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
                 "review_id": integration.review.id,
                 "synced_references": synced_count,
                 "references_with_pdfs": refs_with_pdfs,
-                "collection": {
-                    "key": integration.collection_key,
-                    "name": integration.collection_name,
-                }
-                if integration.collection_key
-                else None,
+                "collection": (
+                    {
+                        "key": integration.collection_key,
+                        "name": integration.collection_name,
+                    }
+                    if integration.collection_key
+                    else None
+                ),
                 "actions": {
                     "keep": {
                         "description": "Keep all Zotero data and PDFs (safest)",
@@ -239,307 +460,29 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
             }
         )
 
-    @action(detail=True, methods=["get"])
-    def status(self, request, pk=None):
-        """
-        Get integration status and sync history
-        """
-        integration = self.get_object()
-
-        # Get recent syncs
-        recent_syncs = ZoteroSyncLog.objects.filter(review=integration.review).order_by(
-            "-synced_at"
-        )[:10]
-
-        # Get reference counts
-        total_refs = Reference.objects.filter(review=integration.review).count()
-        synced_refs = Reference.objects.filter(
-            review=integration.review, zotero_key__isnull=False
-        ).count()
-
-        all_refs = Reference.objects.filter(review=integration.review)
-        with_pdfs = all_refs.exclude(file="").exclude(file__isnull=True).count()
-
-        status_data = {
-            "is_configured": integration.is_configured,
-            "library_type": integration.library_type,
-            "collection_key": integration.collection_key,
-            "collection_name": integration.collection_name,
-            "last_push": integration.last_push_at,
-            "last_pull": integration.last_pull_at,
-            "last_sync_version": integration.last_sync_version,
-            "total_references": total_refs,
-            "synced_references": synced_refs,
-            "references_with_pdfs": with_pdfs,
-            "recent_syncs": ZoteroSyncLogSerializer(recent_syncs, many=True).data,
-        }
-
-        return Response(status_data)
-
-    @action(detail=True, methods=["get"])
-    def collections(self, request, pk=None):
-        """
-        Get all collections from Zotero library
-        """
-        integration = self.get_object()
-
-        if not integration.is_configured:
-            return Response(
-                {"error": "Zotero integration not properly configured"},
-                status=status.HTTP_400_BAD_REQUEST,
+    @extend_schema(
+        summary="Poll status of an async push/pull task",
+        parameters=[
+            OpenApiParameter(
+                "task_id",
+                str,
+                location=OpenApiParameter.PATH,
+                description="Celery task ID returned by push or pull.",
             )
-
-        library_id, api_key, library_type = integration.get_credentials()
-        zotero = ZoteroService(library_id, api_key, library_type)
-
-        collections = zotero.get_collections()
-
-        # Format collections
-        formatted_collections = []
-        for col in collections:
-            formatted_collections.append(
-                {
-                    "key": col.get("key"),
-                    "version": col.get("version"),
-                    "name": col.get("data", {}).get("name", "Unnamed"),
-                    "parent_collection": col.get("data", {}).get("parentCollection"),
-                }
-            )
-
-        return Response({"collections": formatted_collections})
-
-    @action(detail=True, methods=["post"])
-    def set_collection(self, request, pk=None):
-        """Set which collection to sync from with optional sync action"""
-        integration = self.get_object()
-
-        collection_key = request.data.get("collection_key")
-        collection_name = request.data.get("collection_name")
-        sync_action = request.data.get("sync_action", "keep")
-
-        # Check if collection is actually changing
-        collection_changed = integration.collection_key != collection_key
-
-        # Perform sync action if collection changed and action specified
-        if collection_changed and sync_action in ["reset", "unlink"]:
-            count = self._reset_sync_data(integration.review, sync_action)
-            logger.info(
-                f"Collection changed with action '{sync_action}'. "
-                f"Affected {count} references."
-            )
-
-        # Update collection
-        integration.collection_key = collection_key
-        integration.collection_name = collection_name
-
-        # Reset sync version on collection change
-        if collection_changed:
-            integration.last_sync_version = 0
-            logger.info("Reset sync version due to collection change")
-
-        integration.save()
-
-        message = (
-            f"Collection filter set to: {collection_name}"
-            if collection_key
-            else "Collection filter removed. Will sync entire library."
-        )
-
-        if collection_changed:
-            if sync_action in ["reset", "unlink"]:
-                message += f" Sync data {sync_action}."
-            message += " Sync version reset - next pull will fetch all items."
-
-        return Response(
-            {
-                "message": message,
-                "collection_key": integration.collection_key,
-                "collection_name": integration.collection_name,
-                "sync_version_reset": collection_changed,
-                "sync_action_performed": sync_action if collection_changed else None,
-            }
-        )
-
-    def _reset_sync_data(self, review, action="reset"):
-        """Reset Zotero sync data"""
-        from django.db import transaction
-
-        references = Reference.objects.filter(review=review, zotero_key__isnull=False)
-
-        count = references.count()
-
-        with transaction.atomic():
-            if action == "reset":
-                # Clear everything
-                for ref in references:
-                    ref.zotero_key = None
-                    ref.zotero_version = 0
-                    ref.last_synced = None
-                    ref.file = ""  # Clear file
-                    ref.save()
-
-            elif action == "unlink":
-                # Keep PDFs, clear Zotero metadata
-                references.update(zotero_key=None, zotero_version=0, last_synced=None)
-
-        return count
-
-    @action(detail=True, methods=["post"])
-    def create_collection(self, request, pk=None):
-        """
-        Create a new collection in Zotero
-        """
-        integration = self.get_object()
-
-        if not integration.is_configured:
-            return Response(
-                {"error": "Zotero integration not properly configured"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        name = request.data.get("name")
-        parent_collection = request.data.get("parent_collection")
-        set_as_default = request.data.get("set_as_default", False)
-
-        if not name:
-            return Response(
-                {"error": "Collection name is required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        library_id, api_key, library_type = integration.get_credentials()
-        zotero = ZoteroService(library_id, api_key, library_type)
-
-        result = zotero.create_collection(name, parent_collection)
-
-        if result:
-            # Set as default collection if requested
-            if set_as_default:
-                # Check if collection is changing
-                collection_changed = integration.collection_key != result.get("key")
-
-                integration.collection_key = result.get("key")
-                integration.collection_name = name
-
-                # Reset sync version on collection change
-                if collection_changed:
-                    integration.last_sync_version = 0
-                    logger.info(
-                        f"Collection changed to newly created '{name}'. Reset sync version."
-                    )
-
-                integration.save()
-
-            return Response(
-                {
-                    "message": "Collection created successfully",
-                    "collection": {
-                        "key": result.get("key"),
-                        "name": name,
-                        "version": result.get("version"),
-                    },
-                    "set_as_default": set_as_default,
-                    "sync_version_reset": set_as_default,
-                }
-            )
-        else:
-            return Response(
-                {"error": "Failed to create collection"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    @action(detail=True, methods=["post"])
-    def push(self, request, pk=None):
-        """Push all unpushed references to Zotero (async task)"""
-        integration = self.get_object()
-
-        if not integration.is_configured:
-            return Response(
-                {"error": "Zotero integration not properly configured"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Get count of references to push
-        unpushed_count = Reference.objects.filter(
-            review=integration.review, zotero_key__isnull=True
-        ).count()
-
-        if unpushed_count == 0:
-            return Response({"message": "No references to push", "total_unpushed": 0})
-
-        # Calculate estimates based on 50 items per batch
-        estimated_batches = ((unpushed_count - 1) // 50) + 1
-        # ~1 second per batch = ~50 items per minute
-        estimated_time_minutes = round(unpushed_count / 50)
-
-        # Warn for very large batches
-        if unpushed_count > 500:
-            confirm = request.data.get("confirm", False)
-            if not confirm:
-                return Response(
-                    {
-                        "warning": f"You are about to push {unpushed_count} references in {estimated_batches} batches.",
-                        "message": 'Add "confirm": true to proceed',
-                        "total_unpushed": unpushed_count,
-                        "estimated_time_minutes": estimated_time_minutes,
-                        "estimated_batches": estimated_batches,
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        # Start async task
-        task = push_references_to_zotero_task.delay(integration.review.id)
-
-        return Response(
-            {
-                "message": f"Pushing {unpushed_count} references to Zotero",
-                "task_id": task.id,
-                "status": "processing",
-                "total_unpushed": unpushed_count,
-                "estimated_batches": estimated_batches,
-                "estimated_time_minutes": estimated_time_minutes,
-            },
-            status=status.HTTP_202_ACCEPTED,
-        )
-
-    @action(detail=True, methods=["post"])
-    def pull(self, request, pk=None):
-        """
-        Pull references from Zotero (async task)
-        """
-        integration = self.get_object()
-
-        if not integration.is_configured:
-            return Response(
-                {"error": "Zotero integration not properly configured"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        force = request.data.get("force", False)
-
-        # Start async task
-        task = pull_references_from_zotero_task.delay(integration.review.id, force)
-
-        return Response(
-            {
-                "message": "Pull from Zotero started",
-                "task_id": task.id,
-                "status": "processing",
-            },
-            status=status.HTTP_202_ACCEPTED,
-        )
-
+        ],
+        responses={200: ZoteroTaskStatusResponseSerializer},
+    )
     @action(detail=False, methods=["get"], url_path="task-status/(?P<task_id>[^/.]+)")
     def task_status(self, request, task_id=None, pk=None):
         """
-        Check status of an async task
+        Return the current state of a Celery task.
+
+        Callers should poll this endpoint after receiving a 202 from push or
+        pull until ``status`` is ``SUCCESS`` or ``FAILURE``.
         """
         task = AsyncResult(task_id)
 
-        response_data = {
-            "task_id": task_id,
-            "status": task.state,
-        }
+        response_data: dict = {"task_id": task_id, "status": task.state}
 
         if task.state == "PENDING":
             response_data["message"] = "Task is waiting to be processed"
@@ -556,10 +499,276 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
 
         return Response(response_data)
 
+    # ── Write actions ──────────────────────────────────────────────────────
+
+    @extend_schema(
+        summary="Change (or clear) the collection filter",
+        request=ZoteroSetCollectionSerializer,
+        responses={
+            200: ZoteroSetCollectionResponseSerializer,
+            400: OpenApiResponse(description="Validation error"),
+        },
+    )
+    @action(detail=True, methods=["post"])
+    def set_collection(self, request, pk=None):
+        """
+        Update the collection filter for this integration.
+
+        When the collection changes the sync version is reset to 0 so the
+        next pull re-fetches all items in the new collection from scratch.
+        ``sync_action`` controls what happens to references that were synced
+        from the previous collection.
+        """
+        integration = self.get_object()
+
+        serializer = ZoteroSetCollectionSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        collection_key = data.get("collection_key")
+        collection_name = data.get("collection_name")
+        sync_action = data.get("sync_action", "keep")
+
+        collection_changed = integration.collection_key != collection_key
+
+        if collection_changed and sync_action in ["reset", "unlink"]:
+            count = _reset_sync_data(integration.review, sync_action)
+            logger.info(
+                "Collection changed with action '%s'. Affected %d references.",
+                sync_action,
+                count,
+            )
+
+        integration.collection_key = collection_key
+        integration.collection_name = collection_name
+
+        if collection_changed:
+            integration.last_sync_version = 0
+            logger.info("Reset sync version due to collection change.")
+
+        integration.save()
+
+        message = (
+            f"Collection filter set to: {collection_name}"
+            if collection_key
+            else "Collection filter removed. Will sync entire library."
+        )
+        if collection_changed:
+            if sync_action in ["reset", "unlink"]:
+                message += f" Sync data {sync_action}."
+            message += " Sync version reset — next pull will fetch all items."
+
+        return Response(
+            {
+                "message": message,
+                "collection_key": integration.collection_key,
+                "collection_name": integration.collection_name,
+                "sync_version_reset": collection_changed,
+                "sync_action_performed": sync_action if collection_changed else None,
+            }
+        )
+
+    @extend_schema(
+        summary="Create a new Zotero collection",
+        request=ZoteroCreateCollectionSerializer,
+        responses={
+            200: ZoteroCreateCollectionResponseSerializer,
+            400: OpenApiResponse(
+                description="Integration not configured or name missing"
+            ),
+            500: OpenApiResponse(description="Zotero API error"),
+        },
+    )
+    @action(detail=True, methods=["post"])
+    def create_collection(self, request, pk=None):
+        """
+        Create a new collection in the Zotero library.
+
+        Optionally sets the new collection as the active sync filter
+        (``set_as_default=true``), which also resets ``last_sync_version``
+        so the next pull fetches all items in the new collection.
+        """
+        integration = self.get_object()
+
+        if not integration.is_configured:
+            return Response(
+                {"error": "Zotero integration not properly configured"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = ZoteroCreateCollectionSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        name = data["name"]
+        parent_collection = data.get("parent_collection")
+        set_as_default = data.get("set_as_default", False)
+
+        library_id, api_key, library_type = integration.get_credentials()
+        zotero = ZoteroService(library_id, api_key, library_type)
+        result = zotero.create_collection(name, parent_collection)
+
+        if not result:
+            return Response(
+                {"error": "Failed to create collection"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        if set_as_default:
+            collection_changed = integration.collection_key != result.get("key")
+            integration.collection_key = result.get("key")
+            integration.collection_name = name
+            if collection_changed:
+                integration.last_sync_version = 0
+                logger.info(
+                    "Collection changed to newly created '%s'. Reset sync version.",
+                    name,
+                )
+            integration.save()
+
+        return Response(
+            {
+                "message": "Collection created successfully",
+                "collection": {
+                    "key": result.get("key"),
+                    "name": name,
+                    "version": result.get("version"),
+                },
+                "set_as_default": set_as_default,
+                "sync_version_reset": set_as_default,
+            }
+        )
+
+    @extend_schema(
+        summary="Push unpushed references to Zotero (async)",
+        request=ZoteroPushSerializer,
+        responses={
+            202: ZoteroTaskResponseSerializer,
+            200: OpenApiResponse(description="No references to push"),
+            400: OpenApiResponse(
+                description="Integration not configured or large-batch confirmation required"
+            ),
+        },
+    )
+    @action(detail=True, methods=["post"])
+    def push(self, request, pk=None):
+        """
+        Enqueue a Celery task that pushes all references without a
+        ``zotero_key`` to the Zotero library.
+
+        When the unpushed count exceeds 500 the endpoint returns 400 with
+        a warning until the caller adds ``"confirm": true`` to the request
+        body.  Use the returned ``task_id`` to poll ``task_status``.
+        """
+        integration = self.get_object()
+
+        if not integration.is_configured:
+            return Response(
+                {"error": "Zotero integration not properly configured"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = ZoteroPushSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        unpushed_count = Reference.objects.filter(
+            review=integration.review, zotero_key__isnull=True
+        ).count()
+
+        if unpushed_count == 0:
+            return Response({"message": "No references to push", "total_unpushed": 0})
+
+        # ~50 items per batch, ~1 second per batch.
+        estimated_batches = ((unpushed_count - 1) // 50) + 1
+        estimated_time_minutes = round(unpushed_count / 50)
+
+        # Large-batch guard — prevent accidental very long operations.
+        if unpushed_count > 500 and not serializer.validated_data.get("confirm", False):
+            return Response(
+                {
+                    "warning": (
+                        f"You are about to push {unpushed_count} references "
+                        f"in {estimated_batches} batches."
+                    ),
+                    "message": 'Add "confirm": true to proceed',
+                    "total_unpushed": unpushed_count,
+                    "estimated_time_minutes": estimated_time_minutes,
+                    "estimated_batches": estimated_batches,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        task = push_references_to_zotero_task.delay(integration.review.id)
+
+        return Response(
+            {
+                "message": f"Pushing {unpushed_count} references to Zotero",
+                "task_id": task.id,
+                "status": "processing",
+                "total_unpushed": unpushed_count,
+                "estimated_batches": estimated_batches,
+                "estimated_time_minutes": estimated_time_minutes,
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    @extend_schema(
+        summary="Pull references from Zotero (async)",
+        request=ZoteroPullSerializer,
+        responses={
+            202: ZoteroTaskResponseSerializer,
+            400: OpenApiResponse(description="Integration not configured"),
+        },
+    )
+    @action(detail=True, methods=["post"])
+    def pull(self, request, pk=None):
+        """
+        Enqueue a Celery task that pulls new or updated items from Zotero.
+
+        ``force=true`` ignores ``last_sync_version`` and re-fetches
+        everything from the library.  Use the returned ``task_id`` to poll
+        ``task_status``.
+        """
+        integration = self.get_object()
+
+        if not integration.is_configured:
+            return Response(
+                {"error": "Zotero integration not properly configured"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = ZoteroPullSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        task = pull_references_from_zotero_task.delay(
+            integration.review.id,
+            serializer.validated_data.get("force", False),
+        )
+
+        return Response(
+            {
+                "message": "Pull from Zotero started",
+                "task_id": task.id,
+                "status": "processing",
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    @extend_schema(
+        summary="Enable or disable the integration",
+        responses={200: ZoteroToggleActiveResponseSerializer},
+    )
     @action(detail=True, methods=["post"])
     def toggle_active(self, request, pk=None):
         """
-        Enable/disable Zotero integration
+        Flip ``is_active`` on the integration.
+
+        Pass ``{"is_active": true/false}`` to set a specific state, or omit
+        the field to toggle the current value.
         """
         integration = self.get_object()
         is_active = request.data.get("is_active", not integration.is_active)
@@ -569,7 +778,52 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
 
         return Response(
             {
-                "message": f"Zotero integration {'enabled' if is_active else 'disabled'}",
+                "message": (
+                    f"Zotero integration {'enabled' if is_active else 'disabled'}"
+                ),
                 "is_active": integration.is_active,
             }
         )
+
+
+# ===========================================================================
+# Module-level helper
+# ===========================================================================
+
+
+def _reset_sync_data(review, action: str = "reset") -> int:
+    """
+    Clear Zotero sync metadata from references in *review*.
+
+    Parameters
+    ----------
+    review : Review
+        The review whose synced references should be modified.
+    action : str
+        ``'reset'`` — clears zotero_key, zotero_version, last_synced, and
+        deletes the PDF file field.
+        ``'unlink'`` — clears zotero_key, zotero_version, and last_synced
+        but leaves the PDF intact.
+
+    Returns
+    -------
+    int
+        Number of references affected.
+    """
+    references = Reference.objects.filter(review=review, zotero_key__isnull=False)
+    count = references.count()
+
+    with transaction.atomic():
+        if action == "reset":
+            # Full reset — strip everything including the uploaded PDF.
+            for ref in references:
+                ref.zotero_key = None
+                ref.zotero_version = 0
+                ref.last_synced = None
+                ref.file = ""
+                ref.save()
+        elif action == "unlink":
+            # Unlink only — keep PDFs, clear only the Zotero tracking fields.
+            references.update(zotero_key=None, zotero_version=0, last_synced=None)
+
+    return count

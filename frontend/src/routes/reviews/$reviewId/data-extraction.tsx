@@ -41,7 +41,7 @@ function RouteComponent() {
   const { setPageTitle, setIsAuthenticated, setScroll } =
     useContext(AppLayoutContext);
   const fetchReview = useFetchReview(reviewId);
-  const userRole = fetchReview.data?.userRole ?? 'Viewer';
+  const userRole = fetchReview.data?.userRole ?? 'viewer';
   const queryClient = useQueryClient();
 
   useEffect(() => {

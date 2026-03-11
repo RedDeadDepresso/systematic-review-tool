@@ -76,10 +76,10 @@ export function SourcesSidebar({
   onToggleCollapse,
 }: SourcesSidebarProps) {
   const duplicateStatuses = [
-    { key: 'Unresolved', icon: Clock, label: 'Unresolved' },
-    { key: 'Deleted', icon: Trash2, label: 'Deleted' },
-    { key: 'Not Duplicate', icon: XCircle, label: 'Not Duplicate' },
-    { key: 'Resolved', icon: CheckCircle, label: 'Resolved' },
+    { key: 'unresolved', icon: Clock, label: 'Unresolved' },
+    { key: 'deleted', icon: Trash2, label: 'Deleted' },
+    { key: 'notDuplicate', icon: XCircle, label: 'Not Duplicate' },
+    { key: 'resolved', icon: CheckCircle, label: 'Resolved' },
   ];
   const [deleteConfirmSearchMethod, setDeleteConfirmSearchMethod] =
     useState<SearchMethod | null>(null);
@@ -207,7 +207,7 @@ export function SourcesSidebar({
                       <Icon className="h-4 w-4 text-muted-foreground" />
                       {status.label}
                     </span>
-                    <span className="text-muted-foreground">{count}</span>
+                    <span className="text-muted-foreground">{count ?? 0}</span>
                   </button>
                 );
               })}

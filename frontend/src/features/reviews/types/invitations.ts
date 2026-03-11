@@ -1,4 +1,4 @@
-export type InvitationRole = 'Reviewer' | 'Viewer';
+export type InvitationRole = 'collaborator' | 'reviewer' | 'viewer';
 
 export interface Invitation {
   id: number;

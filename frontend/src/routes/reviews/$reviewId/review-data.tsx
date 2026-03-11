@@ -84,7 +84,7 @@ function RouteComponent() {
 
   // ── Review metadata ───────────────────────────────────────────────────────
   const fetchReview = useFetchReview(reviewId);
-  const userRole = fetchReview.data?.userRole ?? 'Viewer';
+  const userRole = fetchReview.data?.userRole ?? 'viewer';
 
   // ── Cache invalidation ────────────────────────────────────────────────────
   const invalidateQuery = useCallback(() => {
@@ -174,10 +174,10 @@ function RouteComponent() {
       onExport={handleExport}
       sourcesSidebar={{
         duplicateStatusCounts: filterCounts?.duplicateStatusCounts ?? {
-          Unresolved: 0,
-          Deleted: 0,
-          'Not Duplicate': 0,
-          Resolved: 0,
+          unresolved: 0,
+          deleted: 0,
+          notDuplicate: 0,
+          resolved: 0,
         },
         onAddReferences: () => fileUpload.setOpenUploadBibDialog(true),
         onDetectDuplicates: () =>

@@ -330,7 +330,7 @@ function RouteComponent() {
     }
   };
 
-  const userRole = fetchReview.data?.userRole ?? 'Viewer';
+  const userRole = fetchReview.data?.userRole ?? 'viewer';
 
   // ── Shared props passed to every SubThemeCard ─────────────────────────────
   const subThemeCardSharedProps = {

@@ -41,6 +41,9 @@ lint-backend:
     - cd backend
     - ruff check .
     - ruff format --check .
+  rules:
+    - changes:
+        - backend/**
 
 # =====================================================
 # FRONTEND LINT
@@ -64,6 +67,52 @@ lint-frontend:
     - pnpm install --frozen-lockfile
     - pnpm lint
     - pnpm format
+  rules:
+    - changes:
+        - frontend/**
+
+# =====================================================
+# BACKEND TEST
+# =====================================================
+
+test-backend:
+  stage: test
+  image: python:3.13-alpine
+  services:
+    - name: postgres:18.0-alpine3.22
+      alias: db
+  variables:
+    POSTGRES_DB: test_db
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+    POSTGRES_HOST: db
+    POSTGRES_PORT: 5432
+    DATABASE_URL: postgres://postgres:postgres@db:5432/test_db
+    DJANGO_SETTINGS_MODULE: config.settings.test
+  cache:
+    key:
+      files:
+        - backend/pyproject.toml
+        - backend/uv.lock
+    paths:
+      - .cache/uv/
+  before_script:
+    - apk add --no-cache build-base libpq
+    - pip install uv
+    - cd backend
+    - uv sync --frozen
+    - . .venv/bin/activate
+  script:
+    - pytest -n auto --cov=slrt_project --cov-report=xml --cov-report=term
+  artifacts:
+    when: always
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: backend/coverage.xml
+  rules:
+    - changes:
+        - backend/**
 
 # =====================================================
 # FRONTEND TEST
@@ -86,6 +135,9 @@ test-frontend:
     - cd frontend
     - pnpm install --frozen-lockfile
     - pnpm test --coverage
+  rules:
+    - changes:
+        - frontend/**
 
 # =====================================================
 # DEPLOY

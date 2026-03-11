@@ -6,6 +6,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { capitalize } from '@/lib/capitalize';
 
 interface OpinionBadgeProps {
   idx: number;
@@ -19,26 +20,26 @@ export function OpinionBadge({ idx, opinion }: OpinionBadgeProps) {
         <Badge
           className={cn(
             'flex items-center gap-1 text-xs',
-            opinion.status === 'Included' &&
+            opinion.status === 'included' &&
               'bg-green-50 text-green-700 border-green-200',
-            opinion.status === 'Maybe' &&
+            opinion.status === 'maybe' &&
               'bg-yellow-50 text-yellow-700 border-yellow-200',
-            opinion.status === 'Excluded' &&
+            opinion.status === 'excluded' &&
               'bg-red-50 text-red-700 border-red-200',
-            opinion.status === 'Undecided' &&
+            opinion.status === 'undecided' &&
               'bg-gray-50 text-gray-600 border-gray-200'
           )}
         >
-          {opinion.status === 'Included' && '✓'}
-          {opinion.status === 'Maybe' && '?'}
-          {opinion.status === 'Excluded' && '✕'}
+          {opinion.status === 'included' && '✓'}
+          {opinion.status === 'maybe' && '?'}
+          {opinion.status === 'excluded' && '✕'}
           <span>{opinion.member.user.firstName}</span>
           {opinion.reason && <span>- {opinion.reason}</span>}
         </Badge>
       </TooltipTrigger>
       <TooltipContent>
-        {opinion.status} by {opinion.member.user.email} at {opinion.updatedAt}{' '}
-        {idx === 0 && '(Most Recent)'}
+        {capitalize(opinion.status)} by {opinion.member.user.email} at{' '}
+        {opinion.updatedAt} {idx === 0 && '(Most Recent)'}
       </TooltipContent>
     </Tooltip>
   );

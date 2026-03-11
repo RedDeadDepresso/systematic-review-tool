@@ -61,6 +61,7 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer';
 import { useLocalStorage, useMediaQuery } from 'usehooks-ts';
+import { capitalize } from '@/lib/capitalize';
 
 interface FiltersSidebarProps {
   reviewId: number;
@@ -251,7 +252,7 @@ export function FiltersSidebar({
   fileCounts,
   assignees,
   searchMethods,
-  opinionStatuses = ['Included', 'Maybe', 'Excluded'],
+  opinionStatuses,
   selectedPublicationTypes,
   selectedPublicationYears,
   selectedFileStatus,
@@ -659,7 +660,7 @@ export function FiltersSidebar({
               {opinionStatuses.map((status) => (
                 <CheckboxItem
                   key={status}
-                  label={status}
+                  label={capitalize(status)}
                   checked={selectedOpinionStatuses.includes(status)}
                   onCheckedChange={() => onOpionStatusToggle(status)}
                 />

@@ -30,6 +30,7 @@ import {
   useDeclineInvitation,
   useDeleteInvitation,
 } from '@/features/reviews/hooks/use-review-invitations';
+import { capitalize } from '@/lib/capitalize';
 
 // ---------------------------------------------------------------------------
 // Shared table hook
@@ -120,6 +121,7 @@ function createReceivedColumns(): ColumnDef<Invitation>[] {
       header: ({ column }) => (
         <DataTableSortHeader column={column} label="Role" />
       ),
+      cell: ({ row }) => capitalize(row.original.role),
     },
     {
       id: 'actions',
@@ -130,6 +132,8 @@ function createReceivedColumns(): ColumnDef<Invitation>[] {
   ];
 }
 
+const receivedColumns = createReceivedColumns();
+
 export function ReceivedInvitationsTable({
   data,
   isLoading = false,
@@ -137,13 +141,12 @@ export function ReceivedInvitationsTable({
   data: Invitation[];
   isLoading?: boolean;
 }) {
-  const columns = React.useMemo(() => createReceivedColumns(), []);
-  const table = useInvitationTable(data, columns);
+  const table = useInvitationTable(data, receivedColumns);
 
   return (
     <DataTable
       table={table}
-      columns={columns}
+      columns={receivedColumns}
       isLoading={isLoading}
       showPagination={false}
     />
@@ -224,6 +227,7 @@ function createSentColumns(): ColumnDef<Invitation>[] {
       header: ({ column }) => (
         <DataTableSortHeader column={column} label="Role" />
       ),
+      cell: ({ row }) => capitalize(row.original.role),
     },
     {
       id: 'actions',
@@ -232,6 +236,8 @@ function createSentColumns(): ColumnDef<Invitation>[] {
   ];
 }
 
+const sentColumns = createSentColumns();
+
 export function SentInvitationsTable({
   data,
   isLoading = false,
@@ -239,7 +245,7 @@ export function SentInvitationsTable({
   data: Invitation[];
   isLoading?: boolean;
 }) {
-  const columns = React.useMemo(() => createSentColumns(), []);
+  const columns = sentColumns;
   const table = useInvitationTable(data, columns);
 
   return (

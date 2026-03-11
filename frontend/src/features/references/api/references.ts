@@ -73,10 +73,10 @@ export type SearchMethod = {
 };
 
 export type DuplicateStatusCounts = {
-  Unresolved: number;
-  Deleted: number;
-  'Not Duplicate': number;
-  Resolved: number;
+  unresolved: number;
+  deleted: number;
+  notDuplicate: number;
+  resolved: number;
 };
 
 export type FetchScreeningParams = {
@@ -230,7 +230,7 @@ export const updateReference = async ({
   reviewId: number;
   referenceId: number;
   payload: {
-    status: 'Undecided' | 'Excluded' | 'Maybe' | 'Included';
+    status: OpinionStatus;
   };
 }) => {
   const res = await api.patch(`/references/${referenceId}/`, payload);
