@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { SubTheme } from '@/features/coding/types/sub-themes';
 import type { MainTheme } from '@/features/coding/types/main-themes';
+import { errorMessageString } from '@/lib/error';
 
 export function useFetchSubThemes(reviewId: number) {
   return useQuery({
@@ -31,6 +32,9 @@ export function useCreateSubTheme() {
           return [...oldData, data];
         }
       );
+    },
+    onError: (error: any) => {
+      toast.error(`Failed to create sub theme: ${errorMessageString(error)}.`);
     },
   });
 }
@@ -70,6 +74,9 @@ export function useUpdateSubTheme() {
           oldData.map((theme) => (theme.id === data.id ? data : theme))
       );
     },
+    onError: (error: any) => {
+      toast.error(`Failed to update sub theme: ${errorMessageString(error)}.`);
+    },
   });
 }
 
@@ -93,6 +100,9 @@ export function useDeleteSubTheme() {
         ['reviews', variables.reviewId, 'sub-themes'],
         (oldData = []) => oldData.filter((theme) => theme.id !== variables.id)
       );
+    },
+    onError: (error: any) => {
+      toast.error(`Failed to delete sub theme: ${errorMessageString(error)}.`);
     },
   });
 }

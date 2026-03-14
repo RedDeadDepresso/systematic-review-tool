@@ -163,7 +163,7 @@ function ReviewPage() {
             <Card className="p-6">
               <div className="space-y-4">
                 <h3 className="text-center text-sm font-medium text-muted-foreground">
-                  Duplicates
+                  Imported References
                 </h3>
 
                 {isLoading ? (

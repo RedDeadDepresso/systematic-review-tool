@@ -1,3 +1,4 @@
+import { errorMessageString } from '@/lib/error';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getZoteroIntegration,
@@ -42,7 +43,7 @@ export const useCreateZoteroIntegration = () => {
     },
     onError: (error: any) => {
       toast.error(
-        error.response?.data?.error || 'Failed to configure Zotero integration'
+        `Failed to configure Zotero integration: ${errorMessageString(error)}.`
       );
     },
   });
@@ -63,7 +64,7 @@ export const useUpdateZoteroIntegration = (integrationId: number) => {
     },
     onError: (error: any) => {
       toast.error(
-        error.response?.data?.error || 'Failed to update Zotero integration'
+        `Failed to update Zotero integration: ${errorMessageString(error)}.`
       );
     },
   });
@@ -94,7 +95,7 @@ export const useDeleteZoteroIntegration = () => {
     },
     onError: (error: any) => {
       toast.error(
-        error.response?.data?.error || 'Failed to remove Zotero integration'
+        `Failed to remove Zotero integration: ${errorMessageString(error)}.`
       );
     },
   });
@@ -158,7 +159,7 @@ export const useSetZoteroCollection = (integrationId: number) => {
     },
     onError: (error: any) => {
       toast.error(
-        error.response?.data?.error || 'Failed to update collection filter'
+        `Failed to update collection filter: ${errorMessageString(error)}.`
       );
     },
   });
@@ -186,7 +187,7 @@ export const useCreateZoteroCollection = (integrationId: number) => {
       });
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to create collection');
+      toast.error(`Failed to create collection: ${errorMessageString(error)}.`);
     },
   });
 };
@@ -217,7 +218,7 @@ export const usePushToZotero = (integrationId: number) => {
       });
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to push to Zotero');
+      toast.error(`Failed to push to Zotero: ${errorMessageString(error)}.`);
     },
   });
 };
@@ -235,7 +236,7 @@ export const usePullFromZotero = (integrationId: number) => {
       });
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to pull from Zotero');
+      toast.error(`Failed to pull from Zotero: ${errorMessageString(error)}.`);
     },
   });
 };

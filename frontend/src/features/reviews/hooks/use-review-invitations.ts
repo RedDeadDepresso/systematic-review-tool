@@ -1,3 +1,4 @@
+import { errorMessageString } from '@/lib/error';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   sendInvitations,
@@ -15,7 +16,7 @@ export function useSendInvitations() {
     mutationFn: sendInvitations,
     onSuccess: () => toast.success('Invitations have been sent.'),
     onError: (error) =>
-      toast.error(`Failed to send invitations: ${error.message}`),
+      toast.error(`Failed to send invitations: ${errorMessageString(error)}.`),
   });
 }
 
@@ -50,6 +51,9 @@ export function useAcceptInvitation() {
         queryKey: ['reviews', { isActive: true }],
       });
     },
+    onError: (error: any) => {
+      toast.error(`Failed to accept invitation: ${errorMessageString(error)}.`);
+    },
   });
 }
 
@@ -62,6 +66,11 @@ export function useDeclineInvitation() {
       queryClient.setQueryData<Invitation[]>(
         ['invitations', 'received'],
         (oldData) => deleteOnSuccess(variables, oldData)
+      );
+    },
+    onError: (error: any) => {
+      toast.error(
+        `Failed to decline invitation: ${errorMessageString(error)}.`
       );
     },
   });
@@ -79,8 +88,10 @@ export const useDeleteInvitation = () => {
       );
       toast.success('Invitation deleted successfully.');
     },
-    onError: () => {
-      toast.error('Failed to delete invitations.');
+    onError: (error: any) => {
+      toast.error(
+        `Failed to delete invitations: ${errorMessageString(error)}.`
+      );
     },
   });
 };

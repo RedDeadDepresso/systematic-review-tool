@@ -1,3 +1,4 @@
+import { errorMessageString } from '@/lib/error';
 import {
   createScreeningCriteria,
   deleteScreeningCriteria,
@@ -38,8 +39,10 @@ export const useCreateScreeningCriteria = () => {
       );
     },
 
-    onError: () => {
-      toast.error('Failed to create screening criteria.');
+    onError: (error: any) => {
+      toast.error(
+        `Failed to create screening criteria: ${errorMessageString(error)}.`
+      );
     },
   });
 };
@@ -77,8 +80,10 @@ export const useUpdateScreeningCriteria = () => {
       );
     },
 
-    onError: () => {
-      toast.error('Failed to update screening criteria.');
+    onError: (error: any) => {
+      toast.error(
+        `Failed to update screening criteria: ${errorMessageString(error)}.`
+      );
     },
   });
 };
@@ -105,8 +110,10 @@ export const useDeleteScreeningCriteria = () => {
       );
     },
 
-    onError: () => {
-      toast.error('Failed to delete screening criteria.');
+    onError: (error: any) => {
+      toast.error(
+        `Failed to delete screening criteria: ${errorMessageString(error)}.`
+      );
     },
   });
 };

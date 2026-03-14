@@ -1,3 +1,4 @@
+import { errorMessageString } from '@/lib/error';
 import {
   fetchUploadedPDFs,
   uploadPDF,
@@ -5,7 +6,6 @@ import {
 } from '@/features/reviews/api/uploaded-pdfs';
 import type { UploadedPDF } from '@/features/references/types/uploaded-pdfs';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AxiosError } from 'axios';
 import { toast } from 'sonner';
 
 export const useFetchUploadedPDFs = (reviewId: number) => {
@@ -34,15 +34,8 @@ export const useUploadPDF = () => {
       );
     },
 
-    onError: (error: AxiosError) => {
-      const message =
-        error?.response?.data &&
-        typeof error.response.data === 'object' &&
-        'error' in error.response.data
-          ? (error.response.data as { error?: string }).error
-          : undefined;
-
-      if (message) toast.error(message);
+    onError: (error: any) => {
+      toast.error(`Failed to upload PDF: ${errorMessageString(error)}.`);
     },
   });
 };
@@ -66,8 +59,8 @@ export const useDeleteUploadedPDF = () => {
       );
     },
 
-    onError: () => {
-      toast.error('Failed to delete PDF.');
+    onError: (error: any) => {
+      toast.error(`Failed to delete PDF: ${errorMessageString(error)}.`);
     },
   });
 };

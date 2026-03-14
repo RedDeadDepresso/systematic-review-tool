@@ -1,3 +1,4 @@
+import { errorMessageString } from '@/lib/error';
 import {
   bulkSaveAnswers,
   deleteExtractionAnswer,
@@ -59,8 +60,8 @@ export const useSaveExtractionAnswer = () => {
         queryKey: ['extraction-answers', { referenceId: variables.reference }],
       });
     },
-    onError: () => {
-      toast.error('Failed to save answer.');
+    onError: (error: any) => {
+      toast.error(`Failed to save answer: ${errorMessageString(error)}.`);
     },
   });
 };
@@ -98,8 +99,8 @@ export const useDeleteExtractionAnswer = () => {
         ],
       });
     },
-    onError: () => {
-      toast.error('Failed to delete answer.');
+    onError: (error: any) => {
+      toast.error(`Failed to delete answer: ${errorMessageString(error)}.`);
     },
   });
 };
@@ -123,8 +124,8 @@ export const useBulkSaveAnswers = () => {
         queryKey: ['extraction-table'],
       });
     },
-    onError: () => {
-      toast.error('Failed to save answers.');
+    onError: (error: any) => {
+      toast.error(`Failed to save answers: ${errorMessageString(error)}.`);
     },
   });
 };

@@ -1,3 +1,4 @@
+import { errorMessageString } from '@/lib/error';
 import {
   createReason,
   deleteReason,
@@ -42,8 +43,8 @@ export const useCreateReason = () => {
       );
     },
 
-    onError: () => {
-      toast.error('Failed to create reason.');
+    onError: (error: any) => {
+      toast.error(`Failed to create reason: ${errorMessageString(error)}.`);
     },
   });
 };
@@ -77,8 +78,8 @@ export const useUpdateReason = () => {
       );
     },
 
-    onError: () => {
-      toast.error('Failed to update reason.');
+    onError: (error: any) => {
+      toast.error(`Failed to update reason: ${errorMessageString(error)}.`);
     },
   });
 };
@@ -103,8 +104,8 @@ export const useDeleteReason = () => {
       );
     },
 
-    onError: () => {
-      toast.error('Failed to delete reason.');
+    onError: (error: any) => {
+      toast.error(`Failed to delete reason: ${errorMessageString(error)}.`);
     },
   });
 };

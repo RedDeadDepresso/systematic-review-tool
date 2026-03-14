@@ -1,3 +1,4 @@
+import { errorMessageString } from '@/lib/error';
 import {
   createReview,
   deleteReview,
@@ -18,7 +19,6 @@ import {
   autoResolveDuplicates,
   type AutoResolveRequest,
 } from '@/features/reviews/api/reviews';
-import type { AxiosError } from 'axios';
 
 interface UseFetchReviewsParams {
   isActive: boolean;
@@ -68,6 +68,9 @@ export const useAddData = (reviewId: number) => {
       articleTypes: string[];
       labelIds: number[];
     }) => addData(reviewId, payload),
+    onError: (error: any) => {
+      toast.error(`Failed to add data: ${errorMessageString(error)}.`);
+    },
   });
 };
 
@@ -84,6 +87,9 @@ export const useCreateReview = () => {
           return [...oldData, data];
         }
       );
+    },
+    onError: (error: any) => {
+      toast.error(`Failed to create review: ${errorMessageString(error)}.`);
     },
   });
 };
@@ -104,6 +110,9 @@ export const useUpdateReview = () => {
       }
       toast.success('Review has been updated.');
     },
+    onError: (error: any) => {
+      toast.error(`Failed to update review: ${errorMessageString(error)}.`);
+    },
   });
 };
 
@@ -112,6 +121,9 @@ export const useUploadReviewReferences = () => {
     mutationFn: UploadReviewReferences,
     onSuccess: () => {
       toast.success('References have been uploaded.');
+    },
+    onError: (error: any) => {
+      toast.error(`Failed to upload references: ${errorMessageString(error)}.`);
     },
   });
 };
@@ -122,8 +134,8 @@ export const useDeleteReview = () => {
     onSuccess: () => {
       toast.success('Review deleted successfully.');
     },
-    onError: () => {
-      toast.error('Delete failed.');
+    onError: (error: any) => {
+      toast.error(`Failed to delete review: ${errorMessageString(error)}.`);
     },
   });
 };
@@ -145,15 +157,8 @@ export const useDetectDuplicateReferences = () => {
         };
       });
     },
-    onError: (error: unknown) => {
-      console.log('error', error);
-      const axiosError = error as AxiosError;
-      const data = axiosError?.response?.data;
-      const message =
-        data && typeof data === 'object' && 'detail' in data
-          ? (data as { detail?: string }).detail
-          : undefined;
-      if (message) toast.error(message);
+    onError: (error: any) => {
+      toast.error(`Failed to detect duplicates: ${errorMessageString(error)}.`);
     },
   });
 };
@@ -169,7 +174,7 @@ export const useAutoResolveDuplicates = (reviewId: number) => {
     },
     onError: (error: any) => {
       toast.error(
-        error.response?.data?.error || 'Failed to start auto-resolution'
+        `Failed to start auto-resolution: ${errorMessageString(error)}.`
       );
     },
   });

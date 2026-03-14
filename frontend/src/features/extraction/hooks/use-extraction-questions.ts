@@ -1,3 +1,4 @@
+import { errorMessageString } from '@/lib/error';
 import {
   createExtractionQuestion,
   deleteExtractionQuestion,
@@ -45,8 +46,8 @@ export const useCreateExtractionQuestion = () => {
       // Also invalidate the general questions query
       queryClient.invalidateQueries({ queryKey: ['extraction-questions'] });
     },
-    onError: () => {
-      toast.error('Failed to create question.');
+    onError: (error: any) => {
+      toast.error(`Failed to create question: ${errorMessageString(error)}.`);
     },
   });
 };
@@ -89,8 +90,8 @@ export const useUpdateExtractionQuestion = () => {
       );
       queryClient.invalidateQueries({ queryKey: ['extraction-questions'] });
     },
-    onError: () => {
-      toast.error('Failed to update question.');
+    onError: (error: any) => {
+      toast.error(`Failed to update question: ${errorMessageString(error)}.`);
     },
   });
 };
@@ -114,8 +115,8 @@ export const useDeleteExtractionQuestion = () => {
       );
       queryClient.invalidateQueries({ queryKey: ['extraction-questions'] });
     },
-    onError: () => {
-      toast.error('Failed to delete question.');
+    onError: (error: any) => {
+      toast.error(`Failed to delete question: ${errorMessageString(error)}.`);
     },
   });
 };

@@ -1,3 +1,4 @@
+import { errorMessageString } from '@/lib/error';
 import {
   deleteReviewMember,
   updateReviewMember,
@@ -47,8 +48,10 @@ export const useUpdateReviewMember = () => {
       toast.success('Member role updated.');
     },
 
-    onError: () => {
-      toast.error('Failed to update member role.');
+    onError: (error: any) => {
+      toast.error(
+        `Failed to update member role: ${errorMessageString(error)}.`
+      );
     },
   });
 };
@@ -71,8 +74,8 @@ export const useDeleteReviewMember = () => {
 
       toast.success('Member removed successfully.');
     },
-    onError: () => {
-      toast.error('Failed to remove member.');
+    onError: (error: any) => {
+      toast.error(`Failed to remove member: ${errorMessageString(error)}.`);
     },
   });
 };

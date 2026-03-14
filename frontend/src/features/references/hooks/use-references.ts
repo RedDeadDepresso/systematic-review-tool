@@ -1,3 +1,4 @@
+import { errorMessageString } from '@/lib/error';
 import {
   updateReference,
   fetchReference,
@@ -222,7 +223,9 @@ export const useAttachPDFsToReferences = () => {
 
     onError: (error: AxiosError) => {
       console.log(error);
-      toast.error('Failed to attach PDFs to references.');
+      toast.error(
+        `Failed to attach PDFs to references: ${errorMessageString(error)}.`
+      );
     },
   });
 };
@@ -234,7 +237,7 @@ export const useAssignReferences = () => {
       toast.success('References updated successfully.');
     },
     onError: (err: any) => {
-      toast.error(err?.message || 'Failed to assign references.');
+      toast.error(`Failed to assign references: ${errorMessageString(err)}.`);
     },
   });
 };
@@ -245,8 +248,8 @@ export const useAutoMatch = () => {
     onSuccess: (data) => {
       toast.success(`Matches: ${data.matched}. No matches: ${data.unmatched} `);
     },
-    onError: () => {
-      toast.error(`Error founding matches.`);
+    onError: (error: any) => {
+      toast.error(`Error founding matches: ${errorMessageString(error)}.`);
     },
   });
 };

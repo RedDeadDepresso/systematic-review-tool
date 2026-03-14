@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { Code } from '@/features/coding/types/codes';
 import type { SubTheme } from '@/features/coding/types/sub-themes';
+import { errorMessageString } from '@/lib/error';
 
 export function useFetchCodes(reviewId: number) {
   return useQuery({
@@ -31,6 +32,9 @@ export function useCreateCode() {
           return [...oldData, data];
         }
       );
+    },
+    onError: (error: any) => {
+      toast.error(`Failed to create code: ${errorMessageString(error)}.`);
     },
   });
 }
@@ -67,6 +71,9 @@ export function useUpdateCode() {
           oldData.map((code) => (code.id === data.id ? data : code))
       );
     },
+    onError: (error: any) => {
+      toast.error(`Failed to update code: ${errorMessageString(error)}.`);
+    },
   });
 }
 
@@ -90,6 +97,9 @@ export function useDeleteCode() {
         ['reviews', variables.reviewId, 'codes'],
         (old = []) => old.filter((code) => code.id !== variables.id)
       );
+    },
+    onError: (error: any) => {
+      toast.error(`Failed to delete code: ${errorMessageString(error)}.`);
     },
   });
 }

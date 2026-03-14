@@ -1,3 +1,4 @@
+import { errorMessageString } from '@/lib/error';
 import { bulkUpsertReferenceOpinions } from '@/features/references/api/reference-opinions';
 import type {
   OpinionStatus,
@@ -20,8 +21,10 @@ export const useBulkUpsertReferenceOpinions = () => {
     }) => {
       return bulkUpsertReferenceOpinions(payload);
     },
-    onError: () => {
-      toast.error('Failed to update reference.');
+    onError: (error: any) => {
+      toast.error(
+        `Failed to update reference opinions: ${errorMessageString(error)}.`
+      );
     },
   });
 };

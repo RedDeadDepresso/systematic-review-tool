@@ -1,3 +1,4 @@
+import { errorMessageString } from '@/lib/error';
 import {
   createKeyword,
   deleteKeyword,
@@ -33,6 +34,9 @@ export const useCreateKeyword = () => {
         }
       );
     },
+    onError: (error: any) => {
+      toast.error(`Failed to create keyword: ${errorMessageString(error)}.`);
+    },
   });
 };
 
@@ -54,8 +58,8 @@ export const useDeleteKeyword = () => {
         }
       );
     },
-    onError: () => {
-      toast.error('Delete failed.');
+    onError: (error: any) => {
+      toast.error(`Failed to delete keyword: ${errorMessageString(error)}.`);
     },
   });
 };

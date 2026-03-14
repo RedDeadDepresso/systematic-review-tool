@@ -1,3 +1,4 @@
+import { errorMessageString } from '@/lib/error';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -28,8 +29,8 @@ export const useBatchUpdateAnswers = () => {
       // Invalidate table data to refetch
       queryClient.invalidateQueries({ queryKey: ['extraction-table'] });
     },
-    onError: () => {
-      toast.error('Failed to save answers.');
+    onError: (error: any) => {
+      toast.error(`Failed to save answers: ${errorMessageString(error)}.`);
     },
   });
 };
@@ -38,8 +39,8 @@ export const useBatchUpdateAnswers = () => {
 export const useSaveExtractionAnswer = () => {
   return useMutation({
     mutationFn: saveExtractionAnswer,
-    onError: () => {
-      toast.error('Failed to save answer.');
+    onError: (error: any) => {
+      toast.error(`Failed to save answer: ${errorMessageString(error)}.`);
     },
   });
 };
@@ -51,8 +52,8 @@ export const useDownloadCSVFile = () => {
     onSuccess: () => {
       toast.success('CSV exported successfully.');
     },
-    onError: () => {
-      toast.error('Failed to export CSV.');
+    onError: (error: any) => {
+      toast.error(`Failed to export CSV: ${errorMessageString(error)}.`);
     },
   });
 };
@@ -98,10 +99,12 @@ export const useBulkUpdateExtractionStatus = () => {
         : 'incomplete';
       toast.success(`${data.updatedCount} reference(s) marked as ${action}.`);
     },
-    onError: (_, __, context) => {
+    onError: (error: any, __, context) => {
       // Rollback on error
       queryClient.setQueryData(['extraction-table'], context?.previousData);
-      toast.error('Failed to update extraction status.');
+      toast.error(
+        `Failed to update extraction status: ${errorMessageString(error)}.`
+      );
     },
     onSettled: () => {
       // Refetch to ensure sync

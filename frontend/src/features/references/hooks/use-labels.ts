@@ -1,3 +1,4 @@
+import { errorMessageString } from '@/lib/error';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -35,6 +36,9 @@ export function useCreateLabel() {
         data,
       ]);
     },
+    onError: (error: any) => {
+      toast.error(`Failed to create label: ${errorMessageString(error)}.`);
+    },
   });
 }
 
@@ -51,6 +55,9 @@ export function useUpdateLabel() {
       queryClient.setQueryData<Label[]>(['labels'], (oldData = []) =>
         oldData.map((label) => (label.id === data.id ? data : label))
       );
+    },
+    onError: (error: any) => {
+      toast.error(`Failed to update label: ${errorMessageString(error)}.`);
     },
   });
 }
@@ -69,6 +76,9 @@ export function useDeleteLabel() {
         oldData.filter((label) => label.id !== variables)
       );
     },
+    onError: (error: any) => {
+      toast.error(`Failed to delete label: ${errorMessageString(error)}.`);
+    },
   });
 }
 
@@ -81,8 +91,8 @@ export function useAssignLabelsToReferences() {
         `Labels applied: ${data.created} created, ${data.deleted} removed`
       );
     },
-    onError: () => {
-      toast.error('Failed to apply labels');
+    onError: (error: any) => {
+      toast.error(`Failed to apply labels: ${errorMessageString(error)}.`);
     },
   });
 }

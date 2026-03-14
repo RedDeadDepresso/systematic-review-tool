@@ -1,3 +1,4 @@
+import { errorMessageString } from '@/lib/error';
 import {
   bulkCreateNote,
   createNote,
@@ -37,6 +38,9 @@ export const useCreateNote = () => {
         }
       );
     },
+    onError: (error: any) => {
+      toast.error(`Failed to create note: ${errorMessageString(error)}.`);
+    },
   });
 };
 
@@ -52,7 +56,8 @@ export const useBulkCreateNote = () => {
         });
       }
     },
-    onError: () => toast.error('Failed to create notes.'),
+    onError: (error: any) =>
+      toast.error(`Failed to create notes: ${errorMessageString(error)}.`),
   });
 };
 
@@ -83,8 +88,8 @@ export const useUpdateNote = () => {
       );
     },
 
-    onError: () => {
-      toast.error('Failed to update note.');
+    onError: (error: any) => {
+      toast.error(`Failed to update note: ${errorMessageString(error)}.`);
     },
   });
 };
@@ -108,8 +113,8 @@ export const useDeleteNote = () => {
       );
     },
 
-    onError: () => {
-      toast.error('Failed to delete note.');
+    onError: (error: any) => {
+      toast.error(`Failed to delete note: ${errorMessageString(error)}.`);
     },
   });
 };

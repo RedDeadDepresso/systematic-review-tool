@@ -1,3 +1,4 @@
+import { errorMessageString } from '@/lib/error';
 import {
   createExtractionSection,
   deleteExtractionSection,
@@ -35,8 +36,10 @@ export const useCreateExtractionSection = () => {
         }
       );
     },
-    onError: () => {
-      toast.error('Failed to create extraction section.');
+    onError: (error: any) => {
+      toast.error(
+        `Failed to create extraction section: ${errorMessageString(error)}.`
+      );
     },
   });
 };
@@ -68,8 +71,10 @@ export const useUpdateExtractionSection = () => {
         }
       );
     },
-    onError: () => {
-      toast.error('Failed to update extraction section.');
+    onError: (error: any) => {
+      toast.error(
+        `Failed to update extraction section: ${errorMessageString(error)}.`
+      );
     },
   });
 };
@@ -92,8 +97,10 @@ export const useDeleteExtractionSection = () => {
         }
       );
     },
-    onError: () => {
-      toast.error('Failed to delete extraction section.');
+    onError: (error: any) => {
+      toast.error(
+        `Failed to delete extraction section: ${errorMessageString(error)}.`
+      );
     },
   });
 };

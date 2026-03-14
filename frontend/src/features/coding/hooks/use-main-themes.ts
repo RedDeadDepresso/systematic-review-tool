@@ -7,6 +7,7 @@ import {
   updateMainTheme,
 } from '@/features/coding/api/main-themes';
 import type { MainTheme } from '@/features/coding/types/main-themes';
+import { errorMessageString } from '@/lib/error';
 
 export function useFetchMainThemes(reviewId: number) {
   return useQuery({
@@ -31,6 +32,9 @@ export function useCreateMainTheme() {
         }
       );
     },
+    onError: (error: any) => {
+      toast.error(`Failed to create main theme: ${errorMessageString(error)}.`);
+    },
   });
 }
 
@@ -47,6 +51,9 @@ export function useUpdateMainTheme() {
           oldData.map((theme) => (theme.id === data.id ? data : theme))
       );
     },
+    onError: (error: any) => {
+      toast.error(`Failed to update main theme: ${errorMessageString(error)}.`);
+    },
   });
 }
 
@@ -62,6 +69,9 @@ export function useDeleteMainTheme() {
         ['reviews', variables.reviewId, 'main-themes'],
         (oldData = []) => oldData.filter((theme) => theme.id !== variables.id)
       );
+    },
+    onError: (error: any) => {
+      toast.error(`Failed to delete main theme: ${errorMessageString(error)}.`);
     },
   });
 }

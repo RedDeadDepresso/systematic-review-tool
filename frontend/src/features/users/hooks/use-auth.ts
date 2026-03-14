@@ -1,3 +1,4 @@
+import { errorMessageString } from '@/lib/error';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   changePassword,
@@ -61,7 +62,7 @@ export const useChangePassword = () => {
       toast.success(data.detail || 'Password changed successfully.');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.detail || 'Failed to change password.');
+      toast.error(`Failed to change password: ${errorMessageString(error)}.`);
     },
   });
 };
@@ -77,7 +78,7 @@ export const useRequestPasswordReset = () => {
     },
     onError: (error: any) => {
       toast.error(
-        error.response?.data?.detail || 'Failed to send reset email.'
+        `Failed to request reset password: ${errorMessageString(error)}.`
       );
     },
   });
@@ -94,10 +95,7 @@ export const useConfirmPasswordReset = () => {
       router.navigate({ to: '/login' });
     },
     onError: (error: any) => {
-      toast.error(
-        error.response?.data?.detail ||
-          'Failed to reset password. Link may be expired.'
-      );
+      toast.error(`Failed to reset password: ${errorMessageString(error)}.`);
     },
   });
 };
@@ -112,7 +110,7 @@ export const useUpdateUser = () => {
       queryClient.setQueryData(['user'], data);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.detail || 'Failed to Edit Profile.');
+      toast.error(`Failed to edit profile: ${errorMessageString(error)}.`);
     },
   });
 };
@@ -127,7 +125,7 @@ export const useDeleteUser = () => {
       queryClient.setQueryData(['user'], null);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.detail || 'Failed to Delete Profile.');
+      toast.error(`Failed to delete profile: ${errorMessageString(error)}.`);
     },
   });
 };
