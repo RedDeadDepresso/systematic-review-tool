@@ -1,4 +1,3 @@
-import { errorMessageString } from '@/lib/error';
 import {
   updateReference,
   fetchReference,
@@ -26,10 +25,12 @@ import {
 } from '@tanstack/react-query';
 import type { AxiosError } from 'axios';
 import { toast } from 'sonner';
+import { onMutationError } from '@/lib/query-helpers';
+import { uploadedPdfKeys } from '@/features/references/hooks/use-uploaded-pdfs';
+import { codeKeys } from '@/features/coding/hooks/use-codes';
 
 // ─── Query keys ────────────────────────────────────────────────────────────────
 
-// Updated referenceKeys to include endpoint
 export const referenceKeys = {
   list: (
     params: FetchReviewDataParams,
@@ -39,29 +40,17 @@ export const referenceKeys = {
     reviewId: number,
     endpoint: ReferencesEndpoint = ENDPOINTS.reviewData
   ) => ['reviews', reviewId, endpoint, 'filter-counts'] as const,
+  detail: (id: number) => ['references', id] as const,
+  byReview: (reviewId: number) => ['reviews', reviewId, 'references'] as const,
 };
 
-// ─── Infinite references (pagination + sort) ───────────────────────────────────
+// ─── Infinite references ───────────────────────────────────────────────────────
 
-/**
- * Infinite scroll hook for the references table.
- *
- * Usage in the component:
- *
- *   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
- *     useFetchReferences(params);
- *
- *   // Flatten pages into a single array:
- *   const references = data?.pages.flatMap(p => p.references) ?? [];
- *
- * Trigger fetchNextPage when the user scrolls near the bottom of the list.
- */
 export const useFetchReferences = <T extends Reference = Reference>(
   params: Omit<FetchReviewDataParams | FetchScreeningParams, 'offset'>,
   endpoint: ReferencesEndpoint | string = ENDPOINTS.reviewData
 ) => {
   const PAGE_SIZE = params.limit ?? 50;
-
   return useInfiniteQuery<
     FetchReferencesResponse<T>,
     Error,
@@ -69,13 +58,10 @@ export const useFetchReferences = <T extends Reference = Reference>(
     readonly [string, number, string, string, object],
     number
   >({
-    queryKey: [
-      'reviews',
-      params.review,
-      endpoint,
-      'references',
-      { ...params, limit: PAGE_SIZE },
-    ] as const,
+    queryKey: referenceKeys.list(
+      { ...params, limit: PAGE_SIZE } as FetchReviewDataParams,
+      endpoint as ReferencesEndpoint
+    ),
     queryFn: ({ pageParam }) =>
       fetchReferences(
         { ...params, limit: PAGE_SIZE, offset: pageParam },
@@ -92,16 +78,12 @@ export const useFetchReferences = <T extends Reference = Reference>(
   });
 };
 
-/**
- * Selector to flatten all pages into a single reference array.
- * Memoised by React Query's structural equality check on `data`.
- */
+/** Flatten all pages into a single reference array. */
 export const selectFlatReferences = <T extends Reference = Reference>(
   data: InfiniteData<FetchReferencesResponse<T>> | undefined
 ): T[] => data?.pages.flatMap((p) => p.references) ?? [];
-/**
- * Get counts from the first page (same for all pages).
- */
+
+/** Extract count metadata from the first page. */
 export const selectPageMeta = (
   data: InfiniteData<FetchReferencesResponse> | undefined
 ) =>
@@ -113,39 +95,39 @@ export const selectPageMeta = (
       }
     : { totalCount: 0, filteredCount: 0, totalMatchingCount: 0 };
 
-// ─── Filter counts (sidebar aggregations) ─────────────────────────────────────
+// ─── Filter counts ─────────────────────────────────────────────────────────────
 
 export const useFetchFilterCounts = (
   reviewId: number,
   endpoint: ReferencesEndpoint | string = ENDPOINTS.reviewData
 ) =>
   useQuery({
-    queryKey: ['reviews', reviewId, endpoint, 'filter-counts'] as const,
+    queryKey: referenceKeys.filterCounts(
+      reviewId,
+      endpoint as ReferencesEndpoint
+    ),
     queryFn: () => fetchFilterCounts(reviewId, endpoint),
     staleTime: 2 * 60 * 1000,
     enabled: !!reviewId,
   });
 
-export const useFetchReference = (id: number) => {
-  return useQuery({
-    queryKey: ['references', id],
+export const useFetchReference = (id: number) =>
+  useQuery({
+    queryKey: referenceKeys.detail(id),
     queryFn: () => fetchReference(id),
   });
-};
 
 export const useUpdateReference = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: updateReference,
-    onSuccess: (updatedReference, { reviewId: reviewId }) => {
-      queryClient.setQueryData(
-        ['reviews', reviewId, 'references'],
-        (oldData: []) => {
-          if (!oldData) return oldData;
-          return oldData.map((ref: Reference) =>
+    onSuccess: (updatedReference, { reviewId }) => {
+      queryClient.setQueryData<Reference[]>(
+        referenceKeys.byReview(reviewId),
+        (old = []) =>
+          old.map((ref) =>
             ref.id === updatedReference.id ? updatedReference : ref
-          );
-        }
+          )
       );
     },
   });
@@ -155,16 +137,14 @@ export const useUploadReferenceFile = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: uploadReferenceFile,
-    onSuccess: (updatedReference, { reviewId: reviewId }) => {
-      toast.success(`Reference file has been uploaded.`);
-      queryClient.setQueryData(
-        ['reviews', reviewId, 'references'],
-        (oldData: []) => {
-          if (!oldData) return oldData;
-          return oldData.map((ref: Reference) =>
+    onSuccess: (updatedReference, { reviewId }) => {
+      toast.success('Reference file has been uploaded.');
+      queryClient.setQueryData<Reference[]>(
+        referenceKeys.byReview(reviewId),
+        (old = []) =>
+          old.map((ref) =>
             ref.id === updatedReference.id ? updatedReference : ref
-          );
-        }
+          )
       );
     },
     onError: (error: AxiosError) => {
@@ -181,75 +161,52 @@ export const useUploadReferenceFile = () => {
 
 export const useAttachPDFsToReferences = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: attachPDFsToReferences,
-
     onSuccess: ({ updatedReferences }, { reviewId }) => {
       toast.success('PDFs have been successfully attached to references.');
-      // Update references cache
-      queryClient.setQueryData(
-        ['reviews', reviewId, 'references'],
-        (oldData: Reference[] | undefined) => {
-          if (!oldData) return oldData;
 
-          return oldData.map((ref) => {
+      queryClient.setQueryData<Reference[]>(
+        referenceKeys.byReview(reviewId),
+        (old = []) =>
+          old.map((ref) => {
             const updated = updatedReferences.find(
               (u: { id: number }) => u.id === ref.id
             );
             return updated ? { ...ref, file: updated.file } : ref;
-          });
-        }
+          })
       );
 
-      // Remove deleted uploaded PDFs from cache
-      queryClient.setQueryData(
-        ['reviews', reviewId, 'uploaded-pdfs'],
-        (oldData: UploadedPDF[] | undefined) => {
-          if (!oldData) return oldData;
-
-          // Remove PDFs that were attached
-          const deletedIds = updatedReferences.map(
-            (u: { uploadedPdfId: number }) => u.uploadedPdfId
-          );
-          return oldData.filter((pdf) => !deletedIds.includes(pdf.id));
-        }
+      const deletedIds = updatedReferences.map(
+        (u: { uploadedPdfId: number }) => u.uploadedPdfId
+      );
+      queryClient.setQueryData<UploadedPDF[]>(
+        uploadedPdfKeys.list(reviewId),
+        (old = []) => old.filter((pdf) => !deletedIds.includes(pdf.id))
       );
 
-      queryClient.invalidateQueries({
-        queryKey: ['reviews', reviewId, 'codes'],
-      });
+      queryClient.invalidateQueries({ queryKey: codeKeys.list(reviewId) });
     },
-
     onError: (error: AxiosError) => {
       console.log(error);
       toast.error(
-        `Failed to attach PDFs to references: ${errorMessageString(error)}`
+        `Failed to attach PDFs to references: ${error?.message ?? error}`
       );
     },
   });
 };
 
-export const useAssignReferences = () => {
-  return useMutation({
+export const useAssignReferences = () =>
+  useMutation({
     mutationFn: (params: AssignReferencesPayload) => assignReferences(params),
-    onSuccess: () => {
-      toast.success('References updated successfully.');
-    },
-    onError: (err: any) => {
-      toast.error(`Failed to assign references: ${errorMessageString(err)}.`);
-    },
+    onSuccess: () => toast.success('References updated successfully.'),
+    onError: onMutationError('assign references'),
   });
-};
 
-export const useAutoMatch = () => {
-  return useMutation({
+export const useAutoMatch = () =>
+  useMutation({
     mutationFn: autoMatch,
-    onSuccess: (data) => {
-      toast.success(`Matches: ${data.matched}. No matches: ${data.unmatched} `);
-    },
-    onError: (error: any) => {
-      toast.error(`Error founding matches: ${errorMessageString(error)}`);
-    },
+    onSuccess: (data) =>
+      toast.success(`Matches: ${data.matched}. No matches: ${data.unmatched} `),
+    onError: onMutationError('find matches'),
   });
-};

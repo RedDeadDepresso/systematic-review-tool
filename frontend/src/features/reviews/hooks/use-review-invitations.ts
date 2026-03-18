@@ -1,5 +1,5 @@
-import { errorMessageString } from '@/lib/error';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import {
   sendInvitations,
   fetchInvitations,
@@ -7,53 +7,48 @@ import {
   declineInvitation,
   deleteInvitation,
 } from '@/features/reviews/api/review-invitations';
-import { toast } from 'sonner';
 import type { Invitation } from '@/features/reviews/types/invitations';
+import { cacheRemove, onMutationError } from '@/lib/query-helpers';
+import { reviewKeys } from '@/features/reviews/hooks/use-reviews';
 
-// Send Invite Hook
+export const invitationKeys = {
+  list: (type: 'received' | 'sent') => ['invitations', type] as const,
+};
+
 export function useSendInvitations() {
   return useMutation({
     mutationFn: sendInvitations,
     onSuccess: () => toast.success('Invitations have been sent.'),
-    onError: (error) =>
-      toast.error(`Failed to send invitations: ${errorMessageString(error)}`),
+    onError: onMutationError('send invitations'),
   });
 }
 
-// Fetch Invite Hook
 export function useFetchInvitations(
   type: 'received' | 'sent',
   enabled: boolean
 ) {
   return useQuery<Invitation[], Error>({
-    queryKey: ['invitations', type],
+    queryKey: invitationKeys.list(type),
     queryFn: () => fetchInvitations(type),
-    enabled: enabled,
+    enabled,
   });
 }
-
-const deleteOnSuccess = (deleteId: number, oldData?: Invitation[]) => {
-  if (!oldData) return [];
-  return oldData.filter((inv) => inv.id !== deleteId);
-};
 
 export function useAcceptInvitation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: acceptInvitation,
-    onSuccess: (_, variables) => {
+    onSuccess: (_, id) => {
       toast.success('Successfully accepted invitation.');
       queryClient.setQueryData<Invitation[]>(
-        ['invitations', 'received'],
-        (oldData) => deleteOnSuccess(variables, oldData)
+        invitationKeys.list('received'),
+        cacheRemove(id)
       );
       queryClient.invalidateQueries({
-        queryKey: ['reviews', { isActive: true }],
+        queryKey: reviewKeys.list({ isActive: true }),
       });
     },
-    onError: (error: any) => {
-      toast.error(`Failed to accept invitation: ${errorMessageString(error)}`);
-    },
+    onError: onMutationError('accept invitation'),
   });
 }
 
@@ -61,33 +56,28 @@ export function useDeclineInvitation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: declineInvitation,
-    onSuccess: (_, variables) => {
+    onSuccess: (_, id) => {
       toast.success('Successfully declined Invitation.');
       queryClient.setQueryData<Invitation[]>(
-        ['invitations', 'received'],
-        (oldData) => deleteOnSuccess(variables, oldData)
+        invitationKeys.list('received'),
+        cacheRemove(id)
       );
     },
-    onError: (error: any) => {
-      toast.error(`Failed to decline invitation: ${errorMessageString(error)}`);
-    },
+    onError: onMutationError('decline invitation'),
   });
 }
 
 export const useDeleteInvitation = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: deleteInvitation,
-    onSuccess: (_, variables) => {
-      queryClient.setQueryData(
-        ['invitations', 'sent'],
-        (oldData: Invitation[]) => deleteOnSuccess(variables, oldData)
+    onSuccess: (_, id) => {
+      queryClient.setQueryData<Invitation[]>(
+        invitationKeys.list('sent'),
+        cacheRemove(id)
       );
       toast.success('Invitation deleted successfully.');
     },
-    onError: (error: any) => {
-      toast.error(`Failed to delete invitations: ${errorMessageString(error)}`);
-    },
+    onError: onMutationError('delete invitation'),
   });
 };

@@ -39,11 +39,10 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { useQuery } from '@tanstack/react-query';
 import type { ExtractionQuestion } from '@/features/extraction/types/extraction';
 import { useBulkSaveAnswers } from '@/features/extraction/hooks/use-extraction-answers';
 import { useBulkUpdateExtractionStatus } from '@/features/extraction/hooks/use-extraction-table';
-import { fetchExtractionFormData } from '@/features/extraction/api/extraction-sections';
+import { useFetchExtractionFormData } from '@/features/extraction/hooks/use-extraction-sections';
 
 interface ExtractionFormSidebarProps {
   referenceId: number;
@@ -311,10 +310,10 @@ export function ExtractionFormSidebar({
   onExtractionSuccess,
 }: ExtractionFormSidebarProps) {
   // Fetch form data using the optimized endpoint
-  const { data, isLoading } = useQuery({
-    queryKey: ['extraction-form-data', referenceId, reviewId],
-    queryFn: () => fetchExtractionFormData(referenceId, reviewId),
-    enabled: isOpen && !!referenceId && !!reviewId,
+  const { data, isLoading } = useFetchExtractionFormData({
+    referenceId,
+    reviewId,
+    isOpen,
   });
 
   const bulkSaveMutation = useBulkSaveAnswers();

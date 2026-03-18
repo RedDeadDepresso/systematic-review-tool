@@ -366,7 +366,7 @@ export const PDFDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-screen h-dvh overflow-hidden flex pt-0 pr-0 [&>button]:hidden">
+      <DialogContent className="sm:max-w-screen h-dvh overflow-hidden flex p-0 [&>button]:hidden">
         <DialogHeader className="sr-only">
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>

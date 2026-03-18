@@ -1,5 +1,5 @@
-import { errorMessageString } from '@/lib/error';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import {
   getZoteroIntegration,
   createZoteroIntegration,
@@ -13,66 +13,66 @@ import {
   pullFromZotero,
   getDeletionPreview,
 } from '@/features/integrations/api/zotero';
-import { toast } from 'sonner';
+import { onMutationError } from '@/lib/query-helpers';
+import { reviewKeys } from '@/features/reviews/hooks/use-reviews';
 
-// ============================================================================
-// Integration Management
-// ============================================================================
+export const zoteroKeys = {
+  integration: (reviewId: number) => ['zotero-integration', reviewId] as const,
+  integrationById: (integrationId: number) =>
+    ['zotero-integration', integrationId] as const,
+  allIntegrations: ['zotero-integration'] as const,
+  status: (integrationId: number | null | undefined) =>
+    ['zotero-status', integrationId] as const,
+  collections: (integrationId: number | null | undefined) =>
+    ['zotero-collections', integrationId] as const,
+  deletionPreview: (integrationId: number | null) =>
+    ['zotero-deletion-preview', integrationId] as const,
+};
 
-export const useZoteroIntegration = (reviewId: number) => {
-  return useQuery({
-    queryKey: ['zotero-integration', reviewId],
+// ─── Integration management ────────────────────────────────────────────────────
+
+export const useZoteroIntegration = (reviewId: number) =>
+  useQuery({
+    queryKey: zoteroKeys.integration(reviewId),
     queryFn: () => getZoteroIntegration(reviewId),
     enabled: !!reviewId,
   });
-};
 
 export const useCreateZoteroIntegration = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: createZoteroIntegration,
     onSuccess: (data) => {
       toast.success('Zotero integration configured successfully');
       queryClient.invalidateQueries({
-        queryKey: ['zotero-integration', data.review],
+        queryKey: zoteroKeys.integration(data.review),
       });
       queryClient.invalidateQueries({
-        queryKey: ['reviews', data.review],
+        queryKey: reviewKeys.detail(data.review),
       });
     },
-    onError: (error: any) => {
-      toast.error(
-        `Failed to configure Zotero integration: ${errorMessageString(error)}`
-      );
-    },
+    onError: onMutationError('configure Zotero integration'),
   });
 };
 
 export const useUpdateZoteroIntegration = (integrationId: number) => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: (payload: Parameters<typeof updateZoteroIntegration>[1]) =>
       updateZoteroIntegration(integrationId, payload),
     onSuccess: (data) => {
       toast.success('Zotero integration updated successfully');
       queryClient.invalidateQueries({
-        queryKey: ['zotero-integration', data.review],
+        queryKey: zoteroKeys.integration(data.review),
       });
-      queryClient.setQueryData(['zotero-integration', integrationId], data);
+      queryClient.setQueryData(zoteroKeys.integrationById(integrationId), data);
     },
-    onError: (error: any) => {
-      toast.error(
-        `Failed to update Zotero integration: ${errorMessageString(error)}`
-      );
-    },
+    onError: onMutationError('update Zotero integration'),
   });
 };
 
 export const useDeleteZoteroIntegration = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: (params: {
       integrationId: number;
@@ -86,56 +86,44 @@ export const useDeleteZoteroIntegration = () => {
       ),
     onSuccess: (_, variables) => {
       toast.success('Zotero integration removed');
-      queryClient.invalidateQueries({
-        queryKey: ['zotero-integration'],
-      });
+      queryClient.invalidateQueries({ queryKey: zoteroKeys.allIntegrations });
       queryClient.removeQueries({
-        queryKey: ['zotero-integration', variables.integrationId],
+        queryKey: zoteroKeys.integrationById(variables.integrationId),
       });
     },
-    onError: (error: any) => {
-      toast.error(
-        `Failed to remove Zotero integration: ${errorMessageString(error)}`
-      );
-    },
+    onError: onMutationError('remove Zotero integration'),
   });
 };
 
-export const useDeletionPreview = (integrationId: number | null) => {
-  return useQuery({
-    queryKey: ['zotero-deletion-preview', integrationId],
+export const useDeletionPreview = (integrationId: number | null) =>
+  useQuery({
+    queryKey: zoteroKeys.deletionPreview(integrationId),
     queryFn: () => getDeletionPreview(integrationId!),
     enabled: !!integrationId,
   });
-};
 
-// ============================================================================
-// Status & Collections
-// ============================================================================
+// ─── Status & Collections ──────────────────────────────────────────────────────
 
-export const useZoteroStatus = (integrationId: number | null | undefined) => {
-  return useQuery({
-    queryKey: ['zotero-status', integrationId],
+export const useZoteroStatus = (integrationId: number | null | undefined) =>
+  useQuery({
+    queryKey: zoteroKeys.status(integrationId),
     queryFn: () => getZoteroStatus(integrationId!),
     enabled: !!integrationId,
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: 30_000,
   });
-};
 
 export const useZoteroCollections = (
   integrationId: number | null | undefined
-) => {
-  return useQuery({
-    queryKey: ['zotero-collections', integrationId],
+) =>
+  useQuery({
+    queryKey: zoteroKeys.collections(integrationId),
     queryFn: () => getZoteroCollections(integrationId!),
     enabled: !!integrationId,
-    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
-};
 
 export const useSetZoteroCollection = (integrationId: number) => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: (params: {
       collectionKey: string | null;
@@ -151,23 +139,18 @@ export const useSetZoteroCollection = (integrationId: number) => {
     onSuccess: (data) => {
       toast.success(data.message);
       queryClient.invalidateQueries({
-        queryKey: ['zotero-integration', integrationId],
+        queryKey: zoteroKeys.integration(integrationId),
       });
       queryClient.invalidateQueries({
-        queryKey: ['zotero-status', integrationId],
+        queryKey: zoteroKeys.status(integrationId),
       });
     },
-    onError: (error: any) => {
-      toast.error(
-        `Failed to update collection filter: ${errorMessageString(error)}`
-      );
-    },
+    onError: onMutationError('update collection filter'),
   });
 };
 
 export const useCreateZoteroCollection = (integrationId: number) => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: (params: {
       name: string;
@@ -177,80 +160,58 @@ export const useCreateZoteroCollection = (integrationId: number) => {
     onSuccess: (data) => {
       toast.success(data.message);
       queryClient.invalidateQueries({
-        queryKey: ['zotero-collections', integrationId],
+        queryKey: zoteroKeys.collections(integrationId),
       });
       queryClient.invalidateQueries({
-        queryKey: ['zotero-integration', integrationId],
+        queryKey: zoteroKeys.integration(integrationId),
       });
       queryClient.invalidateQueries({
-        queryKey: ['zotero-status', integrationId],
+        queryKey: zoteroKeys.status(integrationId),
       });
     },
-    onError: (error: any) => {
-      toast.error(`Failed to create collection: ${errorMessageString(error)}`);
-    },
+    onError: onMutationError('create collection'),
   });
 };
 
-// ============================================================================
-// Sync Operations
-// ============================================================================
+// ─── Sync operations ──────────────────────────────────────────────────────────
 
 export const usePushToZotero = (integrationId: number) => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: (confirm?: boolean) => pushToZotero(integrationId, confirm),
     onSuccess: (data) => {
-      if (data.warning) {
-        // Show warning, don't show success toast yet
-        return;
-      }
-
+      if (data.warning) return;
       const message =
         data.estimatedBatches && data.estimatedBatches > 1
           ? `Pushing ${data.totalUnpushed} references in ${data.estimatedBatches} batches`
           : `Pushing ${data.totalUnpushed} references to Zotero`;
-
       toast.success(message);
       queryClient.invalidateQueries({
-        queryKey: ['zotero-status', integrationId],
+        queryKey: zoteroKeys.status(integrationId),
       });
     },
-    onError: (error: any) => {
-      toast.error(`Failed to push to Zotero: ${errorMessageString(error)}`);
-    },
+    onError: onMutationError('push to Zotero'),
   });
 };
 
 export const usePullFromZotero = (integrationId: number) => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: (force?: boolean) => pullFromZotero(integrationId, force),
     onSuccess: () => {
       toast.success('Pull from Zotero started');
-      // Optimistically invalidate status to show task is running
       queryClient.invalidateQueries({
-        queryKey: ['zotero-status', integrationId],
+        queryKey: zoteroKeys.status(integrationId),
       });
     },
-    onError: (error: any) => {
-      toast.error(`Failed to pull from Zotero: ${errorMessageString(error)}`);
-    },
+    onError: onMutationError('pull from Zotero'),
   });
 };
 
-// ============================================================================
-// Task Status Monitoring
-// ============================================================================
+// ─── Derived hooks ────────────────────────────────────────────────────────────
 
-/**
- * Hook for checking if Zotero is configured for a review
- */
 export const useIsZoteroConfigured = (reviewId: number) => {
   const { data: integration, isLoading } = useZoteroIntegration(reviewId);
-
   return {
     isConfigured: integration?.isConfigured ?? false,
     integrationId: integration?.id,

@@ -1,4 +1,3 @@
-import { errorMessageString } from '@/lib/error';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -10,75 +9,53 @@ import {
   type AssignLabelsPayload,
 } from '@/features/references/api/labels';
 import type { Label } from '@/features/references/types/labels';
+import {
+  applyCreate,
+  applyDelete,
+  applyUpdate,
+  onMutationError,
+} from '@/lib/query-helpers';
 
-/**
- * Fetch all labels for the current user
- */
+export const labelKeys = {
+  all: ['labels'] as const,
+};
+
 export function useFetchLabels() {
-  return useQuery({
-    queryKey: ['labels'],
-    queryFn: fetchLabels,
-  });
+  return useQuery({ queryKey: labelKeys.all, queryFn: fetchLabels });
 }
 
-/**
- * Create a new label
- */
 export function useCreateLabel() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: createLabel,
-    onSuccess: (data) => {
-      toast.success('Label has been created.');
-      queryClient.setQueryData<Label[]>(['labels'], (oldData = []) => [
-        ...oldData,
-        data,
-      ]);
-    },
-    onError: (error: any) => {
-      toast.error(`Failed to create label: ${errorMessageString(error)}`);
-    },
+    onSuccess: (data) =>
+      applyCreate(queryClient, labelKeys.all, data, 'Label has been created.'),
+    onError: onMutationError('create label'),
   });
 }
 
-/**
- * Update an existing label
- */
 export function useUpdateLabel() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: updateLabel,
-    onSuccess: (data) => {
-      toast.success('Label has been updated.');
-      queryClient.setQueryData<Label[]>(['labels'], (oldData = []) =>
-        oldData.map((label) => (label.id === data.id ? data : label))
-      );
-    },
-    onError: (error: any) => {
-      toast.error(`Failed to update label: ${errorMessageString(error)}`);
-    },
+    onSuccess: (data) =>
+      applyUpdate(queryClient, labelKeys.all, data, 'Label has been updated.'),
+    onError: onMutationError('update label'),
   });
 }
 
-/**
- * Delete a label
- */
 export function useDeleteLabel() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: (id: number) => deleteLabel(id),
-    onSuccess: (_data, variables) => {
-      toast.success('Label has been deleted.');
-      queryClient.setQueryData<Label[]>(['labels'], (oldData = []) =>
-        oldData.filter((label) => label.id !== variables)
-      );
-    },
-    onError: (error: any) => {
-      toast.error(`Failed to delete label: ${errorMessageString(error)}`);
-    },
+    onSuccess: (_data, id) =>
+      applyDelete<Label>(
+        queryClient,
+        labelKeys.all,
+        id,
+        'Label has been deleted.'
+      ),
+    onError: onMutationError('delete label'),
   });
 }
 
@@ -91,8 +68,6 @@ export function useAssignLabelsToReferences() {
         `Labels applied: ${data.created} created, ${data.deleted} removed`
       );
     },
-    onError: (error: any) => {
-      toast.error(`Failed to apply labels: ${errorMessageString(error)}`);
-    },
+    onError: onMutationError('apply labels'),
   });
 }

@@ -8,6 +8,7 @@ import {
   type FetchClustersParams,
   type AutoResolveParams,
 } from '@/features/references/api/reference-clusters';
+import { reviewKeys } from '@/features/reviews/hooks/use-reviews';
 import type { Review } from '@/features/reviews/types/reviews';
 import { errorMessageString } from '@/lib/error';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -128,7 +129,7 @@ function _invalidateClusters(
   queryClient.invalidateQueries({ queryKey: duplicateKeys.stats(reviewId) });
 
   // Optimistically decrement the unresolved cluster count on the review
-  queryClient.setQueryData(['reviews', reviewId], (old: Review) => {
+  queryClient.setQueryData(reviewKeys.detail(reviewId), (old: Review) => {
     if (!old) return old;
     return {
       ...old,

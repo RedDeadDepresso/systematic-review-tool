@@ -1,4 +1,3 @@
-import { errorMessageString } from '@/lib/error';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -8,88 +7,70 @@ import {
   downloadCSVFile,
   bulkUpdateExtractionStatus,
 } from '@/features/extraction/api/extraction-table';
+import { onMutationError } from '@/lib/query-helpers';
 
-/* ------------------ FETCH TABLE DATA ------------------ */
-export const useFetchExtractionTableData = (reviewId: number) => {
-  return useQuery({
-    queryKey: ['extraction-table', reviewId],
-    queryFn: () => fetchExtractionTableData(reviewId),
-    staleTime: 30000, // 30 seconds
-  });
+export const extractionTableKeys = {
+  all: ['extraction-table'] as const,
+  detail: (reviewId: number) => ['extraction-table', reviewId] as const,
 };
 
-/* ------------------ BATCH UPDATE ANSWERS ------------------ */
+export const useFetchExtractionTableData = (reviewId: number) =>
+  useQuery({
+    queryKey: extractionTableKeys.detail(reviewId),
+    queryFn: () => fetchExtractionTableData(reviewId),
+    staleTime: 30_000,
+  });
+
 export const useBatchUpdateAnswers = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: batchUpdateAnswers,
     onSuccess: (_, variables) => {
       toast.success(`${variables.length} answer(s) saved.`);
-      // Invalidate table data to refetch
-      queryClient.invalidateQueries({ queryKey: ['extraction-table'] });
+      queryClient.invalidateQueries({ queryKey: extractionTableKeys.all });
     },
-    onError: (error: any) => {
-      toast.error(`Failed to save answers: ${errorMessageString(error)}`);
-    },
+    onError: onMutationError('save answers'),
   });
 };
 
-/* ------------------ SINGLE ANSWER UPDATE ------------------ */
-export const useSaveExtractionAnswer = () => {
-  return useMutation({
+export const useSaveExtractionAnswer = () =>
+  useMutation({
     mutationFn: saveExtractionAnswer,
-    onError: (error: any) => {
-      toast.error(`Failed to save answer: ${errorMessageString(error)}`);
-    },
+    onError: onMutationError('save answer'),
   });
-};
 
-/* ------------------ EXPORT CSV ------------------ */
-export const useDownloadCSVFile = () => {
-  return useMutation({
+export const useDownloadCSVFile = () =>
+  useMutation({
     mutationFn: downloadCSVFile,
-    onSuccess: () => {
-      toast.success('CSV exported successfully.');
-    },
-    onError: (error: any) => {
-      toast.error(`Failed to export CSV: ${errorMessageString(error)}`);
-    },
+    onSuccess: () => toast.success('CSV exported successfully.'),
+    onError: onMutationError('export CSV'),
   });
-};
 
-/* ------------------ BULK UPDATE EXTRACTION STATUS ------------------ */
 export const useBulkUpdateExtractionStatus = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: bulkUpdateExtractionStatus,
     onMutate: async (variables) => {
-      const queryKey = ['extraction-table'];
+      await queryClient.cancelQueries({ queryKey: extractionTableKeys.all });
+      const previousData = queryClient.getQueryData(extractionTableKeys.all);
 
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey });
-
-      // Snapshot previous value
-      const previousData = queryClient.getQueryData(queryKey);
-
-      // Optimistically update
-      queryClient.setQueriesData({ queryKey }, (old: any) => {
-        if (!old) return old;
-
-        return {
-          ...old,
-          references: old.references.map((ref: any) => {
-            if (variables.referenceIds.includes(ref.id)) {
-              return {
-                ...ref,
-                isExtractionCompleted: variables.isExtractionCompleted,
-              };
-            }
-            return ref;
-          }),
-        };
-      });
+      queryClient.setQueriesData(
+        { queryKey: extractionTableKeys.all },
+        (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            references: old.references.map((ref: any) =>
+              variables.referenceIds.includes(ref.id)
+                ? {
+                    ...ref,
+                    isExtractionCompleted: variables.isExtractionCompleted,
+                  }
+                : ref
+            ),
+          };
+        }
+      );
 
       return { previousData };
     },
@@ -100,15 +81,13 @@ export const useBulkUpdateExtractionStatus = () => {
       toast.success(`${data.updatedCount} reference(s) marked as ${action}.`);
     },
     onError: (error: any, __, context) => {
-      // Rollback on error
-      queryClient.setQueryData(['extraction-table'], context?.previousData);
+      queryClient.setQueryData(extractionTableKeys.all, context?.previousData);
       toast.error(
-        `Failed to update extraction status: ${errorMessageString(error)}`
+        `Failed to update extraction status: ${error?.message ?? error}`
       );
     },
     onSettled: () => {
-      // Refetch to ensure sync
-      queryClient.invalidateQueries({ queryKey: ['extraction-table'] });
+      queryClient.invalidateQueries({ queryKey: extractionTableKeys.all });
     },
   });
 };

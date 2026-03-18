@@ -8,11 +8,21 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { SubTheme } from '@/features/coding/types/sub-themes';
 import type { MainTheme } from '@/features/coding/types/main-themes';
-import { errorMessageString } from '@/lib/error';
+import {
+  applyCreate,
+  applyDelete,
+  applyUpdate,
+  onMutationError,
+} from '@/lib/query-helpers';
+import { mainThemeKeys } from '@/features/coding/hooks/use-main-themes';
+
+export const subThemeKeys = {
+  list: (reviewId: number) => ['reviews', reviewId, 'sub-themes'] as const,
+};
 
 export function useFetchSubThemes(reviewId: number) {
   return useQuery({
-    queryKey: ['reviews', reviewId, 'sub-themes'],
+    queryKey: subThemeKeys.list(reviewId),
     queryFn: () => fetchSubThemes(reviewId),
     enabled: !!reviewId,
   });
@@ -20,35 +30,29 @@ export function useFetchSubThemes(reviewId: number) {
 
 export function useCreateSubTheme() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: createSubTheme,
-    onSuccess: (data, variables) => {
-      toast.success('SubTheme has been created.');
-      queryClient.setQueryData(
-        ['reviews', variables.review, 'sub-themes'],
-        (oldData: SubTheme[] = []) => {
-          if (!oldData) return [data];
-          return [...oldData, data];
-        }
-      );
-    },
-    onError: (error: any) => {
-      toast.error(`Failed to create sub theme: ${errorMessageString(error)}`);
-    },
+    onSuccess: (data, variables) =>
+      applyCreate(
+        queryClient,
+        subThemeKeys.list(variables.review),
+        data,
+        'SubTheme has been created.'
+      ),
+    onError: onMutationError('create sub theme'),
   });
 }
 
 export function useUpdateSubTheme() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: updateSubTheme,
     onSuccess: (data, variables) => {
       toast.success('SubTheme has been updated.');
+      // Re-assign the sub-theme to its new main theme if it changed
       if (variables.payload?.mainTheme !== undefined) {
         queryClient.setQueryData(
-          ['reviews', data.review, 'main-themes'],
+          mainThemeKeys.list(data.review),
           (oldData: MainTheme[] = []) =>
             oldData.map((mt) => ({
               ...mt,
@@ -56,53 +60,43 @@ export function useUpdateSubTheme() {
             }))
         );
         queryClient.setQueryData(
-          ['reviews', data.review, 'main-themes'],
+          mainThemeKeys.list(data.review),
           (oldData: MainTheme[] = []) =>
             oldData.map((mt) =>
               mt.id === variables.payload.mainTheme
-                ? {
-                    ...mt,
-                    subThemeIds: [...mt.subThemeIds, data.id],
-                  }
+                ? { ...mt, subThemeIds: [...mt.subThemeIds, data.id] }
                 : mt
             )
         );
       }
-      queryClient.setQueryData(
-        ['reviews', data.review, 'sub-themes'],
-        (oldData: SubTheme[] = []) =>
-          oldData.map((theme) => (theme.id === data.id ? data : theme))
-      );
+      applyUpdate(queryClient, subThemeKeys.list(data.review), data);
     },
-    onError: (error: any) => {
-      toast.error(`Failed to update sub theme: ${errorMessageString(error)}`);
-    },
+    onError: onMutationError('update sub theme'),
   });
 }
 
 export function useDeleteSubTheme() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: ({ id }: { id: number; reviewId: number }) =>
       deleteSubTheme(id),
     onSuccess: (_data, variables) => {
-      toast.success('SubTheme has been deleted.');
+      // Remove sub-theme from its main theme's subThemeIds list
       queryClient.setQueryData(
-        ['reviews', variables.reviewId, 'main-themes'],
+        mainThemeKeys.list(variables.reviewId),
         (oldData: MainTheme[] = []) =>
           oldData.map((mt) => ({
             ...mt,
             subThemeIds: mt.subThemeIds.filter((id) => id !== variables.id),
           }))
       );
-      queryClient.setQueryData<SubTheme[]>(
-        ['reviews', variables.reviewId, 'sub-themes'],
-        (oldData = []) => oldData.filter((theme) => theme.id !== variables.id)
+      applyDelete<SubTheme>(
+        queryClient,
+        subThemeKeys.list(variables.reviewId),
+        variables.id,
+        'SubTheme has been deleted.'
       );
     },
-    onError: (error: any) => {
-      toast.error(`Failed to delete sub theme: ${errorMessageString(error)}`);
-    },
+    onError: onMutationError('delete sub theme'),
   });
 }

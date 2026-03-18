@@ -1,4 +1,3 @@
-import { errorMessageString } from '@/lib/error';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   changePassword,
@@ -13,6 +12,11 @@ import {
 } from '@/features/users/api/auth';
 import { useRouter } from '@tanstack/react-router';
 import { toast } from 'sonner';
+import { onMutationError } from '@/lib/query-helpers';
+
+export const userKeys = {
+  me: ['user'] as const,
+};
 
 export const useLogin = () => {
   const router = useRouter();
@@ -38,7 +42,7 @@ export const useRegister = () => {
 
 export function useFetchUser() {
   return useQuery({
-    queryKey: ['user'],
+    queryKey: userKeys.me,
     queryFn: async () => {
       try {
         return await fetchUser();
@@ -54,78 +58,56 @@ export function useFetchUser() {
   });
 }
 
-/* ------------------ CHANGE PASSWORD ------------------ */
-export const useChangePassword = () => {
-  return useMutation({
+export const useChangePassword = () =>
+  useMutation({
     mutationFn: changePassword,
-    onSuccess: (data) => {
-      toast.success(data.detail || 'Password changed successfully.');
-    },
-    onError: (error: any) => {
-      toast.error(`Failed to change password: ${errorMessageString(error)}`);
-    },
+    onSuccess: (data) =>
+      toast.success(data.detail || 'Password changed successfully.'),
+    onError: onMutationError('change password'),
   });
-};
 
-/* ------------------ REQUEST PASSWORD RESET ------------------ */
-export const useRequestPasswordReset = () => {
-  return useMutation({
+export const useRequestPasswordReset = () =>
+  useMutation({
     mutationFn: requestPasswordReset,
-    onSuccess: (data) => {
+    onSuccess: (data) =>
       toast.success(
         data.detail || 'Password reset instructions sent to your email.'
-      );
-    },
-    onError: (error: any) => {
-      toast.error(
-        `Failed to request reset password: ${errorMessageString(error)}`
-      );
-    },
+      ),
+    onError: onMutationError('request reset password'),
   });
-};
 
-/* ------------------ CONFIRM PASSWORD RESET ------------------ */
 export const useConfirmPasswordReset = () => {
   const router = useRouter();
-
   return useMutation({
     mutationFn: confirmPasswordReset,
     onSuccess: (data) => {
       toast.success(data.detail || 'Password reset successful.');
       router.navigate({ to: '/login' });
     },
-    onError: (error: any) => {
-      toast.error(`Failed to reset password: ${errorMessageString(error)}`);
-    },
+    onError: onMutationError('reset password'),
   });
 };
 
 export const useUpdateUser = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: updateUser,
     onSuccess: (data) => {
       toast.success('Profile updated successfully.');
-      queryClient.setQueryData(['user'], data);
+      queryClient.setQueryData(userKeys.me, data);
     },
-    onError: (error: any) => {
-      toast.error(`Failed to edit profile: ${errorMessageString(error)}`);
-    },
+    onError: onMutationError('edit profile'),
   });
 };
 
 export const useDeleteUser = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: deleteUser,
-    onSuccess: (_) => {
+    onSuccess: () => {
       toast.success('Profile deleted successfully.');
-      queryClient.setQueryData(['user'], null);
+      queryClient.setQueryData(userKeys.me, null);
     },
-    onError: (error: any) => {
-      toast.error(`Failed to delete profile: ${errorMessageString(error)}`);
-    },
+    onError: onMutationError('delete profile'),
   });
 };

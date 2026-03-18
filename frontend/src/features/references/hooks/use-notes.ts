@@ -1,4 +1,3 @@
-import { errorMessageString } from '@/lib/error';
 import {
   bulkCreateNote,
   createNote,
@@ -9,13 +8,22 @@ import {
 import type { Note } from '@/features/references/types/notes';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import {
+  applyCreate,
+  applyDelete,
+  applyUpdate,
+  onMutationError,
+} from '@/lib/query-helpers';
 
-export const useFetchNotes = ({ referenceId }: { referenceId: number }) => {
-  return useQuery({
-    queryKey: ['references', referenceId, 'notes'],
+export const noteKeys = {
+  list: (referenceId: number) => ['references', referenceId, 'notes'] as const,
+};
+
+export const useFetchNotes = ({ referenceId }: { referenceId: number }) =>
+  useQuery({
+    queryKey: noteKeys.list(referenceId),
     queryFn: () => fetchNotes({ referenceId }),
   });
-};
 
 export const useCreateNote = () => {
   const queryClient = useQueryClient();
@@ -28,19 +36,14 @@ export const useCreateNote = () => {
       referenceId: number;
       payload: { content: string };
     }) => createNote({ reference: referenceId, ...payload }),
-    onSuccess: (data, variables) => {
-      toast.success('Note has been created.');
-      queryClient.setQueryData(
-        ['references', variables.referenceId, 'notes'],
-        (oldData: Note[] = []) => {
-          if (!oldData) return [data];
-          return [...oldData, data];
-        }
-      );
-    },
-    onError: (error: any) => {
-      toast.error(`Failed to create note: ${errorMessageString(error)}`);
-    },
+    onSuccess: (data, variables) =>
+      applyCreate(
+        queryClient,
+        noteKeys.list(variables.referenceId),
+        data,
+        'Note has been created.'
+      ),
+    onError: onMutationError('create note'),
   });
 };
 
@@ -51,19 +54,15 @@ export const useBulkCreateNote = () => {
     onSuccess: (data, variables) => {
       toast.success(`${data.created} notes created successfully.`);
       for (const id of variables.referenceIds) {
-        queryClient.invalidateQueries({
-          queryKey: ['references', id, 'notes'],
-        });
+        queryClient.invalidateQueries({ queryKey: noteKeys.list(id) });
       }
     },
-    onError: (error: any) =>
-      toast.error(`Failed to create notes: ${errorMessageString(error)}`),
+    onError: onMutationError('create notes'),
   });
 };
 
 export const useUpdateNote = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: ({
       noteId,
@@ -73,48 +72,29 @@ export const useUpdateNote = () => {
       referenceId: number;
       payload: { content: string };
     }) => updateNote(noteId, payload),
-
-    onSuccess: (data, variables) => {
-      toast.success('Note updated.');
-      queryClient.setQueryData(
-        ['references', variables.referenceId, 'notes'],
-        (oldData: Note[] | undefined) => {
-          if (!oldData) return oldData;
-
-          return oldData.map((note) =>
-            note.id === variables.noteId ? data : note
-          );
-        }
-      );
-    },
-
-    onError: (error: any) => {
-      toast.error(`Failed to update note: ${errorMessageString(error)}`);
-    },
+    onSuccess: (data, variables) =>
+      applyUpdate(
+        queryClient,
+        noteKeys.list(variables.referenceId),
+        data,
+        'Note updated.'
+      ),
+    onError: onMutationError('update note'),
   });
 };
 
 export const useDeleteNote = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: ({ noteId }: { noteId: number; referenceId: number }) =>
       deleteNote(noteId),
-
-    onSuccess: (_data, variables) => {
-      toast.success('Note deleted.');
-
-      queryClient.setQueryData(
-        ['references', variables.referenceId, 'notes'],
-        (oldData: Note[] | undefined) => {
-          if (!oldData) return oldData;
-          return oldData.filter((note) => note.id !== variables.noteId);
-        }
-      );
-    },
-
-    onError: (error: any) => {
-      toast.error(`Failed to delete note: ${errorMessageString(error)}`);
-    },
+    onSuccess: (_data, variables) =>
+      applyDelete<Note>(
+        queryClient,
+        noteKeys.list(variables.referenceId),
+        variables.noteId,
+        'Note deleted.'
+      ),
+    onError: onMutationError('delete note'),
   });
 };
