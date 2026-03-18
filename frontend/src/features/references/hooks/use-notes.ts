@@ -39,7 +39,7 @@ export const useCreateNote = () => {
       );
     },
     onError: (error: any) => {
-      toast.error(`Failed to create note: ${errorMessageString(error)}.`);
+      toast.error(`Failed to create note: ${errorMessageString(error)}`);
     },
   });
 };
@@ -57,7 +57,7 @@ export const useBulkCreateNote = () => {
       }
     },
     onError: (error: any) =>
-      toast.error(`Failed to create notes: ${errorMessageString(error)}.`),
+      toast.error(`Failed to create notes: ${errorMessageString(error)}`),
   });
 };
 
@@ -89,7 +89,7 @@ export const useUpdateNote = () => {
     },
 
     onError: (error: any) => {
-      toast.error(`Failed to update note: ${errorMessageString(error)}.`);
+      toast.error(`Failed to update note: ${errorMessageString(error)}`);
     },
   });
 };
@@ -114,7 +114,7 @@ export const useDeleteNote = () => {
     },
 
     onError: (error: any) => {
-      toast.error(`Failed to delete note: ${errorMessageString(error)}.`);
+      toast.error(`Failed to delete note: ${errorMessageString(error)}`);
     },
   });
 };

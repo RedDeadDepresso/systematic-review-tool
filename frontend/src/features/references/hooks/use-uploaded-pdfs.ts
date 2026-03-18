@@ -35,7 +35,7 @@ export const useUploadPDF = () => {
     },
 
     onError: (error: any) => {
-      toast.error(`Failed to upload PDF: ${errorMessageString(error)}.`);
+      toast.error(`Failed to upload PDF: ${errorMessageString(error)}`);
     },
   });
 };
@@ -60,7 +60,7 @@ export const useDeleteUploadedPDF = () => {
     },
 
     onError: (error: any) => {
-      toast.error(`Failed to delete PDF: ${errorMessageString(error)}.`);
+      toast.error(`Failed to delete PDF: ${errorMessageString(error)}`);
     },
   });
 };

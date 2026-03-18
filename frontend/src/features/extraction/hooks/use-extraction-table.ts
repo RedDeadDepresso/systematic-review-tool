@@ -30,7 +30,7 @@ export const useBatchUpdateAnswers = () => {
       queryClient.invalidateQueries({ queryKey: ['extraction-table'] });
     },
     onError: (error: any) => {
-      toast.error(`Failed to save answers: ${errorMessageString(error)}.`);
+      toast.error(`Failed to save answers: ${errorMessageString(error)}`);
     },
   });
 };
@@ -40,7 +40,7 @@ export const useSaveExtractionAnswer = () => {
   return useMutation({
     mutationFn: saveExtractionAnswer,
     onError: (error: any) => {
-      toast.error(`Failed to save answer: ${errorMessageString(error)}.`);
+      toast.error(`Failed to save answer: ${errorMessageString(error)}`);
     },
   });
 };
@@ -53,7 +53,7 @@ export const useDownloadCSVFile = () => {
       toast.success('CSV exported successfully.');
     },
     onError: (error: any) => {
-      toast.error(`Failed to export CSV: ${errorMessageString(error)}.`);
+      toast.error(`Failed to export CSV: ${errorMessageString(error)}`);
     },
   });
 };
@@ -103,7 +103,7 @@ export const useBulkUpdateExtractionStatus = () => {
       // Rollback on error
       queryClient.setQueryData(['extraction-table'], context?.previousData);
       toast.error(
-        `Failed to update extraction status: ${errorMessageString(error)}.`
+        `Failed to update extraction status: ${errorMessageString(error)}`
       );
     },
     onSettled: () => {

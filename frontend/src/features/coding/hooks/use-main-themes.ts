@@ -33,7 +33,7 @@ export function useCreateMainTheme() {
       );
     },
     onError: (error: any) => {
-      toast.error(`Failed to create main theme: ${errorMessageString(error)}.`);
+      toast.error(`Failed to create main theme: ${errorMessageString(error)}`);
     },
   });
 }
@@ -52,7 +52,7 @@ export function useUpdateMainTheme() {
       );
     },
     onError: (error: any) => {
-      toast.error(`Failed to update main theme: ${errorMessageString(error)}.`);
+      toast.error(`Failed to update main theme: ${errorMessageString(error)}`);
     },
   });
 }
@@ -71,7 +71,7 @@ export function useDeleteMainTheme() {
       );
     },
     onError: (error: any) => {
-      toast.error(`Failed to delete main theme: ${errorMessageString(error)}.`);
+      toast.error(`Failed to delete main theme: ${errorMessageString(error)}`);
     },
   });
 }

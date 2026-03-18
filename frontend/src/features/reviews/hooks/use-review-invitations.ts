@@ -16,7 +16,7 @@ export function useSendInvitations() {
     mutationFn: sendInvitations,
     onSuccess: () => toast.success('Invitations have been sent.'),
     onError: (error) =>
-      toast.error(`Failed to send invitations: ${errorMessageString(error)}.`),
+      toast.error(`Failed to send invitations: ${errorMessageString(error)}`),
   });
 }
 
@@ -52,7 +52,7 @@ export function useAcceptInvitation() {
       });
     },
     onError: (error: any) => {
-      toast.error(`Failed to accept invitation: ${errorMessageString(error)}.`);
+      toast.error(`Failed to accept invitation: ${errorMessageString(error)}`);
     },
   });
 }
@@ -69,9 +69,7 @@ export function useDeclineInvitation() {
       );
     },
     onError: (error: any) => {
-      toast.error(
-        `Failed to decline invitation: ${errorMessageString(error)}.`
-      );
+      toast.error(`Failed to decline invitation: ${errorMessageString(error)}`);
     },
   });
 }
@@ -89,9 +87,7 @@ export const useDeleteInvitation = () => {
       toast.success('Invitation deleted successfully.');
     },
     onError: (error: any) => {
-      toast.error(
-        `Failed to delete invitations: ${errorMessageString(error)}.`
-      );
+      toast.error(`Failed to delete invitations: ${errorMessageString(error)}`);
     },
   });
 };

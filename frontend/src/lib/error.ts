@@ -16,6 +16,12 @@ export function errorMessageString(error: any): string {
   const data = error.response.data;
 
   try {
+    const contentType = error.response.headers['content-type'];
+
+    if (contentType?.includes('text/html')) {
+      return 'Server error occurred. Check the response in the console';
+    }
+
     const messages = extractMessages(data);
     const joined = messages.filter(Boolean).join(' ');
     if (!joined || joined.includes('[object Object]'))

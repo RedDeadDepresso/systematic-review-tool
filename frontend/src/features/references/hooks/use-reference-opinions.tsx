@@ -23,7 +23,7 @@ export const useBulkUpsertReferenceOpinions = () => {
     },
     onError: (error: any) => {
       toast.error(
-        `Failed to update reference opinions: ${errorMessageString(error)}.`
+        `Failed to update reference opinions: ${errorMessageString(error)}`
       );
     },
   });

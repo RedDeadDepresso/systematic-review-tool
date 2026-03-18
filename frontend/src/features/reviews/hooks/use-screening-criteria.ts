@@ -41,7 +41,7 @@ export const useCreateScreeningCriteria = () => {
 
     onError: (error: any) => {
       toast.error(
-        `Failed to create screening criteria: ${errorMessageString(error)}.`
+        `Failed to create screening criteria: ${errorMessageString(error)}`
       );
     },
   });
@@ -82,7 +82,7 @@ export const useUpdateScreeningCriteria = () => {
 
     onError: (error: any) => {
       toast.error(
-        `Failed to update screening criteria: ${errorMessageString(error)}.`
+        `Failed to update screening criteria: ${errorMessageString(error)}`
       );
     },
   });
@@ -112,7 +112,7 @@ export const useDeleteScreeningCriteria = () => {
 
     onError: (error: any) => {
       toast.error(
-        `Failed to delete screening criteria: ${errorMessageString(error)}.`
+        `Failed to delete screening criteria: ${errorMessageString(error)}`
       );
     },
   });

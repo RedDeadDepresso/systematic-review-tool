@@ -224,7 +224,7 @@ export const useAttachPDFsToReferences = () => {
     onError: (error: AxiosError) => {
       console.log(error);
       toast.error(
-        `Failed to attach PDFs to references: ${errorMessageString(error)}.`
+        `Failed to attach PDFs to references: ${errorMessageString(error)}`
       );
     },
   });
@@ -249,7 +249,7 @@ export const useAutoMatch = () => {
       toast.success(`Matches: ${data.matched}. No matches: ${data.unmatched} `);
     },
     onError: (error: any) => {
-      toast.error(`Error founding matches: ${errorMessageString(error)}.`);
+      toast.error(`Error founding matches: ${errorMessageString(error)}`);
     },
   });
 };

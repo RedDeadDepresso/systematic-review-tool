@@ -47,7 +47,7 @@ export const useCreateExtractionQuestion = () => {
       queryClient.invalidateQueries({ queryKey: ['extraction-questions'] });
     },
     onError: (error: any) => {
-      toast.error(`Failed to create question: ${errorMessageString(error)}.`);
+      toast.error(`Failed to create question: ${errorMessageString(error)}`);
     },
   });
 };
@@ -91,7 +91,7 @@ export const useUpdateExtractionQuestion = () => {
       queryClient.invalidateQueries({ queryKey: ['extraction-questions'] });
     },
     onError: (error: any) => {
-      toast.error(`Failed to update question: ${errorMessageString(error)}.`);
+      toast.error(`Failed to update question: ${errorMessageString(error)}`);
     },
   });
 };
@@ -116,7 +116,7 @@ export const useDeleteExtractionQuestion = () => {
       queryClient.invalidateQueries({ queryKey: ['extraction-questions'] });
     },
     onError: (error: any) => {
-      toast.error(`Failed to delete question: ${errorMessageString(error)}.`);
+      toast.error(`Failed to delete question: ${errorMessageString(error)}`);
     },
   });
 };

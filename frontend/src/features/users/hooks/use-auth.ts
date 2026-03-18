@@ -62,7 +62,7 @@ export const useChangePassword = () => {
       toast.success(data.detail || 'Password changed successfully.');
     },
     onError: (error: any) => {
-      toast.error(`Failed to change password: ${errorMessageString(error)}.`);
+      toast.error(`Failed to change password: ${errorMessageString(error)}`);
     },
   });
 };
@@ -78,7 +78,7 @@ export const useRequestPasswordReset = () => {
     },
     onError: (error: any) => {
       toast.error(
-        `Failed to request reset password: ${errorMessageString(error)}.`
+        `Failed to request reset password: ${errorMessageString(error)}`
       );
     },
   });
@@ -95,7 +95,7 @@ export const useConfirmPasswordReset = () => {
       router.navigate({ to: '/login' });
     },
     onError: (error: any) => {
-      toast.error(`Failed to reset password: ${errorMessageString(error)}.`);
+      toast.error(`Failed to reset password: ${errorMessageString(error)}`);
     },
   });
 };
@@ -110,7 +110,7 @@ export const useUpdateUser = () => {
       queryClient.setQueryData(['user'], data);
     },
     onError: (error: any) => {
-      toast.error(`Failed to edit profile: ${errorMessageString(error)}.`);
+      toast.error(`Failed to edit profile: ${errorMessageString(error)}`);
     },
   });
 };
@@ -125,7 +125,7 @@ export const useDeleteUser = () => {
       queryClient.setQueryData(['user'], null);
     },
     onError: (error: any) => {
-      toast.error(`Failed to delete profile: ${errorMessageString(error)}.`);
+      toast.error(`Failed to delete profile: ${errorMessageString(error)}`);
     },
   });
 };

@@ -32,7 +32,7 @@ export const useDeleteSearchMethod = (reviewId: number) => {
     onError: (error) => {
       console.error('Error deleting search method:', error);
       toast.error(
-        `Failed to delete search method: ${errorMessageString(error)}.`
+        `Failed to delete search method: ${errorMessageString(error)}`
       );
     },
   });

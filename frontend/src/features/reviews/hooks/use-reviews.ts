@@ -69,7 +69,7 @@ export const useAddData = (reviewId: number) => {
       labelIds: number[];
     }) => addData(reviewId, payload),
     onError: (error: any) => {
-      toast.error(`Failed to add data: ${errorMessageString(error)}.`);
+      toast.error(`Failed to add data: ${errorMessageString(error)}`);
     },
   });
 };
@@ -89,7 +89,7 @@ export const useCreateReview = () => {
       );
     },
     onError: (error: any) => {
-      toast.error(`Failed to create review: ${errorMessageString(error)}.`);
+      toast.error(`Failed to create review: ${errorMessageString(error)}`);
     },
   });
 };
@@ -111,7 +111,7 @@ export const useUpdateReview = () => {
       toast.success('Review has been updated.');
     },
     onError: (error: any) => {
-      toast.error(`Failed to update review: ${errorMessageString(error)}.`);
+      toast.error(`Failed to update review: ${errorMessageString(error)}`);
     },
   });
 };
@@ -123,7 +123,7 @@ export const useUploadReviewReferences = () => {
       toast.success('References have been uploaded.');
     },
     onError: (error: any) => {
-      toast.error(`Failed to upload references: ${errorMessageString(error)}.`);
+      toast.error(`Failed to upload references: ${errorMessageString(error)}`);
     },
   });
 };
@@ -135,7 +135,7 @@ export const useDeleteReview = () => {
       toast.success('Review deleted successfully.');
     },
     onError: (error: any) => {
-      toast.error(`Failed to delete review: ${errorMessageString(error)}.`);
+      toast.error(`Failed to delete review: ${errorMessageString(error)}`);
     },
   });
 };
@@ -158,7 +158,7 @@ export const useDetectDuplicateReferences = () => {
       });
     },
     onError: (error: any) => {
-      toast.error(`Failed to detect duplicates: ${errorMessageString(error)}.`);
+      toast.error(`Failed to detect duplicates: ${errorMessageString(error)}`);
     },
   });
 };
@@ -174,7 +174,7 @@ export const useAutoResolveDuplicates = (reviewId: number) => {
     },
     onError: (error: any) => {
       toast.error(
-        `Failed to start auto-resolution: ${errorMessageString(error)}.`
+        `Failed to start auto-resolution: ${errorMessageString(error)}`
       );
     },
   });

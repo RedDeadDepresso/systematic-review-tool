@@ -35,7 +35,7 @@ export const useCreateKeyword = () => {
       );
     },
     onError: (error: any) => {
-      toast.error(`Failed to create keyword: ${errorMessageString(error)}.`);
+      toast.error(`Failed to create keyword: ${errorMessageString(error)}`);
     },
   });
 };
@@ -59,7 +59,7 @@ export const useDeleteKeyword = () => {
       );
     },
     onError: (error: any) => {
-      toast.error(`Failed to delete keyword: ${errorMessageString(error)}.`);
+      toast.error(`Failed to delete keyword: ${errorMessageString(error)}`);
     },
   });
 };

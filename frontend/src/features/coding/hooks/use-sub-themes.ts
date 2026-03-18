@@ -34,7 +34,7 @@ export function useCreateSubTheme() {
       );
     },
     onError: (error: any) => {
-      toast.error(`Failed to create sub theme: ${errorMessageString(error)}.`);
+      toast.error(`Failed to create sub theme: ${errorMessageString(error)}`);
     },
   });
 }
@@ -75,7 +75,7 @@ export function useUpdateSubTheme() {
       );
     },
     onError: (error: any) => {
-      toast.error(`Failed to update sub theme: ${errorMessageString(error)}.`);
+      toast.error(`Failed to update sub theme: ${errorMessageString(error)}`);
     },
   });
 }
@@ -102,7 +102,7 @@ export function useDeleteSubTheme() {
       );
     },
     onError: (error: any) => {
-      toast.error(`Failed to delete sub theme: ${errorMessageString(error)}.`);
+      toast.error(`Failed to delete sub theme: ${errorMessageString(error)}`);
     },
   });
 }

@@ -34,7 +34,7 @@ export function useCreateCode() {
       );
     },
     onError: (error: any) => {
-      toast.error(`Failed to create code: ${errorMessageString(error)}.`);
+      toast.error(`Failed to create code: ${errorMessageString(error)}`);
     },
   });
 }
@@ -72,7 +72,7 @@ export function useUpdateCode() {
       );
     },
     onError: (error: any) => {
-      toast.error(`Failed to update code: ${errorMessageString(error)}.`);
+      toast.error(`Failed to update code: ${errorMessageString(error)}`);
     },
   });
 }
@@ -99,7 +99,7 @@ export function useDeleteCode() {
       );
     },
     onError: (error: any) => {
-      toast.error(`Failed to delete code: ${errorMessageString(error)}.`);
+      toast.error(`Failed to delete code: ${errorMessageString(error)}`);
     },
   });
 }

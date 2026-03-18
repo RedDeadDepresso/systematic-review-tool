@@ -38,7 +38,7 @@ export const useCreateExtractionSection = () => {
     },
     onError: (error: any) => {
       toast.error(
-        `Failed to create extraction section: ${errorMessageString(error)}.`
+        `Failed to create extraction section: ${errorMessageString(error)}`
       );
     },
   });
@@ -73,7 +73,7 @@ export const useUpdateExtractionSection = () => {
     },
     onError: (error: any) => {
       toast.error(
-        `Failed to update extraction section: ${errorMessageString(error)}.`
+        `Failed to update extraction section: ${errorMessageString(error)}`
       );
     },
   });
@@ -99,7 +99,7 @@ export const useDeleteExtractionSection = () => {
     },
     onError: (error: any) => {
       toast.error(
-        `Failed to delete extraction section: ${errorMessageString(error)}.`
+        `Failed to delete extraction section: ${errorMessageString(error)}`
       );
     },
   });

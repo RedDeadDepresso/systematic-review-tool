@@ -37,7 +37,7 @@ export function useCreateLabel() {
       ]);
     },
     onError: (error: any) => {
-      toast.error(`Failed to create label: ${errorMessageString(error)}.`);
+      toast.error(`Failed to create label: ${errorMessageString(error)}`);
     },
   });
 }
@@ -57,7 +57,7 @@ export function useUpdateLabel() {
       );
     },
     onError: (error: any) => {
-      toast.error(`Failed to update label: ${errorMessageString(error)}.`);
+      toast.error(`Failed to update label: ${errorMessageString(error)}`);
     },
   });
 }
@@ -77,7 +77,7 @@ export function useDeleteLabel() {
       );
     },
     onError: (error: any) => {
-      toast.error(`Failed to delete label: ${errorMessageString(error)}.`);
+      toast.error(`Failed to delete label: ${errorMessageString(error)}`);
     },
   });
 }
@@ -92,7 +92,7 @@ export function useAssignLabelsToReferences() {
       );
     },
     onError: (error: any) => {
-      toast.error(`Failed to apply labels: ${errorMessageString(error)}.`);
+      toast.error(`Failed to apply labels: ${errorMessageString(error)}`);
     },
   });
 }

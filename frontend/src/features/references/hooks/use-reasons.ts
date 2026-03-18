@@ -44,7 +44,7 @@ export const useCreateReason = () => {
     },
 
     onError: (error: any) => {
-      toast.error(`Failed to create reason: ${errorMessageString(error)}.`);
+      toast.error(`Failed to create reason: ${errorMessageString(error)}`);
     },
   });
 };
@@ -79,7 +79,7 @@ export const useUpdateReason = () => {
     },
 
     onError: (error: any) => {
-      toast.error(`Failed to update reason: ${errorMessageString(error)}.`);
+      toast.error(`Failed to update reason: ${errorMessageString(error)}`);
     },
   });
 };
@@ -105,7 +105,7 @@ export const useDeleteReason = () => {
     },
 
     onError: (error: any) => {
-      toast.error(`Failed to delete reason: ${errorMessageString(error)}.`);
+      toast.error(`Failed to delete reason: ${errorMessageString(error)}`);
     },
   });
 };

@@ -49,9 +49,7 @@ export const useUpdateReviewMember = () => {
     },
 
     onError: (error: any) => {
-      toast.error(
-        `Failed to update member role: ${errorMessageString(error)}.`
-      );
+      toast.error(`Failed to update member role: ${errorMessageString(error)}`);
     },
   });
 };
@@ -75,7 +73,7 @@ export const useDeleteReviewMember = () => {
       toast.success('Member removed successfully.');
     },
     onError: (error: any) => {
-      toast.error(`Failed to remove member: ${errorMessageString(error)}.`);
+      toast.error(`Failed to remove member: ${errorMessageString(error)}`);
     },
   });
 };

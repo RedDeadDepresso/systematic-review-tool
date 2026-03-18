@@ -61,7 +61,7 @@ export const useSaveExtractionAnswer = () => {
       });
     },
     onError: (error: any) => {
-      toast.error(`Failed to save answer: ${errorMessageString(error)}.`);
+      toast.error(`Failed to save answer: ${errorMessageString(error)}`);
     },
   });
 };
@@ -100,7 +100,7 @@ export const useDeleteExtractionAnswer = () => {
       });
     },
     onError: (error: any) => {
-      toast.error(`Failed to delete answer: ${errorMessageString(error)}.`);
+      toast.error(`Failed to delete answer: ${errorMessageString(error)}`);
     },
   });
 };
@@ -125,7 +125,7 @@ export const useBulkSaveAnswers = () => {
       });
     },
     onError: (error: any) => {
-      toast.error(`Failed to save answers: ${errorMessageString(error)}.`);
+      toast.error(`Failed to save answers: ${errorMessageString(error)}`);
     },
   });
 };

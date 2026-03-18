@@ -75,7 +75,7 @@ export const useResolveCluster = (reviewId: number) => {
       _invalidateClusters(queryClient, reviewId);
     },
     onError: (error: any) => {
-      toast.error(`Failed to resolve cluster: ${errorMessageString(error)}.`);
+      toast.error(`Failed to resolve cluster: ${errorMessageString(error)}`);
     },
   });
 };
@@ -94,7 +94,7 @@ export const useDismissCluster = (reviewId: number) => {
       _invalidateClusters(queryClient, reviewId);
     },
     onError: (error: any) => {
-      toast.error(`Failed to dismiss cluster: ${errorMessageString(error)}.`);
+      toast.error(`Failed to dismiss cluster: ${errorMessageString(error)}`);
     },
   });
 };
@@ -113,7 +113,7 @@ export const useAutoResolveDuplicates = (reviewId: number) => {
       _invalidateClusters(queryClient, reviewId);
     },
     onError: (error: any) => {
-      toast.error(`Failed to auto-resolve: ${errorMessageString(error)}.`);
+      toast.error(`Failed to auto-resolve: ${errorMessageString(error)}`);
     },
   });
 };

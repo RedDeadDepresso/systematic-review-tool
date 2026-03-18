@@ -43,7 +43,7 @@ export const useCreateZoteroIntegration = () => {
     },
     onError: (error: any) => {
       toast.error(
-        `Failed to configure Zotero integration: ${errorMessageString(error)}.`
+        `Failed to configure Zotero integration: ${errorMessageString(error)}`
       );
     },
   });
@@ -64,7 +64,7 @@ export const useUpdateZoteroIntegration = (integrationId: number) => {
     },
     onError: (error: any) => {
       toast.error(
-        `Failed to update Zotero integration: ${errorMessageString(error)}.`
+        `Failed to update Zotero integration: ${errorMessageString(error)}`
       );
     },
   });
@@ -95,7 +95,7 @@ export const useDeleteZoteroIntegration = () => {
     },
     onError: (error: any) => {
       toast.error(
-        `Failed to remove Zotero integration: ${errorMessageString(error)}.`
+        `Failed to remove Zotero integration: ${errorMessageString(error)}`
       );
     },
   });
@@ -159,7 +159,7 @@ export const useSetZoteroCollection = (integrationId: number) => {
     },
     onError: (error: any) => {
       toast.error(
-        `Failed to update collection filter: ${errorMessageString(error)}.`
+        `Failed to update collection filter: ${errorMessageString(error)}`
       );
     },
   });
@@ -187,7 +187,7 @@ export const useCreateZoteroCollection = (integrationId: number) => {
       });
     },
     onError: (error: any) => {
-      toast.error(`Failed to create collection: ${errorMessageString(error)}.`);
+      toast.error(`Failed to create collection: ${errorMessageString(error)}`);
     },
   });
 };
@@ -218,7 +218,7 @@ export const usePushToZotero = (integrationId: number) => {
       });
     },
     onError: (error: any) => {
-      toast.error(`Failed to push to Zotero: ${errorMessageString(error)}.`);
+      toast.error(`Failed to push to Zotero: ${errorMessageString(error)}`);
     },
   });
 };
@@ -236,7 +236,7 @@ export const usePullFromZotero = (integrationId: number) => {
       });
     },
     onError: (error: any) => {
-      toast.error(`Failed to pull from Zotero: ${errorMessageString(error)}.`);
+      toast.error(`Failed to pull from Zotero: ${errorMessageString(error)}`);
     },
   });
 };
