@@ -757,7 +757,12 @@ class ScreeningQuerysetMixin:
         if stage is None:
             stage = ReferenceOpinion.Stage.SCREENING
 
-        qs = qs.exclude(duplicate_status__in=["Undecided", "Deleted"])
+        qs = qs.exclude(
+            duplicate_status__in=[
+                Reference.DuplicateStatus.DELETED,
+                Reference.DuplicateStatus.UNRESOLVED,
+            ]
+        )
 
         if stage == ReferenceOpinion.Stage.FULL_TEXT:
             qs = qs.filter(in_full_text=True)
@@ -812,7 +817,12 @@ class ScreeningQuerysetMixin:
         """
         stage = getattr(self, "stage", ReferenceOpinion.Stage.SCREENING)
         base = super().get_base_queryset_for_counts()
-        base = base.exclude(duplicate_status__in=["Undecided", "Deleted"])
+        base = base.exclude(
+            duplicate_status__in=[
+                Reference.DuplicateStatus.DELETED,
+                Reference.DuplicateStatus.UNRESOLVED,
+            ]
+        )
         if stage == ReferenceOpinion.Stage.FULL_TEXT:
             base = base.filter(in_full_text=True)
         return base
