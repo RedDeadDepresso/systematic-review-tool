@@ -11,8 +11,6 @@ const createWrapper = () => {
   );
 };
 
-let _mockWebSocketInstance: any = null;
-
 class MockWebSocket {
   onopen: any = null;
   onmessage: any = null;
@@ -22,9 +20,7 @@ class MockWebSocket {
   close = vi.fn();
   send = vi.fn();
 
-  constructor(public url: string) {
-    _mockWebSocketInstance = this;
-  }
+  constructor(public url: string) {}
 }
 
 describe('Hooks - use-review-chat', () => {
@@ -38,7 +34,6 @@ describe('Hooks - use-review-chat', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
-    _mockWebSocketInstance = null;
   });
 
   it('should natively configure states intelligently solidly seamlessly effectively comprehensively perfectly flexibly naturally securely cleanly dynamically reliably securely functionally naturally securely completely reliably gracefully elegantly creatively natively successfully creatively elegantly flawlessly seamlessly smartly organically securely comprehensively natively safely accurately cleanly correctly beautifully smoothly compactly optimally intelligently efficiently optimally cleanly solidly effectively seamlessly reliably logically rigorously properly implicitly elegantly creatively cleanly safely elegantly effectively systematically', () => {

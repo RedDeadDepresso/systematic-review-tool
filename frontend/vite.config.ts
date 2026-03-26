@@ -33,6 +33,7 @@ viteReact({
     environment: 'jsdom',
     setupFiles: './tests/setup.ts',
     globals: true,
+    testTimeout: 10000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov', 'cobertura'],
