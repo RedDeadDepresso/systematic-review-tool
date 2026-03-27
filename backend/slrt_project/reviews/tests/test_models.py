@@ -1,39 +1,10 @@
-"""
-Tests for slrt_project/reviews/models.py.
-
-Requires pytest-django (configured via pyproject.toml / conftest.py) and
-factory-boy.  No Django bootstrap block — relies on the shared test
-environment.
-
-Two tiers:
-- No-DB (plain class, no marker): uses _make() to build unsaved instances.
-- DB (@pytest.mark.django_db): uses factories for full round-trip tests.
-
-Key technique — _make()
------------------------
-Model.__new__ skips __init__, so _state is never initialised.  Django's FK
-__get__ descriptor checks _state.fields_cache for a pre-loaded related object
-(KeyError → falls back to a DB query using the attname + _is_pk_set(), which
-also fails on a bare instance).
-
-_make() fixes this by:
-1. Creating _state = ModelState() so the cache dict exists.
-2. For kwargs whose name matches a FK/O2O field, storing the value in
-   _state.fields_cache under the key Django uses internally
-   (field.get_cached_field_name()).  The descriptor finds it on the first
-   try and never hits the DB.
-3. All other kwargs go into __dict__ directly.
-"""
-
 import os
 import re
 from unittest.mock import MagicMock
 
 import pytest
 
-# ---------------------------------------------------------------------------
 # Shared helpers — construct model instances without hitting the DB
-# ---------------------------------------------------------------------------
 from django.db.models.base import ModelState
 
 from slrt_project.reviews.models import (
@@ -61,9 +32,6 @@ from slrt_project.reviews.tests.factories import (
 def _make(model_cls, **kwargs):
     """
     Construct a model instance without touching the database.
-    Only use this for models with NO FK/O2O fields in the kwargs —
-    Django's descriptor machinery is too deep to safely bypass without a DB.
-    For models with FK fields, use @pytest.mark.django_db + factories instead.
     """
     instance = model_cls.__new__(model_cls)
     instance._state = ModelState()
@@ -73,9 +41,7 @@ def _make(model_cls, **kwargs):
     return instance
 
 
-# ===========================================================================
 # Review
-# ===========================================================================
 
 
 class TestReviewStr:
@@ -175,9 +141,7 @@ class TestComputeOpinionStats:
         assert calls[0]["stage"] == "full_text"
 
 
-# ===========================================================================
 # ReviewMember
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -263,9 +227,7 @@ class TestReviewMemberFactory:
         assert m1.pk == m2.pk
 
 
-# ===========================================================================
 # ReviewInvitation
-# ===========================================================================
 
 
 class TestReviewInvitationStr:
@@ -315,9 +277,7 @@ class TestReviewInvitationFactory:
         assert ReviewInvitationFactory(review=review).review == review
 
 
-# ===========================================================================
 # ScreeningCriteria
-# ===========================================================================
 
 
 class TestScreeningCriteriaStr:
@@ -373,9 +333,7 @@ class TestScreeningCriteriaFactory:
         assert ScreeningCriteriaFactory(review=review).review == review
 
 
-# ===========================================================================
 # ScreeningStat
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -437,9 +395,7 @@ class TestScreeningStatFactory:
             ScreeningStat.objects.create(member=member, seconds=0, sessions=0)
 
 
-# ===========================================================================
 # ReviewChatMessage
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -524,9 +480,7 @@ class TestReviewChatMessageFactory:
         assert msg.member.review == msg.review
 
 
-# ===========================================================================
 # search_method_upload_path
-# ===========================================================================
 
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
@@ -562,9 +516,7 @@ class TestSearchMethodUploadPath:
         assert len(set(paths)) == 10
 
 
-# ===========================================================================
 # SearchMethod
-# ===========================================================================
 
 
 class TestSearchMethodStr:

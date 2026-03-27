@@ -1,36 +1,3 @@
-"""
-Factory classes for the references app.
-
-Uses factory_boy with DjangoModelFactory.  Every factory writes a real DB row.
-
-Usage examples
---------------
-    # Minimal reference (review + search_method created automatically):
-    ref = ReferenceFactory()
-
-    # Reference belonging to a specific review:
-    review = ReviewFactory()
-    ref = ReferenceFactory(review=review)
-
-    # IMPORTANT: search_method must belong to the same review as the reference.
-    # The factory handles this automatically via LazyAttribute, but if you pass
-    # an explicit review you should also pass a matching search_method:
-    search_method = SearchMethodFactory(review=review)
-    ref = ReferenceFactory(review=review, search_method=search_method)
-
-    # Reference already at full-text stage:
-    ref = ReferenceFactory(full_text=True)
-
-    # Reference at extraction stage:
-    ref = ReferenceFactory(extraction=True)
-
-    # Excluded reference (screening_status set):
-    ref = ReferenceFactory(excluded=True)
-
-    # Reference with a DOI:
-    ref = ReferenceFactory(doi="10.1234/example")
-"""
-
 import factory
 from factory import LazyAttribute, Sequence, SubFactory, Trait
 from factory.django import DjangoModelFactory
@@ -42,18 +9,6 @@ from slrt_project.reviews.tests.factories import ReviewFactory, SearchMethodFact
 class ReferenceFactory(DjangoModelFactory):
     """
     Creates a Reference with sensible bibliographic defaults.
-
-    The ``search_method`` is always created inside the same review as the
-    reference via ``LazyAttribute`` — this satisfies the implicit constraint
-    that a reference's search method must belong to its review.
-
-    Traits
-    ------
-    full_text   — sets in_full_text=True (promoted to full-text stage)
-    extraction  — sets in_full_text=True and in_extraction=True
-    excluded    — sets screening_status to EXCLUDED
-    included    — sets screening_status to INCLUDED
-    duplicate   — sets duplicate_status to DELETED (soft-deleted duplicate)
     """
 
     class Meta:

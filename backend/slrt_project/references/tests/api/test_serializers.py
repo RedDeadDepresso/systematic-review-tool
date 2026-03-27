@@ -2,17 +2,14 @@
 Tests for slrt_project/references/api/serializers.py.
 
 Strategy
---------
 - No-DB (no marker): all pure serializer logic — field presence, validation
-  rules, choice constraints, cross-field checks.  Uses plain dicts or
-  minimal SimpleNamespace / MagicMock objects where a model instance is
-  required to resolve context.
+rules, choice constraints, cross-field checks.  Uses plain dicts or
+minimal SimpleNamespace / MagicMock objects where a model instance is
+required to resolve context.
 - DB (@pytest.mark.django_db): serializers whose output depends on live ORM
-  relations (nested serializers, StringRelatedField, prefetch attributes).
-  Uses factories from slrt_project.reviews.tests.factories and reference
-  factories defined locally below.
-
-One class per serializer; one method per behaviour.
+relations (nested serializers, StringRelatedField, prefetch attributes).
+Uses factories from slrt_project.reviews.tests.factories and reference
+factories defined locally below.
 """
 
 from unittest.mock import MagicMock
@@ -59,10 +56,8 @@ from slrt_project.reviews.tests.factories import (
 api_factory = APIRequestFactory()
 
 
-# ===========================================================================
 # Local reference factories (defined here to avoid a hard dependency on a
 # references-app factory module that may not yet exist)
-# ===========================================================================
 
 
 def _make_request(user=None):
@@ -105,11 +100,7 @@ def _make_reference(**kwargs):
     return r
 
 
-# ===========================================================================
 # UploadedPDFSerializer
-# ===========================================================================
-
-
 class TestUploadedPDFSerializer:
     def test_fields_present(self):
         s = UploadedPDFSerializer()
@@ -132,11 +123,7 @@ class TestUploadedPDFSerializer:
         assert s.validate_file(mock_file) is mock_file
 
 
-# ===========================================================================
 # BaseReferenceSerializer
-# ===========================================================================
-
-
 class TestBaseReferenceSerializer:
     def test_all_fields_present(self):
         expected = {
@@ -161,11 +148,7 @@ class TestBaseReferenceSerializer:
             assert field.read_only, f"Field '{field_name}' should be read-only"
 
 
-# ===========================================================================
 # ReferenceSerializer
-# ===========================================================================
-
-
 class TestReferenceSerializer:
     def _serialise(self, ref, user=None):
         request = _make_request(user=user or _make_user())
@@ -259,11 +242,7 @@ class TestReferenceSerializer:
         assert data["assignee"]["user"]["email"] == "c@w.com"
 
 
-# ===========================================================================
 # ReferenceOpinionSerializer
-# ===========================================================================
-
-
 class TestReferenceOpinionSerializer:
     def test_fields_present(self):
         s = ReferenceOpinionSerializer()
@@ -322,11 +301,7 @@ class TestReferenceOpinionSerializer:
         assert ReferenceOpinionSerializer().fields["member"].read_only
 
 
-# ===========================================================================
 # KeywordSerializer
-# ===========================================================================
-
-
 class TestKeywordSerializer:
     def test_fields(self):
         assert set(KeywordSerializer().fields.keys()) == {
@@ -352,11 +327,7 @@ class TestKeywordSerializer:
         assert "type" in s.errors
 
 
-# ===========================================================================
 # ReasonSerializer
-# ===========================================================================
-
-
 class TestReasonSerializer:
     def test_fields(self):
         assert set(ReasonSerializer().fields.keys()) == {"id", "name", "review"}
@@ -370,11 +341,7 @@ class TestReasonSerializer:
         assert "name" in s.fields
 
 
-# ===========================================================================
 # AttachPDFMappingSerializer
-# ===========================================================================
-
-
 class TestAttachPDFMappingSerializer:
     def test_valid(self):
         s = AttachPDFMappingSerializer(data={"reference_id": 1, "uploaded_pdf_id": 2})
@@ -391,11 +358,7 @@ class TestAttachPDFMappingSerializer:
         assert "uploaded_pdf_id" in s.errors
 
 
-# ===========================================================================
 # AttachPDFsSerializer
-# ===========================================================================
-
-
 class TestAttachPDFsSerializer:
     def test_valid(self):
         s = AttachPDFsSerializer(
@@ -417,11 +380,7 @@ class TestAttachPDFsSerializer:
         assert not s.is_valid()
 
 
-# ===========================================================================
 # AutoMatchSerializer
-# ===========================================================================
-
-
 class TestAutoMatchSerializer:
     def test_valid(self):
         s = AutoMatchSerializer(data={"review_id": 1, "reference_ids": [1, 2, 3]})
@@ -438,11 +397,7 @@ class TestAutoMatchSerializer:
         assert s.is_valid(), s.errors
 
 
-# ===========================================================================
 # BulkCreateNoteSerializer
-# ===========================================================================
-
-
 class TestBulkCreateNoteSerializer:
     def test_valid(self):
         s = BulkCreateNoteSerializer(
@@ -461,11 +416,7 @@ class TestBulkCreateNoteSerializer:
         assert "content" in s.errors
 
 
-# ===========================================================================
 # AssignReferencesSerializer
-# ===========================================================================
-
-
 class TestAssignReferencesSerializer:
     def _valid(self, mode="assign", assignee_id=5):
         d = {"review": 1, "reference_ids": [1, 2], "mode": mode}
@@ -502,11 +453,7 @@ class TestAssignReferencesSerializer:
         assert not AssignReferencesSerializer(data=d).is_valid()
 
 
-# ===========================================================================
 # ReferenceOpinionUpsertSerializer
-# ===========================================================================
-
-
 class TestReferenceOpinionUpsertSerializer:
     def _valid(self, status="included", stage="screening"):
         return {
@@ -549,11 +496,7 @@ class TestReferenceOpinionUpsertSerializer:
         assert s.is_valid(), s.errors
 
 
-# ===========================================================================
 # AssignLabelsSerializer  (no-DB portions)
-# ===========================================================================
-
-
 class TestAssignLabelsSerializerFields:
     """Pure field-structure tests that don't need a DB."""
 
@@ -575,11 +518,7 @@ class TestAssignLabelsSerializerFields:
         assert field.allow_empty is False
 
 
-# ===========================================================================
 # Response serializers — all pure-logic, no DB needed
-# ===========================================================================
-
-
 class TestAttachPDFsResponseSerializer:
     def test_valid(self):
         s = AttachPDFsResponseSerializer(
@@ -810,11 +749,7 @@ class TestClusterListResponseSerializer:
         ).is_valid()
 
 
-# ===========================================================================
 # DB-backed tests
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestLabelSerializerDB:
     """LabelSerializer.validate_name requires a DB lookup."""

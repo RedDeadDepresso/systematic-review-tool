@@ -2,19 +2,9 @@
 Tests for slrt_project/users/serializers.py and slrt_project/users/views.py.
 
 Strategy
---------
 - APIRequestFactory + bypass_is_authenticated fixture for all view tests.
 - allauth EmailAddress is patched where the serializer touches it to keep
-  tests hermetic (no allauth setup required).
-
-Coverage
---------
-UserView (slrt_project/users/views.py)
-  - GET returns 200 with the authenticated user's data
-  - PUT updates the user and returns 200
-  - PATCH partially updates the user and returns 200
-  - DELETE deletes the user and returns 204 with detail message
-  - Unauthenticated requests to GET are rejected (401/403)
+tests hermetic (no allauth setup required).
 """
 
 from unittest.mock import MagicMock, patch

@@ -1,49 +1,12 @@
-"""
-Models for the zotero_integration app.
-
-The Zotero integration allows a review's references to be pushed to and pulled
-from a Zotero library.  Two models make up this app:
-
-ZoteroIntegration
-    A OneToOne record per review that stores the library credentials and sync
-    metadata.  The API key is encrypted at rest using Fernet symmetric
-    encryption when ``settings.ENCRYPTION_KEY`` is present; it falls back to
-    plaintext storage when the key is absent (useful in development).
-
-ZoteroSyncLog
-    An append-only log of every push/pull operation for a review.  Used to
-    diagnose sync failures and to track when data was last transferred.
-"""
-
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.db import models
 
 
-# ===========================================================================
 # ZoteroIntegration
-# ===========================================================================
-
-
 class ZoteroIntegration(models.Model):
     """
     Stores Zotero library credentials and sync state for a single review.
-
-    Encryption
-    ----------
-    The Zotero API key is sensitive and stored encrypted.  The ``api_key``
-    property handles transparent encrypt/decrypt using Fernet (AES-128-CBC +
-    HMAC-SHA256).  The raw database column is named ``api_key`` but accessed
-    via the ``_api_key`` attribute to prevent accidental plaintext reads.
-
-    When ``settings.ENCRYPTION_KEY`` is not set the key is stored and returned
-    as plaintext, which is acceptable for local development but must not be
-    used in production.
-
-    Sync version
-    ------------
-    Zotero's API uses an integer library version to detect changes.  We store
-    the last synced version so incremental pulls can request only newer items.
     """
 
     class LibraryType(models.TextChoices):
@@ -138,11 +101,6 @@ class ZoteroIntegration(models.Model):
     def api_key(self) -> str | None:
         """
         Decrypt and return the stored API key.
-
-        Returns None when no key has been stored.  When ``settings.ENCRYPTION_KEY``
-        is set, decrypts the stored value using Fernet.  If decryption fails
-        (e.g. the key was stored before encryption was enabled) the raw value
-        is returned as-is for backwards compatibility.
         """
         if not self._api_key:
             return None
@@ -163,12 +121,6 @@ class ZoteroIntegration(models.Model):
     def api_key(self, value: str | None) -> None:
         """
         Encrypt and store the API key.
-
-        When ``settings.ENCRYPTION_KEY`` is set the value is encrypted with
-        Fernet before storage.  When the key is absent the value is stored as
-        plaintext (development only — do not use in production).
-
-        Passing None clears the stored key.
         """
         if value is None:
             self._api_key = None
@@ -186,39 +138,22 @@ class ZoteroIntegration(models.Model):
     def is_configured(self) -> bool:
         """
         Return True when the integration has all required credentials and is active.
-
-        A return value of False means sync operations must not be attempted.
         """
         return bool(self.library_id and self._api_key and self.is_active)
 
     def get_credentials(self) -> tuple[str, str, str] | tuple[None, None, None]:
         """
         Return ``(library_id, api_key, library_type)`` when configured.
-
-        Returns ``(None, None, None)`` when ``is_configured`` is False so
-        callers can do a simple truthiness check on the first element.
         """
         if self.is_configured:
             return (self.library_id, self.api_key, self.library_type)
         return (None, None, None)
 
 
-# ===========================================================================
 # ZoteroSyncLog
-# ===========================================================================
-
-
 class ZoteroSyncLog(models.Model):
     """
     Append-only record of a single Zotero push or pull operation.
-
-    A new row is written after every sync attempt whether it succeeded or
-    failed.  The log is ordered newest-first so the most recent entry can be
-    retrieved cheaply with ``.first()``.
-
-    ``items_with_pdfs`` counts how many of the processed items had an
-    attached PDF, which is useful for reporting how much full-text was
-    transferred.
     """
 
     class SyncType(models.TextChoices):

@@ -1,22 +1,3 @@
-"""
-Tests for slrt_project/coding/api/serializers.py.
-
-Strategy
---------
-No-DB (plain pytest class, no marker)
-    Field-shape and validation tests using plain dicts.  Covers read_only
-    fields, required fields, and computed field return types.
-
-DB (@pytest.mark.django_db)
-    Full round-trip tests: computed field values, member read-only enforcement,
-    reverse relation fields (code_ids, sub_theme_ids).
-
-One class per serializer; one method per behaviour.
-
-Run with:
-    pytest slrt_project/coding/tests/api/test_serializers.py -v
-"""
-
 from unittest.mock import MagicMock
 
 import pytest
@@ -35,9 +16,7 @@ from slrt_project.references.tests.factories import ReferenceFactory
 from slrt_project.reviews.tests.factories import ReviewMemberFactory
 
 
-# ===========================================================================
 # CodeSerializer
-# ===========================================================================
 
 
 class TestCodeSerializerFields:
@@ -130,9 +109,7 @@ class TestCodeSerializerComputedFields:
             assert field in data, f"Missing field: {field}"
 
 
-# ===========================================================================
 # SubThemeSerializer
-# ===========================================================================
 
 
 class TestSubThemeSerializerFields:
@@ -183,9 +160,7 @@ class TestSubThemeSerializerDB:
         assert s.data["name"] == sub.name
 
 
-# ===========================================================================
 # MainThemeSerializer
-# ===========================================================================
 
 
 class TestMainThemeSerializerFields:

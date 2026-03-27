@@ -1,21 +1,3 @@
-"""
-Tests for slrt_project/references/models.py
-       and slrt_project/references/api/views.py.
-
-Strategy
---------
-Models
-  - No-DB tests for pure Python logic: UnionFind, calculate_completeness,
-    Reference.__str__, UploadedPDF.__str__, ReferenceCluster.__str__,
-    ReferenceClusterMember.__str__, Note.__str__.
-  - DB tests (@pytest.mark.django_db) for Reference.update_opinion_statuses,
-    DuplicateClusterDetector, DuplicateClusterManager,
-    and model constraint validation.
-
-Run with:
-    pytest slrt_project/references/tests/ -v
-"""
-
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -38,12 +20,6 @@ factory = APIRequestFactory()
 def bypass_is_authenticated():
     """
     Patch DRF's IsAuthenticated for every test in this module.
-
-    APIRequestFactory does not run Django middleware, so the permission check
-    sees an unauthenticated request unless we either use force_authenticate
-    (only available on APIClient) or patch the permission class directly.
-    Individual tests still set request.user so that any code reading
-    request.user inside views works correctly.
     """
     with patch(
         "rest_framework.permissions.IsAuthenticated.has_permission",
@@ -52,11 +28,7 @@ def bypass_is_authenticated():
         yield
 
 
-# ---------------------------------------------------------------------------
 # Shared mock helpers
-# ---------------------------------------------------------------------------
-
-
 def make_user(pk=1, email="user@example.com", first_name="Alice", last_name="Smith"):
     u = MagicMock()
     u.pk = pk
@@ -80,11 +52,7 @@ def make_review(pk=1, is_blinded=True, is_active=True):
     return r
 
 
-# ===========================================================================
 # UnionFind
-# ===========================================================================
-
-
 class TestUnionFind:
     def test_single_node_is_own_root(self):
         uf = UnionFind()
@@ -142,11 +110,7 @@ class TestUnionFind:
             assert uf.find(node) == root
 
 
-# ===========================================================================
 # calculate_completeness
-# ===========================================================================
-
-
 class TestCalculateCompleteness:
     def _ref(self, **kwargs):
         """Build a SimpleNamespace acting as a minimal Reference."""
@@ -216,11 +180,7 @@ class TestCalculateCompleteness:
         assert short == long
 
 
-# ===========================================================================
 # Reference.__str__
-# ===========================================================================
-
-
 class TestReferenceStr:
     def test_str_format(self):
         from slrt_project.references.models import Reference
@@ -236,11 +196,7 @@ class TestReferenceStr:
         assert "My paper" in result
 
 
-# ===========================================================================
 # ReferenceCluster.__str__ / size property
-# ===========================================================================
-
-
 class TestReferenceClusterStr:
     def test_str_contains_status(self):
         cluster = MagicMock(spec=ReferenceCluster)
@@ -255,11 +211,7 @@ class TestReferenceClusterStr:
         assert ReferenceCluster.size.fget(cluster) == 3
 
 
-# ===========================================================================
 # UploadedPDF.__str__
-# ===========================================================================
-
-
 class TestUploadedPDFStr:
     def test_str_appends_pdf_extension(self):
         from slrt_project.references.models import UploadedPDF
@@ -270,11 +222,7 @@ class TestUploadedPDFStr:
         assert result == "my_paper.pdf"
 
 
-# ===========================================================================
 # Note.save — edited_at behaviour
-# ===========================================================================
-
-
 class TestNoteSave:
     def test_edited_at_set_on_update(self):
         """edited_at must be set when saving an existing note (pk present)."""
@@ -309,11 +257,7 @@ class TestNoteSave:
         assert note.edited_at is None
 
 
-# ===========================================================================
 # DB model tests
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestReferenceUpdateOpinionStatuses:
     """Tests for Reference.update_opinion_statuses()."""
@@ -443,11 +387,7 @@ class TestReferenceUpdateOpinionStatuses:
         assert ref.screening_status == ReferenceOpinionStatus.UNDECIDED
 
 
-# ===========================================================================
 # DuplicateClusterManager — unit tests with mocked detector
-# ===========================================================================
-
-
 class TestDuplicateClusterManagerPickCanonical:
     """Tests for _pick_canonical — the canonical selection logic."""
 

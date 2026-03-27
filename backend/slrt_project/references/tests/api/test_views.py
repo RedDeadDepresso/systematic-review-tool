@@ -1,17 +1,16 @@
 """
 Tests for slrt_project/references/models.py
-       and slrt_project/references/api/views.py.
+and slrt_project/references/api/views.py.
 
 Strategy
---------
 Views
-  - All view tests use APIRequestFactory + force_authenticate.
-  - External dependencies (Celery tasks, complex ORM, permissions) are patched
-    with unittest.mock.patch so tests are fast and deterministic.
-  - One class per endpoint / action; one method per behaviour.
+- All view tests use APIRequestFactory + force_authenticate.
+- External dependencies (Celery tasks, complex ORM, permissions) are patched
+with unittest.mock.patch so tests are fast and deterministic.
+- One class per endpoint / action; one method per behaviour.
 
 Run with:
-    pytest slrt_project/references/tests/ -v
+pytest slrt_project/references/tests/ -v
 """
 
 from unittest.mock import MagicMock, patch
@@ -32,12 +31,6 @@ factory = APIRequestFactory()
 def bypass_is_authenticated():
     """
     Patch DRF's IsAuthenticated for every test in this module.
-
-    APIRequestFactory does not run Django middleware, so the permission check
-    sees an unauthenticated request unless we either use force_authenticate
-    (only available on APIClient) or patch the permission class directly.
-    Individual tests still set request.user so that any code reading
-    request.user inside views works correctly.
     """
     with patch(
         "rest_framework.permissions.IsAuthenticated.has_permission",
@@ -46,11 +39,7 @@ def bypass_is_authenticated():
         yield
 
 
-# ---------------------------------------------------------------------------
 # Shared mock helpers
-# ---------------------------------------------------------------------------
-
-
 def make_user(pk=1, email="user@example.com", first_name="Alice", last_name="Smith"):
     u = MagicMock()
     u.pk = pk
@@ -86,11 +75,7 @@ def make_member(pk=1, role="Reviewer", review=None, user=None):
     return m
 
 
-# ===========================================================================
 # View tests — ReferenceViewSet
-# ===========================================================================
-
-
 class TestReferenceViewSetAttachPDFs:
     def test_missing_mapping_field_returns_400(self):
         from slrt_project.references.api.views import ReferenceViewSet
@@ -282,11 +267,7 @@ class TestReferenceViewSetAssign:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
-# ===========================================================================
 # ReviewDataViewSet
-# ===========================================================================
-
-
 class TestReviewDataViewSetList:
     def test_missing_review_param_returns_400(self):
         from slrt_project.references.api.views import ReviewDataViewSet
@@ -372,11 +353,7 @@ class TestReviewDataViewSetFilterCounts:
         assert response.data == fake_agg
 
 
-# ===========================================================================
 # UploadedPDFViewSet
-# ===========================================================================
-
-
 class TestUploadedPDFViewSetCreate:
     def test_non_pdf_file_returns_400(self):
         """The serializer should reject non-PDF files."""
@@ -427,9 +404,7 @@ class TestUploadedPDFViewSetExtractDOI:
         assert result.startswith("10.1234")
 
 
-# ===========================================================================
 # DuplicateClusterViewSet
-# ===========================================================================
 
 
 class TestDuplicateClusterViewSetList:
@@ -703,20 +678,11 @@ class TestDuplicateClusterViewSetStats:
         assert "affectedReferences" in response.data
 
 
-# ===========================================================================
 # ReferenceOpinionViewSet
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestReferenceOpinionBulkUpsert:
     """
     bulk_upsert is decorated with @transaction.atomic at definition time so
-    Django opens a real DB connection before any Python code runs — patching
-    transaction.atomic after import has no effect on the already-bound
-    decorator.  The django_db mark is the correct fix: it grants DB access
-    so the transaction wrapper succeeds, and the serializer validation errors
-    (400) are returned before any real DB writes occur.
     """
 
     def test_invalid_stage_returns_400(self):
@@ -770,11 +736,7 @@ class TestReferenceOpinionBulkUpsert:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
-# ===========================================================================
 # LabelViewSet
-# ===========================================================================
-
-
 class TestLabelViewSetAssignToReferences:
     def test_invalid_payload_returns_400(self):
         from slrt_project.references.api.views import LabelViewSet
@@ -787,11 +749,7 @@ class TestLabelViewSetAssignToReferences:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
-# ===========================================================================
 # NoteViewSet
-# ===========================================================================
-
-
 class TestNoteViewSetBulkCreate:
     def test_invalid_payload_returns_400(self):
         from slrt_project.references.api.views import NoteViewSet
@@ -825,11 +783,7 @@ class TestNoteViewSetBulkCreate:
         )
 
 
-# ===========================================================================
 # KeywordViewSet
-# ===========================================================================
-
-
 class TestKeywordViewSetCreate:
     def test_missing_review_raises_permission_denied(self):
         from slrt_project.references.api.views import KeywordViewSet
@@ -854,11 +808,7 @@ class TestKeywordViewSetCreate:
         )
 
 
-# ===========================================================================
 # ReasonViewSet
-# ===========================================================================
-
-
 class TestReasonViewSetList:
     def test_missing_review_param_raises_validation_error(self):
         from slrt_project.references.api.views import ReasonViewSet

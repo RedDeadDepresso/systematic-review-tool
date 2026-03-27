@@ -1,14 +1,3 @@
-"""
-Serializers for the reviews app.
-
-Covers:
-- Model serializers: Review, ReviewMember, ReviewChatMessage, ReviewInvitation,
-  ScreeningCriteria, ScreeningStat, SearchMethod.
-- Action / response serializers: one dedicated serializer per custom-view
-  response shape, ensuring Spectacular generates accurate OpenAPI docs and
-  that response payloads are always validated before being sent.
-"""
-
 from drf_spectacular.utils import extend_schema_field, extend_schema_serializer
 from rest_framework import serializers
 
@@ -25,22 +14,13 @@ from slrt_project.reviews.models import (
 from slrt_project.users.api.serializers import UserSerializer
 
 
-# ===========================================================================
 # Model serializers
-# ===========================================================================
 
-# ---------------------------------------------------------------------------
+
 # ReviewMember
-# ---------------------------------------------------------------------------
-
-
 class ReviewMemberSerializer(serializers.ModelSerializer):
     """
     Serializes a ReviewMember with the nested User.
-
-    Role validation rules:
-    - An existing Owner's role cannot be changed.
-    - No member may be promoted to Owner via this serializer.
     """
 
     user = UserSerializer(read_only=True)
@@ -67,11 +47,7 @@ class ReviewMemberSerializer(serializers.ModelSerializer):
         return new_role
 
 
-# ---------------------------------------------------------------------------
 # ReviewChatMessage
-# ---------------------------------------------------------------------------
-
-
 class ReviewChatMessageSerializer(serializers.ModelSerializer):
     """
     Full serialization of a chat message with the nested member.
@@ -85,18 +61,10 @@ class ReviewChatMessageSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-# ---------------------------------------------------------------------------
 # ScreeningStat
-# ---------------------------------------------------------------------------
-
-
 class ScreeningStatSerializer(serializers.ModelSerializer):
     """
     Flat screening-activity payload with derived display fields.
-
-    ``user_name`` and ``user_email`` are pulled from the related member's user
-    so callers receive a ready-to-display payload without extra lookups.
-    ``hours`` converts raw seconds to a rounded float.
     """
 
     user_name = serializers.SerializerMethodField()
@@ -122,17 +90,11 @@ class ScreeningStatSerializer(serializers.ModelSerializer):
         return round(obj.seconds / 3600, 2)
 
 
-# ---------------------------------------------------------------------------
 # OpinionStats  (aggregated — no model backing)
-# ---------------------------------------------------------------------------
-
-
 class OpinionStatsSerializer(serializers.Serializer):
     """
     Read-only serializer for per-member opinion counts returned by
     ``Review.compute_opinion_stats()``.
-
-    Backed by plain dicts from the ORM ``.values().annotate()`` query.
     """
 
     member_id = serializers.IntegerField()
@@ -144,21 +106,10 @@ class OpinionStatsSerializer(serializers.Serializer):
     total = serializers.IntegerField()
 
 
-# ---------------------------------------------------------------------------
 # Review (detail)
-# ---------------------------------------------------------------------------
-
-
 class ReviewSerializer(serializers.ModelSerializer):
     """
     Detail serializer for a single Review.
-
-    Several fields (``reference_count``, ``duplicate_*_count``) are expected
-    to be annotated by the view's queryset — they are read-only here and
-    return ``None`` when the annotation is absent.
-
-    ``user_role`` is also annotated by the view to avoid an extra DB query
-    per request.
     """
 
     user_role = serializers.SerializerMethodField()
@@ -211,17 +162,10 @@ class ReviewSerializer(serializers.ModelSerializer):
             return False
 
 
-# ---------------------------------------------------------------------------
 # Review (list)
-# ---------------------------------------------------------------------------
-
-
 class ReviewListSerializer(serializers.ModelSerializer):
     """
     Lightweight list serializer.
-
-    ``owner`` is built from queryset annotations to avoid N+1 queries.
-    ``user_role`` is similarly annotated by the view.
     """
 
     user_role = serializers.SerializerMethodField()
@@ -256,17 +200,10 @@ class ReviewListSerializer(serializers.ModelSerializer):
         return f"{full_name} ({email})" if full_name else email
 
 
-# ---------------------------------------------------------------------------
 # ReviewInvitation
-# ---------------------------------------------------------------------------
-
-
 class ReviewInvitationCreateSerializer(serializers.Serializer):
     """
     Validates bulk-invite payloads.
-
-    ``emails`` is a non-empty list of valid e-mail addresses; the view
-    iterates over them and creates individual invitation records.
     """
 
     review = serializers.IntegerField()
@@ -286,11 +223,7 @@ class ReviewInvitationSerializer(serializers.ModelSerializer):
         read_only_fields = ["created_at"]
 
 
-# ---------------------------------------------------------------------------
 # ScreeningCriteria
-# ---------------------------------------------------------------------------
-
-
 class ScreeningCriteriaSerializer(serializers.ModelSerializer):
     """Serializer for inclusion/exclusion screening criteria."""
 
@@ -300,11 +233,7 @@ class ScreeningCriteriaSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
 
-# ---------------------------------------------------------------------------
 # Label / article count helpers  (read-only)
-# ---------------------------------------------------------------------------
-
-
 class LabelCountSerializer(serializers.Serializer):
     """Pairs a label with the number of references that carry it."""
 
@@ -326,18 +255,10 @@ class ArticleCountSerializer(serializers.Serializer):
     labels = LabelCountSerializer(many=True)
 
 
-# ---------------------------------------------------------------------------
 # AddData  (request)
-# ---------------------------------------------------------------------------
-
-
 class AddDataSerializer(serializers.Serializer):
     """
     Validates the ``add-data`` action request body.
-
-    Cross-field rule: source and sink cannot both be ``"full-text"``.
-    ``label_ids`` is optional and only meaningful when ``"labeled"`` is in
-    ``article_types``.
     """
 
     data_source = serializers.ChoiceField(choices=["screening", "full-text"])
@@ -359,11 +280,7 @@ class AddDataSerializer(serializers.Serializer):
         return attrs
 
 
-# ---------------------------------------------------------------------------
 # SearchMethod
-# ---------------------------------------------------------------------------
-
-
 class SearchMethodSerializer(serializers.ModelSerializer):
     """Minimal serializer for a SearchMethod (id + name only)."""
 
@@ -383,18 +300,13 @@ class SearchMethodDetailSerializer(serializers.ModelSerializer):
         fields = ["id", "name"]
 
 
-# ===========================================================================
 # Action / response serializers
 #
 # One serializer per custom-endpoint response shape.
 # Used by views for serializing output AND by drf-spectacular for OpenAPI docs.
-# ===========================================================================
 
-# ---------------------------------------------------------------------------
+
 # upload-references  →  202
-# ---------------------------------------------------------------------------
-
-
 @extend_schema_serializer(component_name="UploadReferencesResponse")
 class UploadReferencesResponseSerializer(serializers.Serializer):
     """202 Accepted response body for the ``upload-references`` action."""
@@ -414,11 +326,7 @@ class UploadReferencesResponseSerializer(serializers.Serializer):
     )
 
 
-# ---------------------------------------------------------------------------
 # add-data  →  200
-# ---------------------------------------------------------------------------
-
-
 @extend_schema_serializer(component_name="AddDataResponse")
 class AddDataResponseSerializer(serializers.Serializer):
     """200 OK response body for the ``add-data`` action."""
@@ -428,11 +336,7 @@ class AddDataResponseSerializer(serializers.Serializer):
     )
 
 
-# ---------------------------------------------------------------------------
 # detect-duplicates  —  request + 202 response
-# ---------------------------------------------------------------------------
-
-
 @extend_schema_serializer(component_name="DetectDuplicatesRequest")
 class DetectDuplicatesRequestSerializer(serializers.Serializer):
     """Request body for the ``detect-duplicates`` action."""
@@ -455,19 +359,11 @@ class DetectDuplicatesResponseSerializer(serializers.Serializer):
     threshold = serializers.FloatField()
 
 
-# ---------------------------------------------------------------------------
 # auto-resolve-duplicates  —  request + 202 response
-# ---------------------------------------------------------------------------
-
-
 @extend_schema_serializer(component_name="AutoResolveDuplicatesRequest")
 class AutoResolveDuplicatesRequestSerializer(serializers.Serializer):
     """
     Request body for the ``auto-resolve-duplicates`` action.
-
-    All fields are optional; defaults are applied automatically.
-    ``preferred_search_method_id`` is validated against the review passed
-    in serializer context.
     """
 
     confidence_threshold = serializers.FloatField(
@@ -521,11 +417,7 @@ class AutoResolveDuplicatesResponseSerializer(serializers.Serializer):
     preferred_search_method_id = serializers.IntegerField(allow_null=True)
 
 
-# ---------------------------------------------------------------------------
 # prisma  →  200
-# ---------------------------------------------------------------------------
-
-
 class PrismaValidationIssueSerializer(serializers.Serializer):
     """A single PRISMA diagram validation warning or error."""
 
@@ -551,11 +443,7 @@ class PrismaResponseSerializer(serializers.Serializer):
     validation_issues = PrismaValidationIssueSerializer(many=True)
 
 
-# ---------------------------------------------------------------------------
 # export-json  →  200
-# ---------------------------------------------------------------------------
-
-
 class CodeExportSerializer(serializers.Serializer):
     id = serializers.CharField()
     name = serializers.CharField()
@@ -592,11 +480,7 @@ class ExportJsonResponseSerializer(serializers.Serializer):
     themes = ThemeExportSerializer(many=True)
 
 
-# ---------------------------------------------------------------------------
 # export-latex  →  200
-# ---------------------------------------------------------------------------
-
-
 @extend_schema_serializer(component_name="ExportLatexResponse")
 class ExportLatexResponseSerializer(serializers.Serializer):
     """200 OK response body for the ``export-latex`` action (non-download mode)."""
@@ -608,11 +492,7 @@ class ExportLatexResponseSerializer(serializers.Serializer):
     format = serializers.ChoiceField(choices=["table_only", "full_document"])
 
 
-# ---------------------------------------------------------------------------
 # Invitation accept / decline  →  200
-# ---------------------------------------------------------------------------
-
-
 @extend_schema_serializer(component_name="InvitationAcceptDeclineResponse")
 class InvitationAcceptDeclineResponseSerializer(serializers.Serializer):
     """200 OK response body for the invitation ``accept`` and ``decline`` actions."""

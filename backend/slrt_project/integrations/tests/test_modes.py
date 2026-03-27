@@ -2,26 +2,14 @@
 Tests for slrt_project/zotero_integration/models.py.
 
 Strategy
---------
 No-DB (plain pytest class, no marker)
-    Choice enumerations, Meta options, field defaults, and property logic
-    that can be tested without ORM involvement.  The ``api_key`` property
-    and ``is_configured`` / ``get_credentials`` helpers are tested here using
-    unsaved instances constructed with ``_make()``.
-
-DB (@pytest.mark.django_db)
-    Factory correctness, cascade deletes, OneToOne constraint, __str__
-    (which traverses the review FK), log ordering, and encrypt/decrypt
-    round-trips that require a saved instance.
-
-Settings override
------------------
-Tests that exercise the Fernet encryption path use ``@pytest.mark.django_db``
-together with ``override_settings(ENCRYPTION_KEY=<valid-fernet-key>)`` so
-the cipher suite can initialise correctly.
+Choice enumerations, Meta options, field defaults, and property logic
+that can be tested without ORM involvement.  The ``api_key`` property
+and ``is_configured`` / ``get_credentials`` helpers are tested here using
+unsaved instances constructed with ``_make()``.
 
 Run with:
-    pytest slrt_project/zotero_integration/tests/test_models.py -v
+pytest slrt_project/zotero_integration/tests/test_models.py -v
 """
 
 import pytest
@@ -40,17 +28,12 @@ from slrt_project.reviews.tests.factories import ReviewFactory
 _TEST_FERNET_KEY = "x3DSg3ELh7BaVMpvRBq8Lb3-0EDIFvKl4mL6YRN3JlI="
 
 
-# ---------------------------------------------------------------------------
 # Helper — build unsaved instances without touching the DB
-# ---------------------------------------------------------------------------
 
 
 def _make(model_cls, **kwargs):
     """
     Construct an unsaved model instance without any DB access.
-
-    Safe only for scalar (non-FK) fields.  Use factories + @pytest.mark.django_db
-    for any test that accesses a FK attribute such as ``self.review``.
     """
     instance = model_cls.__new__(model_cls)
     instance._state = ModelState()
@@ -60,9 +43,7 @@ def _make(model_cls, **kwargs):
     return instance
 
 
-# ===========================================================================
 # ZoteroIntegration.LibraryType choices
-# ===========================================================================
 
 
 class TestLibraryTypeChoices:
@@ -80,9 +61,7 @@ class TestLibraryTypeChoices:
         assert field.default == ZoteroIntegration.LibraryType.USER
 
 
-# ===========================================================================
 # ZoteroIntegration — field meta
-# ===========================================================================
 
 
 class TestZoteroIntegrationFields:
@@ -124,9 +103,7 @@ class TestZoteroIntegrationFields:
         assert field.remote_field.on_delete.__name__ == "CASCADE"
 
 
-# ===========================================================================
 # ZoteroIntegration.api_key property — no encryption
-# ===========================================================================
 
 
 class TestApiKeyPropertyPlaintext:
@@ -155,9 +132,7 @@ class TestApiKeyPropertyPlaintext:
         assert instance._api_key is None
 
 
-# ===========================================================================
 # ZoteroIntegration.api_key property — with encryption
-# ===========================================================================
 
 
 class TestApiKeyPropertyEncrypted:
@@ -195,9 +170,7 @@ class TestApiKeyPropertyEncrypted:
         assert instance.api_key == "legacy-plaintext-key"
 
 
-# ===========================================================================
 # ZoteroIntegration.is_configured
-# ===========================================================================
 
 
 class TestIsConfigured:
@@ -233,9 +206,7 @@ class TestIsConfigured:
         assert instance.is_configured is False
 
 
-# ===========================================================================
 # ZoteroIntegration.get_credentials
-# ===========================================================================
 
 
 class TestGetCredentials:
@@ -269,9 +240,7 @@ class TestGetCredentials:
         assert instance.get_credentials() == (None, None, None)
 
 
-# ===========================================================================
 # ZoteroIntegration — DB tests
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -327,9 +296,7 @@ class TestZoteroIntegrationDB:
         assert integration.api_key.startswith("raw-api-key")
 
 
-# ===========================================================================
 # ZoteroSyncLog.SyncType choices
-# ===========================================================================
 
 
 class TestSyncTypeChoices:
@@ -343,9 +310,7 @@ class TestSyncTypeChoices:
         assert "Pull from Zotero" in labels
 
 
-# ===========================================================================
 # ZoteroSyncLog — field meta
-# ===========================================================================
 
 
 class TestZoteroSyncLogFields:
@@ -379,9 +344,7 @@ class TestZoteroSyncLogFields:
         assert field.remote_field.related_name == "zotero_sync_logs"
 
 
-# ===========================================================================
 # ZoteroSyncLog.__str__
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -393,9 +356,7 @@ class TestZoteroSyncLogStr:
         assert log.sync_type in result
 
 
-# ===========================================================================
 # ZoteroSyncLog — DB tests
-# ===========================================================================
 
 
 @pytest.mark.django_db

@@ -1,39 +1,3 @@
-"""
-Factory classes for the coding app.
-
-Uses factory_boy with DjangoModelFactory.  Every factory writes a real DB row,
-making it straightforward to compose realistic object graphs in tests.
-
-Usage examples
---------------
-    # Minimal MainTheme (review + member created automatically):
-    theme = MainThemeFactory()
-
-    # Two themes in the same review:
-    review = ReviewFactory()
-    t1 = MainThemeFactory(review=review, name="Barriers")
-    t2 = MainThemeFactory(review=review, name="Enablers")
-
-    # SubTheme attached to a MainTheme:
-    sub = SubThemeFactory(main_theme=t1)
-
-    # Standalone SubTheme (no parent theme):
-    sub = SubThemeFactory(main_theme=None)
-
-    # Minimal text Code:
-    code = CodeFactory()
-
-    # Code with explicit highlight type and style:
-    code = CodeFactory(text=True, highlight_style=Code.HighlightStyle.UNDERLINE)
-
-    # Code attached to a specific sub-theme and reference:
-    ref = ReferenceFactory()
-    code = CodeFactory(sub_theme=sub, reference=ref)
-
-    # Free-text code (no position/content payload):
-    code = CodeFactory(freetext=True)
-"""
-
 import factory
 from factory import LazyAttribute, Sequence, SubFactory, Trait
 from factory.django import DjangoModelFactory
@@ -43,19 +7,10 @@ from slrt_project.references.tests.factories import ReferenceFactory
 from slrt_project.reviews.tests.factories import ReviewMemberFactory
 
 
-# ---------------------------------------------------------------------------
 # MainThemeFactory
-# ---------------------------------------------------------------------------
-
-
 class MainThemeFactory(DjangoModelFactory):
     """
     Creates a MainTheme with a unique name per sequence counter.
-
-    Both ``review`` and ``member`` are derived from the same ReviewMember so
-    they are always consistent.  Override ``member`` directly if you need a
-    specific member; ``review`` will be set to match automatically via
-    LazyAttribute.
     """
 
     class Meta:
@@ -71,17 +26,10 @@ class MainThemeFactory(DjangoModelFactory):
     description = ""
 
 
-# ---------------------------------------------------------------------------
 # SubThemeFactory
-# ---------------------------------------------------------------------------
-
-
 class SubThemeFactory(DjangoModelFactory):
     """
     Creates a SubTheme, optionally nested under a MainTheme.
-
-    By default ``main_theme`` is created automatically in the same review.
-    Pass ``main_theme=None`` to create a standalone sub-theme.
     """
 
     class Meta:
@@ -100,27 +48,10 @@ class SubThemeFactory(DjangoModelFactory):
     )
 
 
-# ---------------------------------------------------------------------------
 # CodeFactory
-# ---------------------------------------------------------------------------
-
-
 class CodeFactory(DjangoModelFactory):
     """
     Creates a Code with a TEXT highlight type by default.
-
-    The ``member`` sub-factory drives both ``review`` and ``member`` so they
-    are always consistent with each other.  ``sub_theme`` and ``reference``
-    are created automatically but can be overridden or set to None.
-
-    Traits
-    ------
-    text        — TEXT type with highlight color and HIGHLIGHT style (default)
-    area        — AREA type annotation
-    freetext    — FREETEXT type; content/position set to None
-    image       — IMAGE type
-    drawing     — DRAWING type
-    shape       — SHAPE type
     """
 
     class Meta:

@@ -1,39 +1,10 @@
-"""
-Tests for slrt_project/reviews/utils.py and the reference-import /
-duplicate-detection Celery tasks.
-
-Strategy
---------
-Pure utility functions (parse_bibtex_date, parse_ris_date, etc.) are tested as
-plain (no-DB) unit tests — no mocking required.
-
-extract_*_reference_fields helpers are also plain unit tests: they produce
-unsaved Reference instances so no DB is needed.
-
-Celery tasks (import_references_task, detect_duplicates_task,
-auto_deduplicate_task) are DB tests.  The bind=True calling convention is
-handled by _patch_task (see docstring), which uses push_request / pop_request
-to set the task's request context and patches task.retry via patch.object so
-no broker is required.
-
-send_review_chat_message is a DB test that stubs out the channel layer.
-
-One class per function / task; one method per behaviour.
-
-Run with:
-    pytest slrt_project/reviews/tests/test_tasks.py -v
-    pytest slrt_project/reviews/tests/test_utils.py -v
-"""
-
 from datetime import date
 
 import pytest
 from lxml import etree
 
 
-# ===========================================================================
 # parse_bibtex_date
-# ===========================================================================
 
 
 class TestParseBibtexDate:
@@ -65,9 +36,7 @@ class TestParseBibtexDate:
         assert self._fn({"year": "forthcoming"}) is None
 
 
-# ===========================================================================
 # extract_bibtex_reference_fields
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -131,9 +100,7 @@ class TestExtractBibtexReferenceFields:
         assert ref.publication_type == "Other"
 
 
-# ===========================================================================
 # parse_ris_date
-# ===========================================================================
 
 
 class TestParseRisDate:
@@ -155,9 +122,7 @@ class TestParseRisDate:
         assert self._fn({"year": "n/a"}) is None
 
 
-# ===========================================================================
 # extract_ris_reference_fields
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -228,9 +193,7 @@ class TestExtractRisReferenceFields:
         assert ref.authors == "Brown, B"
 
 
-# ===========================================================================
 # parse_endnote_date
-# ===========================================================================
 
 
 class TestParseEndnoteDate:
@@ -268,9 +231,7 @@ class TestParseEndnoteDate:
         assert result == date(2021, 1, 1)
 
 
-# ===========================================================================
 # get_endnote_text
-# ===========================================================================
 
 
 class TestGetEndnoteText:
@@ -292,9 +253,7 @@ class TestGetEndnoteText:
         assert self._fn("<record><abstract/></record>", ".//abstract") == ""
 
 
-# ===========================================================================
 # get_endnote_authors
-# ===========================================================================
 
 
 class TestGetEndnoteAuthors:
@@ -326,9 +285,7 @@ class TestGetEndnoteAuthors:
         assert self._fn(xml) == "Primary, P"
 
 
-# ===========================================================================
 # extract_endnote_reference_fields
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -390,9 +347,7 @@ class TestExtractEndnoteReferenceFields:
         assert self._fn(xml).doi == "10.1234/xyz"
 
 
-# ===========================================================================
 # strip_ansi
-# ===========================================================================
 
 
 class TestStripAnsi:
@@ -411,9 +366,7 @@ class TestStripAnsi:
         assert self._fn("") == ""
 
 
-# ===========================================================================
 # _normalise_doi (via public extract functions)
-# ===========================================================================
 
 
 class TestNormaliseDoi:

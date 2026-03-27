@@ -2,7 +2,6 @@
 Views for the references app.
 
 ViewSet inventory
------------------
 ReferenceViewSet          — CRUD + attach-pdfs, auto-match, bulk-sync, assign
 ReviewDataViewSet         — paginated reference list for the review-data page
 ScreeningViewSet          — screening-stage reference list
@@ -16,7 +15,6 @@ KeywordViewSet            — keyword CRUD
 NoteViewSet               — note CRUD + bulk-create
 
 Supporting classes / functions
--------------------------------
 ReferencePagination           — limit/offset pagination with custom response shape
 ReferenceAggregationService   — sidebar filter count aggregations
 ReviewQuerysetMixin           — shared review access + base queryset helpers
@@ -110,9 +108,7 @@ from slrt_project.shared.permissions import (
 logger = logging.getLogger(__name__)
 
 
-# ===========================================================================
 # ReferenceViewSet
-# ===========================================================================
 
 
 @extend_schema_view(
@@ -137,18 +133,6 @@ class ReferenceViewSet(viewsets.ModelViewSet):
     """
     CRUD for Reference objects plus attach-pdfs, auto-match, bulk-sync, and
     assign custom actions.
-
-    Permissions
-    -----------
-    - List / Retrieve : any authenticated review member.
-    - Update          : members with MODIFY_REFERENCE permission
-                        (owner / collaborator / reviewer).
-
-    Blinded reviews
-    ---------------
-    When a review is blinded the queryset restricts ``prefetched_opinions`` to
-    the requesting user's own opinions so reviewers cannot see each other's
-    work.
     """
 
     serializer_class = ReferenceSerializer
@@ -159,10 +143,6 @@ class ReferenceViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Build the base queryset.
-
-        - Filters to reviews the user belongs to.
-        - Prefetches opinions (blinded: only user's own; unblinded: all).
-        - Prefetches labels.
         """
         user = self.request.user
         review_id = self.request.query_params.get("review")
@@ -206,9 +186,7 @@ class ReferenceViewSet(viewsets.ModelViewSet):
         )
         serializer.save()
 
-    # ------------------------------------------------------------------
     # attach-pdfs
-    # ------------------------------------------------------------------
 
     @extend_schema(
         summary="Attach uploaded PDFs to references",
@@ -228,15 +206,6 @@ class ReferenceViewSet(viewsets.ModelViewSet):
     def attach_pdfs(self, request):
         """
         Move uploaded PDFs onto their target references in a single transaction.
-
-        For each mapping:
-        1. Verify the reference and PDF belong to the same review.
-        2. Delete all codes on the reference (their highlight positions will be
-           invalidated by a new PDF).
-        3. Copy the file field from UploadedPDF → Reference.
-        4. Bulk-delete the consumed UploadedPDF rows using ``_raw_delete`` to
-           bypass django-cleanup's signal so the file is not deleted from
-           storage (it's now referenced by the Reference).
         """
         serializer = AttachPDFsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -285,9 +254,7 @@ class ReferenceViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
-    # ------------------------------------------------------------------
     # auto-match
-    # ------------------------------------------------------------------
 
     @extend_schema(
         summary="Auto-match uploaded PDFs to references",
@@ -308,13 +275,6 @@ class ReferenceViewSet(viewsets.ModelViewSet):
     def auto_match(self, request):
         """
         Automatically pair uploaded PDFs with references using three strategies.
-
-        Strategy order (each operates only on still-unmatched references):
-        1. DOI exact match (case-insensitive via ``doi__iexact``).
-        2. Normalised title exact match using immutable_unaccent + Lower.
-        3. Trigram similarity (threshold 0.6) on the normalised title.
-
-        After matching, consumed UploadedPDF rows are deleted.
         """
         serializer = AutoMatchSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -395,9 +355,7 @@ class ReferenceViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
-    # ------------------------------------------------------------------
     # bulk-sync-pdfs
-    # ------------------------------------------------------------------
 
     @extend_schema(
         summary="Bulk sync PDFs from Zotero",
@@ -435,9 +393,7 @@ class ReferenceViewSet(viewsets.ModelViewSet):
             status=status.HTTP_202_ACCEPTED,
         )
 
-    # ------------------------------------------------------------------
     # assign
-    # ------------------------------------------------------------------
 
     @extend_schema(
         summary="Assign / remove / split references",
@@ -458,9 +414,6 @@ class ReferenceViewSet(viewsets.ModelViewSet):
     def assign(self, request):
         """
         Assign, un-assign, or split references across members.
-
-        Only the review owner may use this action (``Permission.INVITE`` is
-        used as the owner-only gate — the same permission guards invitations).
         """
         serializer = AssignReferencesSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -508,21 +461,10 @@ class ReferenceViewSet(viewsets.ModelViewSet):
         )
 
 
-# ===========================================================================
 # Pagination
-# ===========================================================================
-
-
 class ReferencePagination(LimitOffsetPagination):
     """
     Standard limit/offset pagination for the reference list views.
-
-    Frontend sends ``?limit=50&offset=0`` for the first page, then increments
-    ``offset`` by ``limit`` for subsequent pages (infinite scroll).
-
-    The paginated response wraps the standard DRF ``count`` / ``next`` /
-    ``previous`` fields with the ``references`` list key so the frontend
-    always receives a consistent envelope shape.
     """
 
     default_limit = 50
@@ -554,22 +496,10 @@ class ReferencePagination(LimitOffsetPagination):
         }
 
 
-# ===========================================================================
 # ReferenceAggregationService
-# ===========================================================================
-
-
 class ReferenceAggregationService:
     """
     Computes sidebar filter counts from a base queryset scoped to a review.
-
-    The counts are intentionally computed from the *unfiltered* queryset so
-    that the sidebar always shows the full universe of available values — not
-    just what's visible after the user's current filters are applied.  This
-    prevents confusing "disappearing" filter options as the user narrows down.
-
-    ``build()`` is a static method so it can be called from multiple view
-    classes without instantiation overhead.
     """
 
     @staticmethod
@@ -581,12 +511,6 @@ class ReferenceAggregationService:
     ) -> dict:
         """
         Return a dict of aggregated counts for the sidebar filter panel.
-
-        Args:
-            base_qs:                   Unfiltered Reference queryset for the review.
-            user:                      Requesting user (for label scoping).
-            include_duplicate_status:  Include ``duplicate_status_counts`` key.
-            include_extraction_counts: Include ``completedCount`` / ``inProgressCount``.
         """
         result = {
             # How many references came from each SearchMethod.
@@ -662,11 +586,7 @@ class ReferenceAggregationService:
         return result
 
 
-# ===========================================================================
 # Mixins
-# ===========================================================================
-
-
 class ReviewQuerysetMixin:
     """
     Mixin that resolves and caches the current review from the ``?review=`` query
@@ -677,9 +597,6 @@ class ReviewQuerysetMixin:
     def get_review(self):
         """
         Return the Review from ``?review=<pk>``, checking access permission.
-
-        The result is cached on ``self._review`` so repeated calls within the
-        same request incur only one DB hit.
         """
         if hasattr(self, "_review"):
             return self._review
@@ -695,9 +612,6 @@ class ReviewQuerysetMixin:
     def get_base_queryset(self):
         """
         Return a Reference queryset with select_related + labels prefetch.
-
-        Scoped to the review when ``?review=`` is supplied, otherwise to all
-        reviews the user belongs to.
         """
         user = self.request.user
         review = self.get_review()
@@ -722,9 +636,6 @@ class ReviewQuerysetMixin:
     def get_base_queryset_for_counts(self):
         """
         Return an unfiltered Reference queryset for sidebar aggregations.
-
-        Returns ``Reference.objects.none()`` when no review is resolved so
-        aggregation methods never accidentally count across reviews.
         """
         review = self.get_review()
         return (
@@ -743,14 +654,6 @@ class ScreeningQuerysetMixin:
     def apply_screening(self, qs, stage=None):
         """
         Restrict and annotate a queryset for the given screening stage.
-
-        Steps:
-        1. Exclude unresolved/deleted duplicates.
-        2. For full-text stage: keep only ``in_full_text=True`` references.
-        3. Annotate ``effective_status``:
-           - Blinded review: subquery for the current user's opinion.
-           - Non-blinded: use the denormalised status field directly.
-        4. Prefetch opinions for the stage.
         """
         user = self.request.user
         review = self.get_review()
@@ -847,11 +750,7 @@ class ScreeningQuerysetMixin:
         return Response(aggregations)
 
 
-# ===========================================================================
 # ReviewDataViewSet
-# ===========================================================================
-
-
 class ReviewDataViewSet(
     ReviewQuerysetMixin,
     mixins.ListModelMixin,
@@ -859,15 +758,6 @@ class ReviewDataViewSet(
 ):
     """
     Paginated list of all references for a review.
-
-    Used by the "Review Data" page which shows every reference (regardless of
-    screening stage) with rich filter and sort capabilities.
-
-    Endpoints
-    ---------
-    GET  /?review=<id>              — paginated reference list
-    GET  /filter-counts/?review=<id> — sidebar aggregation counts
-    GET  /export/?review=<id>       — BibTeX export of filtered references
     """
 
     serializer_class = ReferenceSerializer
@@ -944,8 +834,6 @@ class ReviewDataViewSet(
         """
         Return sidebar aggregation counts computed from the *unfiltered* base
         queryset so the sidebar always shows global counts.
-
-        Fetched once on page load, not on every sort or page change.
         """
         review = self.get_review()
         if not review:
@@ -977,9 +865,7 @@ class ReviewDataViewSet(
         response["Content-Disposition"] = 'attachment; filename="references.bib"'
         return response
 
-    # ------------------------------------------------------------------
     # Private helpers
-    # ------------------------------------------------------------------
 
     @staticmethod
     def _bibtex_str(value) -> str:
@@ -1019,21 +905,12 @@ class ReviewDataViewSet(
         return bibtexparser.dumps(bib_database)
 
 
-# ===========================================================================
 # Screening subclasses
-# ===========================================================================
 
 
 class ScreeningViewSet(ScreeningQuerysetMixin, ReviewDataViewSet):
     """
     Reference list for the abstract-screening stage.
-
-    Inherits all filtering, pagination, and export from ``ReviewDataViewSet``
-    and adds:
-    - Duplicate exclusion.
-    - Opinion-status filtering via ``ScreeningFilter``.
-    - ``effective_status`` annotation for blinded reviews.
-    - ``filter-counts`` action scoped to the screening stage.
     """
 
     filterset_class = ScreeningFilter
@@ -1053,11 +930,7 @@ class ScreeningFullTextViewSet(ScreeningQuerysetMixin, ReviewDataViewSet):
         return self.apply_screening(super().get_queryset(), stage=self.stage)
 
 
-# ===========================================================================
 # UploadedPDFViewSet
-# ===========================================================================
-
-
 @extend_schema_view(
     list=extend_schema(summary="List uploaded PDFs"),
     retrieve=extend_schema(summary="Retrieve an uploaded PDF"),
@@ -1067,14 +940,6 @@ class ScreeningFullTextViewSet(ScreeningQuerysetMixin, ReviewDataViewSet):
 class UploadedPDFViewSet(viewsets.ModelViewSet):
     """
     Manage uploaded PDFs that are awaiting attachment to references.
-
-    On creation the view:
-    1. Saves the file.
-    2. Derives the display name from the filename (without extension).
-    3. Extracts the DOI from the first page of the PDF (if present) to enable
-       DOI-based auto-matching later.
-
-    Requires UPLOAD_FILES permission (owner / collaborator).
     """
 
     serializer_class = UploadedPDFSerializer
@@ -1106,10 +971,6 @@ class UploadedPDFViewSet(viewsets.ModelViewSet):
     def _extract_doi(file_path: str) -> str | None:
         """
         Return the first DOI found on the first page of the PDF, or None.
-
-        Uses PyMuPDF to extract text; silently ignores any extraction errors
-        (e.g. encrypted PDFs, corrupt files) so that a failed DOI extraction
-        never blocks an upload.
         """
         doi_pattern = r"10\.\d{4,9}/[-._;()/:A-Z0-9]+"
         try:
@@ -1124,11 +985,7 @@ class UploadedPDFViewSet(viewsets.ModelViewSet):
         return None
 
 
-# ===========================================================================
 # LabelViewSet
-# ===========================================================================
-
-
 @extend_schema_view(
     list=extend_schema(summary="List the current user's labels"),
     create=extend_schema(summary="Create a label"),
@@ -1139,10 +996,6 @@ class UploadedPDFViewSet(viewsets.ModelViewSet):
 class LabelViewSet(viewsets.ModelViewSet):
     """
     Manage user-owned labels.
-
-    All review members may create and manage their own labels.  Labels are
-    personal and not shared between users.  The ``assign-to-references`` action
-    applies or removes labels across multiple references in a single call.
     """
 
     serializer_class = LabelSerializer
@@ -1168,12 +1021,6 @@ class LabelViewSet(viewsets.ModelViewSet):
     def assign_to_references(self, request):
         """
         Batch label operation.
-
-        - ``checked_label_ids``       — ensure these labels are applied to every reference.
-        - ``indeterminate_label_ids`` — remove these labels from every reference.
-
-        All validation (membership, reference ownership, label ownership) is
-        handled by ``AssignLabelsSerializer.validate()``.
         """
         serializer = AssignLabelsSerializer(
             data=request.data, context={"request": request}
@@ -1219,17 +1066,12 @@ class LabelViewSet(viewsets.ModelViewSet):
         )
 
 
-# ===========================================================================
 # ReasonViewSet
-# ===========================================================================
 
 
 class ReasonViewSet(viewsets.ModelViewSet):
     """
     CRUD for exclusion reasons.
-
-    ``?review=<id>`` is required for the list action.  Create requires
-    MODIFY_REASON permission (owner / collaborator / reviewer).
     """
 
     serializer_class = ReasonSerializer
@@ -1259,20 +1101,10 @@ class ReasonViewSet(viewsets.ModelViewSet):
         serializer.save(review=review)
 
 
-# ===========================================================================
 # ReferenceOpinionViewSet
-# ===========================================================================
-
-
 class ReferenceOpinionViewSet(viewsets.GenericViewSet):
     """
     Manage screening opinions.
-
-    - ``PUT /update/``        — update a single opinion (get-or-create then partial update).
-    - ``POST /bulk-upsert/``  — upsert opinions for multiple references at once.
-
-    After every write ``Reference.update_opinion_statuses()`` is called to keep
-    the denormalised ``screening_status`` / ``full_text_status`` fields in sync.
     """
 
     permission_classes = [IsAuthenticated]
@@ -1321,13 +1153,6 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
     def bulk_upsert(self, request):
         """
         Upsert opinions for multiple references in a single transaction.
-
-        Steps:
-        1. Validate the request with ``ReferenceOpinionUpsertSerializer``.
-        2. Load all referenced Review objects and check permissions once per review.
-        3. Split into ``to_create`` and ``to_update`` lists.
-        4. ``bulk_create`` + ``bulk_update`` in a single DB round-trip each.
-        5. Call ``update_opinion_statuses`` to sync the denormalised fields.
         """
         serializer = ReferenceOpinionUpsertSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -1414,11 +1239,7 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
         return Response(self.get_serializer(opinions, many=True).data)
 
 
-# ===========================================================================
 # DuplicateClusterViewSet
-# ===========================================================================
-
-
 @extend_schema_view(
     list=extend_schema(
         summary="List duplicate clusters",
@@ -1433,16 +1254,6 @@ class ReferenceOpinionViewSet(viewsets.GenericViewSet):
 class DuplicateClusterViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Read-only access to duplicate clusters.
-
-    Clusters are created exclusively by Celery tasks (never via direct API
-    writes).  Write operations are limited to:
-
-    - ``POST /{id}/resolve/``  — manually resolve by choosing a canonical ref.
-    - ``POST /{id}/dismiss/``  — dismiss as a false positive.
-    - ``GET  /stats/``         — aggregate counts for the review dashboard.
-
-    Default ordering: DOI-matched clusters first, then by descending similarity
-    score, then by creation date.
     """
 
     permission_classes = [IsAuthenticated]
@@ -1473,8 +1284,6 @@ class DuplicateClusterViewSet(viewsets.ReadOnlyModelViewSet):
         """
         Return clusters plus review-level progress metadata (total / resolved /
         remaining / progress %) so the frontend can render a progress bar.
-
-        Defaults to unresolved clusters when ``?status=`` is not supplied.
         """
         qs = self.filter_queryset(self.get_queryset())
         if "status" not in request.query_params:
@@ -1523,12 +1332,6 @@ class DuplicateClusterViewSet(viewsets.ReadOnlyModelViewSet):
     def resolve(self, request, pk=None):
         """
         Resolve a cluster by nominating the canonical reference.
-
-        Request body (camelCase — converted by djangorestframework-camelcase)::
-
-            { "canonicalReferenceId": <int> }
-
-        The nominated reference must be a member of the cluster.
         """
         cluster = self.get_object()
 
@@ -1590,8 +1393,6 @@ class DuplicateClusterViewSet(viewsets.ReadOnlyModelViewSet):
     def dismiss(self, request, pk=None):
         """
         Mark a cluster as dismissed (false positive).
-
-        All member references are restored to ``NOT_DUPLICATE``.
         """
         cluster = self.get_object()
 
@@ -1685,9 +1486,7 @@ class DuplicateClusterViewSet(viewsets.ReadOnlyModelViewSet):
             ).data
         )
 
-    # ------------------------------------------------------------------
     # Private helpers
-    # ------------------------------------------------------------------
 
     def _require_duplicate_permission(self, cluster) -> "ReviewMember | Response":
         """
@@ -1708,18 +1507,10 @@ class DuplicateClusterViewSet(viewsets.ReadOnlyModelViewSet):
             )
 
 
-# ===========================================================================
 # KeywordViewSet
-# ===========================================================================
-
-
 class KeywordViewSet(viewsets.ModelViewSet):
     """
     CRUD for inclusion / exclusion keywords.
-
-    ``?review=<id>`` scopes the list to a specific review.
-    Write operations require MODIFY_KEYWORD permission (owner / collaborator /
-    reviewer).
     """
 
     serializer_class = KeywordSerializer
@@ -1755,18 +1546,10 @@ class KeywordViewSet(viewsets.ModelViewSet):
         instance.delete()
 
 
-# ===========================================================================
 # NoteViewSet
-# ===========================================================================
-
-
 class NoteViewSet(viewsets.ModelViewSet):
     """
     CRUD + bulk-create for reviewer notes.
-
-    Blinded reviews: members can only read their own notes (enforced in both
-    ``get_object`` and the queryset).  Write access requires MODIFY_NOTE
-    permission (owner / collaborator / reviewer).
     """
 
     serializer_class = NoteSerializer

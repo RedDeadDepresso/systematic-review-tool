@@ -1,26 +1,3 @@
-"""
-Tests for slrt_project/extraction/api/serializers.py.
-
-Strategy
---------
-No-DB (plain pytest class, no marker)
-    Pure validation logic tested with plain dicts or minimal stubs.
-    Covers: _validate_value_for_question (all six types), field-level
-    validators, cross-field validators (type + options), response-serializer
-    field shapes.
-
-DB (@pytest.mark.django_db)
-    Tests that require real ORM rows: uniqueness checks (ExtractionSection),
-    auto-order assignment, update_or_create idempotency (ExtractionAnswer),
-    value_number persistence, ReferenceTableSerializer.get_answers with a
-    real prefetch, ExtractionAnswerBulkSerializer with real questions.
-
-One class per serializer; one method per behaviour.
-
-Run with:
-    pytest slrt_project/extraction/tests/api/test_serializers.py -v
-"""
-
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -52,11 +29,7 @@ from slrt_project.references.tests.factories import ReferenceFactory
 from slrt_project.reviews.tests.factories import ReviewFactory
 
 
-# ---------------------------------------------------------------------------
 # Autouse fixture — bypass IsAuthenticated for any view-touching tests
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture(autouse=True)
 def bypass_is_authenticated():
     """
@@ -71,11 +44,7 @@ def bypass_is_authenticated():
         yield
 
 
-# ---------------------------------------------------------------------------
 # Helpers — build minimal question-like objects without touching the DB
-# ---------------------------------------------------------------------------
-
-
 def _stub_q(type_, options=None):
     """Return a MagicMock that satisfies _validate_value_for_question."""
     q = MagicMock(spec=ExtractionQuestion)
@@ -84,11 +53,7 @@ def _stub_q(type_, options=None):
     return q
 
 
-# ===========================================================================
 # _validate_value_for_question
-# ===========================================================================
-
-
 class TestValidateValueForQuestion:
     """All branches; no DB required."""
 
@@ -202,11 +167,7 @@ class TestValidateValueForQuestion:
             _validate_value_for_question("1", _stub_q("boolean"))
 
 
-# ===========================================================================
 # ExtractionSectionSerializer
-# ===========================================================================
-
-
 class TestExtractionSectionSerializerValidation:
     def test_name_and_review_required(self):
         s = ExtractionSectionSerializer(data={})
@@ -272,11 +233,7 @@ class TestExtractionSectionSerializerDB:
         assert s.save().name == "Trim me"
 
 
-# ===========================================================================
 # ExtractionQuestionSerializer
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestExtractionQuestionSerializerValidation:
     def test_single_select_without_options_fails(self):
@@ -397,11 +354,7 @@ class TestExtractionQuestionSerializerDB:
         assert s.save().required is False
 
 
-# ===========================================================================
 # ExtractionAnswerSerializer
-# ===========================================================================
-
-
 class TestExtractionAnswerSerializerValidation:
     def test_number_invalid_raises(self):
         s = ExtractionAnswerSerializer()
@@ -499,11 +452,7 @@ class TestExtractionAnswerSerializerDB:
         assert s.save().value == "new"
 
 
-# ===========================================================================
 # ExtractionAnswerBulkSerializer
-# ===========================================================================
-
-
 class TestExtractionAnswerBulkSerializerShape:
     def test_reference_id_required(self):
         s = ExtractionAnswerBulkSerializer(data={"answers": {}})
@@ -564,11 +513,7 @@ class TestExtractionAnswerBulkSerializerDB:
         assert str(q2.pk) in errors_str
 
 
-# ===========================================================================
 # ExtractionQuestionTableSerializer
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestExtractionQuestionTableSerializer:
     def test_section_name_is_included(self):
@@ -594,11 +539,7 @@ class TestExtractionQuestionTableSerializer:
         assert expected <= set(data.keys())
 
 
-# ===========================================================================
 # ReferenceTableSerializer
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestReferenceTableSerializer:
     def _with_prefetch(self, ref):
@@ -649,11 +590,7 @@ class TestReferenceTableSerializer:
         assert q2.pk in data["answers"]
 
 
-# ===========================================================================
 # Response serializer shape tests (no DB)
-# ===========================================================================
-
-
 class TestResponseSerializerShapes:
     def test_bulk_save_response_valid(self):
         s = BulkSaveResponseSerializer(data={"saved_count": 3, "answers": []})
@@ -693,13 +630,11 @@ class TestResponseSerializerShapes:
         assert s.is_valid(), s.errors
 
 
-# ===========================================================================
 # ExtractionTableViewSet — list  (serializer-context integration tests)
 #
 # These live here because the list endpoint's primary test surface is
 # ReferenceTableSerializer + ExtractionQuestionTableSerializer rendering.
 # The view machinery (pagination, filtering) is covered in test_views.py.
-# ===========================================================================
 
 
 @pytest.mark.django_db

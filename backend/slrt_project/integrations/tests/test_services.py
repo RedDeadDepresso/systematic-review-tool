@@ -2,23 +2,11 @@
 Tests for slrt_project/integrations/services.py.
 
 Strategy
---------
 All tests patch ``self.zot`` (the pyzotero client) via a MagicMock so no
 real HTTP calls are made.  Tests are organised by public method.
 
-No-DB (plain pytest class, no marker)
-    Pure unit tests for helper methods (_parse_authors, _map_publication_type,
-    _get_publication_field) and all public methods whose logic is in Python
-    rather than the DB.
-
-DB (@pytest.mark.django_db)
-    push_references_to_zotero: verifies Reference rows are updated with
-    zotero_key/zotero_version after a successful API call.
-
-One class per public method; one test per behaviour.
-
 Run with:
-    pytest slrt_project/integrations/tests/test_services.py -v
+pytest slrt_project/integrations/tests/test_services.py -v
 """
 
 from unittest.mock import MagicMock, patch
@@ -26,17 +14,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-# ---------------------------------------------------------------------------
 # Factory helper — build a ZoteroService with a mocked pyzotero client
-# ---------------------------------------------------------------------------
 
 
 def make_service(**kwargs):
     """
     Return a ZoteroService with self.zot replaced by a MagicMock.
-
-    Keyword arguments are forwarded to ZoteroService.__init__ so specific
-    constructor arguments can be tested.
     """
     with patch("slrt_project.integrations.services.zotero.Zotero"):
         from slrt_project.integrations.services import ZoteroService
@@ -50,9 +33,7 @@ def make_service(**kwargs):
     return svc
 
 
-# ===========================================================================
 # Constructor
-# ===========================================================================
 
 
 class TestZoteroServiceInit:
@@ -75,9 +56,7 @@ class TestZoteroServiceInit:
         assert ZoteroService.MAX_READ_BATCH_SIZE == 100
 
 
-# ===========================================================================
 # get_collections
-# ===========================================================================
 
 
 class TestGetCollections:
@@ -101,9 +80,7 @@ class TestGetCollections:
         svc.zot.collections.assert_called_once()
 
 
-# ===========================================================================
 # get_collection
-# ===========================================================================
 
 
 class TestGetCollection:
@@ -120,9 +97,7 @@ class TestGetCollection:
         assert svc.get_collection("MISSING") is None
 
 
-# ===========================================================================
 # create_collection
-# ===========================================================================
 
 
 class TestCreateCollection:
@@ -157,9 +132,7 @@ class TestCreateCollection:
         assert svc.create_collection("Boom") is None
 
 
-# ===========================================================================
 # add_items_to_collection
-# ===========================================================================
 
 
 class TestAddItemsToCollection:
@@ -180,9 +153,7 @@ class TestAddItemsToCollection:
         svc.zot.addto_collection.assert_called_once_with("TARGET", ["K1", "K2"])
 
 
-# ===========================================================================
 # push_references_to_zotero
-# ===========================================================================
 
 
 class TestPushReferencesToZotero:
@@ -319,9 +290,7 @@ class TestPushReferencesToZotero:
         assert items_sent[0]["date"] == ""
 
 
-# ===========================================================================
 # pull_references_from_zotero
-# ===========================================================================
 
 
 class TestPullReferencesFromZotero:
@@ -370,9 +339,7 @@ class TestPullReferencesFromZotero:
         assert result["library_version"] == 5
 
 
-# ===========================================================================
 # get_item_with_children
-# ===========================================================================
 
 
 class TestGetItemWithChildren:
@@ -394,9 +361,7 @@ class TestGetItemWithChildren:
         assert result["children"] == []
 
 
-# ===========================================================================
 # download_pdf_file
-# ===========================================================================
 
 
 class TestDownloadPdfFile:
@@ -412,9 +377,7 @@ class TestDownloadPdfFile:
         assert svc.download_pdf_file("MISSING") is None
 
 
-# ===========================================================================
 # _get_publication_field
-# ===========================================================================
 
 
 class TestGetPublicationField:
@@ -444,9 +407,7 @@ class TestGetPublicationField:
         assert svc._get_publication_field("book") is None
 
 
-# ===========================================================================
 # _map_publication_type
-# ===========================================================================
 
 
 class TestMapPublicationType:
@@ -483,9 +444,7 @@ class TestMapPublicationType:
         assert svc._map_publication_type("") == "journalArticle"
 
 
-# ===========================================================================
 # _parse_authors
-# ===========================================================================
 
 
 class TestParseAuthors:

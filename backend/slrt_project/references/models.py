@@ -1,20 +1,7 @@
 """
 Models for the references app.
 
-Domain overview
----------------
-A Reference is a bibliographic record (paper, report, etc.) imported from a
-BibTeX, RIS, or EndNote file via a SearchMethod.  References flow through
-several stages:
-
-    Import → Screening → Full-Text Review → Extraction
-
-Duplicate detection runs as a background task and groups similar references
-into ReferenceCluster objects.  Each cluster is resolved either automatically
-(high-confidence) or manually by a review member.
-
 Model inventory
----------------
 Label                   — user-owned colour-coded tag applied to references
 Reference               — core bibliographic record
 ReferenceLabel          — many-to-many junction: (Reference, Label, ReviewMember)
@@ -27,7 +14,6 @@ Keyword                 — inclusion / exclusion keyword for full-text search
 Note                    — free-text note left by a member on a reference
 
 Utility classes (not models)
------------------------------
 UnionFind               — weighted quick-union used by the duplicate detector
 DuplicateClusterDetector — finds clusters via DOI hard-match + pg_trgm fuzzy match
 DuplicateClusterManager  — orchestrates detection, persistence, and auto-resolution
@@ -43,21 +29,10 @@ from django.db.models.functions import Lower
 from django.utils import timezone
 
 
-# ===========================================================================
 # Label
-# ===========================================================================
-
-
 class Label(models.Model):
     """
     A colour-coded tag owned by a single user and applied to references.
-
-    Labels are personal — each user maintains their own set.  The
-    ``unique_label_per_user`` constraint prevents duplicate names for the
-    same user while allowing different users to create identically-named labels.
-
-    ``hotkey`` is an optional keyboard shortcut string used by the frontend
-    to apply the label quickly during screening.
     """
 
     user = models.ForeignKey("users.User", on_delete=models.CASCADE)
@@ -74,17 +49,10 @@ class Label(models.Model):
         ]
 
 
-# ===========================================================================
 # Reference
-# ===========================================================================
-
-
 def reference_upload_path(instance, filename):
     """
     Generate a UUID-based storage path for reference PDF attachments.
-
-    Using a UUID prefix prevents collisions and avoids exposing the original
-    filename in the URL.
     """
     return f"references/{uuid.uuid4()}/{filename}"
 
@@ -101,29 +69,6 @@ class ReferenceOpinionStatus(models.TextChoices):
 class Reference(models.Model):
     """
     A bibliographic record belonging to a review.
-
-    Lifecycle
-    ---------
-    1. Imported via a SearchMethod (BibTeX / RIS / EndNote).
-    2. Screened: members assign opinions (included/excluded/maybe).
-       The denormalised ``screening_status`` is updated asynchronously via
-       ``update_opinion_statuses``.
-    3. Promoted to full-text review (``in_full_text=True``) then extraction
-       (``in_extraction=True``).
-    4. Duplicate detection groups identical records into ReferenceCluster
-       objects.  Duplicates are soft-deleted by setting ``duplicate_status``
-       to DELETED — they are never physically removed.
-
-    Search
-    ------
-    ``search_vector`` is a PostgreSQL tsvector column updated by a DB trigger.
-    A GIN index makes full-text queries fast.  A trigram index on ``title``
-    (gin_trgm_ops) powers the fuzzy duplicate-detection similarity query.
-
-    Zotero integration
-    ------------------
-    ``zotero_key`` / ``zotero_version`` / ``last_synced`` track the record's
-    identity in a linked Zotero library.
     """
 
     class DuplicateStatus(models.TextChoices):
@@ -133,10 +78,7 @@ class Reference(models.Model):
         RESOLVED = "resolved", "Resolved"
         UNIQUE = "unique", "Unique"
 
-    # ------------------------------------------------------------------
     # Core bibliographic fields
-    # ------------------------------------------------------------------
-
     review = models.ForeignKey("reviews.Review", on_delete=models.CASCADE)
     title = models.TextField()
     publication_type = models.CharField(max_length=255)
@@ -150,10 +92,7 @@ class Reference(models.Model):
     url = models.URLField(max_length=500, blank=True)
     pages = models.CharField(max_length=50, blank=True, default="")
 
-    # ------------------------------------------------------------------
     # Attached PDF
-    # ------------------------------------------------------------------
-
     file = models.FileField(
         upload_to=reference_upload_path,
         blank=True,
@@ -162,16 +101,12 @@ class Reference(models.Model):
         help_text="PDF attachment, if any.",
     )
 
-    # ------------------------------------------------------------------
     # Full-text search
-    # ------------------------------------------------------------------
 
     # Populated by a DB trigger; never written from Python directly.
     search_vector = SearchVectorField(null=True, blank=True)
 
-    # ------------------------------------------------------------------
     # Assignment & workflow flags
-    # ------------------------------------------------------------------
 
     # Which reviewer this reference is currently assigned to (optional).
     assignee = models.ForeignKey(
@@ -195,10 +130,8 @@ class Reference(models.Model):
     )
     is_extraction_completed = models.BooleanField(default=False)
 
-    # ------------------------------------------------------------------
     # Denormalised opinion status
     # Updated by Reference.update_opinion_statuses() after each opinion change.
-    # ------------------------------------------------------------------
 
     screening_status = models.CharField(
         max_length=20,
@@ -213,9 +146,7 @@ class Reference(models.Model):
         help_text="Aggregated full-text verdict (updated by update_opinion_statuses).",
     )
 
-    # ------------------------------------------------------------------
     # Zotero sync fields
-    # ------------------------------------------------------------------
 
     zotero_key = models.CharField(max_length=100, blank=True, null=True)
     zotero_version = models.IntegerField(default=0)
@@ -240,34 +171,13 @@ class Reference(models.Model):
             )
         ]
 
-    # ------------------------------------------------------------------
     # Class methods
-    # ------------------------------------------------------------------
 
     @classmethod
     def update_opinion_statuses(cls, reference_ids=None, stage=None):
         """
         Recompute and persist the denormalised opinion-status field for the
         given references at the given stage.
-
-        Rules
-        -----
-        - Zero opinions → UNDECIDED.
-        - All opinions agree → use that status (INCLUDED / EXCLUDED / MAYBE).
-        - Conflicting opinions → UNDECIDED (reviewers disagree; needs resolution).
-
-        This method is called after every ``bulk-upsert`` so that the screening
-        list view can filter by ``screening_status`` / ``full_text_status``
-        without a subquery per row.
-
-        Args:
-            reference_ids: Optional list of Reference PKs to restrict the
-                           update.  When ``None``, all references are updated.
-            stage:         Must be ``ReferenceOpinion.Stage.SCREENING`` or
-                           ``ReferenceOpinion.Stage.FULL_TEXT``.
-
-        Raises:
-            ValueError: When ``stage`` is not one of the two valid choices.
         """
         if stage not in [
             ReferenceOpinion.Stage.SCREENING,
@@ -334,9 +244,7 @@ class Reference(models.Model):
             }
         )
 
-    # ------------------------------------------------------------------
     # Properties
-    # ------------------------------------------------------------------
 
     @property
     def has_pdf(self) -> bool:
@@ -347,19 +255,10 @@ class Reference(models.Model):
         return f"{self.review_id} {self.id} {self.title}"
 
 
-# ===========================================================================
 # ReferenceLabel
-# ===========================================================================
-
-
 class ReferenceLabel(models.Model):
     """
     Associates a Label with a Reference, recording which ReviewMember applied it.
-
-    The ``unique_label_assignment`` constraint ensures that each label can only
-    be attached to a given reference once — a second application by a different
-    member would silently overwrite (via ``get_or_create``) rather than create
-    a duplicate.
     """
 
     reference = models.ForeignKey(
@@ -384,17 +283,11 @@ class ReferenceLabel(models.Model):
         ]
 
 
-# ===========================================================================
 # UploadedPDF
-# ===========================================================================
-
-
 class ImmutableUnaccent(Func):
     """
     Wraps the ``immutable_unaccent`` PostgreSQL function so it can be used
     inside queryset annotations and subqueries.
-
-    The immutable variant is required for use in expression indexes.
     """
 
     function = "immutable_unaccent"
@@ -404,10 +297,6 @@ class ImmutableUnaccent(Func):
 class UploadedPDF(models.Model):
     """
     A PDF uploaded by a reviewer for later attachment to a Reference.
-
-    The auto-match endpoint attempts to pair uploaded PDFs with references via
-    DOI match, exact normalised title match, and trigram similarity (in that
-    order).  Once matched, the UploadedPDF row is deleted to free storage.
     """
 
     review = models.ForeignKey(
@@ -433,31 +322,10 @@ class UploadedPDF(models.Model):
         return f"{self.name}.pdf"
 
 
-# ===========================================================================
 # ReferenceCluster
-# ===========================================================================
-
-
 class ReferenceCluster(models.Model):
     """
     A group of duplicate (or near-duplicate) references within a review.
-
-    Lifecycle
-    ---------
-    1. Created by ``DuplicateClusterManager.run()`` when duplicates are detected.
-       All member references receive ``duplicate_status = UNRESOLVED``.
-    2. Resolved either automatically (via ``auto_resolve``) or manually (via
-       ``manually_resolve``).  The winning reference receives
-       ``duplicate_status = RESOLVED``; the losers get ``DELETED``.
-    3. A cluster may be dismissed as a false positive — all members revert to
-       ``NOT_DUPLICATE``.
-
-    The ``doi_match`` flag distinguishes hard-matched clusters (exact DOI) from
-    fuzzy similarity clusters.  Hard-matched clusters are considered high-confidence
-    and are always auto-resolved when ``doi_clusters_always=True``.
-
-    ``max_similarity_score`` stores the highest pairwise similarity in the cluster
-    so the UI can sort clusters by confidence.
     """
 
     class Status(models.TextChoices):
@@ -519,25 +387,10 @@ class ReferenceCluster(models.Model):
         return self.members.count()
 
 
-# ===========================================================================
 # ReferenceClusterMember
-# ===========================================================================
-
-
 class ReferenceClusterMember(models.Model):
     """
     Membership of a Reference in a ReferenceCluster.
-
-    Each reference appears in at most one *active* (unresolved) cluster per
-    review.  Historical memberships from resolved clusters are kept for audit.
-
-    ``completeness_score`` is cached at detection time from
-    ``calculate_completeness()`` so the UI can sort potential canonical
-    candidates without recomputing it.
-
-    ``best_similarity_score`` is the highest pairwise similarity this
-    reference achieved within the cluster (0.0 for DOI-only matches where
-    no fuzzy score was computed).
     """
 
     class Role(models.TextChoices):
@@ -583,20 +436,10 @@ class ReferenceClusterMember(models.Model):
         return f"Member {self.reference_id} in {self.cluster_id} [{self.role}]"
 
 
-# ===========================================================================
 # Union-Find
-# ===========================================================================
-
-
 class UnionFind:
     """
     Weighted quick-union with path compression.
-
-    Used by ``DuplicateClusterDetector`` to merge DOI-matched and fuzzy-matched
-    reference pairs into disjoint groups (clusters).
-
-    Nodes are integer Reference PKs; they are lazily initialised on first
-    access, so no pre-allocation step is needed.
     """
 
     def __init__(self):
@@ -629,9 +472,6 @@ class UnionFind:
     def clusters(self) -> dict[int, list[int]]:
         """
         Return ``{root: [member_ids]}`` for every component with ≥ 2 members.
-
-        Single-node components are excluded because a reference that matches
-        nothing is not a duplicate.
         """
         groups: dict[int, list[int]] = {}
         for node in self.parent:
@@ -640,25 +480,10 @@ class UnionFind:
         return {root: members for root, members in groups.items() if len(members) >= 2}
 
 
-# ===========================================================================
 # DuplicateClusterDetector
-# ===========================================================================
-
-
 class DuplicateClusterDetector:
     """
     Finds duplicate clusters for a queryset of References using two signals:
-
-    1. **DOI hard-match** — references sharing the same non-empty, lowercased,
-       trimmed DOI are considered definite duplicates (score = 1.0).
-
-    2. **pg_trgm fuzzy similarity** — a weighted similarity score is computed
-       across title, abstract, authors, and journal.  Empty fields are
-       excluded from both numerator and denominator so that two references
-       with identical non-empty fields score 1.0 regardless of which optional
-       fields are blank.
-
-    Both signals feed a Union-Find structure to produce disjoint clusters.
     """
 
     DEFAULT_WEIGHTS = {
@@ -678,19 +503,11 @@ class DuplicateClusterDetector:
         self.fuzzy_threshold = fuzzy_threshold
         self.weights = weights or self.DEFAULT_WEIGHTS
 
-    # ------------------------------------------------------------------
     # Public API
-    # ------------------------------------------------------------------
 
     def detect(self) -> list[dict]:
         """
         Run detection and return a list of cluster dicts::
-
-            {
-                "reference_ids": [int, ...],
-                "doi_match":     bool,          # True when ALL pairs are DOI-matched
-                "pairs":         [(id1, id2, score), ...],
-            }
         """
         ids = list(self.queryset.values_list("id", flat=True))
         if len(ids) < 2:
@@ -736,16 +553,11 @@ class DuplicateClusterDetector:
             )
         return result
 
-    # ------------------------------------------------------------------
     # Private helpers
-    # ------------------------------------------------------------------
 
     def _find_doi_pairs(self, ids: list[int]) -> list[tuple[int, int]]:
         """
         Return all (id1, id2) pairs that share the same non-empty DOI.
-
-        Normalises to ``lower(trim(doi))`` in SQL so that capitalisation and
-        surrounding whitespace differences don't prevent matching.
         """
         table = Reference._meta.db_table
         with connection.cursor() as cursor:
@@ -769,17 +581,6 @@ class DuplicateClusterDetector:
         """
         Return ``(id1, id2, weighted_score)`` for all pairs above the fuzzy
         threshold.
-
-        Scoring
-        -------
-        Weighted average of pg_trgm similarities across title, abstract,
-        authors, and journal.  A field that is empty on *either* reference
-        is excluded from both the numerator and the denominator — this prevents
-        missing optional fields from pulling the score down for references that
-        are otherwise identical.
-
-        ``title`` is always included (non-nullable in the model); all other
-        fields use a ``CASE WHEN ... = '' THEN 0 ELSE weight END`` guard.
         """
         table = Reference._meta.db_table
         w = self.weights
@@ -852,30 +653,10 @@ class DuplicateClusterDetector:
         return [(int(r[0]), int(r[1]), float(r[2])) for r in rows]
 
 
-# ===========================================================================
 # Completeness scorer
-# ===========================================================================
-
-
 def calculate_completeness(reference) -> float:
     """
     Compute a normalised completeness score (0.0 – 1.0) for a reference.
-
-    Higher scores mean the record has more bibliographic fields populated
-    and/or longer content.  The score is used when selecting the canonical
-    reference from a duplicate cluster — the most complete record is kept.
-
-    Field weights
-    -------------
-    title            0 – 2.0   (proportional to length, capped)
-    abstract         0 – 2.0   (proportional to length, capped)
-    authors          0 – 1.5   (proportional to length, capped)
-    journal          1.0       (boolean: present or absent)
-    doi              1.5       (boolean)
-    publication_date 1.0       (boolean)
-    pages            0.5       (boolean)
-    file (PDF)       1.0       (boolean)
-    max_score        10.5
     """
     score = 0.0
     max_score = 10.5
@@ -900,21 +681,10 @@ def calculate_completeness(reference) -> float:
     return score / max_score if max_score > 0 else 0.0
 
 
-# ===========================================================================
 # DuplicateClusterManager
-# ===========================================================================
-
-
 class DuplicateClusterManager:
     """
     Orchestrates cluster detection, persistence, and resolution for a review.
-
-    Usage::
-
-        manager = DuplicateClusterManager(review)
-        stats = manager.run()                  # detect + persist
-        stats = manager.auto_resolve(...)      # resolve high-confidence clusters
-        manager.manually_resolve(cluster, 42)  # resolve a single cluster by hand
     """
 
     def __init__(
@@ -927,26 +697,12 @@ class DuplicateClusterManager:
         self.fuzzy_threshold = fuzzy_threshold
         self.weights = weights
 
-    # ------------------------------------------------------------------
     # Detection + persistence
-    # ------------------------------------------------------------------
 
     @transaction.atomic
     def run(self, queryset=None) -> dict:
         """
         Detect duplicate clusters and persist any new ones.
-
-        Clusters are only created when they contain at least one reference
-        that is not already in an active (unresolved) cluster — this prevents
-        re-creating clusters on repeated detection runs.
-
-        Returns a stats dict::
-
-            {
-                "raw_clusters_found": int,
-                "clusters_created":   int,
-                "clusters_skipped":   int,
-            }
         """
         if queryset is None:
             queryset = Reference.objects.filter(review=self.review)
@@ -1028,9 +784,7 @@ class DuplicateClusterManager:
         """Return True when at least one member has not yet been clustered."""
         return any(rid not in already_clustered for rid in raw["reference_ids"])
 
-    # ------------------------------------------------------------------
     # Auto-resolution
-    # ------------------------------------------------------------------
 
     @transaction.atomic
     def auto_resolve(
@@ -1042,20 +796,6 @@ class DuplicateClusterManager:
     ) -> dict:
         """
         Auto-resolve clusters where confidence is high enough.
-
-        A cluster is resolved when:
-        - ``doi_clusters_always=True`` and ``cluster.doi_match`` is True, **or**
-        - ``cluster.max_similarity_score >= confidence_threshold``.
-
-        The canonical reference is chosen by ``_pick_canonical``.
-
-        Returns::
-
-            {
-                "auto_resolved":      int,  # clusters resolved
-                "kept_references":    int,  # canonical references
-                "removed_references": int,  # duplicates marked DELETED
-            }
         """
         clusters = ReferenceCluster.objects.filter(
             review=self.review,
@@ -1121,10 +861,7 @@ class DuplicateClusterManager:
             "removed_references": removed,
         }
 
-    # ------------------------------------------------------------------
     # Manual resolution
-    # ------------------------------------------------------------------
-
     @transaction.atomic
     def manually_resolve(
         self,
@@ -1134,9 +871,6 @@ class DuplicateClusterManager:
     ) -> None:
         """
         Resolve a cluster by explicitly nominating the canonical reference.
-
-        All other members are marked DUPLICATE / DELETED.  The cluster status
-        is set to MANUALLY_RESOLVED.
         """
         members = list(cluster.members.select_related("reference"))
 
@@ -1173,10 +907,7 @@ class DuplicateClusterManager:
             ]
         )
 
-    # ------------------------------------------------------------------
     # Internal
-    # ------------------------------------------------------------------
-
     def _pick_canonical(
         self,
         members: list[ReferenceClusterMember],
@@ -1184,13 +915,6 @@ class DuplicateClusterManager:
     ) -> ReferenceClusterMember:
         """
         Choose the best member to keep as the canonical reference.
-
-        Priority order
-        --------------
-        1. DOI-matched members (hard evidence of the "real" record).
-        2. Members from the preferred search method (if supplied).
-        3. Highest completeness score.
-        4. Lowest reference ID as a deterministic tie-break.
         """
         # Prefer DOI-matched members if any exist.
         doi_members = [m for m in members if m.doi_matched]
@@ -1211,11 +935,7 @@ class DuplicateClusterManager:
         return max(members, key=lambda m: (m.completeness_score, -m.reference_id))
 
 
-# ===========================================================================
 # Top-level convenience functions (used by Celery tasks / management commands)
-# ===========================================================================
-
-
 def detect_and_persist_clusters(
     review,
     queryset=None,
@@ -1246,19 +966,10 @@ def auto_resolve_clusters(
     )
 
 
-# ===========================================================================
 # Reason
-# ===========================================================================
-
-
 class Reason(models.Model):
     """
     A named exclusion reason for a review.
-
-    When a member excludes a reference they may optionally attach a Reason so
-    the review owner can understand why references were rejected at the
-    full-text stage.  Reasons appear in the PRISMA diagram's
-    ``excluded_reasons`` breakdown.
     """
 
     review = models.ForeignKey("reviews.Review", on_delete=models.CASCADE)
@@ -1268,22 +979,10 @@ class Reason(models.Model):
         return self.name
 
 
-# ===========================================================================
 # ReferenceOpinion
-# ===========================================================================
-
-
 class ReferenceOpinion(models.Model):
     """
     A single member's verdict on a reference at a specific screening stage.
-
-    The combination of (reference, member, stage) is unique — a member can
-    hold exactly one opinion per reference per stage.  Opinions are updated
-    in place via ``bulk-upsert``; the history is not preserved.
-
-    After each upsert, ``Reference.update_opinion_statuses()`` recomputes the
-    denormalised ``screening_status`` / ``full_text_status`` field on the
-    affected references.
     """
 
     class Stage(models.TextChoices):
@@ -1316,17 +1015,10 @@ class ReferenceOpinion(models.Model):
         ]
 
 
-# ===========================================================================
 # Keyword
-# ===========================================================================
-
-
 class Keyword(models.Model):
     """
     A keyword used for inclusion or exclusion filtering during screening.
-
-    Keywords are stored per-review and matched against the reference
-    ``search_vector`` using PostgreSQL full-text search.
     """
 
     class Type(models.TextChoices):
@@ -1338,17 +1030,10 @@ class Keyword(models.Model):
     type = models.CharField(max_length=20, choices=Type.choices)
 
 
-# ===========================================================================
 # Note
-# ===========================================================================
-
-
 class Note(models.Model):
     """
     A free-text note left by a reviewer on a specific reference.
-
-    ``created_at`` is set on creation; ``edited_at`` is updated on every
-    subsequent save.  Notes on blinded reviews are only visible to their author.
     """
 
     member = models.ForeignKey(

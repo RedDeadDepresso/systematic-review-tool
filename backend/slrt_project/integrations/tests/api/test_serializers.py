@@ -2,19 +2,12 @@
 Tests for slrt_project/integrations/api/serializers.py.
 
 Strategy
---------
 No-DB (plain pytest class, no marker)
-    Field-shape, read_only, write_only, required, and validation tests using
-    plain dicts.  None of these need ORM rows.
-
-DB (@pytest.mark.django_db)
-    ZoteroIntegrationSerializer round-trips that need a real saved instance
-    (is_configured property, _api_key exclusion).
-
-One class per serializer; one method per behaviour.
+Field-shape, read_only, write_only, required, and validation tests using
+plain dicts.  None of these need ORM rows.
 
 Run with:
-    pytest slrt_project/integrations/tests/api/test_serializers.py -v
+pytest slrt_project/integrations/tests/api/test_serializers.py -v
 """
 
 import pytest
@@ -45,9 +38,7 @@ from slrt_project.integrations.tests.factories import (
 )
 
 
-# ===========================================================================
 # ZoteroIntegrationSerializer
-# ===========================================================================
 
 
 class TestZoteroIntegrationSerializerFields:
@@ -108,9 +99,7 @@ class TestZoteroIntegrationSerializerDB:
             assert field in data, f"Missing field: {field}"
 
 
-# ===========================================================================
 # ZoteroSyncLogSerializer
-# ===========================================================================
 
 
 class TestZoteroSyncLogSerializerFields:
@@ -145,9 +134,7 @@ class TestZoteroSyncLogSerializerDB:
         assert data["error_message"] != ""
 
 
-# ===========================================================================
 # ZoteroConfigSerializer
-# ===========================================================================
 
 
 class TestZoteroConfigSerializer:
@@ -225,9 +212,7 @@ class TestZoteroConfigSerializer:
         assert "api_key" not in s.data
 
 
-# ===========================================================================
 # ZoteroUpdateSerializer
-# ===========================================================================
 
 
 class TestZoteroUpdateSerializer:
@@ -251,9 +236,7 @@ class TestZoteroUpdateSerializer:
             assert s.is_valid(), f"Failed for action: {action}"
 
 
-# ===========================================================================
 # ZoteroSetCollectionSerializer
-# ===========================================================================
 
 
 class TestZoteroSetCollectionSerializer:
@@ -269,9 +252,7 @@ class TestZoteroSetCollectionSerializer:
         assert not s.is_valid()
 
 
-# ===========================================================================
 # ZoteroCreateCollectionSerializer
-# ===========================================================================
 
 
 class TestZoteroCreateCollectionSerializer:
@@ -296,9 +277,7 @@ class TestZoteroCreateCollectionSerializer:
         assert s.is_valid(), s.errors
 
 
-# ===========================================================================
 # ZoteroPushSerializer
-# ===========================================================================
 
 
 class TestZoteroPushSerializer:
@@ -313,9 +292,7 @@ class TestZoteroPushSerializer:
         assert s.validated_data["confirm"] is True
 
 
-# ===========================================================================
 # ZoteroPullSerializer
-# ===========================================================================
 
 
 class TestZoteroPullSerializer:
@@ -329,9 +306,7 @@ class TestZoteroPullSerializer:
         assert s.is_valid()
 
 
-# ===========================================================================
 # Response serializers — field shape checks (no DB needed)
-# ===========================================================================
 
 
 class TestZoteroStatusResponseSerializerFields:

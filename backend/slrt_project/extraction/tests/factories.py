@@ -1,36 +1,3 @@
-"""
-Factory classes for the extraction app.
-
-Uses factory_boy with DjangoModelFactory.  Every factory writes a real DB row,
-making it straightforward to compose realistic object graphs in tests.
-
-Usage examples
---------------
-    # Minimal section (review created automatically):
-    section = ExtractionSectionFactory()
-
-    # Two sections in the same review, explicit ordering:
-    review = ReviewFactory()
-    s1 = ExtractionSectionFactory(review=review, name="Population", order=0)
-    s2 = ExtractionSectionFactory(review=review, name="Outcomes", order=1)
-
-    # Free-text question inside a section:
-    question = ExtractionQuestionFactory(section=s1)
-
-    # Select question with explicit options:
-    q = ExtractionQuestionFactory(
-        section=s1,
-        type=ExtractionQuestion.QuestionType.SINGLE_SELECT,
-        options=["RCT", "cohort", "case-control"],
-    )
-
-    # Required number question:
-    q = ExtractionQuestionFactory(number=True, required=True)
-
-    # Answer linking a reference to a question:
-    answer = ExtractionAnswerFactory(value="42", value_number=42.0)
-"""
-
 from factory import Sequence, SubFactory, Trait
 from factory.django import DjangoModelFactory
 
@@ -45,17 +12,10 @@ from slrt_project.references.tests.factories import ReferenceFactory
 from slrt_project.reviews.tests.factories import ReviewFactory
 
 
-# ---------------------------------------------------------------------------
 # ExtractionSectionFactory
-# ---------------------------------------------------------------------------
-
-
 class ExtractionSectionFactory(DjangoModelFactory):
     """
     Creates an ExtractionSection with a unique name per sequence counter.
-
-    The ``review`` sub-factory means every call creates a fresh review unless
-    you pass one explicitly.
     """
 
     class Meta:
@@ -68,24 +28,10 @@ class ExtractionSectionFactory(DjangoModelFactory):
     order = Sequence(lambda n: n)  # 0, 1, 2, … — keeps sections sortable
 
 
-# ---------------------------------------------------------------------------
 # ExtractionQuestionFactory
-# ---------------------------------------------------------------------------
-
-
 class ExtractionQuestionFactory(DjangoModelFactory):
     """
     Creates an ExtractionQuestion inside an ExtractionSection.
-
-    Defaults to ``FREE_TEXT`` — use traits to create other types.
-
-    Traits
-    ------
-    number        — NUMBER type, value_number expected on answers
-    date          — DATE type
-    single_select — SINGLE_SELECT type with three default options
-    multi_select  — MULTI_SELECT type with three default options
-    boolean       — BOOLEAN type
     """
 
     class Meta:
@@ -113,21 +59,10 @@ class ExtractionQuestionFactory(DjangoModelFactory):
         boolean = Trait(type=ExtractionQuestion.QuestionType.BOOLEAN)
 
 
-# ---------------------------------------------------------------------------
 # ExtractionAnswerFactory
-# ---------------------------------------------------------------------------
-
-
 class ExtractionAnswerFactory(DjangoModelFactory):
     """
     Creates an ExtractionAnswer linking a Reference to an ExtractionQuestion.
-
-    By default ``value_number`` is None.  For numeric questions set both
-    ``value`` and ``value_number`` explicitly or use the ``numeric`` trait.
-
-    Traits
-    ------
-    numeric — creates a number-type question and sets value/value_number to 42
     """
 
     class Meta:
