@@ -8,9 +8,6 @@ stages:
 # =====================================================
 
 variables:
-  GHCR_REGISTRY: ghcr.io
-  DJANGO_IMAGE: ghcr.io/$GHCR_USERNAME/slrt-django
-  NGINX_IMAGE: ghcr.io/$GHCR_USERNAME/slrt-nginx
   DOCKER_CONFIG: /kaniko/.docker
 
   DEPLOY_USER: $DEPLOY_USER_CI
@@ -162,7 +159,6 @@ deploy-prod:
   script:
     - |
       ssh $DEPLOY_USER@$DEPLOY_HOST "
-        echo '$GHCR_TOKEN' | docker login ghcr.io -u $GHCR_USERNAME --password-stdin &&
         cd $DEPLOY_PATH &&
         git pull &&
         docker compose -f docker-compose.production.yml up --build -d --remove-orphans
