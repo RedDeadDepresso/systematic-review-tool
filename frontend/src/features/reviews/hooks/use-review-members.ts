@@ -1,5 +1,6 @@
 import {
   deleteReviewMember,
+  fetchReviewMembers,
   updateReviewMember,
 } from '@/features/reviews/api/review-members';
 import type {
@@ -7,23 +8,24 @@ import type {
   ReviewRole,
 } from '@/features/reviews/types/reviews';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import { fetchReviewMembers } from '@/features/reviews/api/review-members';
+import { applyDelete, applyUpdate, onMutationError } from '@/lib/query-helpers';
+
+export const reviewMemberKeys = {
+  list: (reviewId: number | null) => ['review-members', reviewId] as const,
+};
 
 export const useFetchReviewMembers = (
   reviewId: number | null,
-  enabled: boolean = false
-) => {
-  return useQuery({
-    queryKey: ['review-members', reviewId],
+  enabled = false
+) =>
+  useQuery({
+    queryKey: reviewMemberKeys.list(reviewId),
     queryFn: () => fetchReviewMembers(reviewId!),
     enabled: !!reviewId && enabled,
   });
-};
 
 export const useUpdateReviewMember = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: ({
       id,
@@ -33,46 +35,29 @@ export const useUpdateReviewMember = () => {
       reviewId: number;
       payload: { role: ReviewRole };
     }) => updateReviewMember(id, payload),
-
-    onSuccess: (updatedMember, variables) => {
-      queryClient.setQueryData(
-        ['review-members', variables.reviewId],
-        (oldData: ReviewMember[]) => {
-          if (!oldData) return oldData;
-          return oldData.map((member) =>
-            member.id === variables.id ? updatedMember : member
-          );
-        }
-      );
-      toast.success('Member role updated.');
-    },
-
-    onError: () => {
-      toast.error('Failed to update member role.');
-    },
+    onSuccess: (data, variables) =>
+      applyUpdate(
+        queryClient,
+        reviewMemberKeys.list(variables.reviewId),
+        data,
+        'Member role updated.'
+      ),
+    onError: onMutationError('update member role'),
   });
 };
 
 export const useDeleteReviewMember = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: ({ id }: { id: number; reviewId: number }) =>
       deleteReviewMember(id),
-
-    onSuccess: (_, variables) => {
-      queryClient.setQueryData(
-        ['review-members', variables.reviewId],
-        (oldData: ReviewMember[]) => {
-          if (!oldData) return oldData;
-          return oldData.filter((member) => member.id !== variables.id);
-        }
-      );
-
-      toast.success('Member removed successfully.');
-    },
-    onError: () => {
-      toast.error('Failed to remove member.');
-    },
+    onSuccess: (_, variables) =>
+      applyDelete<ReviewMember>(
+        queryClient,
+        reviewMemberKeys.list(variables.reviewId),
+        variables.id,
+        'Member removed successfully.'
+      ),
+    onError: onMutationError('remove member'),
   });
 };

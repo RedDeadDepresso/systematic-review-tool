@@ -11,6 +11,7 @@ export type ReviewMember = {
 export type DuplicateDetectionStatus = 'not_started' | 'pending' | 'completed';
 
 export type Review = {
+  id: number;
   title: string;
   description: string;
   isActive: boolean;

@@ -6,6 +6,7 @@ import type {
   ChatMessage,
 } from '@/features/reviews/types/review-chat';
 import { useLocalStorage } from 'usehooks-ts';
+import { reviewKeys } from '@/features/reviews/hooks/use-reviews';
 
 const VITE_WS_URL = import.meta.env.VITE_WS_URL;
 
@@ -197,7 +198,9 @@ export function useReviewChat({
           }
 
           if (data.is_system_message && data.metadata?.refresh_review) {
-            queryClient.invalidateQueries({ queryKey: ['reviews', reviewId] });
+            queryClient.invalidateQueries({
+              queryKey: reviewKeys.detail(reviewId),
+            });
           }
         } else if (data.type === 'user_typing') {
           const userId = data.user_id;

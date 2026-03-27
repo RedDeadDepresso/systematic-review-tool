@@ -9,30 +9,33 @@ import type {
 } from '@/features/references/types/keywords';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { applyCreate, cacheRemove, onMutationError } from '@/lib/query-helpers';
+
+export const keywordKeys = {
+  list: (reviewId: number, type: KeywordType) =>
+    ['keywords', reviewId, type] as const,
+};
 
 export const useFetchKeywords = (params: {
   reviewId: number;
   type: KeywordType;
-}) => {
-  return useQuery({
-    queryKey: ['keywords', params.reviewId, params.type],
+}) =>
+  useQuery({
+    queryKey: keywordKeys.list(params.reviewId, params.type),
     queryFn: () => fetchKeywords(params),
   });
-};
 
 export const useCreateKeyword = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createKeyword,
-    onSuccess: (data, variables) => {
-      queryClient.setQueryData(
-        ['keywords', variables.review, variables.type],
-        (oldData: Keyword[] = []) => {
-          if (!oldData) return [data];
-          return [...oldData, data];
-        }
-      );
-    },
+    onSuccess: (data, variables) =>
+      applyCreate(
+        queryClient,
+        keywordKeys.list(variables.review, variables.type),
+        data
+      ),
+    onError: onMutationError('create keyword'),
   });
 };
 
@@ -46,16 +49,11 @@ export const useDeleteKeyword = () => {
     }) => deleteKeyword(payload.keywordId),
     onSuccess: (_, variables) => {
       toast.success('Keyword deleted successfully.');
-      queryClient.setQueryData(
-        ['keywords', variables.reviewId, variables.type],
-        (oldData: Keyword[] = []) => {
-          if (!oldData) return [];
-          return oldData.filter((k) => k.id !== variables.keywordId);
-        }
+      queryClient.setQueryData<Keyword[]>(
+        keywordKeys.list(variables.reviewId, variables.type),
+        cacheRemove(variables.keywordId)
       );
     },
-    onError: () => {
-      toast.error('Delete failed.');
-    },
+    onError: onMutationError('delete keyword'),
   });
 };

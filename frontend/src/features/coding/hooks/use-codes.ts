@@ -8,10 +8,21 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { Code } from '@/features/coding/types/codes';
 import type { SubTheme } from '@/features/coding/types/sub-themes';
+import {
+  applyCreate,
+  applyDelete,
+  applyUpdate,
+  onMutationError,
+} from '@/lib/query-helpers';
+import { subThemeKeys } from '@/features/coding/hooks/use-sub-themes';
+
+export const codeKeys = {
+  list: (reviewId: number) => ['reviews', reviewId, 'codes'] as const,
+};
 
 export function useFetchCodes(reviewId: number) {
   return useQuery({
-    queryKey: ['reviews', reviewId, 'codes'],
+    queryKey: codeKeys.list(reviewId),
     queryFn: () => fetchCodes(reviewId),
     enabled: !!reviewId,
   });
@@ -19,32 +30,29 @@ export function useFetchCodes(reviewId: number) {
 
 export function useCreateCode() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: createCode,
-    onSuccess: (data, variables) => {
-      toast.success('Code has been created.');
-      queryClient.setQueryData(
-        ['reviews', variables.review, 'codes'],
-        (oldData: Code[] = []) => {
-          if (!oldData) return [data];
-          return [...oldData, data];
-        }
-      );
-    },
+    onSuccess: (data, variables) =>
+      applyCreate(
+        queryClient,
+        codeKeys.list(variables.review),
+        data,
+        'Code has been created.'
+      ),
+    onError: onMutationError('create code'),
   });
 }
 
 export function useUpdateCode() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: updateCode,
     onSuccess: (data, variables) => {
       toast.success('Code has been updated.');
+      // Re-assign the code to its new sub-theme if it changed
       if (variables.payload.subTheme !== undefined) {
         queryClient.setQueryData(
-          ['reviews', data.review, 'sub-themes'],
+          subThemeKeys.list(data.review),
           (oldData: SubTheme[] = []) =>
             oldData.map((st) => ({
               ...st,
@@ -52,7 +60,7 @@ export function useUpdateCode() {
             }))
         );
         queryClient.setQueryData(
-          ['reviews', data.review, 'sub-themes'],
+          subThemeKeys.list(data.review),
           (oldData: SubTheme[] = []) =>
             oldData.map((st) =>
               st.id === variables.payload.subTheme
@@ -61,35 +69,33 @@ export function useUpdateCode() {
             )
         );
       }
-      queryClient.setQueryData(
-        ['reviews', data.review, 'codes'],
-        (oldData: Code[] = []) =>
-          oldData.map((code) => (code.id === data.id ? data : code))
-      );
+      applyUpdate(queryClient, codeKeys.list(data.review), data);
     },
+    onError: onMutationError('update code'),
   });
 }
 
-// Hook for deleting a code
 export function useDeleteCode() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: ({ id }: { id: string; reviewId: number }) => deleteCode(id),
     onSuccess: (_data, variables) => {
-      toast.success('Code has been deleted.');
+      // Remove code from its sub-theme's codeIds list
       queryClient.setQueryData(
-        ['reviews', variables.reviewId, 'sub-themes'],
+        subThemeKeys.list(variables.reviewId),
         (oldData: SubTheme[] = []) =>
           oldData.map((st) => ({
             ...st,
             codeIds: st.codeIds.filter((cid) => cid !== variables.id),
           }))
       );
-      queryClient.setQueryData<Code[]>(
-        ['reviews', variables.reviewId, 'codes'],
-        (old = []) => old.filter((code) => code.id !== variables.id)
+      applyDelete<Code>(
+        queryClient,
+        codeKeys.list(variables.reviewId),
+        variables.id,
+        'Code has been deleted.'
       );
     },
+    onError: onMutationError('delete code'),
   });
 }

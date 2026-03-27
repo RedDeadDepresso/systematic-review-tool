@@ -167,6 +167,7 @@ export function ReviewsTable({
   isActive: boolean;
   isLoading?: boolean;
 }) {
+  'use no memo';
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(

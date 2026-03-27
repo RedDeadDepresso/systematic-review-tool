@@ -10,15 +10,21 @@ import {
   fetchScreeningStats,
 } from '@/features/reviews/api/screening-stats';
 
-interface UseScreeningStatsOptions {
-  reviewId: number;
-  autoTrack?: boolean; // Auto start/stop tracking when component mounts/unmounts
-}
+export const screeningStatsKeys = {
+  stats: (reviewId: number) => ['review-screening-stats', reviewId] as const,
+  opinions: (reviewId: number) =>
+    ['review-screening-opinions', reviewId] as const,
+  fullTextOpinions: (reviewId: number) =>
+    ['review-fulltext-opinions', reviewId] as const,
+};
 
 export function useScreeningStats({
   reviewId,
   autoTrack = true,
-}: UseScreeningStatsOptions) {
+}: {
+  reviewId: number;
+  autoTrack?: boolean;
+}) {
   const [state, setState] = useState<ScreeningStatsState>({
     isConnected: false,
     isTracking: false,
@@ -27,22 +33,12 @@ export function useScreeningStats({
   });
 
   useEffect(() => {
-    // Connect to WebSocket
     screeningStatsManager.connect(reviewId);
-
-    // Subscribe to state changes
     const unsubscribe = screeningStatsManager.subscribe(setState);
-
-    // Auto-track if enabled
-    if (autoTrack) {
-      screeningStatsManager.resumeTracking();
-    }
+    if (autoTrack) screeningStatsManager.resumeTracking();
 
     return () => {
-      // Auto-pause if enabled
-      if (autoTrack) {
-        screeningStatsManager.pauseTracking();
-      }
+      if (autoTrack) screeningStatsManager.pauseTracking();
       unsubscribe();
     };
   }, [reviewId, autoTrack]);
@@ -62,13 +58,12 @@ export const useFetchScreeningStats = ({
 }: {
   reviewId: number;
   enabled?: boolean;
-}) => {
-  return useQuery({
-    queryKey: ['review-screening-stats', reviewId],
+}) =>
+  useQuery({
+    queryKey: screeningStatsKeys.stats(reviewId),
     queryFn: () => fetchScreeningStats(reviewId),
     enabled: enabled && !!reviewId,
   });
-};
 
 export const useFetchScreeningOpinions = ({
   reviewId,
@@ -76,13 +71,12 @@ export const useFetchScreeningOpinions = ({
 }: {
   reviewId: number;
   enabled?: boolean;
-}) => {
-  return useQuery({
-    queryKey: ['review-screening-opinions', reviewId],
+}) =>
+  useQuery({
+    queryKey: screeningStatsKeys.opinions(reviewId),
     queryFn: () => fetchScreeningOpinions(reviewId),
     enabled: enabled && !!reviewId,
   });
-};
 
 export const useFetchFullTextOpinions = ({
   reviewId,
@@ -90,10 +84,9 @@ export const useFetchFullTextOpinions = ({
 }: {
   reviewId: number;
   enabled?: boolean;
-}) => {
-  return useQuery({
-    queryKey: ['review-fulltext-opinions', reviewId],
+}) =>
+  useQuery({
+    queryKey: screeningStatsKeys.fullTextOpinions(reviewId),
     queryFn: () => fetchFullTextOpinions(reviewId),
     enabled: enabled && !!reviewId,
   });
-};

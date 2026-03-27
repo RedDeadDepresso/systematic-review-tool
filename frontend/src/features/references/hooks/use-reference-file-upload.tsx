@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import {
+  uploadedPdfKeys,
   useFetchUploadedPDFs,
   useUploadPDF,
 } from '@/features/references/hooks/use-uploaded-pdfs';
@@ -37,7 +38,7 @@ export function useFileUpload(
 
   const invalidateUploadedPDFs = () =>
     queryClient.invalidateQueries({
-      queryKey: ['reviews', reviewId, 'uploaded-pdfs'],
+      queryKey: uploadedPdfKeys.list(reviewId),
     });
 
   const handleUploadPDF = useCallback(

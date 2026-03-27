@@ -6,48 +6,41 @@ import {
 } from '@/features/reviews/api/screening-criteria';
 import type { ScreeningCriteria } from '@/features/reviews/types/screening-criteria';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import {
+  applyCreate,
+  applyDelete,
+  applyUpdate,
+  onMutationError,
+} from '@/lib/query-helpers';
 
-/* ------------------ FETCH SCREENING CRITERIA ------------------ */
-export const useFetchScreeningCriteria = ({
-  reviewId,
-}: {
-  reviewId: number;
-}) => {
-  return useQuery({
-    queryKey: ['reviews', reviewId, 'screening-criteria'],
-    queryFn: () => fetchScreeningCriteria({ reviewId: reviewId }),
-  });
+export const screeningCriteriaKeys = {
+  list: (reviewId: number) =>
+    ['reviews', reviewId, 'screening-criteria'] as const,
 };
 
-/* ------------------ CREATE SCREENING CRITERIA ------------------ */
+export const useFetchScreeningCriteria = ({ reviewId }: { reviewId: number }) =>
+  useQuery({
+    queryKey: screeningCriteriaKeys.list(reviewId),
+    queryFn: () => fetchScreeningCriteria({ reviewId }),
+  });
+
 export const useCreateScreeningCriteria = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: createScreeningCriteria,
-    onSuccess: (data, variables) => {
-      toast.success('Screening criteria created.');
-
-      queryClient.setQueryData(
-        ['reviews', variables.review, 'screening-criteria'],
-        (oldData: ScreeningCriteria[] = []) => {
-          if (!oldData) return [data];
-          return [...oldData, data];
-        }
-      );
-    },
-
-    onError: () => {
-      toast.error('Failed to create screening criteria.');
-    },
+    onSuccess: (data, variables) =>
+      applyCreate(
+        queryClient,
+        screeningCriteriaKeys.list(variables.review),
+        data,
+        'Screening criteria created.'
+      ),
+    onError: onMutationError('create screening criteria'),
   });
 };
 
-/* ------------------ UPDATE SCREENING CRITERIA ------------------ */
 export const useUpdateScreeningCriteria = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: ({
       criteriaId,
@@ -61,52 +54,29 @@ export const useUpdateScreeningCriteria = () => {
         description?: string;
       };
     }) => updateScreeningCriteria(criteriaId, payload),
-
-    onSuccess: (data, variables) => {
-      toast.success('Screening criteria updated.');
-
-      queryClient.setQueryData(
-        ['reviews', variables.reviewId, 'screening-criteria'],
-        (oldData: ScreeningCriteria[] | undefined) => {
-          if (!oldData) return oldData;
-
-          return oldData.map((criteria) =>
-            criteria.id === variables.criteriaId ? data : criteria
-          );
-        }
-      );
-    },
-
-    onError: () => {
-      toast.error('Failed to update screening criteria.');
-    },
+    onSuccess: (data, variables) =>
+      applyUpdate(
+        queryClient,
+        screeningCriteriaKeys.list(variables.reviewId),
+        data,
+        'Screening criteria updated.'
+      ),
+    onError: onMutationError('update screening criteria'),
   });
 };
 
-/* ------------------ DELETE SCREENING CRITERIA ------------------ */
 export const useDeleteScreeningCriteria = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: ({ criteriaId }: { criteriaId: number; reviewId: number }) =>
       deleteScreeningCriteria(criteriaId),
-
-    onSuccess: (_data, variables) => {
-      toast.success('Screening criteria deleted.');
-
-      queryClient.setQueryData(
-        ['reviews', variables.reviewId, 'screening-criteria'],
-        (oldData: ScreeningCriteria[] | undefined) => {
-          if (!oldData) return oldData;
-          return oldData.filter(
-            (criteria) => criteria.id !== variables.criteriaId
-          );
-        }
-      );
-    },
-
-    onError: () => {
-      toast.error('Failed to delete screening criteria.');
-    },
+    onSuccess: (_data, variables) =>
+      applyDelete<ScreeningCriteria>(
+        queryClient,
+        screeningCriteriaKeys.list(variables.reviewId),
+        variables.criteriaId,
+        'Screening criteria deleted.'
+      ),
+    onError: onMutationError('delete screening criteria'),
   });
 };

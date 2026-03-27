@@ -8,9 +8,10 @@ import {
   type FetchClustersParams,
   type AutoResolveParams,
 } from '@/features/references/api/reference-clusters';
+import { reviewKeys } from '@/features/reviews/hooks/use-reviews';
 import type { Review } from '@/features/reviews/types/reviews';
+import { errorMessageString } from '@/lib/error';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AxiosError } from 'axios';
 import { toast } from 'sonner';
 
 // ─── Query keys ───────────────────────────────────────────────────────────────
@@ -74,9 +75,8 @@ export const useResolveCluster = (reviewId: number) => {
       toast.success(message || 'Cluster resolved');
       _invalidateClusters(queryClient, reviewId);
     },
-
-    onError: (error: unknown) => {
-      toast.error(extractErrorMessage(error) ?? 'Failed to resolve cluster');
+    onError: (error: any) => {
+      toast.error(`Failed to resolve cluster: ${errorMessageString(error)}`);
     },
   });
 };
@@ -94,9 +94,8 @@ export const useDismissCluster = (reviewId: number) => {
       toast.success(message || 'Cluster dismissed');
       _invalidateClusters(queryClient, reviewId);
     },
-
-    onError: (error: unknown) => {
-      toast.error(extractErrorMessage(error) ?? 'Failed to dismiss cluster');
+    onError: (error: any) => {
+      toast.error(`Failed to dismiss cluster: ${errorMessageString(error)}`);
     },
   });
 };
@@ -114,9 +113,8 @@ export const useAutoResolveDuplicates = (reviewId: number) => {
       toast.success(message || 'Auto-resolution started');
       _invalidateClusters(queryClient, reviewId);
     },
-
-    onError: (error: unknown) => {
-      toast.error(extractErrorMessage(error) ?? 'Auto-resolution failed');
+    onError: (error: any) => {
+      toast.error(`Failed to auto-resolve: ${errorMessageString(error)}`);
     },
   });
 };
@@ -131,7 +129,7 @@ function _invalidateClusters(
   queryClient.invalidateQueries({ queryKey: duplicateKeys.stats(reviewId) });
 
   // Optimistically decrement the unresolved cluster count on the review
-  queryClient.setQueryData(['reviews', reviewId], (old: Review) => {
+  queryClient.setQueryData(reviewKeys.detail(reviewId), (old: Review) => {
     if (!old) return old;
     return {
       ...old,
@@ -141,13 +139,4 @@ function _invalidateClusters(
           : null,
     };
   });
-}
-
-function extractErrorMessage(error: unknown): string | undefined {
-  const axiosError = error as AxiosError;
-  const data = axiosError?.response?.data;
-  if (data && typeof data === 'object' && 'error' in data) {
-    return (data as { error?: string }).error;
-  }
-  return undefined;
 }

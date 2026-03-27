@@ -1,3 +1,4 @@
+import { errorMessageString } from '@/lib/error';
 import {
   bulkSaveAnswers,
   deleteExtractionAnswer,
@@ -7,6 +8,15 @@ import {
 import type { ExtractionAnswer } from '@/features/extraction/types/extraction';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { cacheRemove, onMutationError } from '@/lib/query-helpers';
+import { extractionTableKeys } from '@/features/extraction/hooks/use-extraction-table';
+
+export const extractionAnswerKeys = {
+  list: (params: { referenceId?: number; questionId?: number }) =>
+    ['extraction-answers', params] as const,
+  byReference: (referenceId: number) =>
+    ['extraction-answers', { referenceId }] as const,
+};
 
 /* ------------------ FETCH EXTRACTION ANSWERS ------------------ */
 export const useFetchExtractionAnswers = ({
@@ -15,12 +25,11 @@ export const useFetchExtractionAnswers = ({
 }: {
   referenceId?: number;
   questionId?: number;
-}) => {
-  return useQuery({
-    queryKey: ['extraction-answers', { referenceId, questionId }],
+}) =>
+  useQuery({
+    queryKey: extractionAnswerKeys.list({ referenceId, questionId }),
     queryFn: () => fetchExtractionAnswers({ referenceId, questionId }),
   });
-};
 
 /* ------------------ SAVE EXTRACTION ANSWER ------------------ */
 export const useSaveExtractionAnswer = () => {
@@ -29,39 +38,33 @@ export const useSaveExtractionAnswer = () => {
     mutationFn: saveExtractionAnswer,
     onSuccess: (data, variables) => {
       toast.success('Answer saved.');
-
-      // Update cache for this specific reference-question pair
-      queryClient.setQueryData(
-        [
-          'extraction-answers',
-          { referenceId: variables.reference, questionId: variables.question },
-        ],
-        (oldData: ExtractionAnswer[] = []) => {
-          const exists = oldData.find(
-            (answer) =>
-              answer.reference === variables.reference &&
-              answer.question === variables.question
+      // Upsert: replace if exists, otherwise append
+      queryClient.setQueryData<ExtractionAnswer[]>(
+        extractionAnswerKeys.list({
+          referenceId: variables.reference,
+          questionId: variables.question,
+        }),
+        (oldData = []) => {
+          const exists = oldData.some(
+            (a) =>
+              a.reference === variables.reference &&
+              a.question === variables.question
           );
-          if (exists) {
-            return oldData.map((answer) =>
-              answer.reference === variables.reference &&
-              answer.question === variables.question
-                ? data
-                : answer
-            );
-          }
-          return [...oldData, data];
+          return exists
+            ? oldData.map((a) =>
+                a.reference === variables.reference &&
+                a.question === variables.question
+                  ? data
+                  : a
+              )
+            : [...oldData, data];
         }
       );
-
-      // Invalidate related queries
       queryClient.invalidateQueries({
-        queryKey: ['extraction-answers', { referenceId: variables.reference }],
+        queryKey: extractionAnswerKeys.byReference(variables.reference),
       });
     },
-    onError: () => {
-      toast.error('Failed to save answer.');
-    },
+    onError: onMutationError('save answer'),
   });
 };
 
@@ -78,53 +81,35 @@ export const useDeleteExtractionAnswer = () => {
     }) => deleteExtractionAnswer(answerId),
     onSuccess: (_data, variables) => {
       toast.success('Answer deleted.');
-      queryClient.setQueryData(
-        [
-          'extraction-answers',
-          {
-            referenceId: variables.referenceId,
-            questionId: variables.questionId,
-          },
-        ],
-        (oldData: ExtractionAnswer[] | undefined) => {
-          if (!oldData) return oldData;
-          return oldData.filter((answer) => answer.id !== variables.answerId);
-        }
+      queryClient.setQueryData<ExtractionAnswer[]>(
+        extractionAnswerKeys.list({
+          referenceId: variables.referenceId,
+          questionId: variables.questionId,
+        }),
+        cacheRemove(variables.answerId)
       );
       queryClient.invalidateQueries({
-        queryKey: [
-          'extraction-answers',
-          { referenceId: variables.referenceId },
-        ],
+        queryKey: extractionAnswerKeys.byReference(variables.referenceId),
       });
     },
-    onError: () => {
-      toast.error('Failed to delete answer.');
-    },
+    onError: onMutationError('delete answer'),
   });
 };
 
+/* ------------------ BULK SAVE ANSWERS ------------------ */
 export const useBulkSaveAnswers = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: bulkSaveAnswers,
     onSuccess: (data, variables) => {
       toast.success(`${data.savedCount} answer(s) saved.`);
-
-      // Invalidate queries
       queryClient.invalidateQueries({
-        queryKey: [
-          'extraction-answers',
-          { referenceId: variables.referenceId },
-        ],
+        queryKey: extractionAnswerKeys.byReference(variables.referenceId),
       });
-      queryClient.invalidateQueries({
-        queryKey: ['extraction-table'],
-      });
+      queryClient.invalidateQueries({ queryKey: extractionTableKeys.all });
     },
-    onError: () => {
-      toast.error('Failed to save answers.');
+    onError: (error: any) => {
+      toast.error(`Failed to save answers: ${errorMessageString(error)}`);
     },
   });
 };

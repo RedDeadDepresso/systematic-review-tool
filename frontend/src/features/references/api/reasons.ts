@@ -23,10 +23,7 @@ export const updateReason = async (
   reasonId: number,
   payload: { name: string }
 ) => {
-  const res = await api.patch<Partial<Reason>>(
-    `/reasons/${reasonId}/`,
-    payload
-  );
+  const res = await api.patch<Reason>(`/reasons/${reasonId}/`, payload);
   return res.data;
 };
 

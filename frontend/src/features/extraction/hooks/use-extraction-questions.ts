@@ -9,7 +9,20 @@ import type {
   QuestionType,
 } from '@/features/extraction/types/extraction';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import {
+  applyCreate,
+  applyDelete,
+  applyUpdate,
+  onMutationError,
+} from '@/lib/query-helpers';
+
+export const extractionQuestionKeys = {
+  all: ['extraction-questions'] as const,
+  list: (reviewId: number, sectionId?: number, type?: QuestionType[]) =>
+    ['extraction-questions', reviewId, sectionId, type] as const,
+  bySection: (sectionId: number) =>
+    ['extraction-sections', sectionId, 'questions'] as const,
+};
 
 /* ------------------ FETCH EXTRACTION QUESTIONS ------------------ */
 export const useFetchExtractionQuestions = ({
@@ -20,13 +33,12 @@ export const useFetchExtractionQuestions = ({
   reviewId: number;
   sectionId?: number;
   type?: QuestionType[];
-}) => {
-  return useQuery({
-    queryKey: ['extraction-questions', reviewId, sectionId, type],
+}) =>
+  useQuery({
+    queryKey: extractionQuestionKeys.list(reviewId, sectionId, type),
     queryFn: () => fetchExtractionQuestions({ reviewId, sectionId, type }),
     enabled: !!reviewId,
   });
-};
 
 /* ------------------ CREATE EXTRACTION QUESTION ------------------ */
 export const useCreateExtractionQuestion = () => {
@@ -34,20 +46,15 @@ export const useCreateExtractionQuestion = () => {
   return useMutation({
     mutationFn: createExtractionQuestion,
     onSuccess: (data, variables) => {
-      toast.success('Question created.');
-      queryClient.setQueryData(
-        ['extraction-sections', variables.section, 'questions'],
-        (oldData: ExtractionQuestion[] = []) => {
-          if (!oldData) return [data];
-          return [...oldData, data];
-        }
+      applyCreate(
+        queryClient,
+        extractionQuestionKeys.bySection(variables.section),
+        data,
+        'Question created.'
       );
-      // Also invalidate the general questions query
-      queryClient.invalidateQueries({ queryKey: ['extraction-questions'] });
+      queryClient.invalidateQueries({ queryKey: extractionQuestionKeys.all });
     },
-    onError: () => {
-      toast.error('Failed to create question.');
-    },
+    onError: onMutationError('create question'),
   });
 };
 
@@ -77,21 +84,15 @@ export const useUpdateExtractionQuestion = () => {
       };
     }) => updateExtractionQuestion(questionId, payload),
     onSuccess: (data, variables) => {
-      toast.success('Question updated.');
-      queryClient.setQueryData(
-        ['extraction-sections', variables.payload.section, 'questions'],
-        (oldData: ExtractionQuestion[] | undefined) => {
-          if (!oldData) return oldData;
-          return oldData.map((question) =>
-            question.id === variables.questionId ? data : question
-          );
-        }
+      applyUpdate(
+        queryClient,
+        extractionQuestionKeys.bySection(variables.payload.section!),
+        data,
+        'Question updated.'
       );
-      queryClient.invalidateQueries({ queryKey: ['extraction-questions'] });
+      queryClient.invalidateQueries({ queryKey: extractionQuestionKeys.all });
     },
-    onError: () => {
-      toast.error('Failed to update question.');
-    },
+    onError: onMutationError('update question'),
   });
 };
 
@@ -102,20 +103,14 @@ export const useDeleteExtractionQuestion = () => {
     mutationFn: ({ questionId }: { questionId: number; sectionId: number }) =>
       deleteExtractionQuestion(questionId),
     onSuccess: (_data, variables) => {
-      toast.success('Question deleted.');
-      queryClient.setQueryData(
-        ['extraction-sections', variables.sectionId, 'questions'],
-        (oldData: ExtractionQuestion[] | undefined) => {
-          if (!oldData) return oldData;
-          return oldData.filter(
-            (question) => question.id !== variables.questionId
-          );
-        }
+      applyDelete<ExtractionQuestion>(
+        queryClient,
+        extractionQuestionKeys.bySection(variables.sectionId),
+        variables.questionId,
+        'Question deleted.'
       );
-      queryClient.invalidateQueries({ queryKey: ['extraction-questions'] });
+      queryClient.invalidateQueries({ queryKey: extractionQuestionKeys.all });
     },
-    onError: () => {
-      toast.error('Failed to delete question.');
-    },
+    onError: onMutationError('delete question'),
   });
 };

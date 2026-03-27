@@ -141,6 +141,7 @@ export function ReceivedInvitationsTable({
   data: Invitation[];
   isLoading?: boolean;
 }) {
+  'use no memo';
   const table = useInvitationTable(data, receivedColumns);
 
   return (
@@ -245,6 +246,7 @@ export function SentInvitationsTable({
   data: Invitation[];
   isLoading?: boolean;
 }) {
+  'use no memo';
   const columns = sentColumns;
   const table = useInvitationTable(data, columns);
 
