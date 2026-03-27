@@ -48,11 +48,14 @@ import {
   DataTableColumnToggle,
   DataTableSortHeader,
 } from '@/components/blocks/data-table';
+import { useFetchUser } from '@/features/users/hooks/use-auth';
+import type { User } from '@/features/users/types/auth';
 
 export function createColumns(
   isActive: boolean,
   onToggleArchive: (rowData: ReviewRow) => void,
-  onDelete: (rowData: ReviewRow) => void
+  onDelete: (rowData: ReviewRow) => void,
+  currentUser?: User
 ): ColumnDef<ReviewRow>[] {
   return [
     {
@@ -73,19 +76,29 @@ export function createColumns(
       header: ({ column }) => (
         <DataTableSortHeader column={column} label="Owner" />
       ),
+      cell: ({ getValue }) => {
+        const value = getValue<string>();
+        return value === currentUser?.displayName || !value ? 'You' : value;
+      },
     },
     {
       accessorKey: 'referenceCount',
       header: ({ column }) => (
         <DataTableSortHeader column={column} label="N. of References" />
       ),
+      cell: ({ getValue }) => {
+        const value = getValue<number>();
+        return value ? value : 0;
+      },
     },
     {
       id: 'actions',
       cell: ({ row }) => {
         const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
-
-        return (
+        const sameUser =
+          row.original.owner === currentUser?.displayName ||
+          !row.original.owner;
+        return !sameUser ? null : (
           <>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -179,7 +192,7 @@ export function ReviewsTable({
     pageIndex: 0,
     pageSize: 10,
   });
-
+  const { data: currentUser } = useFetchUser();
   const createReview = useCreateReview();
   const updateReview = useUpdateReview();
   const [openCreateDialog, setOpenCreateDialog] = React.useState(false);
@@ -210,7 +223,7 @@ export function ReviewsTable({
   };
 
   const columns = React.useMemo(
-    () => createColumns(isActive, onToggleArchive, onDelete),
+    () => createColumns(isActive, onToggleArchive, onDelete, currentUser),
     [isActive]
   );
 
