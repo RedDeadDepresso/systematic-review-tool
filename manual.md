@@ -871,7 +871,7 @@ placing one dot per reference.
 2. Choose an **X-Axis Question** and a **Y-Axis Question** from the dropdowns. Only
    numeric questions are listed.
 3. Switch between **Scatter** (equal-sized dots) and **Bubble** (dot size proportional
-   to the number of referneces mathcing the coordinate) using the toggle in the top-right corner of the chart
+   to the number of references matching the coordinate) using the toggle in the top-right corner of the chart
    panel.
 
 The chart shows the count of plotted references at the bottom. References without a
