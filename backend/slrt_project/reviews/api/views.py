@@ -77,6 +77,7 @@ from slrt_project.reviews.tasks import (
     auto_deduplicate_task,
     detect_duplicates_task,
     import_references_task,
+    send_review_invitation_email,
 )
 from slrt_project.reviews.utils import strip_ansi
 from slrt_project.shared.permissions import (
@@ -1146,13 +1147,25 @@ class ReviewInvitationViewSet(
         # Skip the requester themselves, current members, and already-invited.
         skip = {request.user.email} | existing_members | existing_invited
 
-        created = [
-            ReviewInvitation.objects.create(
+        created = []
+
+        for email in emails:
+            if email in skip:
+                continue
+
+            invitation = ReviewInvitation.objects.create(
                 email=email, review=review, invited_by=request.user, role=role
             )
-            for email in emails
-            if email not in skip
-        ]
+
+            created.append(invitation)
+
+            # Trigger async email
+            send_review_invitation_email.delay(
+                email=email,
+                review_title=review.title,
+                invited_by_email=request.user.email,
+                role=role,
+            )
 
         return Response(ReviewInvitationSerializer(created, many=True).data, status=201)
 
