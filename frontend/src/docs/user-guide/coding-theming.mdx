@@ -1,0 +1,128 @@
+# Coding & Theming
+
+The Coding & Theming page supports qualitative synthesis by letting you highlight
+passages in PDFs and organise them into a thematic hierarchy. The three-level structure,
+**Codes**, **Sub Themes**, and **Main Themes**, lets you move from raw observations
+up to high-level conceptual groupings by dragging and dropping cards between columns.
+
+<Image
+  src="/screenshots/coding/coding.png"
+  alt="Coding and Theming page showing three Kanban-style columns: Codes, Sub Themes, and Main Themes, with the Export dropdown open"
+/>
+
+---
+
+## The Three-Column Layout
+
+The page presents three columns side by side.
+
+**Codes**: individual annotations created by highlighting a passage in a PDF or by
+adding a free-text observation. Each code card shows the code name, an optional comment,
+and the title of the paper it came from. A jump-to-source arrow (↗) opens the PDF
+viewer directly at the highlighted passage.
+
+**Sub Themes**: named groupings that collect related codes. A sub theme card can
+display the codes assigned to it as nested items when expanded. Sub themes can
+optionally be unassigned, a code can exist without belonging to a sub theme.
+
+**Main Themes**: top-level conceptual groupings that collect related sub themes. Sub
+theme cards appear nested inside main theme cards when expanded.
+
+Unassigned items (codes without a sub theme, or sub themes without a main theme) float
+at the top of their respective column.
+
+---
+
+## Creating Items
+
+- **+ Add Code**: opens a dialog to create a new standalone code with a name and optional comment.
+- **+ Add Sub Theme**: opens a dialog to create a new sub theme with a name and description.
+- Edit or delete items using the **✏️** and **🗑** icons that appear on hover.
+
+You can also create codes directly from the PDF viewer by selecting text, see
+[Creating a Code from a PDF](#creating-a-code-from-a-pdf) below.
+
+---
+
+## Organising with Drag and Drop
+
+Drag a **Code** card from the Codes column and drop it onto a **Sub Theme** card to
+assign it. A ghost overlay follows the cursor while dragging to give visual feedback.
+Drop a code back onto an empty area of the Codes column to remove its sub theme
+assignment.
+
+Drag a **Sub Theme** card and drop it onto a **Main Theme** card to assign it. A "Drop
+codes here" placeholder appears on sub theme cards while a code is being dragged.
+
+This interaction lets you build a complete thematic map iteratively without needing to
+use dialogs for every re-organisation step.
+
+---
+
+## Searching and Collapsing
+
+Each column has an independent **search** field at the top that filters cards in that
+column by name. The **Expand** and **Collapse** buttons toggle all cards in the column
+open or closed at once, useful when a column has many items.
+
+---
+
+## Creating a Code from a PDF
+
+<Image
+  src="/screenshots/data-extraction/pdf-viewer-form.png"
+  alt="PDF viewer in coding mode with a highlight annotation popover open and the coding sidebar listing existing codes and sub themes"
+/>
+
+Open the PDF viewer from any reference that has an attached PDF (click the Jump button
+, or from Data Extraction). Select a passage of text or
+draw a region on a page. A small popover appears:
+
+- **Name**: the code label (auto-filled with the selected text when in text highlight mode).
+- **Comment**: an optional annotation note.
+- **Same as content** checkbox: when checked, the comment is pre-filled to match the selected text.
+
+Click **Save** to create the code. It immediately appears in the Codes column.
+
+The **coding sidebar** on the right of the PDF viewer lists all existing codes and sub
+themes for the review. Use the **Filter by current reference** toggle to narrow the
+list to codes created from the currently open paper. Clicking a code in the sidebar
+scrolls the PDF to the corresponding highlight automatically.
+
+---
+
+## Highlight Types
+
+Codes can be created from several types of annotation:
+
+| Type          | Description                                                                |
+| ------------- | -------------------------------------------------------------------------- |
+| **Text**      | A selected run of text; stored with the text content and page bounding box |
+| **Area**      | A drawn rectangle over any region (image, table, diagram)                  |
+| **Free text** | A typed note not associated with a specific page location                  |
+
+Text and area highlights appear as coloured overlays on the rendered PDF pages in
+subsequent viewing sessions.
+
+---
+
+## Jump to Source
+
+Every code card in the Codes column has a **↗** icon. Clicking it opens the PDF viewer
+for the reference the code came from and scrolls to the exact page and position of the
+highlight. This links every coded observation back to its source in the primary
+literature without manually navigating to the right page.
+
+---
+
+## Exporting the Coding Structure
+
+Click **Export** in the toolbar (top-right) to download the full coding structure,
+all codes, sub themes, main themes, and their relationships, in one of four formats:
+
+| Option             | Output                                              |
+| ------------------ | --------------------------------------------------- |
+| **Copy JSON**      | Copies the JSON structure to the clipboard          |
+| **Download JSON**  | Saves a `.json` file                                |
+| **Copy LaTeX**     | Copies a LaTeX-formatted structure to the clipboard |
+| **Download LaTeX** | Saves a `.tex` file                                 |

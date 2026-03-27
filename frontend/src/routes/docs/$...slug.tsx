@@ -1,10 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { DocsTableOfContents } from '@/components/blocks/docs/docs-toc';
 import { mdxComponents } from '@/components/blocks/docs/mdx-components';
-import { useRef } from 'react';
+import { useContext, useEffect, useRef } from 'react';
 import { useTocFromContent } from '@/hooks/use-toc';
+import { AppLayoutContext } from '@/context/app-layout-context';
 
-const modules = import.meta.glob('/src/docs/**/*.mdx');
+const modules =
+  import.meta.env.MODE === 'development'
+    ? import.meta.glob('/src/docs/**/*.mdx')
+    : import.meta.glob('/src/docs/user-guide/*.mdx');
 
 export const Route = createFileRoute('/docs/$/slug')({
   loader: async ({ params }) => {
@@ -31,7 +35,12 @@ export const Route = createFileRoute('/docs/$/slug')({
 function DocsPage() {
   const { Component } = Route.useLoaderData();
   const contentRef = useRef<HTMLDivElement>(null);
-  const toc = useTocFromContent(contentRef);
+  const toc = useTocFromContent(contentRef, [Component]);
+  const { setPageTitle } = useContext(AppLayoutContext);
+
+  useEffect(() => {
+    setPageTitle('Documentation');
+  }, []);
 
   return (
     <div className="flex scroll-mt-24 items-stretch pb-8 text-[15px] xl:w-full overflow-y-auto">

@@ -1,0 +1,299 @@
+# Libraries
+
+The following are the main third-party libraries used in the frontend. Transitive
+dependencies are omitted.
+
+## Framework & Build
+
+### React
+
+The core UI library. The project uses React 19 with the new JSX transform and the
+experimental React Compiler (via `babel-plugin-react-compiler`) for automatic
+memoisation.
+
+- **License:** MIT
+- **Docs:** https://react.dev/
+
+### Vite
+
+The build tool and local development server. Configured with `@vitejs/plugin-react` for
+Fast Refresh, the TanStack Router plugin for file-based route generation, and the
+Tailwind CSS v4 Vite plugin.
+
+- **License:** MIT
+- **Docs:** https://vite.dev/
+
+### TypeScript
+
+Strict static typing across the entire codebase. Configured in bundler mode with
+`strict: true`, `noUnusedLocals`, and `noUnusedParameters` enforced.
+
+- **License:** Apache-2.0
+- **Docs:** https://www.typescriptlang.org/
+
+---
+
+## Routing
+
+### TanStack Router (`@tanstack/react-router`)
+
+File-based, fully type-safe client-side router. Routes are defined as files under
+`src/routes/` and the router plugin generates a `routeTree.gen.ts` file at build time
+so that every route, parameter, and search param is statically typed end-to-end.
+
+- **License:** MIT
+- **Docs:** https://tanstack.com/router/latest
+
+---
+
+## Data Fetching & State
+
+### TanStack Query (`@tanstack/react-query`)
+
+Server-state management library. All API calls are wrapped in `useQuery` and
+`useMutation` hooks, with cache keys organised per feature. Shared mutation helpers in
+`src/lib/query-helpers.ts` provide `cacheAppend`, `cacheReplace`, and `cacheRemove`
+utilities to keep optimistic cache updates consistent across all features.
+
+- **License:** MIT
+- **Docs:** https://tanstack.com/query/latest
+
+### axios
+
+HTTP client used by the API layer (`src/api/client.ts`). The client is configured with
+request interceptors that attach the JWT access token from `localStorage` and response
+interceptors that transparently refresh the token on 401 responses, queuing concurrent
+requests until the refresh completes.
+
+- **License:** MIT
+- **Docs:** https://axios-http.com/
+
+### qs
+
+Query-string serialiser. Plugged into the axios `paramsSerializer` so that array
+parameters are serialised as comma-separated values (`?ids=1,2,3`) rather than the
+default repeated-key format.
+
+- **License:** BSD-3-Clause
+- **Docs:** https://github.com/ljharb/qs
+
+---
+
+## UI Components & Styling
+
+### Tailwind CSS
+
+Utility-first CSS framework. Uses the v4 Vite plugin (`@tailwindcss/vite`) for
+zero-configuration CSS processing without a separate PostCSS step.
+
+- **License:** MIT
+- **Docs:** https://tailwindcss.com/
+
+### Radix UI (`@radix-ui/*`)
+
+Unstyled, accessible headless primitives. Used as the foundation for all interactive
+components (dialogs, dropdowns, popovers, tabs, tooltips, etc.). Components are styled
+with Tailwind and wrapped in the `src/components/ui/` layer following the shadcn/ui
+convention.
+
+- **License:** MIT
+- **Docs:** https://www.radix-ui.com/
+
+### class-variance-authority (CVA)
+
+Utility for defining component variants as typed, composable style objects. Used
+throughout `src/components/ui/` to manage the `variant` and `size` props on buttons,
+badges, and similar components.
+
+- **License:** Apache-2.0
+- **Docs:** https://cva.style/
+
+### clsx / tailwind-merge
+
+`clsx` conditionally joins class names; `tailwind-merge` resolves conflicting Tailwind
+classes (e.g. `p-2` vs `p-4`) so the last value wins. The `cn()` helper in
+`src/lib/utils.ts` composes both for all component class merging.
+
+- **License:** MIT
+- **Docs:** https://github.com/lukeed/clsx · https://github.com/dcastil/tailwind-merge
+
+### lucide-react / @tabler/icons-react / react-icons
+
+Icon libraries. `lucide-react` is the primary icon set used across the application.
+`@tabler/icons-react` and `react-icons` supplement it for specific icons not available
+in Lucide.
+
+- **License:** ISC / MIT
+- **Docs:** https://lucide.dev/ · https://tabler.io/icons · https://react-icons.github.io/react-icons/
+
+### sonner
+
+Toast notification library. Provides the `toast.success()` / `toast.error()` API used
+by mutation `onSuccess` and `onError` handlers throughout the application.
+
+- **License:** MIT
+- **Docs:** https://sonner.emilkowal.ski/
+
+### next-themes
+
+Theme provider that manages light/dark mode with `localStorage` persistence and
+`prefers-color-scheme` detection. Wraps the application root and exposes the
+`useTheme` hook.
+
+- **License:** MIT
+- **Docs:** https://github.com/pacocoursey/next-themes
+
+### vaul
+
+Drawer component built on Radix UI Dialog. Used for slide-up panels (e.g. the review
+chat drawer) on both desktop and mobile.
+
+- **License:** MIT
+- **Docs:** https://vaul.emilkowal.ski/
+
+### react-day-picker
+
+Date picker component. Used for date input fields in the data extraction form.
+
+- **License:** MIT
+- **Docs:** https://react-day-picker.js.org/
+
+---
+
+## Tables
+
+### TanStack Table (`@tanstack/react-table`)
+
+Headless table library with sorting, pagination, filtering, and column visibility built
+in. The shared `DataTable` component in `src/components/blocks/data-table.tsx` wraps
+the library and is reused across the reviews list, references table, members table, and
+extraction grid.
+
+- **License:** MIT
+- **Docs:** https://tanstack.com/table/latest
+
+---
+
+## Drag and Drop
+
+### dnd-kit (`@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/modifiers`, `@dnd-kit/utilities`)
+
+Accessible drag-and-drop toolkit. Used for reordering extraction sections and questions
+within the data extraction configuration panel.
+
+- **License:** MIT
+- **Docs:** https://dndkit.com/
+
+---
+
+## Charts & Data Visualisation
+
+### Recharts
+
+Composable charting library built on D3. Used for the screening opinion bar charts and
+the screening statistics progress charts on the review overview page.
+
+- **License:** MIT
+- **Docs:** https://recharts.org/
+
+---
+
+## PDF Viewing & Annotation
+
+### react-pdf
+
+React wrapper for Mozilla's PDF.js. Handles PDF rendering into canvas elements inside
+the PDF viewer dialog. Pinned to a specific `pdfjs-dist` version to ensure the worker
+and library versions stay in sync.
+
+- **License:** MIT
+- **Docs:** https://react-pdf.org/
+
+### react-pdf-highlighter-plus
+
+Highlight annotation layer built on top of `react-pdf`. Provides the selection, tooltip,
+and position-tracking logic for text and area highlights in the coding PDF viewer.
+Highlights are stored as `ScaledPosition` objects so they remain stable across different
+zoom levels and page renderings.
+
+- **License:** MIT
+- **Docs:** https://github.com/Bielfer/react-pdf-highlighter-plus
+
+---
+
+## Documentation
+
+### @mdx-js/rollup
+
+MDX rollup plugin that allows `.mdx` files to be imported as React components. Used to
+render the in-app documentation pages (the `src/docs/` directory) at the `/docs/*`
+route.
+
+- **License:** MIT
+- **Docs:** https://mdxjs.com/
+
+---
+
+## Utilities
+
+### date-fns
+
+Functional date utility library. Used for formatting and comparing dates in the
+reference metadata fields and screening statistics views.
+
+- **License:** MIT
+- **Docs:** https://date-fns.org/
+
+### usehooks-ts
+
+Collection of typed React hooks. Provides utilities such as `useLocalStorage` and
+`useDebounceValue` used in filter components and settings persistence.
+
+- **License:** MIT
+- **Docs:** https://usehooks-ts.com/
+
+---
+
+## Development & Testing
+
+### Vitest
+
+Fast Vite-native test runner. Configured in `vite.config.ts` with the `jsdom`
+environment, global test APIs, and V8 coverage.
+
+- **License:** MIT
+- **Docs:** https://vitest.dev/
+
+### @testing-library/react
+
+React component testing utilities. Provides `render`, `screen`, and `waitFor` used in
+all component and hook tests. Combined with `@testing-library/user-event` for
+realistic keyboard and pointer interactions.
+
+- **License:** MIT
+- **Docs:** https://testing-library.com/docs/react-testing-library/intro/
+
+### @testing-library/jest-dom
+
+Custom jest/vitest matchers (`.toBeInTheDocument()`, `.toHaveValue()`, etc.) imported
+in `tests/setup.ts` via the `@testing-library/jest-dom/vitest` entry point.
+
+- **License:** MIT
+- **Docs:** https://github.com/testing-library/jest-dom
+
+### jsdom
+
+Browser environment emulator used as the Vitest test environment. Provides the DOM APIs
+(`window`, `document`, `localStorage`, etc.) that components interact with in tests.
+
+- **License:** MIT
+- **Docs:** https://github.com/jsdom/jsdom
+
+### ESLint / Prettier
+
+`eslint` with `@typescript-eslint`, `eslint-plugin-react`, `eslint-plugin-react-hooks`,
+and `eslint-config-prettier` enforces code style and catches common React mistakes.
+`prettier` handles formatting, integrated via `eslint-plugin-prettier`.
+
+- **License:** MIT
+- **Docs:** https://eslint.org/ · https://prettier.io/

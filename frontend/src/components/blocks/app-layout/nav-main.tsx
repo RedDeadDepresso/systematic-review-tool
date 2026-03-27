@@ -32,13 +32,55 @@ import { IconKey } from '@tabler/icons-react';
 import { useState, useMemo } from 'react';
 import { BookOpen } from 'lucide-react';
 
+const DEV_DOC_SECTIONS =
+  import.meta.env.MODE === 'development'
+    ? [
+        {
+          title: 'Backend',
+          children: [
+            { title: 'Getting Started', href: '/docs/backend/getting-started' },
+            { title: 'Libraries', href: '/docs/backend/libraries' },
+            {
+              title: 'Project Structure',
+              href: '/docs/backend/project-structure',
+            },
+            { title: 'Database', href: '/docs/backend/database' },
+            { title: 'Features', href: '/docs/backend/features' },
+            { title: 'Testing', href: '/docs/backend/testing' },
+            { title: 'Deployment', href: '/docs/backend/deployment' },
+          ],
+        },
+        {
+          title: 'Frontend',
+          children: [
+            { title: 'Libraries', href: '/docs/frontend/libraries' },
+            {
+              title: 'Project Structure',
+              href: '/docs/frontend/project-structure',
+            },
+            { title: 'Testing', href: '/docs/frontend/testing' },
+          ],
+        },
+      ]
+    : [];
+
 const DOC_LINKS = [
-  { title: 'Introduction', href: '/docs/introduction' },
+  ...DEV_DOC_SECTIONS,
   {
     title: 'User Guide',
     children: [
       { title: 'Getting Started', href: '/docs/user-guide/getting-started' },
       { title: 'Review Overview', href: '/docs/user-guide/review-overview' },
+      { title: 'Review Data', href: '/docs/user-guide/review-data' },
+      { title: 'Screening', href: '/docs/user-guide/screening' },
+      {
+        title: 'Full Text Screening',
+        href: '/docs/user-guide/full-text-screening',
+      },
+      { title: 'Data Extraction', href: '/docs/user-guide/data-extraction' },
+      { title: 'Coding & Theming', href: '/docs/user-guide/coding-theming' },
+      { title: 'Charts', href: '/docs/user-guide/charts' },
+      { title: 'PRISMA', href: '/docs/user-guide/prisma' },
     ],
   },
 ];
@@ -91,11 +133,9 @@ function DocsSection() {
                   ))}
                 </SidebarMenuSubItem>
               ) : (
-                <SidebarMenuSubItem key={item.href}>
+                <SidebarMenuSubItem key={item.title}>
                   <SidebarMenuSubButton asChild>
-                    <Link to={item.href}>
-                      <span>{item.title}</span>
-                    </Link>
+                    <span>{item.title}</span>
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>
               )

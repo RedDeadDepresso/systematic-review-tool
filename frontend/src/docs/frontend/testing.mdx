@@ -1,0 +1,214 @@
+# Testing
+
+The frontend test suite uses [Vitest](https://vitest.dev/) with
+[@testing-library/react](https://testing-library.com/docs/react-testing-library/intro/)
+and [@testing-library/user-event](https://testing-library.com/docs/user-event/intro/).
+Tests run in a `jsdom` browser environment and coverage is collected with V8.
+
+## Running the Tests
+
+### Using `just` (recommended)
+
+```bash
+# Run the full test suite
+just vitest
+
+# Run a specific test file
+just vitest src/features/reviews/hooks/use-reviews.test.tsx
+
+# Run in watch mode
+just react pnpm test --watch
+
+# Run with coverage report
+just react pnpm test --coverage
+```
+
+### Using Docker Compose directly
+
+```bash
+docker compose -f docker-compose.local.yml exec react sh -c 'pnpm test'
+```
+
+### Outside Docker (if running the frontend locally)
+
+```bash
+pnpm test              # run once
+pnpm test --watch      # watch mode
+pnpm test --coverage   # with coverage
+```
+
+## Configuration
+
+Vitest is configured inside `vite.config.ts` (so it shares the same module resolution,
+path aliases, and plugins as the production build):
+
+```ts
+test: {
+  environment: 'jsdom',
+  setupFiles: './tests/setup.ts',
+  globals: true,
+  coverage: {
+    provider: 'v8',
+    reporter: ['text', 'lcov', 'cobertura'],
+    include: ['src/**/*.{ts,tsx}'],
+    exclude: [
+      'src/components/ui/**',  // shadcn/ui primitives - not tested directly
+      'src/main.tsx',
+      '**/*.d.ts',
+    ],
+  },
+},
+```
+
+`globals: true` means `describe`, `it`, `expect`, `vi`, etc. are available without
+importing them in every test file.
+
+## Global Test Setup (`tests/setup.ts`)
+
+The setup file runs before every test file and handles environment gaps that `jsdom`
+does not fill:
+
+- **`@testing-library/jest-dom/vitest`:** registers custom matchers
+  (`.toBeInTheDocument()`, `.toHaveValue()`, etc.)
+- **`ResizeObserver` polyfill:** required by Radix UI Slider, Popover, and similar
+  components that observe element dimensions
+- **`IntersectionObserver` polyfill:** required by some Radix UI primitives
+- **`window.matchMedia` mock:** required by responsive hooks and media query logic
+- **`VITE_API_BASE_URL` stub:** sets the environment variable so the API client does
+  not throw on import during tests
+- **`localStorage` mock:** a fully functional in-memory implementation with spies on
+  `getItem`, `setItem`, `removeItem`, and `clear`
+- **`window.location` mock:** replaces the real location object with a spy-friendly
+  version so redirect assertions (e.g. after token expiry) can be checked without
+  causing navigation errors in jsdom
+
+## Test File Locations
+
+Tests are co-located with the source files they cover. A component at
+`src/features/reviews/components/reviews/reviews-table.tsx` has its test at
+`src/features/reviews/components/reviews/reviews-table.test.tsx`.
+
+## Mocking Strategy
+
+### Manual API client mock
+
+All API calls flow through the shared `src/api/client.ts` axios instance.
+Feature tests activate the mock with a single declaration at the top of the file:
+
+```ts
+vi.mock('@/api/client');
+```
+
+This gives every test full control over what the API returns without any network
+activity.
+
+### Mocking feature API modules
+
+Hook tests mock the feature's own API module rather than the low-level client, which
+keeps the test focused on the hook's behaviour (cache key management, optimistic
+updates, error handling) rather than HTTP details:
+
+```ts
+vi.mock('@/features/reviews/api/reviews', () => ({
+  fetchReviews: vi.fn(),
+  createReview: vi.fn(),
+  // ...
+}));
+```
+
+### Mocking UI primitives
+
+Complex Radix UI components (dropdowns, selects, dialogs) are sometimes mocked with
+simple wrappers when the test is verifying logic rather than accessibility behaviour:
+
+```ts
+vi.mock('@/components/ui/dropdown-menu', () => ({
+  DropdownMenu: ({ children }: any) => <div>{children}</div>,
+  DropdownMenuTrigger: ({ children }: any) => <div>{children}</div>,
+  // ...
+}));
+```
+
+## Test Layers
+
+### API function tests (`features/<n>/api/*.test.ts`)
+
+These test that the correct HTTP method is called with the correct arguments. They
+import the API module and the `client` mock, call the function under test, and assert
+on `vi.mocked(api.get).mock.calls`.
+
+```ts
+it('should call GET /reviews/ with is_active param', async () => {
+  vi.mocked(api.get).mockResolvedValueOnce({ data: [] });
+  await fetchReviews({ isActive: true });
+  expect(api.get).toHaveBeenCalledWith('/reviews/', {
+    params: { is_active: true },
+  });
+});
+```
+
+### Hook tests (`features/<n>/hooks/*.test.tsx`)
+
+Hook tests use `renderHook` from `@testing-library/react` and wrap the hook in a
+`QueryClientProvider` with retries disabled (so failed queries surface immediately
+rather than retrying):
+
+```ts
+const createWrapper = () => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+};
+
+it('should fetch reviews', async () => {
+  vi.mocked(api.fetchReviews).mockResolvedValueOnce([{ id: 1 }] as any);
+  const { result } = renderHook(() => useFetchReviews({ isActive: true }), {
+    wrapper: createWrapper(),
+  });
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  expect(result.current.data).toEqual([{ id: 1 }]);
+});
+```
+
+### Component tests (`features/<n>/components/**/*.test.tsx`)
+
+Component tests use `render` and `screen` from `@testing-library/react`. Pointer and
+keyboard interactions are driven by `userEvent` for realistic event simulation:
+
+```ts
+it('should call onSearchMethodToggle when a source is clicked', async () => {
+  const onToggle = vi.fn();
+  render(<SourcesSidebar {...defaultProps} onSearchMethodToggle={onToggle} />);
+  await userEvent.click(screen.getByText('PubMed'));
+  expect(onToggle).toHaveBeenCalledWith(1);
+});
+```
+
+Role-based rendering is commonly tested by passing different `userRole` props and
+asserting that privileged controls appear or are absent:
+
+```ts
+it('should hide duplicate management buttons for viewers', () => {
+  render(<SourcesSidebar {...defaultProps} userRole="viewer" />);
+  expect(screen.queryByText('Detect Duplicates')).not.toBeInTheDocument();
+});
+```
+
+## Coverage
+
+Coverage is generated by V8 and includes all `src/**/*.{ts,tsx}` files except the
+generated `src/components/ui/` primitives and `src/main.tsx`.
+
+After a test run with `--coverage`, reports are written to `coverage/`:
+
+```
+coverage/
+├── index.html     # Browse interactively
+├── lcov.info      # For CI/coverage badge services
+└── cobertura.xml  # For GitLab/Azure DevOps integration
+```
+
+Open `coverage/index.html` in a browser for a file-by-file breakdown.

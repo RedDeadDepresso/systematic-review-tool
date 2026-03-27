@@ -1,0 +1,118 @@
+# Data Extraction
+
+The Data Extraction page presents all references that have been included through full-text
+screening as rows in a spreadsheet-style table. Each column corresponds to a
+researcher-defined extraction question. You fill in answers by clicking directly into
+cells, building a structured dataset from your included literature.
+
+<Image
+  src="/screenshots/data-extraction/data-extraction.png"
+  alt="Data Extraction table showing included references as rows, extraction questions as columns, and the Add Question popover open on the right"
+/>
+
+---
+
+## Table Structure
+
+The table always shows **Title**, **Done?**, and **PDF** as fixed columns, followed by
+your custom extraction question columns. Questions are grouped into **Sections**, each
+section appears as a coloured dot followed by the section name in the column header.
+
+A **progress bar** at the top of the table tracks how many references have been marked
+as fully extracted (the **Done?** column). The dropdown next to it lets you filter the
+table to show **In Progress**, **Completed**, or **All** references.
+
+---
+
+## Answering Questions
+
+Click any cell in the table to start entering an answer. The input type matches the
+question type defined by the review owner:
+
+| Question type     | Input                                  |
+| ----------------- | -------------------------------------- |
+| **Free Text**     | Multi-line textarea                    |
+| **Number**        | Numeric input                          |
+| **Date**          | Date picker                            |
+| **Boolean**       | Yes / No                               |
+| **Single Select** | Dropdown with one option               |
+| **Multi Select**  | Dropdown that accepts multiple options |
+
+Answers are saved automatically as you type or select. Click outside the cell to
+confirm and close the editor.
+
+---
+
+## Marking as Complete
+
+When you have answered all questions for a reference, click **Mark as Completed** in the
+action bar at the bottom of the page (select the row first). The **Done?** column for
+that row changes to a green checkmark and the progress bar updates. Click **Mark as
+Incomplete** to revert a row.
+
+---
+
+## Viewing the PDF Alongside Extraction
+
+<Image
+  src="/screenshots/data-extraction/pdf-viewer-form.png"
+  alt="PDF viewer open in coding mode alongside the Data Extraction form sidebar showing questions and answer fields"
+/>
+
+Click **View** in the PDF column of any row that has an attached PDF. The in-browser
+PDF viewer opens in full-screen mode with the **Data Extraction** form sidebar on the
+right. You can read the paper and fill in extraction answers simultaneously without
+leaving the page. The sidebar lists every section and question; answers typed here are
+saved to the same cells in the main table.
+
+Click **Mark as Completed** at the bottom of the sidebar to mark the reference as done
+without returning to the table. The **+** button in the bottom-right of the viewer opens
+a quick-add panel to create a new code if you want to annotate a passage at the same
+time (see [Coding & Theming](/docs/user-guide/coding-theming)).
+
+---
+
+## Managing Questions
+
+### Adding a question
+
+Click the **+** button at the far right of the table header row to open the **Add
+Question** popover. Fill in:
+
+- **Section**: choose an existing section or type a new name to create one.
+- **Question**: the full question text shown to reviewers.
+- **Type**: Free Text, Number, Date, Boolean, Single Select, or Multi Select.
+- **Column Title**: the short label displayed as the column header.
+- **Required Question**: toggle on to prevent a reference being marked complete without an answer.
+
+Click **Add** to save. The new column appears immediately in the table.
+
+> Only **Owners** and **Collaborators** can add, edit, or delete questions and sections.
+
+### Editing or deleting a question
+
+Hover over a column header and click the edit (✏️) or delete (🗑) icon that appears.
+Deleting a question permanently removes all answers associated with it. This cannot be
+undone.
+
+---
+
+## Toolbar
+
+| Button           | Action                                                             |
+| ---------------- | ------------------------------------------------------------------ |
+| **Add articles** | Manually promote additional references into extraction             |
+| **Export**       | Download the extraction table as a CSV spreadsheet                 |
+| **Extract data** | (AI-assisted extraction, extracts answers from PDFs automatically) |
+| **Title ↑**      | Sort toggle                                                        |
+| **Filters**      | Show or hide the right-hand filter sidebar                         |
+
+---
+
+## Bulk Actions
+
+Select one or more rows using the checkboxes, then use the action bar at the bottom:
+
+- **Mark as Completed / Mark as Incomplete**: update the done status for all selected rows.
+- **Label**: apply a label to all selected references.
+- **PDF**: open the PDF management dialog for the selected references.

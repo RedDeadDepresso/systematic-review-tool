@@ -6,6 +6,7 @@ import {
   Trash2,
   Edit2,
   ChevronDown,
+  Info,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -48,6 +49,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useMediaQuery } from 'usehooks-ts';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface ReviewHeaderProps {
   reviewId: number;
@@ -87,30 +93,49 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
   });
 
   const tabs = [
-    { label: 'Overview', path: `/reviews/${reviewId}` },
-    { label: 'Review Data', path: `/reviews/${reviewId}/review-data` },
-    { label: 'Screening', path: `/reviews/${reviewId}/screening` },
+    {
+      label: 'Overview',
+      path: `/reviews/${reviewId}`,
+      docPath: '/docs/user-guide/review-overview',
+    },
+    {
+      label: 'Review Data',
+      path: `/reviews/${reviewId}/review-data`,
+      docPath: '/docs/user-guide/review-data',
+    },
+    {
+      label: 'Screening',
+      path: `/reviews/${reviewId}/screening`,
+      docPath: '/docs/user-guide/screening',
+    },
     {
       label: 'Full Text Screening',
       path: `/reviews/${reviewId}/full-text-screening`,
+      docPath: '/docs/user-guide/full-text-screening',
     },
     {
       label: 'Data Extraction',
       path: `/reviews/${reviewId}/data-extraction`,
+      docPath: '/docs/user-guide/data-extraction',
     },
     {
       label: 'Coding & Theming',
       path: `/reviews/${reviewId}/coding-theming`,
+      docPath: '/docs/user-guide/coding-theming',
     },
     {
       label: 'Charts',
       path: `/reviews/${reviewId}/charts`,
+      docPath: '/docs/user-guide/charts',
     },
     {
       label: 'PRISMA',
       path: `/reviews/${reviewId}/prisma`,
+      docPath: '/docs/user-guide/prisma',
     },
   ];
+  const activeTab = tabs.find((t) => t.path === pathname);
+  const docPath = activeTab?.docPath;
 
   const onSubmitUpdate = async (formData: {
     title: string;
@@ -189,11 +214,37 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
           )}
         </div>
 
+        {/* Help Button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0 relative"
+              onClick={() => {
+                if (docPath) {
+                  router.navigate({ to: docPath });
+                } else {
+                  router.navigate({ to: tabs[0].docPath });
+                }
+              }}
+            >
+              <Info className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Open {activeTab?.label} Documentation</TooltipContent>
+        </Tooltip>
+
         {/* Chat Button */}
-        <ChatButton
-          onClick={() => setIsDrawerOpen(true)}
-          unreadCount={unreadCount}
-        />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <ChatButton
+              onClick={() => setIsDrawerOpen(true)}
+              unreadCount={unreadCount}
+            />
+          </TooltipTrigger>
+          <TooltipContent>Open Chat</TooltipContent>
+        </Tooltip>
 
         {/* Actions */}
         <div className="flex items-center gap-2 shrink-0">

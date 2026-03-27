@@ -1,0 +1,66 @@
+# Review Data
+
+The Review Data page gives you a complete, filterable view of every reference in the
+review, including imported duplicates, deleted records, and references at every stage
+of the workflow. It is the master reference browser and the best place to inspect the
+raw imported data.
+
+<Image
+  src="/screenshots/review-data/review-data.png"
+  alt="Review Data page with the source sidebar on the left, the references table in the centre, and the filter sidebar on the right"
+/>
+
+---
+
+## Layout
+
+The page uses a three-column layout.
+
+**Left sidebar, Sources** lists every Search Method (imported file) alongside a reference
+count. Clicking a Search Method filters the main table to show only references from that
+source. The sidebar also has a **Possible Duplicates** section with sub-entries for
+Unresolved, Deleted, Not Duplicate, and Resolved clusters, letting you quickly audit the
+outcome of duplicate detection. An **Add References** button at the bottom of the sidebar
+allows you to import additional files without returning to the Overview.
+
+**Centre, References table** shows the filtered set of references with columns for
+Title, Date, and Author. Click any column header to sort. Click a row to select it and
+open the action bar at the bottom of the table. Multiple rows can be selected with
+checkboxes for bulk actions.
+
+**Right sidebar, Filters** mirrors the filter panel from the Screening pages (see
+[Screening](/docs/user-guide/screening) for full filter details). Filters include
+Keywords for include/exclude, Search Method, Publication Type, and more.
+
+---
+
+## Toolbar Actions
+
+| Button          | Action                                                                   |
+| --------------- | ------------------------------------------------------------------------ |
+| **Search** (🔍) | Full-text search across titles and abstracts                             |
+| **Export**      | Download the current filtered set as BibTeX                              |
+| **Title ↑**     | Sort toggle, click repeatedly to cycle ascending / descending / unsorted |
+| **Filters**     | Show or hide the right-hand filter sidebar                               |
+
+---
+
+## Row Actions
+
+Selecting one or more references reveals an action bar at the bottom of the table:
+
+- **Label**: apply or create a colour-coded label.
+- **PDF**: attach a PDF to the selected reference.
+- **Add note**: type a note in the note field at the bottom and press Enter or the send icon to save it.
+
+Clicking the paperclip icon (🖇) in the Full Text column on any row opens the PDF
+attachment flow for that specific reference directly.
+
+---
+
+## Duplicate Views
+
+Click **Detect Duplicates** or **Resolve Duplicates** in the left sidebar to trigger the
+same duplicate management flows described on the [Review Overview](/docs/user-guide/review-overview)
+page. The Review Data page provides a convenient shortcut to these tools without
+needing to navigate back to the Overview.

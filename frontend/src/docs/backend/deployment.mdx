@@ -1,0 +1,219 @@
+# Deployment
+
+This guide walks through deploying the application to a cloud VM using Google Cloud as
+an example. The production stack uses Docker Compose, Traefik as a reverse proxy with
+automatic Let's Encrypt TLS, Gunicorn + Uvicorn workers for ASGI/WebSocket support, and
+Nginx for serving the built React frontend.
+
+## Production Stack Overview
+
+```
+Internet → Traefik (80/443) → Django (Gunicorn + Uvicorn workers)
+                            → Nginx  (React static build + media files)
+                 ↕
+            Redis · PostgreSQL · Celery Worker · Flower (5555)
+```
+
+## 1. Provision a VM
+
+On Google Cloud, create a Compute Engine VM:
+
+- **Machine type:** e2-standard-2 (2 vCPU, 8 GB RAM) or larger depending on load
+- **Boot disk:** Ubuntu 22.04 LTS, 20+ GB
+- **Firewall:** Allow HTTP (80), HTTPS (443), and port 5555 (Flower)
+
+SSH into the VM once it is running.
+
+## 2. Install Docker
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl gnupg
+
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+  | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+
+echo "deb [arch=$(dpkg --print-architecture) \
+  signed-by=/etc/apt/keyrings/docker.gpg] \
+  https://download.docker.com/linux/ubuntu \
+  $(lsb_release -cs) stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io \
+  docker-buildx-plugin docker-compose-plugin
+
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+## 3. Clone the Repository
+
+```bash
+git clone <repository-url>
+cd <project-root>
+```
+
+## 4. Set Up Production Environment Files
+
+Create the production `.envs/.production/` directory and populate it. The example files
+in `.envs/.production.example/` serve as templates.
+
+```bash
+mkdir -p .envs/.production
+cp .envs/.production.example/.django   .envs/.production/.django
+cp .envs/.production.example/.postgres .envs/.production/.postgres
+cp .envs/.production.example/.react    .envs/.production/.react
+```
+
+Then edit each file with production values.
+
+### `.envs/.production/.django`
+
+```env
+DJANGO_SETTINGS_MODULE=config.settings.production
+DJANGO_SECRET_KEY=<generate-a-long-random-string>
+DJANGO_ADMIN_URL=<random-path-segment>/
+DJANGO_ALLOWED_HOSTS=.yourdomain.com
+
+DJANGO_SECURE_SSL_REDIRECT=False   # Traefik handles SSL termination
+
+DJANGO_SERVER_EMAIL=noreply@yourdomain.com
+DJANGO_ACCOUNT_ALLOW_REGISTRATION=True
+
+WEB_CONCURRENCY=4
+
+SENTRY_DSN=<your-sentry-dsn>       # Optional
+
+REDIS_URL=redis://redis:6379/0
+
+CELERY_FLOWER_USER=<secure-username>
+CELERY_FLOWER_PASSWORD=<secure-password>
+
+# Zotero API key encryption (generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+ENCRYPTION_KEY=<fernet-key>
+```
+
+### `.envs/.production/.postgres`
+
+```env
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=slrt_project
+POSTGRES_USER=<secure-db-user>
+POSTGRES_PASSWORD=<secure-db-password>
+```
+
+### `.envs/.production/.react`
+
+```env
+# Use https once the domain and certificate are set up
+VITE_API_BASE_URL=https://yourdomain.com/api
+
+# Use wss once the domain and certificate are set up
+VITE_WS_URL=wss://yourdomain.com/ws
+```
+
+## 5. Update the Traefik Configuration
+
+The Traefik configuration in `backend/compose/production/traefik/traefik.yml` contains
+your domain name and Let's Encrypt contact email. **You must update these before
+deploying.**
+
+Open the file and replace every occurrence of the example domain and email:
+
+```yaml
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: 'your-email@example.com'   # ← update this
+      ...
+
+http:
+  routers:
+    api-router:
+      rule: "Host(`yourdomain.com`) && PathPrefix(`/api/`)"  # ← update domain
+    admin-router:
+      rule: "Host(`yourdomain.com`) && PathPrefix(`/admin/`)"
+    ws-router:
+      rule: "Host(`yourdomain.com`) && PathPrefix(`/ws/`)"
+    react-router:
+      rule: "Host(`yourdomain.com`)"
+```
+
+> ⚠️ If you change the domain after initial deployment, you also need to update
+> `DJANGO_ALLOWED_HOSTS` in `.envs/.production/.django` and both URL variables in
+> `.envs/.production/.react`, then rebuild and restart the services.
+
+## 6. Point Your Domain at the VM
+
+In your DNS provider (or Google Cloud DNS), create an A record pointing your domain to
+the VM's external IP address. Let's Encrypt requires the domain to resolve publicly
+before it will issue a certificate.
+
+## 7. Build and Start
+
+```bash
+docker compose -f docker-compose.production.yml build
+docker compose -f docker-compose.production.yml up -d
+```
+
+## 8. Run Migrations
+
+```bash
+docker compose -f docker-compose.production.yml exec django python manage.py migrate
+```
+
+## 9. Create a Superuser
+
+```bash
+docker compose -f docker-compose.production.yml exec django python manage.py createsuperuser
+```
+
+## 10. Collect Static Files
+
+Static files are collected automatically on container startup via the `entrypoint`
+script, but can be triggered manually if needed:
+
+```bash
+docker compose -f docker-compose.production.yml exec django python manage.py collectstatic --noinput
+```
+
+## Ongoing Operations
+
+### View logs
+
+```bash
+docker compose -f docker-compose.production.yml logs -f django
+docker compose -f docker-compose.production.yml logs -f celeryworker
+```
+
+### Database backups
+
+The production Postgres image includes maintenance scripts:
+
+```bash
+# Create a backup
+docker compose -f docker-compose.production.yml exec postgres backup
+
+# List backups
+docker compose -f docker-compose.production.yml exec postgres backups
+
+# Restore a backup
+docker compose -f docker-compose.production.yml exec postgres restore <backup-filename>
+```
+
+### Updating the application
+
+```bash
+git pull
+docker compose -f docker-compose.production.yml build
+docker compose -f docker-compose.production.yml up -d
+docker compose -f docker-compose.production.yml exec django python manage.py migrate
+```
+
+### Monitoring Celery tasks
+
+Flower is available at `https://yourdomain.com:5555` and is protected by the
+`CELERY_FLOWER_USER` / `CELERY_FLOWER_PASSWORD` credentials set in your `.django` env
+file.

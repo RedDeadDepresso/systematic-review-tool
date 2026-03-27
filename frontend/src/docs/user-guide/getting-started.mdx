@@ -1,11 +1,92 @@
 # Getting Started
 
-Welcome to the docs.
+SLRT (Systematic Literature Review Tool) guides you through every stage of a systematic
+review, from importing references to generating a PRISMA diagram, in a single
+collaborative workspace.
 
-## Installation
+## The Application Shell
 
-Run:
+Every page shares the same outer shell so the most important controls are always within
+reach.
 
-```bash
-npm install
-```
+<Image
+  src="/screenshots/index/index.png"
+  alt="SLRT home page showing the sidebar, invitations panel, and reviews table"
+/>
+
+**Sidebar:** The collapsible panel on the left lists your active and archived reviews.
+Clicking the arrow next to a review expands it inline so you can jump straight to any
+stage without visiting the home page first. A **Documentation** entry at the bottom of
+the navigation links to this guide. The sidebar footer contains the **Theme** toggle
+(light / dark) and your **user avatar menu**, which gives access to profile editing and
+password management.
+
+**Review tab bar:** Once a review is open, a horizontal tab bar runs across the top of
+the content area with tabs for **Overview**, **Review Data**, **Screening**, **Full Text
+Screening**, **Data Extraction**, **Coding & Theming**, **Charts**, and **PRISMA**. Any
+stage is reachable within two clicks from anywhere in the application.
+
+**Chat & Settings:** A chat bubble icon and a **Settings** menu are pinned to the right
+end of the tab bar. The chat button opens a slide-in drawer; a blue badge shows the
+number of unread messages when the drawer is closed.
+
+## Your First Review
+
+<Steps>
+
+<Step>Log in and go to the home page.</Step>
+
+<Step>
+  Click **+ Create Review** in the Reviews table toolbar. Enter a title and an
+  optional description, then confirm.
+</Step>
+
+<Step>
+  Your new review appears in the **Active** tab of the Reviews table. Click its
+  title to open it and land on the **Overview** page.
+</Step>
+
+<Step>
+  From the Overview, click **Add References** to import a BibTeX, RIS, or
+  EndNote XML file. See the [Review Overview](/docs/user-guide/review-overview)
+  guide for details.
+</Step>
+
+<Step>
+  Once references are imported, work through the stages in order: **Screening →
+  Full Text Screening → Data Extraction → Coding & Theming**. The tab bar keeps
+  each stage one click away.
+</Step>
+
+<Step>
+  When the review is complete, visit **PRISMA** to generate and download the
+  flow diagram.
+</Step>
+
+</Steps>
+
+## Managing Invitations
+
+The **Invitations** panel at the top of the home page shows any pending invitations you
+have received. Each row displays the review name, who sent the invitation, when it was
+created, and the role you have been offered. Click **Accept** to join the review or
+**Decline** to dismiss the invitation.
+
+You can also switch to the **Sent** tab to see invitations you have dispatched to other
+collaborators and their current status.
+
+## Roles
+
+Every member of a review holds one of four roles that control what they can do:
+
+| Role             | What they can do                                                             |
+| ---------------- | ---------------------------------------------------------------------------- |
+| **Owner**        | Full access: edit the review, invite members, manage duplicates, import data |
+| **Collaborator** | Everything except inviting members and changing review settings              |
+| **Reviewer**     | Submit opinions, add notes, apply labels, edit keywords                      |
+| **Viewer**       | Read-only access to all review data                                          |
+
+## Light and Dark Mode
+
+Click **Theme** in the sidebar footer to switch between light and dark mode. The
+application also respects your operating system preference on first load.
