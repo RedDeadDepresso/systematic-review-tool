@@ -1,0 +1,95 @@
+# Charts
+
+The Charts page visualises the structured answers collected during Data Extraction across
+all included references. It provides four chart types in a tabbed dashboard, each with
+its own axis or question configuration controls. All charts are rendered as SVG and scale
+cleanly to different screen sizes.
+
+<Image src="/screenshots/charts/bar-chart.png" alt="Extraction Charts page showing the Frequency Bar Chart for a single-select extraction question" />
+
+---
+
+## Bar Chart
+
+The **Frequency Bar Chart** counts how many references gave each answer to a selected
+**Single Select**, **Multi Select**, or **Boolean** extraction question and plots them as
+vertical bars.
+
+**How to use:**
+1. Open the **Bar Chart** tab.
+2. Select a question from the **Question** dropdown. Only select/boolean questions are
+   listed since free-text and numeric answers cannot be meaningfully grouped into bars.
+3. The chart updates immediately showing each answer option as a separate bar with its
+   count.
+
+Use this chart to understand the distribution of a categorical extraction field across
+your included literature, for example, the breakdown of study designs or geographic
+regions.
+
+---
+
+## Scatter / Bubble
+
+<Image src="/screenshots/charts/scatter-plot.png" alt="Scatter / Bubble Plot comparing two numeric extraction questions across references" />
+
+The **Scatter / Bubble Plot** maps two **Number** extraction questions onto X and Y axes,
+placing one dot per reference.
+
+**How to use:**
+1. Open the **Scatter / Bubble** tab.
+2. Choose an **X-Axis Question** and a **Y-Axis Question** from the dropdowns. Only
+   numeric questions are listed.
+3. Switch between **Scatter** (equal-sized dots) and **Bubble** (dot size proportional
+   to the number of referneces mathcing the coordinate) using the toggle in the top-right corner of the chart
+   panel.
+
+The chart shows the count of plotted references at the bottom. References without a
+value for either axis question are excluded from the plot.
+
+---
+
+## Evidence Gap Map
+
+<Image src="/screenshots/charts/evidence-gap-map.png" alt="Evidence Gap Map heatmap showing two categorical extraction questions on the row and column axes, with circle size indicating count" />
+
+The **Evidence Gap Map** renders a bubble grid (density matrix) where:
+- The **rows** represent the answer options of one categorical extraction question.
+- The **columns** represent the answer options of another categorical extraction question.
+- Each cell contains a bubble whose **size and shade** indicate how many references fall
+  into that combination.
+
+**How to use:**
+1. Open the **Evidence Gap Map** tab.
+2. Select a **Row Question** and a **Column Question** from the dropdowns. Only
+   Single Select or Multi Select questions appear.
+3. The map updates to show the density of evidence for every combination of answers.
+
+Cells with no references appear as small dark circles; cells with many references appear
+as large bright circles. A legend at the bottom shows the mapping from circle size to
+count (None, Low, Mid, High). This chart is useful for identifying under-researched
+combinations of study characteristics, the "gaps" in the evidence base.
+
+---
+
+## Timeline
+
+<Image src="/screenshots/charts/timeline.png" alt="Publication Timeline line chart showing the count of included references by publication year" />
+
+The **Timeline** chart plots the publication years of all included references as a line
+chart, showing the temporal distribution of the literature.
+
+**How to use:**
+1. Open the **Timeline** tab.
+2. The chart is generated automatically from the publication dates stored on each
+   reference. No configuration is needed.
+
+Each point on the line represents the count of references published in that year. Use
+this chart to see whether the literature is recent or historically distributed, and to
+identify years with particularly high research activity.
+
+---
+
+> Charts on this page reflect the answers entered in the **Data Extraction** table. If
+> no answers have been recorded yet, or if no references have been marked as included,
+> the charts will be empty. Complete at least a portion of data extraction before
+> visiting this page.

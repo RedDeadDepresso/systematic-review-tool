@@ -1,453 +1,150 @@
-# Review Overview - User Guide
+# Review Overview
 
-## Introduction
+The Overview is the control panel for a review. It is the first page you see after
+opening a review and the place you return to for data management, duplicate handling,
+member administration, and progress monitoring.
 
-The Review Overview page is your central hub for managing a systematic literature review. Here you can monitor your review's progress, manage references, detect duplicates, view team members, and access detailed statistics.
+<Image
+  src="/screenshots/review-overview/review-overview.png"
+  alt="Review Overview page showing the Review Info, Data Summary, Screening Criteria, Members, and Statistics cards"
+/>
 
----
-
-## Page Layout
-
-The Overview page is organized into several key sections:
-
-1. **Review Info** - Basic information about your review
-2. **Data Summary** - Quick stats and action buttons for reference management
-3. **Members** - Team members working on the review
-4. **Statistics** - Detailed metrics about your review progress
+The page is organised into collapsible cards. **Review Info** and **Data Summary** are
+expanded by default; **Screening Criteria**, **Members**, and **Statistics** start
+collapsed to keep the page uncluttered.
 
 ---
 
-## Navigation Tabs
+## Review Info
 
-At the top of the page, you'll find navigation tabs to access different review stages:
-
-- **Overview** - This page (review summary and management)
-- **Review Data** - View and manage all references
-- **Screening** - Screen references for inclusion/exclusion
-- **Full Text Screening** - Review full-text articles
-- **Data Extraction** - Extract data from included studies
-- **Coding & Theming** - Code and analyze your data
-- **Charts** - Visualize your review progress
-- **PRISMA** - Generate PRISMA flow diagrams
+Shows the review title and description. The review owner can edit these from the
+**Settings** menu in the tab bar.
 
 ---
 
-## Review Info Section
+## Data Summary
 
-### Review Title
+The Data Summary card is where you bring data into the review. It contains three
+sections side by side.
 
-Displays the name of your systematic review.
+### Importing References
 
-### Description
+Click **Add References** to open the Upload References dialog. You can drag and drop or
+browse to select one or more files in **BibTeX** (`.bib`), **RIS** (`.ris`), or
+**EndNote XML** (`.xml`) format. Multiple files can be queued simultaneously and each
+is given its own named Search Method entry.
 
-Shows a brief description of your review's purpose and scope.
+<Image
+  src="/screenshots/review-overview/upload-references.png"
+  alt="Upload References dialog with multiple BibTeX and RIS files queued"
+/>
 
-**How to edit:**
+Click **Continue** to start the import. The files are processed in the background. A
+system message appears in the review chat when the import finishes, showing how many
+references were imported. You do not need to stay on the page while the import runs.
 
-1. Click the **Settings** button (⋮ icon) in the top-right corner
-2. Update the title or description
-3. Save your changes
+### Zotero Sync
 
----
+Expand the **Zotero Sync** section to connect a Zotero personal or group library.
+Once configured, you can pull references and their attached PDFs directly from Zotero
+without exporting files manually. Push operations send included references back to your
+Zotero collection. The sync runs in the background and reports progress via the chat.
 
-## Data Summary Section
+### Duplicate Management
 
-This section provides an at-a-glance view of your review's reference management status.
+The three-column widget tracks the state of duplicate detection across the review.
 
-### Zotero Sync (Optional)
+- **Imported References**: the total count of all non-deleted references, with the **Add References** button.
+- **Duplicates**: the number of detected clusters and how many remain unresolved, with **Find & Auto-Resolve** and **Detect Only** buttons.
+- **Resolution breakdown**: counts of Resolved, Not Duplicate, and Deleted references.
 
-If you use Zotero for reference management:
+#### Auto-Resolver
 
-**What it does:**
+Click **Find & Auto-Resolve** to open the Auto-Resolver dialog. This runs detection
+and immediately resolves high-confidence clusters without manual review.
 
-- Syncs your references and PDFs directly from your Zotero library
-- Automatically imports metadata and attachments
-- Keeps your review up-to-date with your Zotero collection
+<Image
+  src="/screenshots/review-overview/auto-resolve-duplicates.png"
+  alt="Auto-Resolver dialog with DOI toggle, preferred source selector, and confidence slider"
+/>
 
-**How to set up:**
+- **Always resolve DOI matches**: references sharing the same DOI are guaranteed
+  duplicates. This toggle is recommended and on by default.
+- **Preferred source to keep**: if you prefer references from a particular database,
+  select that Search Method here. Otherwise, the most complete record is kept automatically.
+- **Auto-resolution confidence**: clusters whose similarity score is above this
+  threshold (default 90%) are resolved automatically. Clusters below the threshold are
+  held for manual review.
 
-1. Click the **Zotero Sync** dropdown
-2. Follow the on-screen instructions to connect your Zotero account
-3. Select which Zotero collection to sync
-4. Click **Sync Now** to import references
+Click **Detect Only** if you want to detect clusters without resolving any of them yet,
+then review them manually at your own pace.
 
----
+#### Manual Duplicate Resolution
 
-### Imported References
+Click **Resolve Duplicates** (or switch to the **Manual** tab in the Auto-Resolver
+dialog) to review unresolved clusters one by one.
 
-**What it shows:**
-The total number of references currently imported into your review.
+<Image
+  src="/screenshots/review-overview/resolve-manually-duplicates.png"
+  alt="Manual duplicate resolution view showing two candidate records side by side with field differences highlighted"
+/>
 
-**How to add references:**
+Each cluster shows two candidate records side by side. Fields that differ between the
+two records are highlighted. Use the navigation arrows to move between clusters. The
+footer shows your progress (e.g. 1 / 18).
 
-#### Method 1: Upload BibTeX/RIS/EndNote XML
-
-1. Click the **Add References** button
-2. A file upload dialog will appear
-3. Select your file:
-   - **BibTeX** files (`.bib`)
-   - **RIS** files (`.ris`)
-   - **EndNote XML** files (`.xml`)
-   - **ZIP files** containing EndNote XML + PDFs
-4. Click **Upload**
-5. References will be imported in the background
-6. You'll receive a notification in the review chat when complete
-
-**Supported file formats:**
-
-- `.bib` - BibTeX format (exported from reference managers)
-- `.ris` - Research Information Systems format
-- `.xml` - EndNote XML format
-- `.zip` - ZIP archive containing EndNote XML and associated PDF files
-
-**Tips:**
-
-- For bulk PDF upload, use EndNote XML format
-- Create a ZIP file with the XML and all PDFs in the same folder
-- File names in the XML should match the PDF filenames
-
-#### Method 2: Zotero Sync (if configured)
-
-Simply click **Sync Now** in the Zotero Sync section to pull references from your connected Zotero library.
-
----
-
-### Total Duplicates
-
-**What it shows:**
-The number of potential duplicate reference pairs detected in your review.
-
-**How duplicate detection works:**
-The system uses similarity algorithms to compare:
-
-- Titles (most important)
-- Authors
-- Journal names
-- Publication years
-- DOIs
-- Abstracts
-
-References with high similarity scores (typically >50%) are flagged as potential duplicates.
+- **Keep Left**: keep the left record and delete the right.
+- **Keep Right**: keep the right record and delete the left.
+- **Not duplicates**: dismiss the cluster; both records remain active.
+- **Highlight diff** toggle: turn field-level highlighting on or off.
+- **Sync scroll** toggle: scroll both panels together.
 
 ---
 
-### Detect Duplicates
+## Screening Criteria
 
-**When to use:**
-Run duplicate detection after importing new references to identify potential duplicates.
-
-**How to detect duplicates:**
-
-1. Click the **Detect Duplicates** button
-2. The system will:
-   - Analyze all references in your review
-   - Compare each reference against all others
-   - Calculate similarity scores
-   - Create duplicate pairs for review
-3. Detection runs in the background
-4. You'll be notified when complete
-
-**What happens next:**
-
-- New duplicate pairs appear in the "Total Duplicates" count
-- You can review and resolve duplicates in the next section
-
-**Notes:**
-
-- Detection can take a few minutes for large reference sets
-- The button is disabled if detection is already in progress
-- Re-running detection will only check newly added references
+The Screening Criteria card lists the inclusion and exclusion criteria that guide all
+reviewers during screening. Owners and Collaborators can add, edit, and delete criteria
+here. The criteria are also accessible from the Screening page by pressing the `C` key,
+which opens a floating popover without leaving the current reference.
 
 ---
 
-### Unresolved Duplicates
+## Members
 
-**What it shows:**
-The number of duplicate pairs that haven't been reviewed yet.
+The Members card lists all current members of the review with their name, email address,
+and role. The **Invite** button in the card header opens an invitation dialog where you
+can type one or more email addresses, choose a role for each invitee, and send the
+invitation. Invitees receive an email and can accept or decline from the home page.
 
-**How to resolve duplicates:**
-
-#### Manual Resolution
-
-1. Click **Continue Resolving**
-2. A side-by-side comparison dialog opens showing:
-   - Left reference (original)
-   - Right reference (potential duplicate)
-   - Similarity score
-   - Highlighted differences
-3. Review both references carefully
-4. Choose one of three options:
-   - **Keep Left Article** - Mark right as duplicate
-   - **Keep Right Article** - Mark left as duplicate
-   - **Keep Both Articles** - They're not duplicates
-5. The next duplicate pair loads automatically
-6. Continue until all pairs are resolved
-
-**Tips for resolving duplicates:**
-
-- Look for differences in:
-  - Title formatting or spelling
-  - Author names (initials vs full names)
-  - Publication dates (online vs print)
-  - Abstracts (different versions)
-- When in doubt, keep both and review later
-- Use the "Highlight Differences" toggle to spot variations
-
-#### Auto-Resolver (Recommended for large sets)
-
-For faster duplicate resolution, use the Auto-Resolver:
-
-1. Click the **Auto-Resolver** button in the duplicate resolution dialog
-2. Configure your settings:
-
-**Choose duplicate best version to keep:**
-
-- Select which source to prefer (e.g., "PubMed.bib")
-- If duplicates are found, the system keeps the one from this source
-
-**Select deduplication criteria:**
-Check boxes for exact matching on:
-
-- ☐ **Authors** - Author names must match exactly
-- ☐ **Title** - Titles must match exactly
-- ☐ **Journal** - Journal names must match exactly
-- ☐ **Year** - Publication years must match exactly
-- ☐ **Pages** - Page ranges must match exactly
-- ☐ **DOI** - DOIs must match exactly
-
-**Articles Similarity Percentage:**
-
-- Drag the slider to set minimum similarity (50-100%)
-- **Recommended**: 87-92% for best balance
-- **Conservative**: 93-100% (very safe, may miss some)
-- **Aggressive**: 50-86% (review results carefully)
-
-**Text Normalization:**
-
-- Toggle ON to ignore:
-  - Special characters
-  - Extra spaces
-  - Capitalization differences
-- Useful for matching references with formatting variations
-
-3. Click **Resolve** to start auto-resolution
-4. The system will:
-   - Find high-confidence duplicates meeting your criteria
-   - Keep the more complete reference (or preferred source)
-   - Mark others as duplicates
-   - Report results in the review chat
-
-**Best practices:**
-
-- Start with conservative settings (90-95% similarity)
-- Enable multiple criteria for higher accuracy
-- Use text normalization for references from different sources
-- Review the preview before confirming
-- Check a few results manually to verify accuracy
+> Only the review **Owner** can send invitations.
 
 ---
 
-### Resolved, Not Duplicate, Deleted
+## Statistics
 
-**What these numbers show:**
+The Statistics card provides per-reviewer progress charts across three tabs.
 
-- **Resolved (0)** - Duplicate pairs where you kept one reference
-- **Not Duplicate (0)** - Pairs you marked as "Keep Both"
-- **Deleted (0)** - References removed as duplicates
+<Image
+  src="/screenshots/review-overview/time-spent-stats.png"
+  alt="Statistics card showing the Time Spent bar chart for screening sessions"
+/>
 
-**How references are marked:**
+**Time**: a horizontal bar chart showing total hours spent in title/abstract screening
+and full-text screening per reviewer. The total time and number of sessions are shown
+above the chart.
 
-When you resolve duplicates:
+<Image
+  src="/screenshots/review-overview/reference-opinion-stats.png"
+  alt="Statistics card showing the Screening Opinions segmented bar chart"
+/>
 
-- **Keep Left/Right** → One marked as "Resolved" (kept), one as "Deleted" (removed)
-- **Keep Both** → Both marked as "Not Duplicate" (kept)
+**Screening**: a segmented bar chart where each reviewer's bar is divided into green
+(Included), orange (Maybe), and red (Excluded) segments, with the total count of
+decisions shown as summary numbers above.
 
-**Where to find deleted references:**
-Deleted references are hidden from most views but can be recovered if needed through the reference list filters.
+**Full-Text**: the same segmented chart for full-text screening decisions.
 
----
-
-## Members Section
-
-**What it shows:**
-All team members who have access to this review.
-
-**Member roles:**
-
-- **Owner** - Full control (can delete review, manage all settings)
-- **Collaborator** - Can edit everything except delete review
-- **Reviewer** - Can screen and review references
-- **Viewer** - Read-only access
-
-**How to manage members:**
-
-1. Click the Members section to expand
-2. View current members and their roles
-3. Click **Invite Members** to add new team members
-4. Enter their email addresses
-5. Assign appropriate roles
-6. Click **Send Invitations**
-
-**Permissions by role:**
-
-| Action             | Owner | Collaborator | Reviewer | Viewer |
-| ------------------ | ----- | ------------ | -------- | ------ |
-| View references    | ✓     | ✓            | ✓        | ✓      |
-| Upload references  | ✓     | ✓            | ✓        | ✗      |
-| Detect duplicates  | ✓     | ✓            | ✓        | ✗      |
-| Resolve duplicates | ✓     | ✓            | ✓        | ✗      |
-| Screen references  | ✓     | ✓            | ✓        | ✗      |
-| Extract data       | ✓     | ✓            | ✓        | ✗      |
-| Manage members     | ✓     | ✗            | ✗        | ✗      |
-| Delete review      | ✓     | ✗            | ✗        | ✗      |
-
----
-
-## Statistics Section
-
-**What it shows:**
-Detailed metrics about your review progress.
-
-**Click to expand** the Statistics section to see:
-
-- **Screening progress** - References screened vs remaining
-- **Inclusion rate** - Percentage of references included
-- **Inter-rater reliability** - Agreement between reviewers (if multiple)
-- **Data extraction progress** - Studies with extracted data
-- **Timeline** - Review activity over time
-
-**How to use statistics:**
-
-- Monitor team progress
-- Identify bottlenecks in the review process
-- Track agreement between reviewers
-- Generate reports for your review protocol
-
----
-
-## Review Chat
-
-**Where to find it:**
-Click the chat icon (💬) in the bottom-right corner of the page.
-
-**What it's for:**
-
-- Real-time notifications about review activities
-- System messages (imports, duplicate detection, errors)
-- Team communication
-- Activity log
-
-**What you'll see in chat:**
-
-- 📤 "John started importing references from PubMed.bib..."
-- ✅ "Import complete! Imported 150 references"
-- 🔍 "Jane started duplicate detection..."
-- ✅ "Duplicate detection complete! Found 25 potential duplicates"
-- 📎 "Attached 45 PDFs to references"
-
-**Tips:**
-
-- Keep chat open to monitor long-running tasks
-- All review members see the same messages
-- Chat history is preserved for your review
-
----
-
-## Keyboard Shortcuts
-
-While resolving duplicates:
-
-- `←` (Left Arrow) - Keep left article
-- `→` (Right Arrow) - Keep right article
-- `↓` (Down Arrow) - Keep both articles
-- `Esc` - Close duplicate resolution dialog
-
----
-
-## Troubleshooting
-
-### "No references found to check for duplicates"
-
-**Solution:** Import references first using the "Add References" button.
-
-### "Duplicate detection is already in progress"
-
-**Solution:** Wait for the current detection to complete. Check the review chat for status updates.
-
-### Import failed
-
-**Solution:**
-
-- Verify file format is supported (.bib, .ris, .xml, .zip)
-- Check file isn't corrupted
-- Ensure file contains valid reference data
-- Check the review chat for specific error messages
-
-### PDFs not attaching from EndNote XML
-
-**Solution:**
-
-- Ensure XML contains PDF file paths
-- Verify PDF filenames in XML match actual PDF files
-- Make sure all files are in the same ZIP archive
-- Check file paths don't include special characters
-
-### Can't resolve duplicates
-
-**Solution:**
-
-- Ensure you have Reviewer role or higher
-- Check that duplicate detection has completed
-- Refresh the page and try again
-
----
-
-## Best Practices
-
-### Reference Management
-
-1. ✓ Import all references from different sources first
-2. ✓ Run duplicate detection after each import
-3. ✓ Resolve duplicates before starting screening
-4. ✓ Keep detailed notes on why duplicates were kept/removed
-
-### Duplicate Resolution
-
-1. ✓ Start with auto-resolver for obvious duplicates (90%+ similarity)
-2. ✓ Manually review remaining pairs carefully
-3. ✓ When in doubt, keep both and review later in screening
-4. ✓ Look for preprint vs published version differences
-5. ✓ Check for different study phases (protocol vs results)
-
-### Team Collaboration
-
-1. ✓ Assign clear roles to team members
-2. ✓ Monitor the review chat for updates
-3. ✓ Use the Statistics section to track progress
-4. ✓ Regular team check-ins on duplicate resolution decisions
-
-### Data Quality
-
-1. ✓ Verify imported reference counts match your expectations
-2. ✓ Spot-check a sample of imported references for accuracy
-3. ✓ Ensure PDFs are correctly attached to references
-4. ✓ Document any data cleaning steps in your protocol
-
----
-
-## Next Steps
-
-After completing the Overview stage:
-
-1. **Review Data** → View and organize all imported references
-2. **Screening** → Begin title/abstract screening
-3. **Full Text Screening** → Review full-text articles
-4. **Data Extraction** → Extract data from included studies
-
----
-
-## Need Help?
-
-- 📧 Contact support: support@example.com
-- 📚 View full documentation: [Documentation →]
-- 💬 Join community forum: [Forum →]
+> When **blinded mode** is enabled (configured in Settings), each reviewer sees only
+> their own statistics. When blinded mode is off, all reviewers' data is visible to
+> every member.

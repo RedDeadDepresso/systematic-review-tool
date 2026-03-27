@@ -1,0 +1,140 @@
+# Screening
+
+The Screening page is where you read titles and abstracts and assign an opinion to each
+reference: Include, Maybe, or Exclude. It is designed for sustained focus; the three-column
+layout keeps the full list navigable, the detail panel visible, and the filters
+accessible without switching pages.
+
+<Image src="/screenshots/screening/screening.png" alt="Screening page showing the reference list on the left, the detail panel in the centre, and the filter sidebar on the right" />
+
+---
+
+## Layout
+
+### Reference List (left)
+
+Shows all references in the current filtered view with a running count at the top
+(**Showing N Articles**). Each row displays the title, publication date, and authors.
+A coloured badge under a reference indicates any labels applied to it (e.g. a green
+"John" badge). Rows support infinite scroll; 50 references are loaded per page as you
+scroll down, so the page stays responsive for large imports.
+
+Click a row to select it and open it in the detail panel. Use the checkbox to the left
+of a row for bulk selection; a toolbar at the bottom of the page appears when one or
+more rows are selected for bulk actions.
+
+### Detail Panel (centre)
+
+Opens automatically when a reference is selected. It shows:
+
+- **Labels** applied by the current reviewer
+- **Abstract**
+- **Publication Type**, **Authors**, **Journal** (with publication date)
+- **Reference ID** (internal)
+- **DOI** (clickable link)
+- **Search Method** (which imported file this reference came from)
+- **Notes:** a note input field at the bottom; press Enter or the send icon to save
+
+The **action footer** is pinned to the bottom of the panel with five buttons:
+
+| Button | Action |
+|---|---|
+| **Include** ✓ | Mark the reference as included |
+| **Maybe** ? | Mark the reference as uncertain |
+| **Exclude** ✗ | Mark the reference as excluded |
+| **Reason** | Attach an exclusion reason (visible in the PRISMA breakdown) |
+| **Label** | Apply or create a colour-coded personal label |
+| **PDF** | Attach a PDF file to this reference |
+
+Clicking Include, Maybe, or Exclude immediately saves the opinion and auto-advances to
+the next reference in the list, keeping the screening flow uninterrupted.
+
+### Filter Sidebar (right)
+
+The filter sidebar provides faceted filtering. All filters are additive and debounced;
+changes take effect after a short pause to avoid firing a request on every keystroke.
+
+| Filter | Description |
+|---|---|
+| **Opinion Status** | Undecided / Included / Maybe / Excluded |
+| **Keywords for include** | Add green-highlighted terms; matching words are highlighted in titles and abstracts |
+| **Keywords for exclude** | Add red-highlighted terms; matching words are highlighted in red |
+| **Search Method** | Filter by the source file the reference was imported from |
+| **Label** | Filter by your personal labels |
+| **Publication Type** | Journal Article, Conference Paper, etc. |
+| **Publication Year** | Year checkboxes |
+| **File Status** | Has PDF / No PDF |
+| **Assignee** | Filter to references assigned to a specific reviewer |
+
+Click the **search icon** (🔍) at the top of the filter sidebar to search within a filter
+section. The three-dot menu next to the search icon lets you reset all active filters.
+
+---
+
+## Toolbar
+
+| Button | Action |
+|---|---|
+| **Take Break** | Pauses your active screening time session; the server stops counting your time until you resume |
+| **Search** (🔍) | Full-text search across titles and abstracts |
+| **Export** | Download the current filtered set as BibTeX |
+| **Title ↑** | Sort toggle |
+| **Filters** | Show or hide the filter sidebar |
+
+---
+
+## Keyword Highlighting
+
+When keywords are active in the filter sidebar, matching words are highlighted inline
+in the abstract shown in the detail panel. Inclusion keywords are highlighted in
+**green**; exclusion keywords are highlighted in **red**. This lets you spot the most
+relevant or disqualifying terms at a glance without reading the full abstract.
+
+---
+
+## Screening Criteria Popover
+
+Press the **`C`** key at any time to open a floating popover in the top-left of the
+viewport listing all inclusion and exclusion criteria defined for the review. The popover
+stays open while you screen and can be dismissed by pressing `C` again or clicking
+outside it.
+
+---
+
+## Reference Drawer
+
+Click the expand icon on any reference row to open a full-screen drawer for that
+reference. The drawer includes navigation arrows so you can step through the filtered
+list without returning to the table, which is useful for deep reading during full-text screening.
+On mobile, the drawer replaces the detail panel and expands to fill the full screen.
+
+---
+
+## Blinded Mode
+
+When the review owner has enabled **blinded mode** (Settings > Review Settings), you
+can only see your own opinions on each reference, not those of other team members.
+When blinded mode is off, a consensus status is shown on each row derived from all
+reviewers' opinions: if all reviewers agree the status is shown directly; if opinions
+conflict the reference appears as Undecided until the conflict is resolved.
+
+---
+
+## Bulk Actions
+
+Select multiple references using the row checkboxes. A bulk action bar appears at the
+bottom of the page with the following actions:
+
+- **Include / Maybe / Exclude / Reason:** apply the same decision to all selected references at once.
+- **Label:** apply a label to all selected references.
+- **PDF:** open the PDF upload dialog for the selected references.
+
+---
+
+## Time Tracking
+
+SLRT automatically tracks the time you spend on the Screening page and counts it toward
+your screening statistics visible on the Overview. The timer runs while the page is
+active. If you open the same review in multiple tabs, only one session is counted at a
+time. Click **Take Break** to pause tracking; navigate away or close the tab to end the
+session. Sessions shorter than five seconds are discarded automatically.

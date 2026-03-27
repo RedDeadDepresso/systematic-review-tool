@@ -1,0 +1,60 @@
+# PRISMA Diagram
+
+The PRISMA page automatically generates a **PRISMA 2020** flow diagram populated with
+counts derived from your review's data. You do not need to enter any numbers manually:
+every count is computed from the references, opinions, and duplicate resolution records
+already in the database.
+
+<Image
+  src="/screenshots/prisma/prisma.png"
+  alt="PRISMA Diagram page showing a fully populated PRISMA 2020 flow diagram with four phases: Identification, Screening, Eligibility, and Included"
+/>
+
+---
+
+## Reading the Diagram
+
+The diagram follows the four-phase PRISMA 2020 structure:
+
+| Phase              | What it shows                                                                                                                                                                                                   |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Identification** | Total records identified from databases; records removed before screening (duplicates deleted during duplicate detection)                                                                                       |
+| **Screening**      | Records screened (non-deleted references); records excluded (references given an Excluded opinion during title/abstract screening)                                                                              |
+| **Eligibility**    | Reports sought for retrieval (references promoted to full-text screening); reports not retrieved (full-text references without a PDF attached); reports assessed for eligibility; reports excluded with reasons |
+| **Included**       | Studies included in the review; reports of included studies                                                                                                                                                     |
+
+The exclusion reasons in the Eligibility phase are drawn from the **Reason** records
+attached to excluded opinions during full-text screening. Each named reason appears as a
+separate line with its count.
+
+---
+
+## Downloading and Sharing
+
+Three buttons appear in the top-right corner of the page:
+
+| Button               | Action                                                                                   |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| **Download Image**   | Saves the diagram as a PNG file suitable for inclusion in a manuscript                   |
+| **Copy Link**        | Copies a shareable URL to the clipboard that opens an interactive version of the diagram |
+| **Open Interactive** | Opens the interactive diagram in a new browser tab                                       |
+
+The interactive version is hosted externally and allows panning and zooming. It is
+generated from the same data as the static image.
+
+---
+
+## Keeping the Diagram Up to Date
+
+The diagram is generated fresh each time you visit the PRISMA page, so it always
+reflects the current state of your review. There is no need to refresh or regenerate
+it manually. As you include or exclude more references, attach PDFs, or run duplicate
+detection, the counts update automatically on the next visit.
+
+---
+
+> If the diagram shows unexpected counts, check the following:
+>
+> - Duplicate detection has been run and resolved (deleted duplicates reduce the Identification count).
+> - Exclusion reasons have been attached to excluded references in the Full Text Screening stage (reasons appear in the Eligibility exclusions breakdown).
+> - References have been explicitly marked as Included or Excluded rather than left as Undecided.
