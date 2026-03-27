@@ -17,7 +17,11 @@ import { useFetchReviewMembers } from '@/features/reviews/hooks/use-review-membe
 const mockUseAssignReferences = vi.mocked(useAssignReferences);
 const mockUseFetchReviewMembers = vi.mocked(useFetchReviewMembers);
 
-const noopMutation = { mutate: vi.fn(), isPending: false };
+const noopMutation = {
+  mutate: vi.fn(),
+  mutateAsync: vi.fn().mockResolvedValue(undefined),
+  isPending: false,
+};
 
 const mockMembers = [
   {

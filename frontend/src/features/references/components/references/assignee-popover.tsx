@@ -47,9 +47,9 @@ export function AssigneePopover({
   const filteredMemebers = useMemo(() => {
     if (!searchQuery.trim()) return assignableMembers;
 
-    return assignableMembers.filter((m) => {
-      m.user.displayName.toLowerCase().includes(searchQuery.toLowerCase());
-    });
+    return assignableMembers.filter((m) =>
+      m.user.displayName.toLowerCase().includes(searchQuery.toLowerCase())
+    );
   }, [assignableMembers, searchQuery]);
 
   useEffect(() => {
