@@ -1,3 +1,4 @@
+// Evidence gap map panel (heatmap-style matrix).
 import { useState } from 'react';
 import { Grid3x3, AlertCircle, Loader2 } from 'lucide-react';
 import {

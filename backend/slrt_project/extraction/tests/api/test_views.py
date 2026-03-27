@@ -1,25 +1,3 @@
-"""
-Tests for slrt_project/extraction/api/views.py.
-
-Strategy
---------
-All tests use APIRequestFactory + the module-level ``bypass_is_authenticated``
-autouse fixture (same pattern as the references views tests).
-
-No-DB tests (plain pytest class, no marker)
-    Pure helper logic: _get_question_or_400 type-mismatch and not-found
-    branches, EvidenceGapMapViewSet._get_options and _expand logic.
-
-DB tests (@pytest.mark.django_db)
-    Full round-trip tests using real DB rows + factories.  Patch only what
-    is necessary to keep tests fast (e.g. ReferenceAggregationService.build).
-
-One class per ViewSet / action; one method per behaviour.
-
-Run with:
-    pytest slrt_project/extraction/tests/api/test_views.py -v
-"""
-
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -43,11 +21,7 @@ from slrt_project.reviews.tests.factories import ReviewFactory
 factory = APIRequestFactory()
 
 
-# ---------------------------------------------------------------------------
 # Module-level autouse fixture — bypass IsAuthenticated for every test
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture(autouse=True)
 def bypass_is_authenticated():
     """
@@ -62,11 +36,7 @@ def bypass_is_authenticated():
         yield
 
 
-# ---------------------------------------------------------------------------
 # Shared mock helpers
-# ---------------------------------------------------------------------------
-
-
 def make_user(pk=1):
     u = MagicMock()
     u.pk = pk
@@ -75,11 +45,7 @@ def make_user(pk=1):
     return u
 
 
-# ===========================================================================
 # _get_question_or_400 helper
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestGetQuestionOr400:
     def test_returns_question_when_found(self):
@@ -112,11 +78,7 @@ class TestGetQuestionOr400:
         assert err is None
 
 
-# ===========================================================================
 # ExtractionSectionViewSet
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestExtractionSectionViewSet:
     def _view(self):
@@ -180,11 +142,7 @@ class TestExtractionSectionViewSet:
         assert response.status_code == status.HTTP_204_NO_CONTENT
 
 
-# ===========================================================================
 # ExtractionQuestionViewSet
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestExtractionQuestionViewSet:
     def _view(self):
@@ -251,11 +209,7 @@ class TestExtractionQuestionViewSet:
         assert view(request).status_code == status.HTTP_400_BAD_REQUEST
 
 
-# ===========================================================================
 # ExtractionAnswerViewSet — create (upsert)
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestExtractionAnswerCreate:
     def _view(self):
@@ -310,11 +264,7 @@ class TestExtractionAnswerCreate:
         assert self._view()(request).status_code == status.HTTP_400_BAD_REQUEST
 
 
-# ===========================================================================
 # ExtractionAnswerViewSet — bulk_save
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestExtractionAnswerBulkSave:
     def _view(self):
@@ -377,11 +327,7 @@ class TestExtractionAnswerBulkSave:
         assert ExtractionAnswer.objects.filter(reference=ref, question=q).count() == 1
 
 
-# ===========================================================================
 # ExtractionTableViewSet — list
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestExtractionTableList:
     def _view(self):
@@ -452,11 +398,7 @@ class TestExtractionTableList:
             assert ref.get("in_extraction") is True
 
 
-# ===========================================================================
 # ExtractionTableViewSet — filter_counts
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestExtractionTableFilterCounts:
     def _view(self):
@@ -491,9 +433,7 @@ class TestExtractionTableFilterCounts:
         assert response.status_code == status.HTTP_200_OK
 
 
-# ===========================================================================
 # ExtractionTableViewSet — export_csv
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -564,11 +504,7 @@ class TestExtractionTableExportCsv:
         assert "Design" in content
 
 
-# ===========================================================================
 # ExtractionTableViewSet — bulk_update_status
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestExtractionTableBulkUpdateStatus:
     def _view(self):
@@ -621,11 +557,7 @@ class TestExtractionTableBulkUpdateStatus:
         assert response.data["is_extraction_completed"] is False
 
 
-# ===========================================================================
 # ExtractionFormViewSet — form_data
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestExtractionFormData:
     def _view(self):
@@ -680,11 +612,7 @@ class TestExtractionFormData:
         assert response.data["sections"][0]["questions"][0]["answer"] is None
 
 
-# ===========================================================================
 # BarChartViewSet
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestBarChartViewSet:
     def _view(self):
@@ -749,11 +677,7 @@ class TestBarChartViewSet:
         assert counts.get("Option B") == 1
 
 
-# ===========================================================================
 # ScatterPlotViewSet
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestScatterPlotViewSet:
     def _view(self):
@@ -826,11 +750,7 @@ class TestScatterPlotViewSet:
         assert all(p["bubble_size"] == 3 for p in response.data["data"])
 
 
-# ===========================================================================
 # EvidenceGapMapViewSet — helper methods (no DB)
-# ===========================================================================
-
-
 class TestEvidenceGapHelpers:
     def _vs(self):
         return EvidenceGapMapViewSet()
@@ -945,11 +865,7 @@ class TestEvidenceGapMapViewSet:
         assert cell["count"] == 2
 
 
-# ===========================================================================
 # PublicationTimelineViewSet
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestPublicationTimelineViewSet:
     def _view(self):

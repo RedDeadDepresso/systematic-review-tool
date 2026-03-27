@@ -1,3 +1,4 @@
+// Form for editing the authenticated user's profile details.
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

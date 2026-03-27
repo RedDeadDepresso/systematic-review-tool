@@ -1,50 +1,3 @@
-"""
-Views for the extraction app.
-
-ViewSet inventory
------------------
-ExtractionSectionViewSet
-    Standard CRUD for sections; filterable by ``review``.
-
-ExtractionQuestionViewSet
-    Standard CRUD for questions; filterable by section, review, and type.
-
-ExtractionAnswerViewSet
-    CRUD for answers + ``bulk-save`` action.
-    ``create`` is overridden to update an existing (reference, question) pair
-    rather than returning 409, making the endpoint idempotent.
-
-ExtractionTableViewSet
-    Inherits ReviewDataViewSet (pagination, filtering, ordering).
-    Scopes all queries to ``in_extraction=True`` references.
-    Custom actions: ``filter-counts``, ``export-csv``, ``bulk-update-status``.
-
-ExtractionFormViewSet
-    Returns a full section → question → answer tree for a single reference
-    in one optimised prefetch (``form-data`` action).
-
-BarChartViewSet
-    Answer frequencies for single/multi-select and boolean questions
-    (``bar-chart`` action).
-
-ScatterPlotViewSet
-    (x, y) numeric pairs for two NUMBER questions (``scatter-plot`` action).
-
-EvidenceGapMapViewSet
-    Option × option reference-count matrix for two select/boolean questions
-    (``evidence-gap-map`` action).
-
-PublicationTimelineViewSet
-    Per-year reference counts for the extraction set
-    (``publication-timeline`` action).
-
-Helper functions
-----------------
-_get_question_or_400
-    Fetch a question by PK with optional type whitelist; returns an error
-    Response on failure so callers can return it immediately.
-"""
-
 import csv
 from collections import Counter
 
@@ -90,11 +43,7 @@ from slrt_project.references.api.views import (
 from slrt_project.references.models import Reference
 
 
-# ===========================================================================
 # Helper
-# ===========================================================================
-
-
 def _get_question_or_400(
     question_id: int | str,
     allowed_types: list[str] | None = None,
@@ -103,13 +52,12 @@ def _get_question_or_400(
     Fetch an ExtractionQuestion by PK.
 
     Returns
-    -------
-    (question, None)
-        When the question exists and its type is in *allowed_types*
-        (or *allowed_types* is ``None``).
-    (None, Response)
-        On ``DoesNotExist`` → 404; on type mismatch → 400.
-        The caller should return the Response immediately.
+      (question, None)
+      When the question exists and its type is in *allowed_types*
+      (or *allowed_types* is ``None``).
+      (None, Response)
+      On ``DoesNotExist`` → 404; on type mismatch → 400.
+      The caller should return the Response immediately.
     """
     try:
         q = ExtractionQuestion.objects.get(pk=question_id)
@@ -133,18 +81,10 @@ def _get_question_or_400(
     return q, None
 
 
-# ===========================================================================
 # ExtractionSectionViewSet
-# ===========================================================================
-
-
 class ExtractionSectionViewSet(viewsets.ModelViewSet):
     """
     CRUD for ExtractionSection.
-
-    Filter params
-    -------------
-    review (int) — filter by review PK
     """
 
     queryset = ExtractionSection.objects.all()
@@ -153,20 +93,10 @@ class ExtractionSectionViewSet(viewsets.ModelViewSet):
     filterset_fields = ["review"]
 
 
-# ===========================================================================
 # ExtractionQuestionViewSet
-# ===========================================================================
-
-
 class ExtractionQuestionViewSet(viewsets.ModelViewSet):
     """
     CRUD for ExtractionQuestion.
-
-    Filter params
-    -------------
-    section         (int)    — filter by section PK
-    section__review (int)    — filter by parent review PK
-    type            (str[])  — comma-separated QuestionType values
     """
 
     queryset = ExtractionQuestion.objects.all()
@@ -175,24 +105,12 @@ class ExtractionQuestionViewSet(viewsets.ModelViewSet):
     filterset_class = ExtractionQuestionFilter
 
 
-# ===========================================================================
 # ExtractionAnswerViewSet
-# ===========================================================================
 
 
 class ExtractionAnswerViewSet(viewsets.ModelViewSet):
     """
     CRUD for ExtractionAnswer + bulk-save action.
-
-    Filter params
-    -------------
-    reference (int) — filter by reference PK
-    question  (int) — filter by question PK
-
-    Notes
-    -----
-    ``create`` checks for an existing (reference, question) pair and updates
-    it rather than returning 409, making the endpoint idempotent.
     """
 
     queryset = ExtractionAnswer.objects.all()
@@ -217,9 +135,6 @@ class ExtractionAnswerViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         """
         Upsert a single answer.
-
-        Checks for an existing (reference, question) row first so the client
-        does not need to track whether an answer already exists.
         """
         reference_id = request.data.get("reference")
         question_id = request.data.get("question")
@@ -266,9 +181,6 @@ class ExtractionAnswerViewSet(viewsets.ModelViewSet):
     def bulk_save(self, request):
         """
         Atomically persist all answers for a single reference.
-
-        Validates the entire payload before opening the transaction so a type
-        error returns 400 without a partial write.
         """
         serializer = ExtractionAnswerBulkSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -294,21 +206,11 @@ class ExtractionAnswerViewSet(viewsets.ModelViewSet):
         )
 
 
-# ===========================================================================
 # ExtractionTableViewSet
-# ===========================================================================
-
-
 class ExtractionTableViewSet(ReviewDataViewSet):
     """
     Paginated extraction table — inherits filtering, ordering, and pagination
     from ReviewDataViewSet and scopes everything to ``in_extraction=True``.
-
-    Custom actions
-    --------------
-    filter-counts       GET  — sidebar aggregation counts
-    export-csv          GET  — full CSV download
-    bulk-update-status  POST — mark references complete/incomplete
     """
 
     filterset_class = ExtractionReferenceFilter
@@ -334,9 +236,7 @@ class ExtractionTableViewSet(ReviewDataViewSet):
         """Count-only queryset scoped to extraction references."""
         return super().get_base_queryset_for_counts().filter(in_extraction=True)
 
-    # ------------------------------------------------------------------
     # list
-    # ------------------------------------------------------------------
 
     @extend_schema(
         summary="List extraction references with questions",
@@ -357,9 +257,6 @@ class ExtractionTableViewSet(ReviewDataViewSet):
     def list(self, request, *args, **kwargs):
         """
         Return paginated extraction references and all questions for the review.
-
-        The ``questions`` key is injected into the standard paginator envelope
-        so clients receive both datasets in one request.
         """
         review = self.get_review()
         if not review:
@@ -394,10 +291,7 @@ class ExtractionTableViewSet(ReviewDataViewSet):
         paginated_response.data["filtered_count"] = filtered_count
         return paginated_response
 
-    # ------------------------------------------------------------------
     # filter-counts
-    # ------------------------------------------------------------------
-
     @extend_schema(
         summary="Extraction sidebar filter counts",
         description=(
@@ -430,10 +324,7 @@ class ExtractionTableViewSet(ReviewDataViewSet):
         )
         return Response(aggregations)
 
-    # ------------------------------------------------------------------
     # export-csv
-    # ------------------------------------------------------------------
-
     @extend_schema(
         summary="Export extraction data as CSV",
         description=(
@@ -492,10 +383,7 @@ class ExtractionTableViewSet(ReviewDataViewSet):
 
         return response
 
-    # ------------------------------------------------------------------
     # bulk-update-status
-    # ------------------------------------------------------------------
-
     @extend_schema(
         summary="Bulk update extraction completion status",
         description=(
@@ -533,11 +421,7 @@ class ExtractionTableViewSet(ReviewDataViewSet):
         )
 
 
-# ===========================================================================
 # ExtractionFormViewSet
-# ===========================================================================
-
-
 class ExtractionFormViewSet(viewsets.ViewSet):
     """
     Fetches the full extraction form for a single reference in one query.
@@ -570,10 +454,6 @@ class ExtractionFormViewSet(viewsets.ViewSet):
     def form_data(self, request):
         """
         Return sections + questions + answers for a single reference.
-
-        The view attaches the per-reference answer as ``question.user_answer``
-        before passing questions to the serializer so no additional DB queries
-        occur during serialization.
         """
         reference_id = request.query_params.get("reference_id")
         review_id = request.query_params.get("review_id")
@@ -631,17 +511,12 @@ class ExtractionFormViewSet(viewsets.ViewSet):
         return Response({"sections": serializer.data})
 
 
-# ===========================================================================
 # BarChartViewSet
-# ===========================================================================
 
 
 class BarChartViewSet(viewsets.ViewSet):
     """
     Returns answer-value frequencies for a single/multi-select or boolean question.
-
-    For multi-select questions every chosen token is counted separately so a
-    reference answering "A,B" increments both "A" and "B".
     """
 
     @extend_schema(
@@ -738,18 +613,10 @@ class BarChartViewSet(viewsets.ViewSet):
         )
 
 
-# ===========================================================================
 # ScatterPlotViewSet
-# ===========================================================================
-
-
 class ScatterPlotViewSet(viewsets.ViewSet):
     """
     Returns (x, y) numeric pairs for two NUMBER-type questions.
-
-    Only references that have both an x-answer and a y-answer are included.
-    Each point carries a ``bubble_size`` — the count of references sharing
-    the same (x, y) coordinate — so the frontend can render a bubble plot.
     """
 
     @extend_schema(
@@ -856,25 +723,16 @@ class ScatterPlotViewSet(viewsets.ViewSet):
         )
 
 
-# ===========================================================================
 # EvidenceGapMapViewSet
-# ===========================================================================
-
-
 class EvidenceGapMapViewSet(viewsets.ViewSet):
     """
-    Returns a row-option × column-option matrix of reference counts.
-
-    Each cell shows how many references have *both* the row option and the
-    column option, along with a list of {id, title} stubs for drill-down.
-
-    Supports single-select, multi-select, and boolean questions on both axes.
+    Returns a row-option x column-option matrix of reference counts.
     """
 
     @extend_schema(
         summary="Evidence gap map matrix",
         description=(
-            "Builds a row × col matrix of reference counts.  Multi-select "
+            "Builds a row x col matrix of reference counts.  Multi-select "
             "values are tokenised so 'A,B' counts for both A and B."
         ),
         parameters=[
@@ -1003,10 +861,6 @@ class EvidenceGapMapViewSet(viewsets.ViewSet):
     def _expand(self, answers_qs, question: ExtractionQuestion) -> dict[int, set[str]]:
         """
         Build a mapping of reference_id → {option_value, ...}.
-
-        * Multi-select: comma-separated tokens are split individually.
-        * Boolean: raw ``true/1/yes`` → ``"Yes"``; ``false/0/no`` → ``"No"``.
-        * Single-select: value is used as-is.
         """
         result: dict[int, set[str]] = {}
         is_multi = question.type == ExtractionQuestion.QuestionType.MULTI_SELECT
@@ -1034,17 +888,10 @@ class EvidenceGapMapViewSet(viewsets.ViewSet):
         return result
 
 
-# ===========================================================================
 # PublicationTimelineViewSet
-# ===========================================================================
-
-
 class PublicationTimelineViewSet(viewsets.ViewSet):
     """
     Returns reference counts by publication year for a review's extraction set.
-
-    Missing years within the [min, max] range are filled with 0 so the
-    frontend can render a continuous line chart without gaps.
     """
 
     @extend_schema(

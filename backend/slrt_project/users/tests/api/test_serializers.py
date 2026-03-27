@@ -2,21 +2,9 @@
 Tests for slrt_project/users/serializers.py and slrt_project/users/views.py.
 
 Strategy
---------
 - Serializer tests are pure unit/integration tests (no HTTP layer needed).
 - allauth EmailAddress is patched where the serializer touches it to keep
-  tests hermetic (no allauth setup required).
-
-Coverage
---------
-UserSerializer
-  - serializes all expected fields
-  - display_name calls __str__ on the user
-  - read_only_fields: id cannot be written
-  - update: changes first/last name
-  - update with avatar="" clears the avatar field
-  - update with a new email deletes the old EmailAddress and creates a new one
-  - update with the same email does not touch EmailAddress records
+tests hermetic (no allauth setup required).
 """
 
 from unittest.mock import MagicMock, patch

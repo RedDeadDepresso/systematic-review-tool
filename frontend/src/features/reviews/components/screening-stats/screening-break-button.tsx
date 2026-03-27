@@ -1,3 +1,4 @@
+// Button to pause or resume a screening session.
 import { Button } from '@/components/ui/button';
 import { Pause, Play } from 'lucide-react';
 import { useScreeningStats } from '@/features/reviews/hooks/use-screening-stats';

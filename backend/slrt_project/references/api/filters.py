@@ -12,11 +12,7 @@ from django_filters import rest_framework as filters
 from slrt_project.references.models import Reference, ReferenceCluster, ReferenceOpinion
 
 
-# ---------------------------------------------------------------------------
 # Reusable compound filter types
-# ---------------------------------------------------------------------------
-
-
 class NumberInFilter(filters.BaseInFilter, filters.NumberFilter):
     """Accept a comma-separated list of numbers, e.g. ``?ids=1,2,3``."""
 
@@ -25,27 +21,10 @@ class CharInFilter(filters.BaseInFilter, filters.CharFilter):
     """Accept a comma-separated list of strings, e.g. ``?types=a,b``."""
 
 
-# ---------------------------------------------------------------------------
 # ReferenceFilter
-# ---------------------------------------------------------------------------
-
-
 class ReferenceFilter(filters.FilterSet):
     """
     Filter set for references in a review.
-
-    Supported query parameters
-    --------------------------
-    search_method_ids   — comma-separated SearchMethod PKs
-    label_ids           — comma-separated Label PKs (scoped to the current user)
-    include_keywords    — comma-separated terms; references must contain at least one
-    exclude_keywords    — comma-separated terms; references must NOT contain any
-    search              — free-text websearch against the full-text search vector
-    duplicate_statuses  — comma-separated DuplicateStatus values
-    publication_types   — comma-separated publication type strings
-    publication_years   — comma-separated 4-digit years
-    has_file            — boolean; true = with PDF, false = without
-    assignee_ids        — comma-separated ReviewMember PKs
     """
 
     search_method_ids = filters.BaseInFilter(
@@ -97,9 +76,7 @@ class ReferenceFilter(filters.FilterSet):
         model = Reference
         fields = []
 
-    # ------------------------------------------------------------------
     # Custom filter methods
-    # ------------------------------------------------------------------
 
     def filter_include_keywords(self, queryset, name, value):
         """
@@ -124,10 +101,6 @@ class ReferenceFilter(filters.FilterSet):
     def filter_label_ids(self, queryset, name, value):
         """
         Filter by label IDs that belong to the requesting user.
-
-        The extra ``labels__label__user`` guard prevents one user from
-        filtering by another user's label IDs even if they guess the PK.
-        ``distinct()`` is required because a reference can have multiple labels.
         """
         if not value:
             return queryset
@@ -140,9 +113,6 @@ class ReferenceFilter(filters.FilterSet):
     def filter_free_text(self, queryset, name, value):
         """
         Full-text websearch against the pre-computed ``search_vector`` field.
-
-        ``websearch`` mode supports quoted phrases, ``-`` negation, and ``OR``
-        just like Google, without requiring callers to craft raw tsquery syntax.
         """
         if not value:
             return queryset
@@ -166,18 +136,10 @@ class ReferenceFilter(filters.FilterSet):
         return queryset.exclude(file="") if value else queryset.filter(file="")
 
 
-# ---------------------------------------------------------------------------
 # ScreeningFilter
-# ---------------------------------------------------------------------------
-
-
 class ScreeningFilter(ReferenceFilter):
     """
     Extends ``ReferenceFilter`` with opinion-status filtering for screening views.
-
-    The correct status field (``screening_status`` vs ``full_text_status``) is
-    determined at runtime from the view's ``stage`` class attribute so that
-    this single filter class can serve both the screening and full-text views.
     """
 
     opinion_statuses = CharInFilter(
@@ -205,21 +167,10 @@ class ScreeningFilter(ReferenceFilter):
         return queryset.filter(**{f"{status_field}__in": value})
 
 
-# ---------------------------------------------------------------------------
 # DuplicateClusterFilter
-# ---------------------------------------------------------------------------
-
-
 class DuplicateClusterFilter(filters.FilterSet):
     """
     Filter set for the duplicate-cluster list view.
-
-    Supported query parameters
-    --------------------------
-    review         — Review PK (required for the list view)
-    status         — cluster status (unresolved, auto_resolved, …)
-    doi_match      — boolean; true = DOI-matched clusters only
-    min_similarity — float threshold; only clusters with max_similarity ≥ value
     """
 
     review = filters.NumberFilter(

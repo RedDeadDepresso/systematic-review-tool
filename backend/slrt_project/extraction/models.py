@@ -1,51 +1,9 @@
-"""
-Extraction data models for structured data capture during the full-text review stage.
-
-Domain overview
----------------
-After a reference passes full-text screening it enters the *extraction* stage,
-where reviewers fill in structured answers to pre-defined questions.  The schema
-is organised as a three-level hierarchy:
-
-    Review  ──►  ExtractionSection  ──►  ExtractionQuestion  ──►  ExtractionAnswer
-                 (e.g. "Methods")        (e.g. "Sample size")      (actual value)
-
-Model inventory
----------------
-ExtractionSection
-    A named group of questions belonging to a review (e.g. "Population",
-    "Intervention", "Outcomes").  Sections are ordered and unique per review.
-
-ExtractionQuestion
-    A single question within a section.  The ``type`` field controls how the
-    answer is rendered and validated on the front-end.  Questions that accept
-    discrete choices store those choices in the ``options`` JSON field.
-
-ExtractionAnswer
-    One answer per (reference, question) pair.  Text answers go into ``value``;
-    numeric answers are additionally stored in ``value_number`` so they can be
-    filtered and sorted efficiently without casting.
-"""
-
 from django.db import models
 
 
 class ExtractionSection(models.Model):
     """
     A named, ordered group of extraction questions within a review.
-
-    Sections exist only within a single review — deleting the review cascades
-    to all its sections (and transitively to their questions and answers).
-
-    Ordering
-    --------
-    The default queryset is ordered by ``order`` (ascending), so sections
-    are always returned in the sequence the review owner chose.
-
-    Constraints
-    -----------
-    ``unique_review_section_name`` — two sections in the same review cannot
-    share a name, preventing ambiguity when referring to sections by label.
     """
 
     # The review this section belongs to.  Cascades so orphaned sections are
@@ -81,29 +39,6 @@ class ExtractionSection(models.Model):
 class ExtractionQuestion(models.Model):
     """
     A single structured question within an ExtractionSection.
-
-    Question types
-    --------------
-    The ``type`` field maps to ``QuestionType`` choices.  The front-end uses
-    this to decide which input widget to render and how to validate the answer:
-
-    * ``free-text``      — unrestricted multi-line text
-    * ``number``         — numeric input; answer stored in both ``value`` and
-                          ``value_number`` on the answer model
-    * ``date``           — ISO 8601 date string
-    * ``single-select``  — one item chosen from ``options``
-    * ``multi-select``   — one or more items chosen from ``options``
-    * ``boolean``        — yes / no / unknown
-
-    Options
-    -------
-    For ``single-select`` and ``multi-select`` questions the valid choices are
-    stored as a JSON array in ``options`` (e.g. ``["RCT", "cohort", "case-control"]``).
-    ``options`` is null for all other question types.
-
-    Ordering
-    --------
-    Like sections, questions default to ascending ``order`` within their section.
     """
 
     class QuestionType(models.TextChoices):
@@ -157,24 +92,6 @@ class ExtractionQuestion(models.Model):
 class ExtractionAnswer(models.Model):
     """
     One reviewer-supplied answer for a specific question on a specific reference.
-
-    There is at most one answer per (reference, question) pair — the unique
-    constraint ``unique_reference_question_answer`` enforces this at the DB level,
-    so upsert-style operations should use ``update_or_create`` or bulk operations
-    with ``update_conflicts=True``.
-
-    Dual-value storage
-    ------------------
-    Answers are always stored as text in ``value`` so they can round-trip
-    without loss of formatting.  For ``number``-type questions the parsed float
-    is *also* written to ``value_number``, which carries a DB index and allows
-    efficient numeric filtering, sorting, and aggregation in the extraction
-    export without casting.
-
-    Cascade behaviour
-    -----------------
-    * Deleting a ``Reference`` removes all its answers.
-    * Deleting an ``ExtractionQuestion`` removes all answers to that question.
     """
 
     # The reference (paper) this answer relates to.

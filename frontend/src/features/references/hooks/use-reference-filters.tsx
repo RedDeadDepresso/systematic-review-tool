@@ -1,3 +1,4 @@
+// Hook managing all filter state for the references list, with debounced API params.
 import type { OpinionStatus } from '@/features/references/types/references';
 import type { OrderingField } from '@/features/references/api/references';
 import { useState, useCallback, useMemo } from 'react';
@@ -127,6 +128,7 @@ export function useReferenceFilters(options: UseReferenceFiltersOptions = {}) {
     ]
   );
 
+  // debouncedFilters is what gets sent to the API; optimisticFilters drives the UI immediately
   const [debouncedFilters, isDebouncing] = useDebounceValue(
     optimisticFilters,
     debounceDelay

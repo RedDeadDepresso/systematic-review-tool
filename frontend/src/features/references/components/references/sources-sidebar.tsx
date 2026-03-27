@@ -1,3 +1,4 @@
+// Sidebar listing available search-method sources for filtering.
 import {
   ChevronDown,
   FileText,

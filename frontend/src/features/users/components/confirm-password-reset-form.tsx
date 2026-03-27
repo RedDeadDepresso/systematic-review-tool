@@ -1,3 +1,4 @@
+// Form to set a new password using the uid/token from a reset email.
 import { Button } from '@/components/ui/button';
 import {
   Card,

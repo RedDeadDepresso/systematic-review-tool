@@ -2,34 +2,33 @@
 Serializers for the zotero_integration app.
 
 Organisation
-------------
 Model serializers
-  ZoteroIntegrationSerializer — safe read/write serializer; never exposes
-                                the raw API key column.
-  ZoteroSyncLogSerializer     — read-only log entry.
+ZoteroIntegrationSerializer — safe read/write serializer; never exposes
+the raw API key column.
+ZoteroSyncLogSerializer     — read-only log entry.
 
 Input serializers
-  ZoteroConfigSerializer      — validates credentials on create.
-  ZoteroUpdateSerializer      — validates fields on update, including the
-                                ``sync_action`` guard for library changes.
-  ZoteroSetCollectionSerializer — validates collection change + sync_action.
-  ZoteroDestroySerializer     — validates the ``action`` query param on delete.
-  ZoteroPushSerializer        — validates the large-batch confirmation flag.
-  ZoteroPullSerializer        — validates the ``force`` flag on pull.
+ZoteroConfigSerializer      — validates credentials on create.
+ZoteroUpdateSerializer      — validates fields on update, including the
+``sync_action`` guard for library changes.
+ZoteroSetCollectionSerializer — validates collection change + sync_action.
+ZoteroDestroySerializer     — validates the ``action`` query param on delete.
+ZoteroPushSerializer        — validates the large-batch confirmation flag.
+ZoteroPullSerializer        — validates the ``force`` flag on pull.
 
 Response serializers  (one per custom action — used for schema + documentation)
-  ZoteroStatusResponseSerializer      — status action 200 payload.
-  ZoteroCollectionItemSerializer      — one item in the collections list.
-  ZoteroCollectionsResponseSerializer — collections action 200 payload.
-  ZoteroSetCollectionResponseSerializer — set_collection 200 payload.
-  ZoteroDeletionPreviewActionSerializer — one action entry in deletion_preview.
-  ZoteroDeletionPreviewResponseSerializer — deletion_preview 200 payload.
-  ZoteroDestroyResponseSerializer     — destroy 200 payload.
-  ZoteroUpdateResponseSerializer      — update 200 payload.
-  ZoteroTaskResponseSerializer        — push/pull 202 payload.
-  ZoteroTaskStatusResponseSerializer  — task_status 200 payload.
-  ZoteroToggleActiveResponseSerializer — toggle_active 200 payload.
-  ZoteroCreateCollectionResponseSerializer — create_collection 200 payload.
+ZoteroStatusResponseSerializer      — status action 200 payload.
+ZoteroCollectionItemSerializer      — one item in the collections list.
+ZoteroCollectionsResponseSerializer — collections action 200 payload.
+ZoteroSetCollectionResponseSerializer — set_collection 200 payload.
+ZoteroDeletionPreviewActionSerializer — one action entry in deletion_preview.
+ZoteroDeletionPreviewResponseSerializer — deletion_preview 200 payload.
+ZoteroDestroyResponseSerializer     — destroy 200 payload.
+ZoteroUpdateResponseSerializer      — update 200 payload.
+ZoteroTaskResponseSerializer        — push/pull 202 payload.
+ZoteroTaskStatusResponseSerializer  — task_status 200 payload.
+ZoteroToggleActiveResponseSerializer — toggle_active 200 payload.
+ZoteroCreateCollectionResponseSerializer — create_collection 200 payload.
 """
 
 from rest_framework import serializers
@@ -37,21 +36,10 @@ from rest_framework import serializers
 from slrt_project.integrations.models import ZoteroIntegration, ZoteroSyncLog
 
 
-# ===========================================================================
 # Model serializers
-# ===========================================================================
-
-
 class ZoteroIntegrationSerializer(serializers.ModelSerializer):
     """
     Safe read/write serializer for ZoteroIntegration.
-
-    The raw ``_api_key`` column is excluded so the encrypted bytes are never
-    sent to clients.  ``is_configured`` is a model property exposed as a
-    read-only boolean field for convenience.
-
-    Sync timestamps and version are all server-managed and therefore
-    read-only.
     """
 
     # Exposes the model property so clients can check readiness without
@@ -77,9 +65,6 @@ class ZoteroIntegrationSerializer(serializers.ModelSerializer):
 class ZoteroSyncLogSerializer(serializers.ModelSerializer):
     """
     Read-only serializer for ZoteroSyncLog entries.
-
-    Used inside ZoteroStatusResponseSerializer and as the response type for
-    the sync log list endpoint.
     """
 
     class Meta:
@@ -87,19 +72,10 @@ class ZoteroSyncLogSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-# ===========================================================================
 # Input serializers
-# ===========================================================================
-
-
 class ZoteroConfigSerializer(serializers.Serializer):
     """
     Input serializer for creating a new ZoteroIntegration.
-
-    All credential fields are write-only so they are never reflected back
-    in API responses.  ``library_id`` must be numeric (Zotero user/group IDs
-    are always integers); ``api_key`` must be at least 20 characters (all
-    real Zotero API keys exceed this length).
     """
 
     # Review PK — used to scope the integration.
@@ -164,10 +140,6 @@ class ZoteroConfigSerializer(serializers.Serializer):
 class ZoteroUpdateSerializer(serializers.Serializer):
     """
     Input serializer for partial updates to an existing ZoteroIntegration.
-
-    When ``library_id`` or ``library_type`` changes, ``sync_action`` is
-    required to be one of the three documented values so the caller
-    explicitly acknowledges how existing synced data should be handled.
     """
 
     library_id = serializers.CharField(
@@ -199,9 +171,6 @@ class ZoteroUpdateSerializer(serializers.Serializer):
 class ZoteroSetCollectionSerializer(serializers.Serializer):
     """
     Input serializer for the set_collection action.
-
-    ``sync_action`` governs what happens to currently synced references
-    when the collection filter changes.
     """
 
     collection_key = serializers.CharField(
@@ -251,9 +220,6 @@ class ZoteroCreateCollectionSerializer(serializers.Serializer):
 class ZoteroPushSerializer(serializers.Serializer):
     """
     Input serializer for the push action.
-
-    ``confirm`` is required when the unpushed count exceeds 500 to prevent
-    accidental large pushes.
     """
 
     confirm = serializers.BooleanField(
@@ -279,11 +245,7 @@ class ZoteroPullSerializer(serializers.Serializer):
     )
 
 
-# ===========================================================================
 # Response serializers
-# ===========================================================================
-
-
 class ZoteroStatusResponseSerializer(serializers.Serializer):
     """200 payload returned by the status action."""
 

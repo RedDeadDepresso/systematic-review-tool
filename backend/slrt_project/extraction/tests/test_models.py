@@ -1,30 +1,3 @@
-"""
-Tests for slrt_project/extraction/models.py.
-
-Strategy
---------
-Two tiers, matching the pattern established in the reviews and references apps:
-
-No-DB (plain pytest class, no marker)
-    Uses _make() to construct unsaved model instances entirely in memory.
-    Covers __str__, field defaults, and QuestionType choices — anything that
-    is pure Python with no ORM involvement.
-
-DB (@pytest.mark.django_db)
-    Uses factories for full round-trip tests: constraint enforcement, cascade
-    deletes, and factory correctness.  Each class exercises one model.
-
-_make() technique
------------------
-Django's FK descriptor checks _state.fields_cache for a pre-loaded related
-object.  _make() pre-populates that cache so __str__ methods that access FK
-attributes (e.g. self.section.name) work without a DB query.  See test_models.py
-in the reviews app for a full explanation.
-
-Run with:
-    pytest slrt_project/extraction/tests/ -v
-"""
-
 import pytest
 from django.db import IntegrityError
 from django.db.models.base import ModelState
@@ -43,21 +16,10 @@ from slrt_project.references.tests.factories import ReferenceFactory
 from slrt_project.reviews.tests.factories import ReviewFactory
 
 
-# ---------------------------------------------------------------------------
 # Helper — build unsaved instances without touching the DB
-# ---------------------------------------------------------------------------
-
-
 def _make(model_cls, **kwargs):
     """
     Construct a model instance without touching the database.
-
-    Only safe for fields that are NOT FK/O2O — Django's FK descriptor ignores
-    __dict__ and always goes through _state.fields_cache, which requires knowing
-    the exact internal cache key Django uses (which differs by Django version).
-
-    For __str__ tests that access FK attributes (self.review, self.section, etc.)
-    use @pytest.mark.django_db + factories instead.
     """
     instance = model_cls.__new__(model_cls)
     instance._state = ModelState()
@@ -67,11 +29,7 @@ def _make(model_cls, **kwargs):
     return instance
 
 
-# ===========================================================================
 # ExtractionSection — no-DB tests
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestExtractionSectionStr:
     """
@@ -102,11 +60,7 @@ class TestExtractionSectionMeta:
         assert field.default == 0
 
 
-# ===========================================================================
 # ExtractionQuestion — no-DB tests
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestExtractionQuestionStr:
     """
@@ -160,9 +114,7 @@ class TestExtractionQuestionMeta:
         assert ExtractionQuestion._meta.get_field("order").default == 0
 
 
-# ===========================================================================
 # ExtractionAnswer — no-DB tests
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -199,11 +151,7 @@ class TestExtractionAnswerMeta:
         assert field.db_index is True
 
 
-# ===========================================================================
 # ExtractionSectionFactory — DB tests
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestExtractionSectionFactory:
     def test_creates_row(self):
@@ -244,11 +192,7 @@ class TestExtractionSectionFactory:
         assert not ExtractionSection.objects.filter(pk=section.pk).exists()
 
 
-# ===========================================================================
 # ExtractionQuestionFactory — DB tests
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestExtractionQuestionFactory:
     def test_creates_row(self):
@@ -320,11 +264,7 @@ class TestExtractionQuestionFactory:
         assert qs[2].pk == q2.pk
 
 
-# ===========================================================================
 # ExtractionAnswerFactory — DB tests
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestExtractionAnswerFactory:
     def test_creates_row(self):

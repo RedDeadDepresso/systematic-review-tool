@@ -1,3 +1,4 @@
+// Card displaying a single screening criterion.
 import { Card } from '@/components/ui/card';
 import {
   Collapsible,

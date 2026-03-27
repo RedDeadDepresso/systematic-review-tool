@@ -1,16 +1,3 @@
-"""
-Tests for the reviews app views and action/response serializers.
-
-Run with:
-    pytest slrt_project/reviews/tests/test_views.py -v
-
-Strategy
---------
-- APIRequestFactory + force_authenticate for HTTP-layer tests.
-- Mocks for all external dependencies (ORM, tasks, permissions).
-- One class per view / serializer / helper method.
-"""
-
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -21,11 +8,7 @@ from rest_framework.test import APIRequestFactory
 factory = APIRequestFactory()
 
 
-# ---------------------------------------------------------------------------
 # Shared fixtures / helpers
-# ---------------------------------------------------------------------------
-
-
 def make_user(pk=1, email="user@example.com", first_name="Alice", last_name="Smith"):
     u = MagicMock()
     u.pk = pk
@@ -63,11 +46,7 @@ def make_member(pk=1, role="Reviewer", review=None, user=None):
     return m
 
 
-# ===========================================================================
 # ReviewViewSet — _escape_latex
-# ===========================================================================
-
-
 class TestEscapeLatex:
     def _fn(self):
         from slrt_project.reviews.api.views import ReviewViewSet
@@ -110,11 +89,7 @@ class TestEscapeLatex:
         assert r"\^{}" in self._fn()("x^2")
 
 
-# ===========================================================================
 # ReviewViewSet — _build_prisma_url
-# ===========================================================================
-
-
 class TestBuildPrismaUrl:
     def _fn(self):
         from slrt_project.reviews.api.views import ReviewViewSet
@@ -157,9 +132,7 @@ class TestBuildPrismaUrl:
         assert "dbr_excluded" not in self._fn()(self._data())
 
 
-# ===========================================================================
 # ReviewViewSet — _filter_refs_for_add_data
-# ===========================================================================
 
 
 class TestFilterRefsForAddData:
@@ -216,9 +189,7 @@ class TestFilterRefsForAddData:
         assert qs.filter.call_count >= 1
 
 
-# ===========================================================================
 # ReviewViewSet — get_serializer_class
-# ===========================================================================
 
 
 class TestGetSerializerClass:
@@ -247,9 +218,7 @@ class TestGetSerializerClass:
         assert self._vs("create").get_serializer_class() is ReviewSerializer
 
 
-# ===========================================================================
 # ReviewViewSet — get_permissions
-# ===========================================================================
 
 
 class TestGetPermissions:
@@ -277,9 +246,7 @@ class TestGetPermissions:
             assert not any(isinstance(p, IsReviewOwner) for p in perms), action
 
 
-# ===========================================================================
 # ReviewViewSet — _require_duplicate_permission
-# ===========================================================================
 
 
 class TestRequireDuplicatePermission:
@@ -317,9 +284,7 @@ class TestRequireDuplicatePermission:
         assert result.status_code == status.HTTP_403_FORBIDDEN
 
 
-# ===========================================================================
 # ReviewViewSet — _create_search_method
-# ===========================================================================
 
 
 class TestCreateSearchMethod:
@@ -378,9 +343,7 @@ class TestCreateSearchMethod:
         assert result.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
-# ===========================================================================
 # ReviewViewSet — _build_themes_export
-# ===========================================================================
 
 
 class TestBuildThemesExport:
@@ -425,9 +388,7 @@ class TestBuildThemesExport:
         assert result["themes"][0]["subthemes"][0]["name"] == "Sub"
 
 
-# ===========================================================================
 # ReviewInvitationViewSet — get_queryset direction filtering
-# ===========================================================================
 
 
 class TestInvitationGetQueryset:
@@ -467,9 +428,7 @@ class TestInvitationGetQueryset:
         MockInv.objects.filter.assert_called_once()
 
 
-# ===========================================================================
 # ReviewMemberRetrieveUpdateDestroyView — perform_destroy
-# ===========================================================================
 
 
 class TestMemberDestroyView:
@@ -497,9 +456,7 @@ class TestMemberDestroyView:
         instance.delete.assert_called_once()
 
 
-# ===========================================================================
 # SearchMethodDestroyView — perform_destroy
-# ===========================================================================
 
 
 class TestSearchMethodDestroyView:
@@ -523,9 +480,7 @@ class TestSearchMethodDestroyView:
         instance.delete.assert_called_once()
 
 
-# ===========================================================================
 # Serializer: DetectDuplicatesRequestSerializer
-# ===========================================================================
 
 
 class TestDetectDuplicatesRequestSerializer:
@@ -552,9 +507,7 @@ class TestDetectDuplicatesRequestSerializer:
         assert not self._s({"threshold": -0.1}).is_valid()
 
 
-# ===========================================================================
 # Serializer: AutoResolveDuplicatesRequestSerializer
-# ===========================================================================
 
 
 class TestAutoResolveDuplicatesRequestSerializer:
@@ -595,9 +548,7 @@ class TestAutoResolveDuplicatesRequestSerializer:
         assert s.is_valid(), s.errors
 
 
-# ===========================================================================
 # Serializer: UploadReferencesResponseSerializer
-# ===========================================================================
 
 
 class TestUploadReferencesResponseSerializer:
@@ -630,9 +581,7 @@ class TestUploadReferencesResponseSerializer:
             assert self._s(file_type=ft).is_valid(), f"Expected {ft} to be valid"
 
 
-# ===========================================================================
 # Serializer: AddDataResponseSerializer
-# ===========================================================================
 
 
 class TestAddDataResponseSerializer:
@@ -653,9 +602,7 @@ class TestAddDataResponseSerializer:
         assert AddDataResponseSerializer(data={"updated": 0}).is_valid()
 
 
-# ===========================================================================
 # Serializer: PrismaResponseSerializer
-# ===========================================================================
 
 
 class TestPrismaResponseSerializer:
@@ -691,9 +638,7 @@ class TestPrismaResponseSerializer:
         assert s.is_valid(), s.errors
 
 
-# ===========================================================================
 # Serializer: ExportLatexResponseSerializer
-# ===========================================================================
 
 
 class TestExportLatexResponseSerializer:
@@ -722,9 +667,7 @@ class TestExportLatexResponseSerializer:
         assert "format" in s.errors
 
 
-# ===========================================================================
 # Serializer: ExportJsonResponseSerializer
-# ===========================================================================
 
 
 class TestExportJsonResponseSerializer:
@@ -776,9 +719,7 @@ class TestExportJsonResponseSerializer:
         assert ExportJsonResponseSerializer(data=data).is_valid()
 
 
-# ===========================================================================
 # Serializer: InvitationAcceptDeclineResponseSerializer
-# ===========================================================================
 
 
 class TestInvitationAcceptDeclineResponseSerializer:
@@ -802,9 +743,7 @@ class TestInvitationAcceptDeclineResponseSerializer:
         assert "detail" in s.errors
 
 
-# ===========================================================================
 # Serializer: DetectDuplicatesResponseSerializer
-# ===========================================================================
 
 
 class TestDetectDuplicatesResponseSerializer:
@@ -824,9 +763,7 @@ class TestDetectDuplicatesResponseSerializer:
         assert s.is_valid(), s.errors
 
 
-# ===========================================================================
 # Serializer: AutoResolveDuplicatesResponseSerializer
-# ===========================================================================
 
 
 class TestAutoResolveDuplicatesResponseSerializer:

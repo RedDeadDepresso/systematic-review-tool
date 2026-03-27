@@ -1,3 +1,4 @@
+// Form for adding or editing a comment on a PDF highlight.
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';

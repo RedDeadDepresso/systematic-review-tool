@@ -1,3 +1,4 @@
+// Container that sizes the references list based on the active layout.
 import { type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import type { ArticleViewLayout } from '@/features/references/types/references';

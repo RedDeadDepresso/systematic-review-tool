@@ -1,3 +1,4 @@
+// Dropdown to export coding data (CSV, JSON, etc.).
 import {
   downloadJsonFile,
   downloadLatexFile,

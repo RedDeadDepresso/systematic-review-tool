@@ -1,3 +1,4 @@
+// Scatter plot panel for extraction data.
 import { useState } from 'react';
 import {
   XAxis,

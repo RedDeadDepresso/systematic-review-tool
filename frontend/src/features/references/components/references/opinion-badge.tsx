@@ -1,3 +1,4 @@
+// Badge showing a member's screening opinion (included / maybe / excluded).
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { Opinion } from '@/features/references/types/references';

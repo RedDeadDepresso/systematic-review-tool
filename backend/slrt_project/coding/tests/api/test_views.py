@@ -1,27 +1,3 @@
-"""
-Tests for slrt_project/coding/api/views.py.
-
-Strategy
---------
-All tests use APIRequestFactory + the module-level ``bypass_is_authenticated``
-autouse fixture (same pattern as the extraction views tests).
-
-Permission checks (check_permission) are patched to a no-op by default; tests
-that specifically cover permission enforcement patch them to raise
-PermissionDenied.
-
-No-DB tests (plain pytest class, no marker)
-    CodingMixin.list — missing-review-param branch; no DB needed.
-
-DB tests (@pytest.mark.django_db)
-    Full round-trip tests using real DB rows + factories.
-
-One class per ViewSet; one method per behaviour.
-
-Run with:
-    pytest slrt_project/coding/tests/api/test_views.py -v
-"""
-
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -39,11 +15,7 @@ from slrt_project.reviews.tests.factories import ReviewFactory, ReviewMemberFact
 factory = APIRequestFactory()
 
 
-# ---------------------------------------------------------------------------
 # Module-level autouse fixture — bypass IsAuthenticated for every test
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture(autouse=True)
 def bypass_is_authenticated():
     """
@@ -58,11 +30,7 @@ def bypass_is_authenticated():
         yield
 
 
-# ---------------------------------------------------------------------------
 # Autouse fixture — bypass check_permission for most tests
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture(autouse=True)
 def bypass_check_permission():
     """
@@ -74,11 +42,7 @@ def bypass_check_permission():
         yield
 
 
-# ---------------------------------------------------------------------------
 # Shared helpers
-# ---------------------------------------------------------------------------
-
-
 def make_user(pk=1):
     """Minimal authenticated user mock."""
     u = MagicMock()
@@ -88,11 +52,7 @@ def make_user(pk=1):
     return u
 
 
-# ===========================================================================
 # CodingMixin — list() guard
-# ===========================================================================
-
-
 class TestCodingMixinListGuard:
     """The 'review' query param is required on every list endpoint."""
 
@@ -109,11 +69,7 @@ class TestCodingMixinListGuard:
         assert "review" in str(response.data)
 
 
-# ===========================================================================
 # CodeViewSet
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestCodeViewSet:
     def _view(self, method="list"):
@@ -242,11 +198,7 @@ class TestCodeViewSet:
         assert "reference" in qs.query.select_related
 
 
-# ===========================================================================
 # SubThemeViewSet
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestSubThemeViewSet:
     def _list_view(self):
@@ -325,11 +277,7 @@ class TestSubThemeViewSet:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
-# ===========================================================================
 # MainThemeViewSet
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestMainThemeViewSet:
     def _list_view(self):

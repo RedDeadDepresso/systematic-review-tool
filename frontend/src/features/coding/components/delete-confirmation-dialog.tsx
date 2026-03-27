@@ -1,3 +1,4 @@
+// Confirmation dialog before deleting a theme or code.
 import { useState, useEffect } from 'react';
 import {
   AlertDialog,

@@ -1,3 +1,4 @@
+// Wraps an individual highlight overlay rendered on the PDF page.
 import { type MouseEvent } from 'react';
 import HighlightPopup from '@/components/blocks/pdf-dialog/highlight-popup';
 import {

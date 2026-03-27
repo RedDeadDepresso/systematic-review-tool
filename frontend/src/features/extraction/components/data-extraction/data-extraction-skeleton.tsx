@@ -1,3 +1,4 @@
+// Skeleton loading state for the data-extraction table.
 import { Skeleton } from '@/components/ui/skeleton';
 
 const SKELETON_ROW_COUNT = 14;

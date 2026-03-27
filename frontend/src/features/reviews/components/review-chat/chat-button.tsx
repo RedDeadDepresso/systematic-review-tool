@@ -1,3 +1,4 @@
+// Toolbar button that opens the review chat drawer, with an unread-count badge.
 import { MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';

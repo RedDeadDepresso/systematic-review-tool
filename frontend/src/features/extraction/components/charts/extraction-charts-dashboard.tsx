@@ -1,3 +1,4 @@
+// Dashboard that composes all extraction chart panels.
 import {
   BarChart3,
   ScatterChart as ScatterChartIcon,

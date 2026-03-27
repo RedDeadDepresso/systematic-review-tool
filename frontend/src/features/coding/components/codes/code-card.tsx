@@ -1,3 +1,4 @@
+// Card for a single qualitative code, with edit/delete actions.
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

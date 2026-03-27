@@ -1,38 +1,10 @@
 """
 Factory classes for the reviews app.
-
-Uses factory_boy (https://factoryboy.readthedocs.io/) with DjangoModelFactory
-so that every factory writes a real DB row when called, making it easy to
-compose realistic object graphs in tests.
-
-Usage examples
---------------
-    # One review, one member:
-    review = ReviewFactory()
-    member = ReviewMemberFactory(review=review)
-
-    # Owner member (shortcut via trait):
-    owner = ReviewMemberFactory(owner=True)
-
-    # Blinded review with a pre-created member:
-    review = ReviewFactory(is_blinded=True)
-    ReviewMemberFactory(review=review, role="Reviewer")
-
-    # Stat for an existing member:
-    stat = ScreeningStatFactory(member=member, seconds=3600, sessions=2)
-
-    # System chat message:
-    msg = ReviewChatMessageFactory(system=True)
-
-    # Human chat message:
-    msg = ReviewChatMessageFactory(review=review, member=member)
 """
 
 import factory
 
-# ---------------------------------------------------------------------------
 # UserFactory
-# ---------------------------------------------------------------------------
 # Defined here so reviews tests are self-contained.  If your project already
 # has a UserFactory elsewhere, import it instead of duplicating this one.
 from django.contrib.auth import get_user_model
@@ -69,9 +41,7 @@ class UserFactory(DjangoModelFactory):
         skip_postgeneration_save = True
 
 
-# ---------------------------------------------------------------------------
 # ReviewFactory
-# ---------------------------------------------------------------------------
 
 
 class ReviewFactory(DjangoModelFactory):
@@ -87,20 +57,12 @@ class ReviewFactory(DjangoModelFactory):
     duplicate_detection_status = Review.DuplicateDetectionStatus.NOT_STARTED
 
 
-# ---------------------------------------------------------------------------
 # ReviewMemberFactory
-# ---------------------------------------------------------------------------
 
 
 class ReviewMemberFactory(DjangoModelFactory):
     """
     Creates a ReviewMember linking a User to a Review.
-
-    Traits
-    ------
-    owner        — sets role to OWNER
-    collaborator — sets role to COLLABORATOR
-    viewer       — sets role to VIEWER
     """
 
     class Meta:
@@ -119,9 +81,7 @@ class ReviewMemberFactory(DjangoModelFactory):
         viewer = Trait(role=ReviewMember.Role.VIEWER)  # "viewer"
 
 
-# ---------------------------------------------------------------------------
 # ReviewInvitationFactory
-# ---------------------------------------------------------------------------
 
 
 class ReviewInvitationFactory(DjangoModelFactory):
@@ -136,9 +96,7 @@ class ReviewInvitationFactory(DjangoModelFactory):
     role = ReviewInvitation.Role.REVIEWER  # "reviewer"
 
 
-# ---------------------------------------------------------------------------
 # ScreeningCriteriaFactory
-# ---------------------------------------------------------------------------
 
 
 class ScreeningCriteriaFactory(DjangoModelFactory):
@@ -156,9 +114,7 @@ class ScreeningCriteriaFactory(DjangoModelFactory):
         exclusive = Trait(type=ScreeningCriteria.Type.EXCLUSION)  # "exclusion"
 
 
-# ---------------------------------------------------------------------------
 # ScreeningStatFactory
-# ---------------------------------------------------------------------------
 
 
 class ScreeningStatFactory(DjangoModelFactory):
@@ -173,18 +129,12 @@ class ScreeningStatFactory(DjangoModelFactory):
     sessions = 0
 
 
-# ---------------------------------------------------------------------------
 # ReviewChatMessageFactory
-# ---------------------------------------------------------------------------
 
 
 class ReviewChatMessageFactory(DjangoModelFactory):
     """
     Creates a ReviewChatMessage.
-
-    Traits
-    ------
-    system — creates a system message (member set to None, is_system_message=True)
     """
 
     class Meta:
@@ -207,9 +157,7 @@ class ReviewChatMessageFactory(DjangoModelFactory):
         )
 
 
-# ---------------------------------------------------------------------------
 # SearchMethodFactory
-# ---------------------------------------------------------------------------
 
 
 class SearchMethodFactory(DjangoModelFactory):

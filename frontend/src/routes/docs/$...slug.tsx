@@ -1,3 +1,4 @@
+// Catch-all docs route: fetches and renders an MDX document by slug.
 import { createFileRoute } from '@tanstack/react-router';
 import { DocsTableOfContents } from '@/components/blocks/docs/docs-toc';
 import { mdxComponents } from '@/components/blocks/docs/mdx-components';

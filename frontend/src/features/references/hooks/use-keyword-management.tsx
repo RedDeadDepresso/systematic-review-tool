@@ -1,3 +1,4 @@
+// Hook for managing include/exclude keyword lists.
 import { useCallback } from 'react';
 import {
   useCreateKeyword,
@@ -29,7 +30,7 @@ export function useKeywordManagement(
   const createKeyword = useCreateKeyword();
   const deleteKeyword = useDeleteKeyword();
 
-  // Highlight keywords based on enabled state
+  // Resolve the actual keyword strings to highlight; empty when highlighting is toggled off
   const highlightIncludeKeywords = includeHighlightEnabled
     ? includeKeywords.map((k) => k.name)
     : [];
@@ -50,6 +51,7 @@ export function useKeywordManagement(
   );
 
   const handleDeleteKeyword = (keyword: Keyword) => {
+    // On success, deselect the deleted keyword from any active filter
     deleteKeyword.mutate(
       {
         reviewId,

@@ -1,3 +1,4 @@
+// Popover for adding a new extraction question column.
 import { useState } from 'react';
 import { QuestionPopoverShell } from '@/features/extraction/components/data-extraction/question-popover-shell';
 import { QuestionFormFields } from '@/features/extraction/components/data-extraction/question-form-fields';

@@ -1,3 +1,4 @@
+// Registration route (redirects authenticated users away).
 import { redirectAuthenticated } from '@/features/users/api/auth';
 import { RegisterForm } from '@/features/users/components/register-form';
 import { AppLayoutContext } from '@/context/app-layout-context';

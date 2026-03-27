@@ -1,31 +1,5 @@
 """
 Tests for slrt_project/users/models.py — the custom User model.
-
-Coverage
---------
-Fields
-  - email is required and unique
-  - username field does not exist
-  - first_name and last_name are stored correctly
-  - avatar is optional (null / blank allowed)
-  - avatar only accepts jpg, jpeg, png, gif extensions
-
-Authentication
-  - USERNAME_FIELD is email
-  - REQUIRED_FIELDS is empty
-  - user can authenticate with email + password
-
-__str__
-  - returns "First Last (email)"
-  - works when first or last name is blank
-
-Meta
-  - default ordering is by first_name
-
-Manager
-  - objects manager is UserManager
-  - create_user sets fields correctly and hashes the password
-  - create_superuser sets is_staff and is_superuser
 """
 
 import pytest

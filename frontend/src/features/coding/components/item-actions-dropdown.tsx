@@ -1,3 +1,4 @@
+// Per-item dropdown with edit and delete options for themes/codes.
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,

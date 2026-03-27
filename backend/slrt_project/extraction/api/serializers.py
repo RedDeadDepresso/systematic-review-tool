@@ -2,44 +2,43 @@
 Serializers for the extraction app.
 
 Organisation
-------------
 Utility
-  _validate_value_for_question     — shared type-validation helper
+_validate_value_for_question     — shared type-validation helper
 
 Model serializers
-  ExtractionSectionSerializer      — CRUD with name-uniqueness + auto-order
-  ExtractionQuestionSerializer     — CRUD with options validation + auto-order
-  ExtractionAnswerSerializer       — CRUD with type validation; create uses
-                                     update_or_create for idempotency
+ExtractionSectionSerializer      — CRUD with name-uniqueness + auto-order
+ExtractionQuestionSerializer     — CRUD with options validation + auto-order
+ExtractionAnswerSerializer       — CRUD with type validation; create uses
+update_or_create for idempotency
 
 Input / action serializers
-  ExtractionAnswerBulkSerializer   — dict of {question_id: value} for bulk-save
-  BatchAnswerSerializer            — single (reference, question, value) tuple
-  BulkUpdateExtractionStatusSerializer — marks references complete/incomplete
+ExtractionAnswerBulkSerializer   — dict of {question_id: value} for bulk-save
+BatchAnswerSerializer            — single (reference, question, value) tuple
+BulkUpdateExtractionStatusSerializer — marks references complete/incomplete
 
 Read / table serializers
-  ExtractionQuestionTableSerializer — adds section_name for table column headers
-  ReferenceTableSerializer          — extends ReferenceSerializer with answers dict
-  ExtractionAnswerNestedSerializer  — minimal answer shape for nested contexts
-  ExtractionQuestionWithAnswerSerializer — question + pre-attached user_answer
-  ExtractionSectionWithQuestionsSerializer — full section tree for form-data
+ExtractionQuestionTableSerializer — adds section_name for table column headers
+ReferenceTableSerializer          — extends ReferenceSerializer with answers dict
+ExtractionAnswerNestedSerializer  — minimal answer shape for nested contexts
+ExtractionQuestionWithAnswerSerializer — question + pre-attached user_answer
+ExtractionSectionWithQuestionsSerializer — full section tree for form-data
 
 Response serializers  (one per custom action — used for schema + validation)
-  BulkSaveResponseSerializer            — bulk-save 200 payload
-  BulkUpdateStatusResponseSerializer    — bulk-update-status 200 payload
-  FormDataResponseSerializer            — form-data 200 payload
-  BarChartDataPointSerializer           — one bar in a bar-chart response
-  BarChartResponseSerializer            — full bar-chart 200 payload
-  ScatterQuestionSerializer             — axis metadata in scatter response
-  ScatterPointSerializer                — one point in a scatter response
-  ScatterPlotResponseSerializer         — full scatter-plot 200 payload
-  EvidenceGapAxisSerializer             — axis metadata in gap-map response
-  EvidenceGapReferenceSerializer        — reference stub in a gap-map cell
-  EvidenceGapCellSerializer             — one cell in a gap-map matrix
-  EvidenceGapMapResponseSerializer      — full evidence-gap-map 200 payload
-  YearRangeSerializer                   — min/max range in timeline response
-  PublicationTimelinePointSerializer    — one year point in timeline response
-  PublicationTimelineResponseSerializer — full publication-timeline 200 payload
+BulkSaveResponseSerializer            — bulk-save 200 payload
+BulkUpdateStatusResponseSerializer    — bulk-update-status 200 payload
+FormDataResponseSerializer            — form-data 200 payload
+BarChartDataPointSerializer           — one bar in a bar-chart response
+BarChartResponseSerializer            — full bar-chart 200 payload
+ScatterQuestionSerializer             — axis metadata in scatter response
+ScatterPointSerializer                — one point in a scatter response
+ScatterPlotResponseSerializer         — full scatter-plot 200 payload
+EvidenceGapAxisSerializer             — axis metadata in gap-map response
+EvidenceGapReferenceSerializer        — reference stub in a gap-map cell
+EvidenceGapCellSerializer             — one cell in a gap-map matrix
+EvidenceGapMapResponseSerializer      — full evidence-gap-map 200 payload
+YearRangeSerializer                   — min/max range in timeline response
+PublicationTimelinePointSerializer    — one year point in timeline response
+PublicationTimelineResponseSerializer — full publication-timeline 200 payload
 """
 
 from datetime import date
@@ -57,11 +56,7 @@ from slrt_project.references.api.serializers import ReferenceSerializer
 from slrt_project.references.models import Reference
 
 
-# ===========================================================================
 # Shared helper
-# ===========================================================================
-
-
 def _validate_value_for_question(
     value: str,
     question: ExtractionQuestion,
@@ -70,23 +65,14 @@ def _validate_value_for_question(
     Validate *value* against the type rules of *question*.
 
     Returns
-    -------
-    float | None
-        The parsed float when ``question.type == NUMBER``; ``None`` for all
-        other types.
+      float | None
+      The parsed float when ``question.type == NUMBER``; ``None`` for all
+      other types.
 
     Raises
-    ------
-    serializers.ValidationError
-        When the value violates the type constraint (non-numeric string for a
-        NUMBER question, unlisted value for SINGLE_SELECT, etc.).
-
-    Notes
-    -----
-    * An empty string is always valid — the caller decides whether required.
-    * FREE_TEXT is unrestricted; the function returns immediately.
-    * MULTI_SELECT values are comma-separated tokens validated independently.
-    * BOOLEAN accepts ``"true"`` or ``"false"`` (case-insensitive) only.
+      serializers.ValidationError
+      When the value violates the type constraint (non-numeric string for a
+      NUMBER question, unlisted value for SINGLE_SELECT, etc.).
     """
     qt = question.type
     v = (value or "").strip()
@@ -155,26 +141,10 @@ def _validate_value_for_question(
     return None
 
 
-# ===========================================================================
 # Model serializers
-# ===========================================================================
-
-
 class ExtractionSectionSerializer(serializers.ModelSerializer):
     """
     CRUD serializer for ExtractionSection.
-
-    Validation
-    ----------
-    * ``name`` uniqueness is enforced case-insensitively within the same review.
-      On update the current instance is excluded so a no-op PUT/PATCH does not
-      raise a false conflict.
-
-    Create
-    ------
-    * ``name`` is stripped of surrounding whitespace before saving.
-    * When ``order`` is omitted, the section is appended after the current
-      highest ``order`` value for that review (or assigned 1 if empty).
     """
 
     class Meta:
@@ -216,17 +186,6 @@ class ExtractionSectionSerializer(serializers.ModelSerializer):
 class ExtractionQuestionSerializer(serializers.ModelSerializer):
     """
     CRUD serializer for ExtractionQuestion.
-
-    Validation
-    ----------
-    * ``question`` and ``column_title`` are stripped of surrounding whitespace.
-    * ``single-select`` and ``multi-select`` questions must carry a non-empty
-      ``options`` list; other types should omit ``options`` (null is fine).
-
-    Create
-    ------
-    * When ``order`` is omitted, the question is appended after the current
-      highest ``order`` value within its section.
     """
 
     class Meta:
@@ -284,21 +243,6 @@ class ExtractionQuestionSerializer(serializers.ModelSerializer):
 class ExtractionAnswerSerializer(serializers.ModelSerializer):
     """
     CRUD serializer for ExtractionAnswer.
-
-    Validation
-    ----------
-    Delegates type-level value validation to ``_validate_value_for_question``.
-    The parsed ``value_number`` is stashed in ``validated_data["_value_number"]``
-    so ``create``/``update`` can persist it without a second parse.
-
-    Create
-    ------
-    Uses ``update_or_create`` on (reference, question) so calling create twice
-    with the same pair updates the existing row rather than raising IntegrityError.
-
-    Update
-    ------
-    Replaces ``value`` and ``value_number`` on the existing instance.
     """
 
     class Meta:
@@ -340,19 +284,10 @@ class ExtractionAnswerSerializer(serializers.ModelSerializer):
         return instance
 
 
-# ===========================================================================
 # Input / action serializers
-# ===========================================================================
-
-
 class ExtractionAnswerBulkSerializer(serializers.Serializer):
     """
     Validates all answers for a single reference submitted in one request.
-
-    ``answers`` maps question IDs (string keys) to answer values.  All
-    referenced questions are loaded in a single query; each value is validated
-    against its question's type and all errors are accumulated so the client
-    receives a complete report rather than failing on the first bad answer.
     """
 
     reference_id = serializers.IntegerField(
@@ -395,9 +330,6 @@ class ExtractionAnswerBulkSerializer(serializers.Serializer):
 class BatchAnswerSerializer(serializers.Serializer):
     """
     Single (reference, question, value) tuple.
-
-    Used internally; prefer ExtractionAnswerBulkSerializer for multi-answer
-    requests from the frontend.
     """
 
     reference_id = serializers.IntegerField()
@@ -418,17 +350,10 @@ class BulkUpdateExtractionStatusSerializer(serializers.Serializer):
     )
 
 
-# ===========================================================================
 # Read / table serializers
-# ===========================================================================
-
-
 class ExtractionQuestionTableSerializer(serializers.ModelSerializer):
     """
     Read-only serializer for question column headers in the extraction table.
-
-    Adds ``section_name`` (from ``section.name``) so the frontend can group
-    columns without a separate section request.
     """
 
     section_name = serializers.CharField(
@@ -455,11 +380,6 @@ class ExtractionQuestionTableSerializer(serializers.ModelSerializer):
 class ReferenceTableSerializer(ReferenceSerializer):
     """
     Extends ReferenceSerializer with extraction-specific fields.
-
-    ``answers`` maps question_id (int) → {id, value} and is built from
-    ``obj.extraction_answers`` which the view must prefetch to avoid N+1s.
-
-    ``is_extraction_completed`` is exposed directly from the Reference model.
     """
 
     answers = serializers.SerializerMethodField(
@@ -500,10 +420,6 @@ class ExtractionAnswerNestedSerializer(serializers.ModelSerializer):
 class ExtractionQuestionWithAnswerSerializer(serializers.ModelSerializer):
     """
     Question + the current reference's single answer.
-
-    The view attaches an ``ExtractionAnswer`` instance (or ``None``) as
-    ``question.user_answer`` before serialization.  ``get_answer`` reads that
-    attribute rather than issuing a DB query.
     """
 
     answer = serializers.SerializerMethodField(
@@ -538,9 +454,6 @@ class ExtractionQuestionWithAnswerSerializer(serializers.ModelSerializer):
 class ExtractionSectionWithQuestionsSerializer(serializers.ModelSerializer):
     """
     Full section tree: section → questions → answer for the current reference.
-
-    Used exclusively by the form-data endpoint which pre-attaches answers via
-    ``question.user_answer`` before passing sections to this serializer.
     """
 
     questions = ExtractionQuestionWithAnswerSerializer(many=True)
@@ -550,11 +463,7 @@ class ExtractionSectionWithQuestionsSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "order", "questions"]
 
 
-# ===========================================================================
 # Response serializers
-# ===========================================================================
-
-
 class BulkSaveResponseSerializer(serializers.Serializer):
     """Response payload returned by ExtractionAnswerViewSet.bulk_save."""
 

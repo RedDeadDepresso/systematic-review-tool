@@ -1,3 +1,4 @@
+// Sub-header row with bulk selection, layout toggles, and filter chip summary.
 import { ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import {

@@ -1,3 +1,4 @@
+// Dialog for creating or editing a review (title and description).
 import { Button } from '@/components/ui/button';
 import {
   Dialog,

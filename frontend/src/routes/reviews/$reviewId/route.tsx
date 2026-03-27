@@ -1,3 +1,4 @@
+// Review sub-tree layout: renders the shared ReviewHeader above child routes.
 import { ReviewHeader } from '@/components/blocks/review-header';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
 

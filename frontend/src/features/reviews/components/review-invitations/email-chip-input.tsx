@@ -1,3 +1,4 @@
+// Multi-email chip input for the invitation form.
 import React, { useState, type KeyboardEvent } from 'react';
 import { X } from 'lucide-react';
 import { Input } from '@/components/ui/input';

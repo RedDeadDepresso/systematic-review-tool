@@ -1,3 +1,4 @@
+// Charts and visualisations page for a review.
 import { AppLayoutContext } from '@/context/app-layout-context';
 import { ExtractionChartsDashboard } from '@/features/extraction/components/charts/extraction-charts-dashboard';
 import { createFileRoute } from '@tanstack/react-router';

@@ -1,3 +1,4 @@
+// Sidebar footer section showing the current user with logout and profile links.
 import {
   IconDotsVertical,
   IconKey,

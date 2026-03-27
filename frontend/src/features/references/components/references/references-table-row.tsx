@@ -1,3 +1,4 @@
+// Row variants for the references table (title-only, title+abstract, file view).
 import React from 'react';
 import { ExternalLink, Link2, Paperclip } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';

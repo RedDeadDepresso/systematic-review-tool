@@ -46,11 +46,6 @@ logger = logging.getLogger(__name__)
 class ZoteroService:
     """
     Thin wrapper around the pyzotero library.
-
-    All network calls are isolated in this class so they can be patched in
-    tests without importing pyzotero.  Every public method catches exceptions
-    and returns a safe fallback (empty list, None, or a failure dict) so
-    callers never have to guard against pyzotero-specific exceptions.
     """
 
     # Zotero hard limits — do not raise these; they are enforced by the API.

@@ -1,3 +1,4 @@
+// Section wrapper for a group of screening statistics.
 import {
   Collapsible,
   CollapsibleContent,

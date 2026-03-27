@@ -1,3 +1,4 @@
+// Pie/bar chart showing the distribution of member opinions.
 import { useMemo, useState } from 'react';
 import {
   Card,

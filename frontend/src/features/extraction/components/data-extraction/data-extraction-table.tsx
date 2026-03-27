@@ -1,3 +1,4 @@
+// Main data-extraction table: references as rows, questions as columns.
 import React, {
   useState,
   useMemo,

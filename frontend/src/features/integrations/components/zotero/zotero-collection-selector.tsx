@@ -1,3 +1,4 @@
+// Dropdown to select a Zotero collection for syncing.
 import { Button } from '@/components/ui/button';
 import {
   Dialog,

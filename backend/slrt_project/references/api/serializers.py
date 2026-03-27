@@ -2,38 +2,37 @@
 Serializers for the references app.
 
 Organisation
-------------
 Model serializers
-  UploadedPDFSerializer          — PDF uploads (model-backed)
-  BaseReferenceSerializer        — read-only reference fields shared by all views
-  ReferenceSerializer            — full reference with opinions, labels, assignee
-  ReferenceOpinionSerializer     — per-member opinion with cross-field validation
-  KeywordSerializer              — inclusion / exclusion keywords
-  NoteSerializer                 — per-member notes on a reference
-  LabelSerializer                — user-owned labels
-  ClusterMemberSerializer        — a single member inside a duplicate cluster
-  DuplicateClusterSerializer     — a cluster with its members
+UploadedPDFSerializer          — PDF uploads (model-backed)
+BaseReferenceSerializer        — read-only reference fields shared by all views
+ReferenceSerializer            — full reference with opinions, labels, assignee
+ReferenceOpinionSerializer     — per-member opinion with cross-field validation
+KeywordSerializer              — inclusion / exclusion keywords
+NoteSerializer                 — per-member notes on a reference
+LabelSerializer                — user-owned labels
+ClusterMemberSerializer        — a single member inside a duplicate cluster
+DuplicateClusterSerializer     — a cluster with its members
 
 Input / action serializers
-  AttachPDFMappingSerializer     — one mapping entry in an attach-PDFs request
-  AttachPDFsSerializer           — bulk PDF-attachment request
-  AutoMatchSerializer            — auto-match PDF request
-  BulkCreateNoteSerializer       — bulk note creation request
-  AssignReferencesSerializer     — assign / remove / split references
-  AssignLabelsSerializer         — apply / remove labels across references
-  ReferenceOpinionUpsertSerializer — bulk-upsert opinions
+AttachPDFMappingSerializer     — one mapping entry in an attach-PDFs request
+AttachPDFsSerializer           — bulk PDF-attachment request
+AutoMatchSerializer            — auto-match PDF request
+BulkCreateNoteSerializer       — bulk note creation request
+AssignReferencesSerializer     — assign / remove / split references
+AssignLabelsSerializer         — apply / remove labels across references
+ReferenceOpinionUpsertSerializer — bulk-upsert opinions
 
 Response serializers  (one per custom action, used for OpenAPI docs + validation)
-  AttachPDFsResponseSerializer       — attach-pdfs 200 payload
-  AutoMatchResponseSerializer        — auto-match 200 payload
-  BulkSyncPDFsResponseSerializer     — bulk-sync-pdfs 202 payload
-  AssignReferencesResponseSerializer — assign 200 payload
-  AssignLabelsResponseSerializer     — assign-to-references 200 payload
-  BulkCreateNoteResponseSerializer   — bulk-create note 201 payload
-  ResolveClusterResponseSerializer   — cluster resolve 200 payload
-  DismissClusterResponseSerializer   — cluster dismiss 200 payload
-  ClusterStatsResponseSerializer     — cluster stats 200 payload
-  ClusterListResponseSerializer      — cluster list 200 payload (progress metadata)
+AttachPDFsResponseSerializer       — attach-pdfs 200 payload
+AutoMatchResponseSerializer        — auto-match 200 payload
+BulkSyncPDFsResponseSerializer     — bulk-sync-pdfs 202 payload
+AssignReferencesResponseSerializer — assign 200 payload
+AssignLabelsResponseSerializer     — assign-to-references 200 payload
+BulkCreateNoteResponseSerializer   — bulk-create note 201 payload
+ResolveClusterResponseSerializer   — cluster resolve 200 payload
+DismissClusterResponseSerializer   — cluster dismiss 200 payload
+ClusterStatsResponseSerializer     — cluster stats 200 payload
+ClusterListResponseSerializer      — cluster list 200 payload (progress metadata)
 """
 
 from drf_spectacular.utils import extend_schema_field, extend_schema_serializer
@@ -62,21 +61,13 @@ from slrt_project.shared.permissions import (
 )
 
 
-# ===========================================================================
 # Model serializers
-# ===========================================================================
 
-# ---------------------------------------------------------------------------
+
 # UploadedPDF
-# ---------------------------------------------------------------------------
-
-
 class UploadedPDFSerializer(serializers.ModelSerializer):
     """
     Serialises an UploadedPDF.
-
-    ``name`` is derived from ``__str__`` so the extension is stripped and the
-    display name stays consistent with the stored filename.
     """
 
     name = serializers.SerializerMethodField()
@@ -97,18 +88,10 @@ class UploadedPDFSerializer(serializers.ModelSerializer):
         return value
 
 
-# ---------------------------------------------------------------------------
 # Reference (base — shared read fields)
-# ---------------------------------------------------------------------------
-
-
 class BaseReferenceSerializer(serializers.ModelSerializer):
     """
     Minimal, read-only reference payload.
-
-    Used as a nested serialiser inside ``ClusterMemberSerializer`` and as the
-    base for the full ``ReferenceSerializer``.  All fields are read-only so
-    it can never be used for writes by mistake.
     """
 
     # Show the name of the related SearchMethod instead of its PK.
@@ -133,21 +116,10 @@ class BaseReferenceSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-# ---------------------------------------------------------------------------
 # Reference (full — with opinions, labels, assignee)
-# ---------------------------------------------------------------------------
-
-
 class ReferenceSerializer(BaseReferenceSerializer):
     """
     Full reference serializer used in the review-data and screening views.
-
-    Derived fields (``opinions``, ``labels``, ``assignee``) are computed from
-    prefetched querysets attached by the view so that no extra DB queries are
-    fired per reference row.
-
-    The ``publication_date`` field is formatted as DD/MM/YYYY for the
-    frontend; this overrides the ISO format from the base class.
     """
 
     opinions = serializers.SerializerMethodField(
@@ -178,8 +150,6 @@ class ReferenceSerializer(BaseReferenceSerializer):
         """
         Returns opinions from the ``prefetched_opinions`` queryset attribute
         attached by the view.  Returns ``None`` (not ``[]``) when the view
-        has not prefetched opinions — this is an intentional sentinel that
-        the frontend interprets as "data not available".
         """
         opinions = getattr(obj, "prefetched_opinions", None)
         if opinions is None:
@@ -206,9 +176,6 @@ class ReferenceSerializer(BaseReferenceSerializer):
     def get_labels(self, obj: Reference):
         """
         Returns only labels that belong to the requesting user.
-
-        Reads from the ``prefetched_labels`` attribute when available to avoid
-        per-reference DB hits; falls back to a direct query otherwise.
         """
         user = self.context["request"].user
         reference_labels = getattr(obj, "prefetched_labels", None)
@@ -237,21 +204,10 @@ class ReferenceSerializer(BaseReferenceSerializer):
         }
 
 
-# ---------------------------------------------------------------------------
 # ReferenceOpinion
-# ---------------------------------------------------------------------------
-
-
 class ReferenceOpinionSerializer(serializers.ModelSerializer):
     """
     Serialiser for a single ReferenceOpinion record.
-
-    Validation rules
-    ----------------
-    - ``reason`` is only meaningful when ``status`` is EXCLUDED; it is
-      silently cleared for all other statuses.
-    - When a reason is supplied it must belong to the same review as the
-      reference (prevents cross-review data leakage).
     """
 
     # Display the member's __str__ instead of its PK.
@@ -284,17 +240,10 @@ class ReferenceOpinionSerializer(serializers.ModelSerializer):
         return attrs
 
 
-# ---------------------------------------------------------------------------
 # Keyword
-# ---------------------------------------------------------------------------
-
-
 class KeywordSerializer(serializers.ModelSerializer):
     """
     Inclusion / exclusion keyword for a review.
-
-    ``review`` is set by the view's ``perform_create`` — it is read-only here
-    to prevent clients from assigning keywords to arbitrary reviews.
     """
 
     class Meta:
@@ -303,17 +252,10 @@ class KeywordSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "review"]
 
 
-# ---------------------------------------------------------------------------
 # Note
-# ---------------------------------------------------------------------------
-
-
 class NoteSerializer(serializers.ModelSerializer):
     """
     A reviewer note attached to a specific reference.
-
-    ``member`` is nested and read-only (set from the request user by the view).
-    ``created_at`` and ``edited_at`` are managed by the model.
     """
 
     member = ReviewMemberSerializer(read_only=True)
@@ -324,19 +266,10 @@ class NoteSerializer(serializers.ModelSerializer):
         read_only_fields = ["member", "created_at", "edited_at"]
 
 
-# ---------------------------------------------------------------------------
 # Label
-# ---------------------------------------------------------------------------
-
-
 class LabelSerializer(serializers.ModelSerializer):
     """
     User-owned label.
-
-    ``user`` is injected by the view's ``perform_create``; it is read-only
-    here so clients cannot create labels on behalf of other users.
-
-    Validation enforces uniqueness of ``name`` per user.
     """
 
     class Meta:
@@ -354,11 +287,7 @@ class LabelSerializer(serializers.ModelSerializer):
         return value
 
 
-# ---------------------------------------------------------------------------
 # Reason
-# ---------------------------------------------------------------------------
-
-
 class ReasonSerializer(serializers.ModelSerializer):
     """Exclusion reason for a review."""
 
@@ -368,17 +297,10 @@ class ReasonSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
 
-# ---------------------------------------------------------------------------
 # Duplicate cluster
-# ---------------------------------------------------------------------------
-
-
 class ClusterMemberSerializer(serializers.ModelSerializer):
     """
     A single reference inside a duplicate cluster.
-
-    ``reference`` is nested (read-only) to give the frontend all the
-    information it needs to render the cluster UI without extra requests.
     """
 
     reference = BaseReferenceSerializer()
@@ -398,9 +320,6 @@ class ClusterMemberSerializer(serializers.ModelSerializer):
 class DuplicateClusterSerializer(serializers.ModelSerializer):
     """
     A duplicate cluster with all its member references.
-
-    Members are ordered by ``completeness_score`` descending (handled by the
-    view's queryset) so the frontend can always show the best candidate first.
     """
 
     members = ClusterMemberSerializer(many=True)
@@ -419,15 +338,10 @@ class DuplicateClusterSerializer(serializers.ModelSerializer):
         ]
 
 
-# ===========================================================================
 # Input / action serializers
-# ===========================================================================
 
-# ---------------------------------------------------------------------------
+
 # attach-pdfs
-# ---------------------------------------------------------------------------
-
-
 class AttachPDFMappingSerializer(serializers.Serializer):
     """One (reference → uploaded PDF) mapping entry."""
 
@@ -442,9 +356,6 @@ class AttachPDFMappingSerializer(serializers.Serializer):
 class AttachPDFsSerializer(serializers.Serializer):
     """
     Request body for the ``attach-pdfs`` action.
-
-    Accepts a list of mapping objects that pair each reference with the
-    uploaded PDF it should receive.
     """
 
     mappings = AttachPDFMappingSerializer(
@@ -453,17 +364,10 @@ class AttachPDFsSerializer(serializers.Serializer):
     )
 
 
-# ---------------------------------------------------------------------------
 # auto-match
-# ---------------------------------------------------------------------------
-
-
 class AutoMatchSerializer(serializers.Serializer):
     """
     Request body for the ``auto-match`` action.
-
-    The view will attempt DOI, exact-name, and trigram fuzzy matching to
-    attach uploaded PDFs to the given references automatically.
     """
 
     review_id = serializers.IntegerField(
@@ -475,11 +379,7 @@ class AutoMatchSerializer(serializers.Serializer):
     )
 
 
-# ---------------------------------------------------------------------------
 # bulk-create notes
-# ---------------------------------------------------------------------------
-
-
 class BulkCreateNoteSerializer(serializers.Serializer):
     """Request body for the ``bulk-create`` notes action."""
 
@@ -493,18 +393,10 @@ class BulkCreateNoteSerializer(serializers.Serializer):
     )
 
 
-# ---------------------------------------------------------------------------
 # assign references
-# ---------------------------------------------------------------------------
-
-
 class AssignReferencesSerializer(serializers.Serializer):
     """
     Request body for the ``assign`` action.
-
-    ``mode`` controls whether a specific member is assigned, the assignment
-    is removed, or references are split equally across all members.
-    ``assignee_id`` is required when ``mode`` is ``"assign"``.
     """
 
     review = serializers.IntegerField(help_text="Review PK.")
@@ -523,25 +415,10 @@ class AssignReferencesSerializer(serializers.Serializer):
     )
 
 
-# ---------------------------------------------------------------------------
 # assign labels to references
-# ---------------------------------------------------------------------------
-
-
 class AssignLabelsSerializer(serializers.Serializer):
     """
     Request body for the ``assign-to-references`` label action.
-
-    Cross-field validation
-    ----------------------
-    - The requesting user must be a review member with the ASSIGN_LABEL
-      permission.
-    - All ``reference_ids`` must belong to the supplied ``review``.
-    - All label IDs (checked + indeterminate) must belong to the requesting user.
-
-    After validation the ``validated_data`` dict is enriched with resolved
-    ORM objects (``member``, ``references``, ``labels``, ``checked_ids``,
-    ``indeterminate_ids``) so the view doesn't need to re-query anything.
     """
 
     review = serializers.PrimaryKeyRelatedField(
@@ -612,17 +489,10 @@ class AssignLabelsSerializer(serializers.Serializer):
         return data
 
 
-# ---------------------------------------------------------------------------
 # bulk-upsert opinions
-# ---------------------------------------------------------------------------
-
-
 class ReferenceOpinionUpsertSerializer(serializers.Serializer):
     """
     Request body for the ``bulk-upsert`` opinion action.
-
-    Deduplicates ``reference_ids`` automatically.
-    Clears ``reason`` for any status other than EXCLUDED.
     """
 
     reference_ids = serializers.ListField(
@@ -656,18 +526,13 @@ class ReferenceOpinionUpsertSerializer(serializers.Serializer):
         return attrs
 
 
-# ===========================================================================
 # Response serializers
 #
 # One per custom action.  Used by views to validate outgoing data AND by
 # drf-spectacular to generate accurate OpenAPI response schemas.
-# ===========================================================================
 
-# ---------------------------------------------------------------------------
+
 # attach-pdfs  →  200
-# ---------------------------------------------------------------------------
-
-
 class AttachedPDFItemSerializer(serializers.Serializer):
     """One updated reference entry in an attach-pdfs response."""
 
@@ -691,11 +556,7 @@ class AttachPDFsResponseSerializer(serializers.Serializer):
     )
 
 
-# ---------------------------------------------------------------------------
 # auto-match  →  200
-# ---------------------------------------------------------------------------
-
-
 @extend_schema_serializer(component_name="AutoMatchResponse")
 class AutoMatchResponseSerializer(serializers.Serializer):
     """200 OK response body for the ``auto-match`` action."""
@@ -708,11 +569,7 @@ class AutoMatchResponseSerializer(serializers.Serializer):
     )
 
 
-# ---------------------------------------------------------------------------
 # bulk-sync-pdfs  →  202
-# ---------------------------------------------------------------------------
-
-
 class SyncTaskSerializer(serializers.Serializer):
     """A single Celery task entry in a bulk-sync-pdfs response."""
 
@@ -731,11 +588,7 @@ class BulkSyncPDFsResponseSerializer(serializers.Serializer):
     )
 
 
-# ---------------------------------------------------------------------------
 # assign references  →  200
-# ---------------------------------------------------------------------------
-
-
 @extend_schema_serializer(component_name="AssignReferencesResponse")
 class AssignReferencesResponseSerializer(serializers.Serializer):
     """200 OK response body for the ``assign`` action."""
@@ -743,11 +596,7 @@ class AssignReferencesResponseSerializer(serializers.Serializer):
     detail = serializers.CharField(help_text="Human-readable confirmation message.")
 
 
-# ---------------------------------------------------------------------------
 # assign-to-references (labels)  →  200
-# ---------------------------------------------------------------------------
-
-
 @extend_schema_serializer(component_name="AssignLabelsResponse")
 class AssignLabelsResponseSerializer(serializers.Serializer):
     """200 OK response body for the ``assign-to-references`` action."""
@@ -761,11 +610,7 @@ class AssignLabelsResponseSerializer(serializers.Serializer):
     )
 
 
-# ---------------------------------------------------------------------------
 # bulk-create notes  →  201
-# ---------------------------------------------------------------------------
-
-
 @extend_schema_serializer(component_name="BulkCreateNoteResponse")
 class BulkCreateNoteResponseSerializer(serializers.Serializer):
     """201 Created response body for the note ``bulk-create`` action."""
@@ -773,11 +618,7 @@ class BulkCreateNoteResponseSerializer(serializers.Serializer):
     created = serializers.IntegerField(help_text="Number of Note rows created.")
 
 
-# ---------------------------------------------------------------------------
 # cluster resolve  →  200
-# ---------------------------------------------------------------------------
-
-
 @extend_schema_serializer(component_name="ResolveClusterResponse")
 class ResolveClusterResponseSerializer(serializers.Serializer):
     """200 OK response body for the cluster ``resolve`` action."""
@@ -789,11 +630,7 @@ class ResolveClusterResponseSerializer(serializers.Serializer):
     )
 
 
-# ---------------------------------------------------------------------------
 # cluster dismiss  →  200
-# ---------------------------------------------------------------------------
-
-
 @extend_schema_serializer(component_name="DismissClusterResponse")
 class DismissClusterResponseSerializer(serializers.Serializer):
     """200 OK response body for the cluster ``dismiss`` action."""
@@ -802,11 +639,7 @@ class DismissClusterResponseSerializer(serializers.Serializer):
     clusterId = serializers.CharField(help_text="UUID of the dismissed cluster.")
 
 
-# ---------------------------------------------------------------------------
 # cluster stats  →  200
-# ---------------------------------------------------------------------------
-
-
 @extend_schema_serializer(component_name="ClusterStatsResponse")
 class ClusterStatsResponseSerializer(serializers.Serializer):
     """200 OK response body for the cluster ``stats`` action."""
@@ -820,18 +653,11 @@ class ClusterStatsResponseSerializer(serializers.Serializer):
     )
 
 
-# ---------------------------------------------------------------------------
 # cluster list  →  200
-# ---------------------------------------------------------------------------
-
-
 @extend_schema_serializer(component_name="ClusterListResponse")
 class ClusterListResponseSerializer(serializers.Serializer):
     """
     200 OK response body for the cluster ``list`` action.
-
-    Wraps the paginated cluster data with review-level progress metadata so
-    the frontend can render a progress bar without a separate request.
     """
 
     clusters = DuplicateClusterSerializer(many=True)

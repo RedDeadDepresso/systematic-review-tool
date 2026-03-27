@@ -1,3 +1,4 @@
+// Theme selection control rendered inside the sidebar.
 import {
   DropdownMenu,
   DropdownMenuContent,

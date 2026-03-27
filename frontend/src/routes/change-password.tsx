@@ -1,3 +1,4 @@
+// Authenticated route for changing the current user's password.
 import { createFileRoute } from '@tanstack/react-router';
 import { useContext, useEffect } from 'react';
 import { AppLayoutContext } from '@/context/app-layout-context';

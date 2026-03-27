@@ -1,3 +1,4 @@
+// Route for requesting a password-reset email (unauthenticated only).
 import { redirectAuthenticated } from '@/features/users/api/auth';
 import { RequestPasswordResetForm } from '@/features/users/components/request-password-reset-form';
 import { AppLayoutContext } from '@/context/app-layout-context';

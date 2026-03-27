@@ -1,3 +1,4 @@
+// Data extraction page.
 import { DataExtractionTable } from '@/features/extraction/components/data-extraction/data-extraction-table';
 import { PDFDialog } from '@/components/blocks/pdf-dialog/pdf-dialog';
 import { FileUploadDialog } from '@/components/blocks/file-upload-dialog';

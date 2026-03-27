@@ -1,3 +1,4 @@
+// Form for changing the authenticated user's password.
 import { Button } from '@/components/ui/button';
 import {
   Card,

@@ -1,3 +1,4 @@
+// Dialog for viewing or managing a PDF already attached to a reference.
 import { FileText, Trash2, SaveOff } from 'lucide-react';
 import {
   Dialog,

@@ -1,3 +1,4 @@
+// Popup shown on an existing highlight with edit/delete actions.
 import type { ViewportHighlight } from 'react-pdf-highlighter-plus';
 import { type CommentedHighlight } from '@/features/coding/types/codes';
 

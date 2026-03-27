@@ -1,16 +1,3 @@
-"""
-Tests for slrt_project/reviews/serializers.py.
-
-Strategy
---------
-- No-DB tests (no marker): pure serializer logic — validation, field presence,
-  computed fields — exercised with plain dicts or minimal MagicMock objects.
-- DB tests (@pytest.mark.django_db): serializers whose output depends on real
-  ORM relations (nested objects, StringRelatedField) use factories.
-
-One class per serializer; within each class one method per behaviour.
-"""
-
 import pytest
 
 from slrt_project.reviews.api.serializers import (
@@ -51,11 +38,7 @@ from slrt_project.reviews.tests.factories import (
 )
 
 
-# ===========================================================================
 # ReviewMemberSerializer
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestReviewMemberSerializer:
     def test_fields_present(self):
@@ -113,11 +96,7 @@ class TestReviewMemberSerializer:
         assert field.read_only
 
 
-# ===========================================================================
 # ScreeningStatSerializer
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestScreeningStatSerializer:
     def _stat(
@@ -174,11 +153,7 @@ class TestScreeningStatSerializer:
         assert data["sessions"] == 5
 
 
-# ===========================================================================
 # OpinionStatsSerializer
-# ===========================================================================
-
-
 class TestOpinionStatsSerializer:
     def _valid(self):
         return {
@@ -219,11 +194,7 @@ class TestOpinionStatsSerializer:
         assert not OpinionStatsSerializer(data=d).is_valid()
 
 
-# ===========================================================================
 # ReviewSerializer
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestReviewSerializer:
     def _annotated(self, **kwargs):
@@ -283,11 +254,7 @@ class TestReviewSerializer:
         assert re.match(r"\d{2} \w{3} \d{4}", data["date_created"])
 
 
-# ===========================================================================
 # ReviewListSerializer
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestReviewListSerializer:
     def _annotated(
@@ -348,11 +315,7 @@ class TestReviewListSerializer:
         assert re.match(r"\d{2} \w{3} \d{4}", data["date_created"])
 
 
-# ===========================================================================
 # ReviewInvitationCreateSerializer
-# ===========================================================================
-
-
 class TestReviewInvitationCreateSerializer:
     def test_valid(self):
         s = ReviewInvitationCreateSerializer(data={"review": 1, "emails": ["a@x.com"]})
@@ -381,11 +344,7 @@ class TestReviewInvitationCreateSerializer:
         assert "review" in s.errors
 
 
-# ===========================================================================
 # ReviewInvitationSerializer
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestReviewInvitationSerializer:
     def test_fields_present(self):
@@ -414,11 +373,7 @@ class TestReviewInvitationSerializer:
         assert re.match(r"\d{2} \w{3} \d{4}", data["created_at"])
 
 
-# ===========================================================================
 # ScreeningCriteriaSerializer
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestScreeningCriteriaSerializer:
     def test_fields_present(self):
@@ -454,11 +409,7 @@ class TestScreeningCriteriaSerializer:
         assert "type" in s.errors
 
 
-# ===========================================================================
 # LabelCountSerializer
-# ===========================================================================
-
-
 class TestLabelCountSerializer:
     def test_valid(self):
         s = LabelCountSerializer(
@@ -475,11 +426,7 @@ class TestLabelCountSerializer:
         assert not s.is_valid()
 
 
-# ===========================================================================
 # ArticleCountSerializer
-# ===========================================================================
-
-
 class TestArticleCountSerializer:
     def test_valid(self):
         s = ArticleCountSerializer(
@@ -503,11 +450,7 @@ class TestArticleCountSerializer:
         assert not s.is_valid()
 
 
-# ===========================================================================
 # AddDataSerializer
-# ===========================================================================
-
-
 class TestAddDataSerializer:
     def _valid(self, source="screening", sink="full-text", types=None):
         return {
@@ -560,11 +503,7 @@ class TestAddDataSerializer:
         assert s.is_valid(), s.errors
 
 
-# ===========================================================================
 # SearchMethodSerializer / SearchMethodDetailSerializer
-# ===========================================================================
-
-
 @pytest.mark.django_db
 class TestSearchMethodSerializer:
     def test_fields(self):
@@ -586,11 +525,7 @@ class TestSearchMethodDetailSerializer:
         assert set(data.keys()) == {"id", "name"}
 
 
-# ===========================================================================
 # DetectDuplicatesRequestSerializer
-# ===========================================================================
-
-
 class TestDetectDuplicatesRequestSerializer:
     def test_default_threshold(self):
         s = DetectDuplicatesRequestSerializer(data={})
@@ -618,11 +553,7 @@ class TestDetectDuplicatesRequestSerializer:
             assert s.is_valid(), f"threshold={v} should be valid"
 
 
-# ===========================================================================
 # DetectDuplicatesResponseSerializer
-# ===========================================================================
-
-
 class TestDetectDuplicatesResponseSerializer:
     def test_valid(self):
         s = DetectDuplicatesResponseSerializer(
@@ -646,11 +577,7 @@ class TestDetectDuplicatesResponseSerializer:
         assert not s.is_valid()
 
 
-# ===========================================================================
 # AutoResolveDuplicatesRequestSerializer
-# ===========================================================================
-
-
 class TestAutoResolveDuplicatesRequestSerializer:
     def _valid(self):
         return {
@@ -704,11 +631,7 @@ class TestAutoResolveDuplicatesRequestSerializer:
         assert "preferred_search_method_id" in s.errors
 
 
-# ===========================================================================
 # UploadReferencesResponseSerializer
-# ===========================================================================
-
-
 class TestUploadReferencesResponseSerializer:
     def test_valid(self):
         s = UploadReferencesResponseSerializer(
@@ -750,11 +673,7 @@ class TestUploadReferencesResponseSerializer:
         assert not s.is_valid()
 
 
-# ===========================================================================
 # AddDataResponseSerializer
-# ===========================================================================
-
-
 class TestAddDataResponseSerializer:
     def test_valid(self):
         s = AddDataResponseSerializer(data={"updated": 5})
@@ -771,11 +690,7 @@ class TestAddDataResponseSerializer:
         assert "updated" in s.errors
 
 
-# ===========================================================================
 # AutoResolveDuplicatesResponseSerializer
-# ===========================================================================
-
-
 class TestAutoResolveDuplicatesResponseSerializer:
     def test_valid(self):
         s = AutoResolveDuplicatesResponseSerializer(
@@ -807,11 +722,7 @@ class TestAutoResolveDuplicatesResponseSerializer:
         assert not s.is_valid()
 
 
-# ===========================================================================
 # PrismaValidationIssueSerializer
-# ===========================================================================
-
-
 class TestPrismaValidationIssueSerializer:
     def test_valid(self):
         s = PrismaValidationIssueSerializer(
@@ -824,11 +735,7 @@ class TestPrismaValidationIssueSerializer:
         assert not s.is_valid()
 
 
-# ===========================================================================
 # PrismaResponseSerializer
-# ===========================================================================
-
-
 class TestPrismaResponseSerializer:
     def _valid(self):
         return {
@@ -865,11 +772,7 @@ class TestPrismaResponseSerializer:
         assert not PrismaResponseSerializer(data=d).is_valid()
 
 
-# ===========================================================================
 # ExportJsonResponseSerializer
-# ===========================================================================
-
-
 class TestExportJsonResponseSerializer:
     def _valid(self):
         return {
@@ -919,11 +822,7 @@ class TestExportJsonResponseSerializer:
         assert not ExportJsonResponseSerializer(data=d).is_valid()
 
 
-# ===========================================================================
 # ExportLatexResponseSerializer
-# ===========================================================================
-
-
 class TestExportLatexResponseSerializer:
     def test_valid_table_only(self):
         s = ExportLatexResponseSerializer(
@@ -974,11 +873,7 @@ class TestExportLatexResponseSerializer:
         assert not s.is_valid()
 
 
-# ===========================================================================
 # InvitationAcceptDeclineResponseSerializer
-# ===========================================================================
-
-
 class TestInvitationAcceptDeclineResponseSerializer:
     def test_valid(self):
         s = InvitationAcceptDeclineResponseSerializer(

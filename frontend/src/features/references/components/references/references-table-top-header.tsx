@@ -1,3 +1,4 @@
+// Top header with column labels and sort controls for the references table.
 import type { OrderingField } from '@/features/references/api/references';
 import {
   ArrowUp,

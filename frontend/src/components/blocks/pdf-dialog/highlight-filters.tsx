@@ -1,3 +1,4 @@
+// Filter controls for the highlight sidebar (by author, colour, etc.).
 import { Search, FileText, Square } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';

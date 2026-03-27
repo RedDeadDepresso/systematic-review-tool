@@ -1,3 +1,4 @@
+// Table of current review members with role and removal actions.
 import * as React from 'react';
 import { IconDotsVertical } from '@tabler/icons-react';
 import {

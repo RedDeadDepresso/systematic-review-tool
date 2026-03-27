@@ -1,3 +1,4 @@
+// Generic TanStack table with sorting, pagination, column toggle, and a mobile card layout.
 import * as React from 'react';
 import {
   IconChevronLeft,
@@ -381,6 +382,7 @@ export function DataTable<TData>({
   showPagination = true,
   emptyMessage = 'No results.',
 }: DataTableProps<TData>) {
+  // 'use no memo' prevents React Compiler from memoising this component, which would mask table state updates
   'use no memo';
   const isMobile = useIsMobile();
   const hasToolbar = toolbar != null || toolbarActions != null;

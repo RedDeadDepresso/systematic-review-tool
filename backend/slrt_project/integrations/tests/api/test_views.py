@@ -2,26 +2,11 @@
 Tests for slrt_project/integrations/api/views.py.
 
 Strategy
---------
 All tests use APIRequestFactory + the module-level ``bypass_is_authenticated``
 autouse fixture.
 
-Celery tasks are always patched to a MagicMock so tests never enqueue real
-work.  ZoteroService is patched wherever it makes outbound API calls.
-_reset_sync_data is the internal helper and is tested via its effects on DB
-rows rather than being patched.
-
-No-DB tests (plain pytest class, no marker)
-    Guard branches that return early without touching the DB
-    (missing params, invalid actions).
-
-DB tests (@pytest.mark.django_db)
-    Full round-trip tests using real DB rows + factories.
-
-One class per action; one method per behaviour.
-
 Run with:
-    pytest slrt_project/integrations/tests/api/test_views.py -v
+pytest slrt_project/integrations/tests/api/test_views.py -v
 """
 
 from unittest.mock import MagicMock, patch
@@ -40,9 +25,7 @@ from slrt_project.reviews.tests.factories import ReviewFactory
 factory = APIRequestFactory()
 
 
-# ---------------------------------------------------------------------------
 # Autouse fixtures
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture(autouse=True)
@@ -73,9 +56,7 @@ def mock_celery_tasks():
         yield {"push": push, "pull": pull, "task": mock_task}
 
 
-# ---------------------------------------------------------------------------
 # Shared helpers
-# ---------------------------------------------------------------------------
 
 
 def make_user(pk=1):
@@ -92,9 +73,7 @@ def _viewset():
     return ZoteroIntegrationViewSet
 
 
-# ===========================================================================
 # _reset_sync_data helper
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -136,9 +115,7 @@ class TestResetSyncData:
         assert count == 2
 
 
-# ===========================================================================
 # create
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -210,9 +187,7 @@ class TestZoteroIntegrationCreate:
         assert "api_key" not in response.data
 
 
-# ===========================================================================
 # update
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -255,9 +230,7 @@ class TestZoteroIntegrationUpdate:
         assert response.data["sync_action_performed"] is None
 
 
-# ===========================================================================
 # destroy
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -340,9 +313,7 @@ class TestZoteroIntegrationDestroy:
         assert not ZoteroSyncLog.objects.filter(review=integration.review).exists()
 
 
-# ===========================================================================
 # status action
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -381,9 +352,7 @@ class TestZoteroStatusAction:
         assert len(response.data["recent_syncs"]) <= 10
 
 
-# ===========================================================================
 # collections action
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -418,9 +387,7 @@ class TestZoteroCollectionsAction:
         assert response.data["collections"][0]["key"] == "COL1"
 
 
-# ===========================================================================
 # deletion_preview action
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -457,9 +424,7 @@ class TestZoteroDeletionPreviewAction:
         assert response.data["collection"] is not None
 
 
-# ===========================================================================
 # set_collection action
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -507,9 +472,7 @@ class TestZoteroSetCollectionAction:
         assert integration.collection_key is None
 
 
-# ===========================================================================
 # push action
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -567,9 +530,7 @@ class TestZoteroPushAction:
         assert response.status_code == status.HTTP_202_ACCEPTED
 
 
-# ===========================================================================
 # pull action
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -611,9 +572,7 @@ class TestZoteroPullAction:
         )
 
 
-# ===========================================================================
 # task_status action
-# ===========================================================================
 
 
 class TestZoteroTaskStatusAction:
@@ -655,9 +614,7 @@ class TestZoteroTaskStatusAction:
         assert "error" in response.data
 
 
-# ===========================================================================
 # toggle_active action
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -690,9 +647,7 @@ class TestZoteroToggleActiveAction:
         assert integration.is_active is False
 
 
-# ===========================================================================
 # create_collection action
-# ===========================================================================
 
 
 @pytest.mark.django_db

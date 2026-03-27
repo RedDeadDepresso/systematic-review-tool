@@ -1,3 +1,4 @@
+// Buttons to expand or collapse all theme groups at once.
 import { Button } from '@/components/ui/button';
 import { ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 

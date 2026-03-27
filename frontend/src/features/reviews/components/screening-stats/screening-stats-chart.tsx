@@ -1,3 +1,4 @@
+// Chart visualising overall screening progress.
 import { useMemo, useState } from 'react';
 import {
   Card,

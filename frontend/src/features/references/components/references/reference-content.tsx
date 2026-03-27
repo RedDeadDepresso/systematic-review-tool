@@ -1,3 +1,4 @@
+// Detailed content view of a single reference (title, abstract, metadata).
 import { highlightText } from '@/lib/highlight-text';
 import { cn } from '@/lib/utils';
 import type { Reference } from '@/features/references/types/references';

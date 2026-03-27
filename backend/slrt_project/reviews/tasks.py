@@ -23,6 +23,8 @@ import logging
 import bibtexparser
 import rispy
 from celery import shared_task
+from django.conf import settings
+from django.core.mail import send_mail
 from lxml import etree
 
 from slrt_project.references.models import (
@@ -721,3 +723,33 @@ def _get_extractor(file_type: str):
     # _parse_file guards against unsupported types before we get here, so
     # this lookup will always succeed for the three known types.
     return extractors[file_type]
+
+
+@shared_task
+def send_review_invitation_email(email, review_title, invited_by_email, role):
+    frontend_url = settings.FRONTEND_BASE_URL
+
+    subject = f"You've been invited to a review: {review_title}"
+
+    message = f"""
+Hi,
+
+You've been invited by {invited_by_email} to join the review "{review_title}" as a {role}.
+
+To accept the invitation:
+1. Go to {frontend_url}
+2. Log in or create an account using this email ({email})
+3. Once logged in, you'll see the invitation.
+
+If you don't have an account yet, please sign up using the same email.
+
+Thanks!
+"""
+
+    send_mail(
+        subject,
+        message,
+        settings.DEFAULT_FROM_EMAIL,
+        [email],
+        fail_silently=False,
+    )

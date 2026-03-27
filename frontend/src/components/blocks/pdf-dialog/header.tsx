@@ -1,3 +1,4 @@
+// Header bar for the PDF dialog with navigation and zoom controls.
 import {
   Download,
   Minus,

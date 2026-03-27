@@ -1,3 +1,4 @@
+// Renders API error responses as a red list, or a generic network-error message.
 import type { JSX } from 'react';
 
 export function errorMessage(error: any) {
@@ -9,6 +10,7 @@ export function errorMessage(error: any) {
 
   const data = error.response.data;
 
+  // Recursively flattens arrays and objects from the API error body into <li> elements
   const renderMessages = (messages: any, prefix = ''): JSX.Element[] => {
     if (Array.isArray(messages)) {
       return messages.map((msg, i) => (

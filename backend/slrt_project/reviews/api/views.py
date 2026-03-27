@@ -1,11 +1,3 @@
-"""
-Views for the reviews app.
-
-All viewsets and generic views live here. Custom-response serializers
-(upload confirmations, task-dispatch payloads, etc.) are declared in
-serializers.py and imported alongside the standard model serializers.
-"""
-
 import json
 import logging
 import os
@@ -85,6 +77,7 @@ from slrt_project.reviews.tasks import (
     auto_deduplicate_task,
     detect_duplicates_task,
     import_references_task,
+    send_review_invitation_email,
 )
 from slrt_project.reviews.utils import strip_ansi
 from slrt_project.shared.permissions import (
@@ -105,11 +98,7 @@ _ALLOWED_UPLOAD_EXTENSIONS = {".bib", ".ris", ".xml"}
 _EXT_TO_FILE_TYPE = {".bib": "bib", ".ris": "ris", ".xml": "endnote"}
 
 
-# ---------------------------------------------------------------------------
 # ReviewViewSet
-# ---------------------------------------------------------------------------
-
-
 @extend_schema_view(
     list=extend_schema(
         summary="List reviews",
@@ -142,21 +131,13 @@ class ReviewViewSet(viewsets.ModelViewSet):
     """
     CRUD for Review objects plus custom actions for members, screening,
     duplicate detection, data promotion, and exports.
-
-    Permissions
-    -----------
-    - List / Retrieve : any authenticated member.
-    - Create          : any authenticated user.
-    - Update / Delete : Owner only (``IsReviewOwner``).
     """
 
     permission_classes = [IsAuthenticated]
     filter_backends = (filters.DjangoFilterBackend,)
     filterset_class = ReviewFilter
 
-    # ------------------------------------------------------------------
     # Queryset / serializer selection
-    # ------------------------------------------------------------------
 
     def get_queryset(self):
         user = self.request.user
@@ -262,9 +243,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
             role=ReviewMember.Role.OWNER,
         )
 
-    # ------------------------------------------------------------------
     # Read-only custom actions
-    # ------------------------------------------------------------------
 
     @extend_schema(
         summary="List review members",
@@ -391,9 +370,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
         qs = SearchMethod.objects.filter(review=review)
         return Response(SearchMethodDetailSerializer(qs, many=True).data)
 
-    # ------------------------------------------------------------------
     # Write custom actions
-    # ------------------------------------------------------------------
 
     @extend_schema(
         summary="Upload a reference file (BibTeX / RIS / EndNote XML)",
@@ -477,12 +454,6 @@ class ReviewViewSet(viewsets.ModelViewSet):
         """
         Move references matching the supplied criteria from one stage to
         another.
-
-        Valid source → sink combinations::
-
-            screening → full-text
-            screening → extraction
-            full-text → extraction
         """
         review = self.get_object()
         check_permission(Permission.ADD_DATA, request.user, review)
@@ -667,9 +638,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
         }
         return Response(ExportLatexResponseSerializer(payload).data)
 
-    # ------------------------------------------------------------------
     # Duplicate detection actions
-    # ------------------------------------------------------------------
 
     @extend_schema(
         summary="Start async duplicate detection",
@@ -749,18 +718,6 @@ class ReviewViewSet(viewsets.ModelViewSet):
     def auto_resolve_duplicates(self, request, pk=None):
         """
         Enqueue an auto-resolution task.  Optionally runs detection first.
-
-        Request body fields (all optional):
-
-        ==================== ======= =======
-        Field                Type    Default
-        ==================== ======= =======
-        confidence_threshold float   0.90
-        detect_first         bool    True
-        fuzzy_threshold      float   0.50
-        doi_clusters_always  bool    True
-        preferred_search_method_id int null
-        ==================== ======= =======
         """
         review = self.get_object()
         member = self._require_duplicate_permission(request, review)
@@ -788,9 +745,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
             status=status.HTTP_202_ACCEPTED,
         )
 
-    # ------------------------------------------------------------------
     # Private helpers
-    # ------------------------------------------------------------------
 
     def _require_duplicate_permission(
         self, request, review
@@ -813,10 +768,6 @@ class ReviewViewSet(viewsets.ModelViewSet):
     def _create_search_method(self, review, uploaded_file) -> "SearchMethod | Response":
         """
         Persist a SearchMethod with a name that is unique within the review.
-
-        If the original filename already exists, a numeric suffix is appended
-        (e.g. ``refs_1.bib``, ``refs_2.bib``).  Returns a 500 Response on
-        unexpected failure.
         """
         base_name = uploaded_file.name
         name, counter = base_name, 1
@@ -1115,11 +1066,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
         return f"{base_url}?{urlencode(params)}"
 
 
-# ---------------------------------------------------------------------------
 # ReviewInvitationViewSet
-# ---------------------------------------------------------------------------
-
-
 @extend_schema_view(
     create=extend_schema(
         summary="Invite one or more users to a review",
@@ -1150,11 +1097,6 @@ class ReviewInvitationViewSet(
 ):
     """
     Manages review invitations.
-
-    - **Create**: owner / collaborator sends invitations to one or more emails.
-    - **List**: sent or received invitations (``?type=sent|received``).
-    - **Accept / Decline**: custom POST actions on a specific invitation.
-    - **Destroy**: sender only.
     """
 
     serializer_class = ReviewInvitationSerializer
@@ -1205,13 +1147,25 @@ class ReviewInvitationViewSet(
         # Skip the requester themselves, current members, and already-invited.
         skip = {request.user.email} | existing_members | existing_invited
 
-        created = [
-            ReviewInvitation.objects.create(
+        created = []
+
+        for email in emails:
+            if email in skip:
+                continue
+
+            invitation = ReviewInvitation.objects.create(
                 email=email, review=review, invited_by=request.user, role=role
             )
-            for email in emails
-            if email not in skip
-        ]
+
+            created.append(invitation)
+
+            # Trigger async email
+            send_review_invitation_email.delay(
+                email=email,
+                review_title=review.title,
+                invited_by_email=request.user.email,
+                role=role,
+            )
 
         return Response(ReviewInvitationSerializer(created, many=True).data, status=201)
 
@@ -1268,11 +1222,7 @@ class ReviewInvitationViewSet(
         )
 
 
-# ---------------------------------------------------------------------------
 # ScreeningCriteriaViewSet
-# ---------------------------------------------------------------------------
-
-
 @extend_schema_view(
     list=extend_schema(summary="List screening criteria"),
     retrieve=extend_schema(summary="Retrieve a criterion"),
@@ -1284,9 +1234,6 @@ class ReviewInvitationViewSet(
 class ScreeningCriteriaViewSet(viewsets.ModelViewSet):
     """
     CRUD for ScreeningCriteria.
-
-    - **Read**: any review member.
-    - **Write**: owner / collaborator only (enforced in ``perform_*`` hooks).
     """
 
     serializer_class = ScreeningCriteriaSerializer
@@ -1328,11 +1275,7 @@ class ScreeningCriteriaViewSet(viewsets.ModelViewSet):
         instance.delete()
 
 
-# ---------------------------------------------------------------------------
 # ReviewMemberRetrieveUpdateDestroyView
-# ---------------------------------------------------------------------------
-
-
 @extend_schema_view(
     retrieve=extend_schema(summary="Retrieve a review member"),
     update=extend_schema(summary="Update a member's role (owner only)"),
@@ -1346,8 +1289,6 @@ class ScreeningCriteriaViewSet(viewsets.ModelViewSet):
 class ReviewMemberRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     """
     Retrieve, update role, or remove a single ReviewMember.
-
-    Requires MODIFY_REVIEW permission.  The review owner cannot be removed.
     """
 
     serializer_class = ReviewMemberSerializer
@@ -1365,9 +1306,7 @@ class ReviewMemberRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVie
         instance.delete()
 
 
-# ---------------------------------------------------------------------------
 # SearchMethodDestroyView
-# ---------------------------------------------------------------------------
 
 
 @extend_schema(

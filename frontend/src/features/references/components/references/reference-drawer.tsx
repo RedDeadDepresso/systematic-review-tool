@@ -1,3 +1,4 @@
+// Slide-in drawer showing full reference details and actions.
 import { type ReactNode } from 'react';
 
 import { useEffect, useState } from 'react';

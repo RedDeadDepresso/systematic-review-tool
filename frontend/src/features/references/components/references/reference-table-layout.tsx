@@ -1,3 +1,4 @@
+// Layout wrapper that positions the references table and optional side panel.
 /**
  * ReferenceTableLayout
  *

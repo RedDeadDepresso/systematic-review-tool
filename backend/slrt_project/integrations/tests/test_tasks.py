@@ -2,28 +2,12 @@
 Tests for slrt_project/integrations/tasks.py.
 
 Strategy
---------
 Helper functions (zotero_type_to_pub_type, format_creators, parse_zotero_date,
 get_or_create_zotero_search_method) are tested as plain unit tests — no mocking
 required because they have no side effects.
 
-send_task_update is tested by patching the channel layer.
-
-Task functions (push_references_to_zotero_task,
-pull_references_from_zotero_task, sync_single_reference_pdf) are tested by
-patching ZoteroService and Celery machinery so no real broker is needed.  The
-task function is called directly (not via .delay()) to keep tests synchronous.
-
-No-DB (plain pytest class, no marker)
-    Helper functions with pure-Python logic.
-
-DB (@pytest.mark.django_db)
-    Tasks that create/update DB rows; send_task_update integration.
-
-One class per function / task; one method per behaviour.
-
 Run with:
-    pytest slrt_project/integrations/tests/test_tasks.py -v
+pytest slrt_project/integrations/tests/test_tasks.py -v
 """
 
 import contextlib
@@ -33,9 +17,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-# ===========================================================================
 # zotero_type_to_pub_type
-# ===========================================================================
 
 
 class TestZoteroTypeToPubType:
@@ -66,9 +48,7 @@ class TestZoteroTypeToPubType:
         assert self._fn("") == "journal article"
 
 
-# ===========================================================================
 # format_creators
-# ===========================================================================
 
 
 class TestFormatCreators:
@@ -114,9 +94,7 @@ class TestFormatCreators:
         assert self._fn(creators) == ""
 
 
-# ===========================================================================
 # parse_zotero_date
-# ===========================================================================
 
 
 class TestParseZoteroDate:
@@ -157,9 +135,7 @@ class TestParseZoteroDate:
         assert isinstance(result, date)
 
 
-# ===========================================================================
 # send_task_update
-# ===========================================================================
 
 
 class TestSendTaskUpdate:
@@ -217,9 +193,7 @@ class TestSendTaskUpdate:
         assert sent_data.get("result") == {"pushed": 5}
 
 
-# ===========================================================================
 # get_or_create_zotero_search_method
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -245,32 +219,13 @@ class TestGetOrCreateZoteroSearchMethod:
         assert count == 1
 
 
-# ===========================================================================
 # push_references_to_zotero_task
-# ===========================================================================
 
 
 @contextlib.contextmanager
 def _patch_task(task, retries=0, max_retries=3):
     """
     Patch a real Celery task object in-place for unit testing bind=True tasks.
-
-    For bind=True tasks, Celery injects the real task instance as ``self``
-    when the task is called normally: ``task(arg)`` → ``task.run(task, arg)``.
-    Tests therefore call ``task(arg)`` without a hand-rolled mock self.
-
-    This context manager:
-      - Sets the request context via push_request/pop_request (the
-        Celery-documented way to provide self.request.id etc. in tests).
-      - Patches task.retry via patch.object so that it raises immediately
-        rather than re-enqueuing to a broker.  patch.object is used instead
-        of direct attribute assignment because Celery's retry is resolved
-        as a bound method and a plain assignment can be bypassed.
-
-    Usage::
-
-        with _patch_task(push_references_to_zotero_task):
-            result = push_references_to_zotero_task(review_id)
     """
     retry_mock = MagicMock(side_effect=Exception("celery-retry"))
     task.push_request(id="test-task-id", retries=retries)
@@ -377,9 +332,7 @@ class TestPushReferencesTask:
         assert integration.last_push_at is not None
 
 
-# ===========================================================================
 # pull_references_from_zotero_task
-# ===========================================================================
 
 
 def _zotero_item(key="K1", item_type="journalArticle", title="Test Paper"):
@@ -555,9 +508,7 @@ class TestPullReferencesTask:
         svc.download_pdf_file.assert_called_once_with("PDFATT")
 
 
-# ===========================================================================
 # sync_single_reference_pdf
-# ===========================================================================
 
 
 @pytest.mark.django_db

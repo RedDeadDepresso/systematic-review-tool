@@ -1,3 +1,4 @@
+// Shell layout that wraps all pages; handles scroll and sidebar visibility via context.
 import { AppSidebar } from '@/components/blocks/app-layout/app-sidebar';
 import {
   SidebarInset,

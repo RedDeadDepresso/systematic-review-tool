@@ -1,56 +1,16 @@
-"""
-Tests for slrt_project/reviews/utils.py and the reference-import /
-duplicate-detection Celery tasks.
-
-Strategy
---------
-Pure utility functions (parse_bibtex_date, parse_ris_date, etc.) are tested as
-plain (no-DB) unit tests — no mocking required.
-
-extract_*_reference_fields helpers are also plain unit tests: they produce
-unsaved Reference instances so no DB is needed.
-
-Celery tasks (import_references_task, detect_duplicates_task,
-auto_deduplicate_task) are DB tests.  The bind=True calling convention is
-handled by _patch_task (see docstring), which uses push_request / pop_request
-to set the task's request context and patches task.retry via patch.object so
-no broker is required.
-
-send_review_chat_message is a DB test that stubs out the channel layer.
-
-One class per function / task; one method per behaviour.
-
-Run with:
-    pytest slrt_project/reviews/tests/test_tasks.py -v
-    pytest slrt_project/reviews/tests/test_utils.py -v
-"""
-
 import contextlib
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 
-# ===========================================================================
 # Shared helpers
-# ===========================================================================
 
 
 @contextlib.contextmanager
 def _patch_task(task, retries=0, max_retries=3):
     """
     Patch a real Celery bind=True task for unit testing without a broker.
-
-    Celery injects the real task instance as ``self`` when called normally:
-    ``task(arg)`` → ``task.run(task, arg)``.  Tests call ``task(arg)`` and
-    use this context manager to set request state and intercept retry().
-
-    ``task.retry`` is patched via ``patch.object`` (not plain attribute
-    assignment) because Celery's retry is a bound method and direct
-    assignment can be bypassed by the descriptor protocol.
-
-    ``retry`` raises immediately so tests that hit error paths do not
-    attempt to re-enqueue to a real broker.
     """
     retry_mock = MagicMock(side_effect=Exception("celery-retry"))
     task.push_request(id="test-task-id", retries=retries)
@@ -64,9 +24,7 @@ def _patch_task(task, retries=0, max_retries=3):
             task.pop_request()
 
 
-# ===========================================================================
 # send_review_chat_message
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -126,9 +84,7 @@ class TestSendReviewChatMessage:
         mock_async.assert_called_once()
 
 
-# ===========================================================================
 # import_references_task
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -148,18 +104,6 @@ class TestImportReferencesTask:
     def _with_file(self, sm, path="/tmp/test.bib"):
         """
         Context manager that makes the task see a real SearchMethod with a file.
-
-        The task does ``SearchMethod.objects.get(id=…)`` internally, so mutating
-        the local ``sm`` variable is not enough — the task would get a fresh
-        instance from the DB with no file.
-
-        We patch both:
-          1. ``SearchMethod.objects.get`` to return our controlled ``sm``
-             instance (a real SearchMethod so the Reference FK assignment works).
-          2. The ``FieldFile.name`` attribute and ``path`` property on that
-             instance so ``bool(search_method.file)`` is truthy and
-             ``search_method.file.path`` returns our fake path without hitting
-             storage.
         """
         sm.file.name = "fake/test.bib"
         with (
@@ -323,9 +267,7 @@ class TestImportReferencesTask:
         )
 
 
-# ===========================================================================
 # detect_duplicates_task
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -423,9 +365,7 @@ class TestDetectDuplicatesTask:
         )
 
 
-# ===========================================================================
 # auto_deduplicate_task
-# ===========================================================================
 
 
 @pytest.mark.django_db
@@ -525,9 +465,7 @@ class TestAutoDedupTask:
         )
 
 
-# ===========================================================================
 # _parse_file helper
-# ===========================================================================
 
 
 class TestParseFile:

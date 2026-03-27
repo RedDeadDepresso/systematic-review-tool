@@ -1,3 +1,4 @@
+// Popover for editing an existing extraction question.
 import { useState, useEffect } from 'react';
 import {
   AlertDialog,

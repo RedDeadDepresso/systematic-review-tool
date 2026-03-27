@@ -1,3 +1,4 @@
+// Table-of-contents sidebar generated from the headings on the current docs page.
 import * as React from 'react';
 import { IconMenu3 } from '@tabler/icons-react';
 

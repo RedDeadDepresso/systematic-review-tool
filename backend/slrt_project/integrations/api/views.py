@@ -2,37 +2,30 @@
 Views for the zotero_integration app.
 
 ViewSet inventory
------------------
 ZoteroIntegrationViewSet
-    Full CRUD for ZoteroIntegration, plus the following custom actions:
+Full CRUD for ZoteroIntegration, plus the following custom actions:
 
-    Standard CRUD
-        create          — validates via ZoteroConfigSerializer; rejects
-                          duplicate integrations for the same review.
-        update          — validates via ZoteroUpdateSerializer; enforces the
-                          sync_action guard when the library changes.
-        destroy         — requires an ``action`` param (keep/unlink/reset) and
-                          ``confirm=true`` for destructive actions.
+Standard CRUD
+create          — validates via ZoteroConfigSerializer; rejects
+duplicate integrations for the same review.
+update          — validates via ZoteroUpdateSerializer; enforces the
+sync_action guard when the library changes.
+destroy         — requires an ``action`` param (keep/unlink/reset) and
+``confirm=true`` for destructive actions.
 
-    Read actions
-        status          — returns is_configured, reference counts, last sync
-                          timestamps, and the 10 most recent sync log entries.
-        collections     — fetches all collections from the Zotero API.
-        deletion_preview — shows impact of each destroy action before commit.
-        task_status     — polls Celery task state by task ID.
+Read actions
+status          — returns is_configured, reference counts, last sync
+timestamps, and the 10 most recent sync log entries.
+collections     — fetches all collections from the Zotero API.
+deletion_preview — shows impact of each destroy action before commit.
+task_status     — polls Celery task state by task ID.
 
-    Write actions
-        set_collection   — changes (or clears) the collection filter.
-        create_collection — creates a new collection in Zotero.
-        push            — enqueues push_references_to_zotero_task (async).
-        pull            — enqueues pull_references_from_zotero_task (async).
-        toggle_active   — enables or disables the integration.
-
-Helper
-------
-_reset_sync_data(review, action)
-    Clears Zotero metadata from references.  'reset' also removes PDFs;
-    'unlink' keeps PDFs.  Wrapped in a DB transaction.
+Write actions
+set_collection   — changes (or clears) the collection filter.
+create_collection — creates a new collection in Zotero.
+push            — enqueues push_references_to_zotero_task (async).
+pull            — enqueues pull_references_from_zotero_task (async).
+toggle_active   — enables or disables the integration.
 """
 
 import logging
@@ -77,9 +70,7 @@ from slrt_project.references.models import Reference
 logger = logging.getLogger(__name__)
 
 
-# ===========================================================================
 # ZoteroIntegrationViewSet
-# ===========================================================================
 
 
 @extend_schema(tags=["Zotero Integration"])
@@ -87,12 +78,8 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
     """
     Full CRUD + sync management for Zotero integrations.
 
-    Every review may have at most one integration.  The API key is always
-    encrypted at rest and is never returned in any response.
-
     Filtering
-    ---------
-    ``?review=<pk>``  — optional on list; restricts results to a single review.
+      ``?review=<pk>``  — optional on list; restricts results to a single review.
     """
 
     queryset = ZoteroIntegration.objects.all()
@@ -104,9 +91,6 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Return all integrations, optionally filtered to a single review.
-
-        ``?review=<pk>`` is optional on list — omitting it returns all
-        integrations visible to the caller (useful for admin UIs).
         """
         queryset = super().get_queryset()
         review_id = self.request.query_params.get("review")
@@ -127,10 +111,6 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         """
         Create a new Zotero integration for a review.
-
-        Validates credentials via ZoteroConfigSerializer, rejects the request
-        if an integration already exists for the given review, then creates the
-        row with the API key encrypted via the model property setter.
         """
         serializer = ZoteroConfigSerializer(data=request.data)
         if not serializer.is_valid():
@@ -178,10 +158,6 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         """
         Partially update an existing integration.
-
-        When ``library_id`` or ``library_type`` changes, ``sync_action``
-        must be one of ``reset`` / ``unlink`` / ``keep`` so the caller
-        explicitly chooses what happens to previously synced references.
         """
         integration = self.get_object()
 
@@ -255,11 +231,6 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         """
         Delete the integration with configurable reference handling.
-
-        Destructive actions (``unlink``, ``reset``) require ``?confirm=true``
-        so the caller acknowledges the impact shown in ``deletion_preview``.
-        Sync logs for the review are always deleted together with the
-        integration row.
         """
         integration = self.get_object()
         destroy_action = request.query_params.get("action", "keep")
@@ -376,9 +347,6 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
     def collections(self, request, pk=None):
         """
         Fetch all collections from the Zotero API for this integration.
-
-        Used to populate the collection picker in the UI.  Returns 400 if
-        the integration does not have valid credentials.
         """
         integration = self.get_object()
 
@@ -476,9 +444,6 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
     def task_status(self, request, task_id=None, pk=None):
         """
         Return the current state of a Celery task.
-
-        Callers should poll this endpoint after receiving a 202 from push or
-        pull until ``status`` is ``SUCCESS`` or ``FAILURE``.
         """
         task = AsyncResult(task_id)
 
@@ -513,11 +478,6 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
     def set_collection(self, request, pk=None):
         """
         Update the collection filter for this integration.
-
-        When the collection changes the sync version is reset to 0 so the
-        next pull re-fetches all items in the new collection from scratch.
-        ``sync_action`` controls what happens to references that were synced
-        from the previous collection.
         """
         integration = self.get_object()
 
@@ -584,10 +544,6 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
     def create_collection(self, request, pk=None):
         """
         Create a new collection in the Zotero library.
-
-        Optionally sets the new collection as the active sync filter
-        (``set_as_default=true``), which also resets ``last_sync_version``
-        so the next pull fetches all items in the new collection.
         """
         integration = self.get_object()
 
@@ -657,10 +613,6 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
         """
         Enqueue a Celery task that pushes all references without a
         ``zotero_key`` to the Zotero library.
-
-        When the unpushed count exceeds 500 the endpoint returns 400 with
-        a warning until the caller adds ``"confirm": true`` to the request
-        body.  Use the returned ``task_id`` to poll ``task_status``.
         """
         integration = self.get_object()
 
@@ -727,10 +679,6 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
     def pull(self, request, pk=None):
         """
         Enqueue a Celery task that pulls new or updated items from Zotero.
-
-        ``force=true`` ignores ``last_sync_version`` and re-fetches
-        everything from the library.  Use the returned ``task_id`` to poll
-        ``task_status``.
         """
         integration = self.get_object()
 
@@ -766,9 +714,6 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
     def toggle_active(self, request, pk=None):
         """
         Flip ``is_active`` on the integration.
-
-        Pass ``{"is_active": true/false}`` to set a specific state, or omit
-        the field to toggle the current value.
         """
         integration = self.get_object()
         is_active = request.data.get("is_active", not integration.is_active)
@@ -786,29 +731,14 @@ class ZoteroIntegrationViewSet(viewsets.ModelViewSet):
         )
 
 
-# ===========================================================================
 # Module-level helper
-# ===========================================================================
-
-
 def _reset_sync_data(review, action: str = "reset") -> int:
     """
     Clear Zotero sync metadata from references in *review*.
 
-    Parameters
-    ----------
-    review : Review
-        The review whose synced references should be modified.
-    action : str
-        ``'reset'`` — clears zotero_key, zotero_version, last_synced, and
-        deletes the PDF file field.
-        ``'unlink'`` — clears zotero_key, zotero_version, and last_synced
-        but leaves the PDF intact.
-
     Returns
-    -------
-    int
-        Number of references affected.
+      int
+      Number of references affected.
     """
     references = Reference.objects.filter(review=review, zotero_key__isnull=False)
     count = references.count()

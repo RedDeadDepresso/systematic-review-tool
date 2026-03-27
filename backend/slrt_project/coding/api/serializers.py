@@ -1,37 +1,13 @@
-"""
-Serializers for the coding app.
-
-Organisation
-------------
-Model serializers
-  CodeSerializer      — full CRUD; exposes computed reference_title and
-                        reference_file_url via SerializerMethodFields.
-  SubThemeSerializer  — CRUD; exposes a read-only list of associated Code PKs.
-  MainThemeSerializer — CRUD; exposes a read-only list of child SubTheme PKs.
-"""
-
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from slrt_project.coding.models import Code, MainTheme, SubTheme
 
 
-# ===========================================================================
 # CodeSerializer
-# ===========================================================================
-
-
 class CodeSerializer(serializers.ModelSerializer):
     """
     Full serializer for Code instances.
-
-    ``id`` and ``member`` are read-only: the id is a server-generated UUID
-    and the member is always inferred from request.user by the view's
-    perform_create so it can never be spoofed via the API.
-
-    The two computed fields (``reference_title``, ``reference_file_url``)
-    gracefully return None when the code has no linked reference or the
-    reference has no file, avoiding attribute errors on optional FKs.
     """
 
     # Human-readable title of the linked reference — None when no reference.
@@ -64,11 +40,6 @@ class CodeSerializer(serializers.ModelSerializer):
     def get_reference_file_url(self, obj: Code) -> str | None:
         """
         Return the absolute URL of the reference's uploaded file.
-
-        Uses ``request.build_absolute_uri`` when a request is in context so
-        the URL is scheme- and host-correct for the caller.  Falls back to the
-        raw storage URL when no request is available (e.g. in shell scripts or
-        management commands).
         """
         request = self.context.get("request")
         if obj.reference and obj.reference.file:
@@ -77,18 +48,10 @@ class CodeSerializer(serializers.ModelSerializer):
         return None
 
 
-# ===========================================================================
 # SubThemeSerializer
-# ===========================================================================
-
-
 class SubThemeSerializer(serializers.ModelSerializer):
     """
     Serializer for SubTheme instances.
-
-    ``code_ids`` is a flat list of PKs of all Codes assigned to this sub-theme.
-    It is read-only because membership is managed on the Code itself (via
-    Code.sub_theme FK) rather than on the sub-theme.
     """
 
     # Read-only reverse relation: PKs of all Codes under this sub-theme.
@@ -113,17 +76,10 @@ class SubThemeSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "member", "code_ids"]
 
 
-# ===========================================================================
 # MainThemeSerializer
-# ===========================================================================
-
-
 class MainThemeSerializer(serializers.ModelSerializer):
     """
     Serializer for MainTheme instances.
-
-    ``sub_theme_ids`` is a flat list of PKs of all SubThemes under this theme.
-    It is read-only for the same reason as ``code_ids`` above.
     """
 
     # Read-only reverse relation: PKs of all SubThemes under this theme.
