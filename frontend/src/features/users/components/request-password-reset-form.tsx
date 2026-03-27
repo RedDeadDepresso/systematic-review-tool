@@ -1,3 +1,4 @@
+// Form to request a password-reset email.
 import { Button } from '@/components/ui/button';
 import {
   Card,

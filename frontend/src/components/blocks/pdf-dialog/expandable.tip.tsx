@@ -1,3 +1,4 @@
+// Expandable tooltip/tip component used in the PDF viewer.
 import { useLayoutEffect, useState } from 'react';
 import CommentForm from '@/components/blocks/pdf-dialog/comment-form';
 import {

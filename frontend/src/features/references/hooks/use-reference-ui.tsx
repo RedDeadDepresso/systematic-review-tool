@@ -1,3 +1,4 @@
+// Hook managing UI state for the references page (selected rows, open drawer, etc.).
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import type { Reference } from '@/features/references/types/references';
 import type { ReferenceWithAnswers } from '@/features/extraction/types/extraction';
@@ -75,7 +76,7 @@ export function useReferenceUI<T extends ReferenceType>(
   // ── PDF dialog ─────────────────────────────────────────────────────────────
   const [openPDFId, setOpenPDFId] = useState<number | null>(null);
 
-  // ── Responsive sidebar ─────────────────────────────────────────────────────
+  // ── Responsive sidebar — auto-collapse both sidebars below xl breakpoint ──
   const { width } = useWindowSize();
   useEffect(() => {
     const isDesktop = width >= 1280;
@@ -109,6 +110,7 @@ export function useReferenceUI<T extends ReferenceType>(
   }, [openPDFId, memberId, openPDFReference]);
 
   // ── Indexes ────────────────────────────────────────────────────────────────
+  // Current list positions; -1 when nothing is open
   const currentDetailIndex =
     openDetailId !== null
       ? references.findIndex((r) => r.id === openDetailId)
@@ -117,7 +119,7 @@ export function useReferenceUI<T extends ReferenceType>(
   const currentPDFIndex =
     openPDFId !== null ? references.findIndex((r) => r.id === openPDFId) : -1;
 
-  // ── PDF prev/next (skip references without a file) ────────────────────────
+  // ── PDF prev/next — skips references without an attached file ────────────
   const prevPDFReference = useMemo(() => {
     if (currentPDFIndex === -1) return null;
     for (let i = currentPDFIndex - 1; i >= 0; i--) {

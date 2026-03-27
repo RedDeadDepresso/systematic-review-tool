@@ -1,3 +1,4 @@
+// Tabs switching between different screening stat views.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ReviewScreeningStatsChart } from '@/features/reviews/components/screening-stats/screening-stats-chart';
 import { ReviewOpinionStatsChart } from '@/features/reviews/components/screening-stats/opinion-stats-chart';

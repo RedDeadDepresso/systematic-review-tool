@@ -1,3 +1,4 @@
+// Panel showing Zotero sync status and a manual sync trigger.
 import { Button } from '@/components/ui/button';
 import {
   Card,

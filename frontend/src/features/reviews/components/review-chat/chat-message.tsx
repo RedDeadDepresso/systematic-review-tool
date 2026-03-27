@@ -1,3 +1,4 @@
+// Individual chat message card with avatar, timestamp, and system-message metadata.
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';

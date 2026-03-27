@@ -1,3 +1,4 @@
+// Multi-file upload dialog with drag-and-drop, per-file status tracking, and a progress bar.
 import React from 'react';
 import { X, FileText, Upload } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -66,6 +67,7 @@ export function FileUploadDialog({
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Derived file-state flags used by the footer buttons and progress bar
   const pendingOrErrorFiles = files.filter(
     (f) => f.status === 'pending' || f.status === 'error'
   );
@@ -78,6 +80,7 @@ export function FileUploadDialog({
     fileInputRef.current?.click();
   };
 
+  // Returns true if the file matches the accepted format list
   const isAcceptedFile = (file: File) => {
     if (!acceptedFormats) return true;
 
@@ -142,6 +145,7 @@ export function FileUploadDialog({
     setUploadProgress(0);
   };
 
+  // Sequentially uploads pending/error files and tracks per-file progress
   const handleContinue = async () => {
     const filesToUpload = files.filter(
       (f) => f.status === 'pending' || f.status === 'error'
@@ -200,6 +204,7 @@ export function FileUploadDialog({
     });
   };
 
+  // Maps upload status to a Tailwind border/background class
   const getBorderClass = (status: UploadFile['status']) => {
     switch (status) {
       case 'success':
@@ -249,7 +254,7 @@ export function FileUploadDialog({
             </button>
           </div>
 
-          {/* Upload Area */}
+          {/* DropZone: drag-and-drop target that also hosts the FileList or EmptyState */}
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -305,7 +310,7 @@ export function FileUploadDialog({
             )}
           </div>
 
-          {/* Status / Progress */}
+          {/* UploadProgressBar: shown after the first upload attempt */}
           <div className="mt-4 pt-4 border-t">
             {!hasAttemptedUpload ? (
               <p className="text-muted-foreground text-sm">

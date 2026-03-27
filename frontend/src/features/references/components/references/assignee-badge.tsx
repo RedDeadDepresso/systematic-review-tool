@@ -1,3 +1,4 @@
+// Badge showing the member assigned to a reference.
 import { Badge } from '@/components/ui/badge';
 import {
   Tooltip,

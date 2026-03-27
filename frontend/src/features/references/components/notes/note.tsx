@@ -1,3 +1,4 @@
+// Editable note attached to a reference.
 import {
   MessageSquare,
   Edit3,

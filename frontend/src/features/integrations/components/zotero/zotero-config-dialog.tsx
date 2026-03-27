@@ -1,3 +1,4 @@
+// Dialog for configuring the Zotero API key and sync settings.
 import { Button } from '@/components/ui/button';
 import {
   Dialog,

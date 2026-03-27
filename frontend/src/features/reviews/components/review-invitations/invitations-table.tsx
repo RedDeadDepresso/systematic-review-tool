@@ -1,3 +1,4 @@
+// Tables for received and sent review invitations.
 import * as React from 'react';
 import {
   type ColumnDef,

@@ -1,3 +1,4 @@
+// Slide-in drawer containing the real-time review chat.
 import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { X, Send } from 'lucide-react';

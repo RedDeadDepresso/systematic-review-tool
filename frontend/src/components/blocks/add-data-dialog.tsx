@@ -1,3 +1,4 @@
+// Dialog for selecting and pushing articles from one review stage to another.
 import { useState, useMemo } from 'react';
 import {
   Dialog,
@@ -44,6 +45,7 @@ const DataSourceSinkLabel: Record<Stage | DataSink, string> = {
   extraction: 'Data Extraction',
 };
 
+// State: chosen source stage, article-type selection, label filter query
 export function AddDataDialog({
   reviewId,
   open,
@@ -62,12 +64,14 @@ export function AddDataDialog({
   const [labelSearchQuery, setLabelSearchQuery] = useState('');
   const addData = useAddData(reviewId);
 
+  // Toggle an article type in/out of the selection
   const handleTypeToggle = (type: ArticleType) => {
     setSelectedTypes((prev) =>
       prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
     );
   };
 
+  // Toggle a label id in/out of the label filter
   const handleLabelToggle = (labelId: number) => {
     setSelectedLabelIds((prev) =>
       prev.includes(labelId)
@@ -76,6 +80,7 @@ export function AddDataDialog({
     );
   };
 
+  // Submit: fires the mutation then resets local state on success
   const handleAdd = async () => {
     try {
       await addData.mutateAsync({
@@ -104,6 +109,7 @@ export function AddDataDialog({
 
   const isLabeledSelected = selectedTypes.includes('labeled');
 
+  // Filter label list by the search query; memoised to avoid re-filtering on every render
   const filteredLabels = useMemo(() => {
     if (!labelSearchQuery.trim()) return labels;
     return labels.filter((label) =>
@@ -151,7 +157,7 @@ export function AddDataDialog({
             </div>
           </div>
 
-          {/* Article Type Selection */}
+          {/* ArticleTypeGrid: three toggle cards — Included / Maybe / Labeled */}
           <div className="grid sm:grid-cols-3 gap-2">
             <div
               role="button"
@@ -219,7 +225,7 @@ export function AddDataDialog({
             Select labeled data to add it into {DataSourceSinkLabel[dataSink]}.
           </p>
 
-          {/* Filter by Labels Section */}
+          {/* LabelFilterSection: selected-label chips + searchable label list, shown only when 'labeled' is selected */}
           {isLabeledSelected && (
             <div className="space-y-2">
               <span className="text-sm text-primary">Filter By Labels</span>

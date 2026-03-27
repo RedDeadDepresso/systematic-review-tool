@@ -1,3 +1,4 @@
+// Dialog for reviewing and resolving duplicate reference clusters.
 import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   ChevronLeft,

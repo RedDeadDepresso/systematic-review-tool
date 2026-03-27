@@ -1,3 +1,4 @@
+// Application sidebar with navigation links and user actions.
 import {
   NavMain,
   NavMainUnauthenticated,

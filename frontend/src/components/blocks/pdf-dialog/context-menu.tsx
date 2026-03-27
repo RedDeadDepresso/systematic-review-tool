@@ -1,3 +1,4 @@
+// Right-click context menu shown when text is selected in the PDF viewer.
 import { Edit, Trash2 } from 'lucide-react';
 
 export interface ContextMenuProps {

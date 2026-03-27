@@ -1,3 +1,4 @@
+// Dropdown to assign a question to a data-extraction section.
 import { useState, useMemo } from 'react';
 import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';

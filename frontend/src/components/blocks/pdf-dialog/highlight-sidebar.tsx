@@ -1,3 +1,4 @@
+// Sidebar panel listing all highlights for the open PDF.
 import { useMemo, useState } from 'react';
 import type { Highlight, HighlightType } from 'react-pdf-highlighter-plus';
 import { type CommentedHighlight } from '@/features/coding/types/codes';

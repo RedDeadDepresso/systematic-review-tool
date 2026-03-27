@@ -1,3 +1,4 @@
+// Dialog for editing an existing theme or code.
 import type React from 'react';
 
 import { useState } from 'react';

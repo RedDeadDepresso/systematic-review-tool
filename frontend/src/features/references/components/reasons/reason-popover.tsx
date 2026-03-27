@@ -1,3 +1,4 @@
+// Popover for recording the reason behind an screening opinion.
 import React, { useState, useMemo } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';

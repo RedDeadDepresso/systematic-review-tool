@@ -1,3 +1,4 @@
+// Content area listing all screening criteria with add/edit controls.
 import React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { X, Pencil, Send, SquareSlash, Trash2 } from 'lucide-react';

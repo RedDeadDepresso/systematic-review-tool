@@ -1,3 +1,4 @@
+// Dialog for matching an uploaded PDF to an existing reference.
 import * as React from 'react';
 import { FileText, Sparkles } from 'lucide-react';
 import {

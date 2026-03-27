@@ -1,3 +1,4 @@
+// Card for a sub-theme nested inside a main theme.
 import { useState } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

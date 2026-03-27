@@ -1,3 +1,4 @@
+// Primary navigation menu items for the sidebar.
 import {
   Archive,
   ChevronRight,

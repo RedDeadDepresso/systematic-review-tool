@@ -1,3 +1,4 @@
+// Full-screen PDF viewer dialog with highlight and annotation support.
 import {
   type MouseEvent,
   useCallback,

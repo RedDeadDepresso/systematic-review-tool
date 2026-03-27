@@ -1,3 +1,4 @@
+// Common shell (trigger + popover layout) for question popovers.
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { X } from 'lucide-react';
 import {

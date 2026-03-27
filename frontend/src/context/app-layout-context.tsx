@@ -1,5 +1,7 @@
+// Global layout context: page title, auth state, and scroll behaviour.
 import { createContext, useState, type ReactNode } from 'react';
 
+// Default values; will be overridden by AppLayoutProvider
 export const AppLayoutContext = createContext({
   pageTitle: '',
   setPageTitle: (_title: string) => {},

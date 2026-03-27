@@ -1,3 +1,4 @@
+// Registration form for new users.
 import { Button } from '@/components/ui/button';
 import {
   Card,

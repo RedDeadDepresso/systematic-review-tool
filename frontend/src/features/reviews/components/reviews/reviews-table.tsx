@@ -1,3 +1,4 @@
+// Table listing active or archived reviews with actions.
 import * as React from 'react';
 import { IconDotsVertical, IconPlus } from '@tabler/icons-react';
 import {

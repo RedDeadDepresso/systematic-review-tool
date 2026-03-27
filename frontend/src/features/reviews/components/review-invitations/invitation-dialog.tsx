@@ -1,3 +1,4 @@
+// Dialog for inviting new members to a review by email.
 import { useState } from 'react';
 import {
   Dialog,

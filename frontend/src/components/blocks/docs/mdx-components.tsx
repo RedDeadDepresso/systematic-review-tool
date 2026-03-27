@@ -1,3 +1,4 @@
+// Custom MDX component overrides (headings, links, code blocks, etc.) used when rendering docs pages.
 import * as React from 'react';
 
 import { cn } from '@/lib/utils';

@@ -1,3 +1,4 @@
+// Popover wrapping the screening criteria content, triggered from the header.
 import React from 'react';
 
 import { useEffect } from 'react';

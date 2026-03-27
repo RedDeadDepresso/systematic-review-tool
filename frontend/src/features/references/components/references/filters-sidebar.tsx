@@ -1,3 +1,4 @@
+// Sidebar with all filter controls for the references list.
 import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import {

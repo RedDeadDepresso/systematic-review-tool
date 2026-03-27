@@ -1,3 +1,4 @@
+// Search input for filtering themes and codes by text.
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { ExpandCollapseButtons } from '@/features/coding/components/expand-collapse-buttons';

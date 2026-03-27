@@ -1,3 +1,4 @@
+// Full-text screening page.
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
 import { ReferenceTableLayout } from '@/features/references/components/references/reference-table-layout';

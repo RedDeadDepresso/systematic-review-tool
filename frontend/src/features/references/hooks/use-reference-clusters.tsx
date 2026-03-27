@@ -1,3 +1,4 @@
+// Hook for fetching and resolving duplicate reference clusters.
 import {
   fetchDuplicateClusters,
   fetchDuplicateCluster,
@@ -121,6 +122,7 @@ export const useAutoResolveDuplicates = (reviewId: number) => {
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
+// Invalidates cluster list/stats caches and optimistically decrements the unresolved count on the review
 function _invalidateClusters(
   queryClient: ReturnType<typeof useQueryClient>,
   reviewId: number

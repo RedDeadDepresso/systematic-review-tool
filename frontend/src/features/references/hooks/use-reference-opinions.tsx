@@ -1,3 +1,4 @@
+// Hook for submitting and optimistically updating screening opinions.
 import { errorMessageString } from '@/lib/error';
 import { bulkUpsertReferenceOpinions } from '@/features/references/api/reference-opinions';
 import type {

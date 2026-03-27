@@ -1,3 +1,4 @@
+// Sidebar shown while extracting data for a single reference.
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

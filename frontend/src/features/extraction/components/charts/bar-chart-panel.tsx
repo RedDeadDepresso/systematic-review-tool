@@ -1,3 +1,4 @@
+// Bar chart panel for extraction data visualisation.
 import { useState } from 'react';
 import {
   BarChart,

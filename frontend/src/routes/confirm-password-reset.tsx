@@ -1,3 +1,4 @@
+// Route that consumes uid/token search params to confirm a password reset.
 import { createFileRoute } from '@tanstack/react-router';
 import { useContext, useEffect } from 'react';
 import { AppLayoutContext } from '@/context/app-layout-context';

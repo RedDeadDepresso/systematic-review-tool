@@ -1,3 +1,4 @@
+// Table footer with pagination and bulk-action controls.
 import { useEffect, useState } from 'react';
 import {
   Tag,

@@ -1,3 +1,4 @@
+// Groups and renders all highlights belonging to a single PDF page.
 import { type ReactNode, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import {

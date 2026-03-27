@@ -1,3 +1,4 @@
+// Dialog for creating a new Zotero collection.
 import { Button } from '@/components/ui/button';
 import {
   Dialog,

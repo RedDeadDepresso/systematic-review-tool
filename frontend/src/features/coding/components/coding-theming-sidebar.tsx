@@ -1,3 +1,4 @@
+// Sidebar for the coding & theming feature showing themes and codes.
 import { useState, useMemo, useCallback } from 'react';
 import {
   DndContext,

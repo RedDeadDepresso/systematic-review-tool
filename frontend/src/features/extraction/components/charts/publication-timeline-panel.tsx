@@ -1,3 +1,4 @@
+// Timeline chart of publications over time.
 import {
   XAxis,
   YAxis,

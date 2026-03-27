@@ -1,3 +1,4 @@
+// Context provider that persists and applies the selected theme to the document root.
 import { createContext, useContext, useEffect, useState } from 'react';
 
 type Theme = 'dark' | 'light' | 'system';

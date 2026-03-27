@@ -1,3 +1,4 @@
+// Sticky header with review navigation tabs, settings dropdown, chat button, and related dialogs.
 import {
   Grid,
   UserPlus,
@@ -92,6 +93,7 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
     enabled: true,
   });
 
+  // Tab definitions: label, route path, and matching docs path
   const tabs = [
     {
       label: 'Overview',
@@ -134,6 +136,7 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
       docPath: '/docs/user-guide/prisma',
     },
   ];
+  // Active tab and its docs path (used by the help button)
   const activeTab = tabs.find((t) => t.path === pathname);
   const docPath = activeTab?.docPath;
 
@@ -159,7 +162,7 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
     <header className="sticky top-0 z-50 border-b border-border bg-card">
       {/* Single Row - Tabs + Actions */}
       <div className="flex items-center justify-between gap-2 px-2 sm:px-4">
-        {/* Navigation Tabs */}
+        {/* TabNav: dropdown on small screens, full NavigationMenu on large screens */}
         <div className="flex-1 overflow-x-auto scrollbar-hide">
           {isSmallScreen ? (
             <DropdownMenu>
@@ -260,7 +263,7 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
               <DropdownMenuLabel>Review Settings</DropdownMenuLabel>
               <DropdownMenuSeparator />
 
-              {/* Blind Mode Toggle */}
+              {/* BlindModeToggle: inline switch inside the settings dropdown */}
               <div className="px-2 py-2">
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col gap-1">
@@ -356,6 +359,8 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
         </div>
       </div>
 
+      {/* EditReviewDialog, DeleteConfirmDialog, ScreeningCriteriaPopover, InvitationDialog, ZoteroConfigDialog, ChatDrawer
+           are all mounted here (outside the toolbar row) so they can be controlled by dropdown/button state above */}
       {fetchReview.data && (
         <ReviewFormDialog
           dialogTitle="Update Review"

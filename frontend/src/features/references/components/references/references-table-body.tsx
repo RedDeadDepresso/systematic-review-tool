@@ -1,3 +1,4 @@
+// Table body: maps references to row components based on the active view layout.
 import React, { useRef, useEffect, useCallback } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import type {

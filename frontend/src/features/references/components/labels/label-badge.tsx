@@ -1,3 +1,4 @@
+// Coloured badge displaying a reference label.
 import type { Label } from '@/features/references/types/labels';
 import { Badge } from '@/components/ui/badge';
 

@@ -1,3 +1,4 @@
+// Coding and theming page.
 import { createFileRoute } from '@tanstack/react-router';
 import {
   DndContext,

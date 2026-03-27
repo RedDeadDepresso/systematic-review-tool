@@ -1,3 +1,4 @@
+// Card representing a single highlight entry in the sidebar.
 import {
   FileText,
   Square,

@@ -1,3 +1,4 @@
+// Popover for assigning labels to a reference.
 import React, { useState, useMemo, useEffect } from 'react';
 import { MoreHorizontal, Pencil, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';

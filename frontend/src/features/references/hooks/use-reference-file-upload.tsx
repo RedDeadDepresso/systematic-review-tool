@@ -1,3 +1,4 @@
+// Hook encapsulating the PDF upload flow for a reference.
 import { useState, useCallback, useMemo } from 'react';
 import {
   uploadedPdfKeys,
@@ -36,6 +37,7 @@ export function useFileUpload(
   const autoMatch = useAutoMatch();
   const queryClient = useQueryClient();
 
+  // Invalidate the uploaded PDFs cache after attach/auto-match operations
   const invalidateUploadedPDFs = () =>
     queryClient.invalidateQueries({
       queryKey: uploadedPdfKeys.list(reviewId),
@@ -89,6 +91,7 @@ export function useFileUpload(
     }
   };
 
+  // Merge selected and highlighted references into a single list for the match dialog
   const combinedReferences = useMemo(() => {
     if (!openMatchDialog || !references) return [];
 

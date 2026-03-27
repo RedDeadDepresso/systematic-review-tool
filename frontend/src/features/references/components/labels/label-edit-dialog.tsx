@@ -1,3 +1,4 @@
+// Dialog for creating or editing a label (name and colour).
 import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { X } from 'lucide-react';

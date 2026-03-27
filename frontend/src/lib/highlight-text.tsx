@@ -1,3 +1,4 @@
+// Splits text and wraps include/exclude keyword matches in coloured spans.
 export function highlightText(
   text: string,
   includeKeywords: string[],
@@ -6,12 +7,14 @@ export function highlightText(
   const allKeywords = [...includeKeywords, ...excludeKeywords];
   if (allKeywords.length === 0) return text;
 
+  // Build a single case-insensitive regex that matches any keyword
   const pattern = new RegExp(
     `(${allKeywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`,
     'gi'
   );
   const parts = text.split(pattern);
 
+  // Map each part: colour include matches green, exclude matches red, pass the rest through
   return parts.map((part, index) => {
     const isInclude = includeKeywords.some(
       (kw) => part.toLowerCase() === kw.toLowerCase()

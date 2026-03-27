@@ -1,3 +1,4 @@
+// Floating action bar that appears on text selection in the PDF viewer.
 import { useState } from 'react';
 import { Plus, X, Highlighter, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';

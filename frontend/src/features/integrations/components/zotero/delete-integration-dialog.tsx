@@ -1,3 +1,4 @@
+// Confirmation dialog for removing the Zotero integration.
 import { Button } from '@/components/ui/button';
 import {
   Dialog,

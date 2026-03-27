@@ -1,3 +1,4 @@
+// Home page: collapsible panels for active/archived reviews and received/sent invitations.
 import { createFileRoute } from '@tanstack/react-router';
 import { ReviewsTable } from '@/features/reviews/components/reviews/reviews-table';
 import { useFetchReviews } from '@/features/reviews/hooks/use-reviews';
@@ -24,6 +25,7 @@ export const Route = createFileRoute('/')({
 });
 
 function IndexPage() {
+  // Lazy-load inactive reviews and sent invitations only when their tab is first opened
   const [inactiveEnabled, setInactiveEnabled] = useState(false);
 
   const { data: activeReviews = [], isLoading: isLoadingActive } =
@@ -53,7 +55,7 @@ function IndexPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* ── Invitations ── */}
+      {/* InvitationsPanel: collapsed by default, tabs for received/sent */}
       <Collapsible defaultOpen={false}>
         <Card className="py-0">
           <CollapsibleTrigger asChild>
@@ -113,7 +115,7 @@ function IndexPage() {
         </Card>
       </Collapsible>
 
-      {/* ── Reviews ── */}
+      {/* ReviewsPanel: expanded by default, tabs for active/archived */}
       <Collapsible defaultOpen={true}>
         <Card className="py-0">
           <CollapsibleTrigger asChild>

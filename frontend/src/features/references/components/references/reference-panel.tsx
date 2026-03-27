@@ -1,3 +1,4 @@
+// Side panel rendered alongside the references table for quick-view details.
 import { type ReactNode } from 'react';
 import { X, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';

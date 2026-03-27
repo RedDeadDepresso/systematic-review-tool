@@ -1,3 +1,4 @@
+// Popover for assigning a review member to a reference.
 import React, { useState, useMemo, useEffect } from 'react';
 import { Users, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
