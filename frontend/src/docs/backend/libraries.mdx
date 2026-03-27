@@ -1,0 +1,339 @@
+# Libraries
+
+The following are the main third-party libraries used in the backend. Transitive
+dependencies are omitted.
+
+## Web Framework
+
+### Django
+
+The core web framework. Provides the ORM, admin interface, authentication, settings
+management, and the full request/response lifecycle.
+
+- **License:** BSD-3-Clause
+- **Docs:** https://docs.djangoproject.com/
+
+### Django REST Framework
+
+Adds a powerful and flexible toolkit for building Web APIs on top of Django, including
+serialisers, viewsets, routers, and authentication classes.
+
+- **License:** BSD-2-Clause
+- **Docs:** https://www.django-rest-framework.org/
+
+### drf-spectacular
+
+Generates an OpenAPI 3 schema from DRF views automatically. The schema is served at
+`/api/schema/` and can be used to power Swagger UI or Redoc for interactive API
+exploration.
+
+- **License:** BSD-3-Clause
+- **Docs:** https://drf-spectacular.readthedocs.io/
+
+### djangorestframework-simplejwt
+
+Provides JSON Web Token authentication for DRF. Used to issue access and refresh tokens
+on login and to authenticate subsequent API requests.
+
+- **License:** MIT
+- **Docs:** https://django-rest-framework-simplejwt.readthedocs.io/
+
+### drf-auth-kit
+
+Provides pre-built authentication endpoints (login, register, token refresh, password
+reset) that integrate with simplejwt and django-allauth.
+
+- **License:** MIT
+- **Docs:** https://github.com/huynguyennovem/drf-auth-kit
+
+### djangorestframework-camel-case
+
+Automatically converts Django REST Framework's snake_case JSON keys to camelCase on
+outgoing responses and back on incoming requests, so the frontend can use idiomatic
+JavaScript naming.
+
+- **License:** MIT
+- **Docs:** https://github.com/vbabiy/djangorestframework-camel-case
+
+### django-filter
+
+Provides declarative queryset filtering via URL query parameters, used to filter
+references by status, opinion, search term, and other fields.
+
+- **License:** BSD-2-Clause
+- **Docs:** https://django-filter.readthedocs.io/
+
+## Real-time / Async
+
+### Django Channels
+
+Extends Django to handle WebSockets and other long-lived connections using an async
+consumer model. Powers the review chat, task progress notifications, and screening time
+tracking features.
+
+- **License:** BSD-3-Clause
+- **Docs:** https://channels.readthedocs.io/
+
+### channels-redis
+
+The Redis channel layer backend for Django Channels. Enables multiple Django Channels
+instances to communicate via a shared Redis pub/sub layer in production.
+
+- **License:** BSD-3-Clause
+- **Docs:** https://github.com/django/channels_redis
+
+## Task Queue
+
+### Celery
+
+Distributed task queue used to run long-running operations (reference import, duplicate
+detection, Zotero sync) asynchronously so they do not block HTTP requests.
+
+- **License:** BSD-3-Clause
+- **Docs:** https://docs.celeryq.dev/
+
+### Flower
+
+A web-based monitoring dashboard for Celery. Displays task history, active workers, and
+task details. Available at port 5555.
+
+- **License:** BSD-3-Clause
+- **Docs:** https://flower.readthedocs.io/
+
+## Database & Caching
+
+### psycopg
+
+PostgreSQL database adapter for Python. The project uses psycopg v3 with the binary
+distribution.
+
+- **License:** LGPL-3.0
+- **Docs:** https://www.psycopg.org/psycopg3/docs/
+
+### django-redis
+
+Redis cache backend for Django. Provides a full-featured cache API on top of Redis,
+used for caching and as the Celery broker.
+
+- **License:** BSD-3-Clause
+- **Docs:** https://github.com/jazzband/django-redis
+
+### redis
+
+Low-level Python client for Redis. Used directly for channel layer communication and
+Celery result storage.
+
+- **License:** MIT
+- **Docs:** https://redis-py.readthedocs.io/
+
+### hiredis
+
+A C extension that speeds up parsing of Redis protocol responses. Used as a drop-in
+performance optimisation alongside the `redis` library.
+
+- **License:** BSD-3-Clause
+- **Docs:** https://github.com/redis/hiredis-py
+
+## Authentication & Security
+
+### django-allauth
+
+Handles user registration, email verification, and password management workflows.
+Integrated with DRF via drf-auth-kit.
+
+- **License:** MIT
+- **Docs:** https://docs.allauth.org/
+
+### argon2-cffi
+
+Provides the Argon2 password hashing algorithm, which Django uses when
+`PASSWORD_HASHERS` is configured to prefer it. More memory-hard than the default
+PBKDF2 hasher.
+
+- **License:** MIT
+- **Docs:** https://argon2-cffi.readthedocs.io/
+
+### cryptography
+
+General-purpose cryptography library. Used to encrypt Zotero API keys at rest with
+Fernet symmetric encryption (AES-128-CBC + HMAC-SHA256) before storing them in the
+database.
+
+- **License:** Apache-2.0 / BSD
+- **Docs:** https://cryptography.io/
+
+## Reference Import
+
+### bibtexparser
+
+Parses BibTeX `.bib` files exported from academic databases into Python dictionaries.
+Used by the reference import pipeline to extract bibliographic metadata.
+
+- **License:** LGPL-3.0
+- **Docs:** https://bibtexparser.readthedocs.io/
+
+### rispy
+
+Parses RIS `.ris` files (the format used by Mendeley, Zotero, and many library
+databases). Used alongside bibtexparser as the second import format.
+
+- **License:** MIT
+- **Docs:** https://github.com/MrTango/rispy
+
+### lxml
+
+Fast XML and HTML processing library with a C-backed parser. Used to parse EndNote XML
+`.xml` exports, which are significantly larger than BibTeX or RIS files.
+
+- **License:** BSD-3-Clause
+- **Docs:** https://lxml.de/
+
+### pyzotero
+
+Python client for the Zotero Web API. Wraps all Zotero HTTP calls in a service class
+used for push/pull synchronisation of references and PDFs.
+
+- **License:** BSD-3-Clause
+- **Docs:** https://pyzotero.readthedocs.io/
+
+### pymupdf
+
+Python bindings for the MuPDF rendering library. Used server-side to extract DOIs from
+the first page of uploaded PDFs during the automated PDF-to-reference matching process.
+
+- **License:** AGPL-3.0
+- **Docs:** https://pymupdf.readthedocs.io/
+
+## Server
+
+### gunicorn
+
+WSGI HTTP server used in production to serve the Django application. Configured with
+`uvicorn-worker` to support ASGI (WebSocket) connections.
+
+- **License:** MIT
+- **Docs:** https://gunicorn.org/
+
+### uvicorn
+
+ASGI server. Used as a worker class inside gunicorn to handle WebSocket connections via
+Django Channels.
+
+- **License:** BSD-3-Clause
+- **Docs:** https://www.uvicorn.org/
+
+### whitenoise
+
+Serves Django's collected static files directly from the application server without
+needing a separate Nginx static file pass-through.
+
+- **License:** MIT
+- **Docs:** https://whitenoise.readthedocs.io/
+
+## Utilities
+
+### django-environ
+
+Reads environment variables from `.env` files into Django's `settings.py`. Provides
+typed helpers for common settings patterns (database URLs, boolean flags, lists).
+
+- **License:** MIT
+- **Docs:** https://django-environ.readthedocs.io/
+
+### django-cors-headers
+
+Adds Cross-Origin Resource Sharing (CORS) headers to Django responses, allowing the
+React frontend served on a different port to make API requests during development.
+
+- **License:** MIT
+- **Docs:** https://github.com/adamchainz/django-cors-headers
+
+### django-model-utils
+
+Provides useful model mixins and utilities. Used primarily for `TimeStampedModel` and
+`StatusField` patterns.
+
+- **License:** BSD-3-Clause
+- **Docs:** https://django-model-utils.readthedocs.io/
+
+### django-cleanup
+
+Automatically deletes files from the filesystem when the corresponding model instance
+(or file field) is deleted. Prevents orphaned media files accumulating in storage.
+
+- **License:** MIT
+- **Docs:** https://github.com/un1t/django-cleanup
+
+### django-anymail
+
+Provides a unified Django email backend for transactional email services (SendGrid,
+Mailgun, etc.). Configured via the `EMAIL_BACKEND` setting in production.
+
+- **License:** BSD-3-Clause
+- **Docs:** https://anymail.dev/
+
+### pillow
+
+Python Imaging Library fork. Required by Django for `ImageField` support and used for
+any image processing operations.
+
+- **License:** HPND (PIL License)
+- **Docs:** https://pillow.readthedocs.io/
+
+### python-slugify
+
+Converts arbitrary strings to URL-safe slugs. Used when generating file paths and
+identifiers from user-supplied titles.
+
+- **License:** MIT
+- **Docs:** https://github.com/un33k/python-slugify
+
+### matplotlib
+
+Plotting library. Used server-side to generate PRISMA flow diagram chart data returned
+to the frontend.
+
+- **License:** PSF / BSD-compatible
+- **Docs:** https://matplotlib.org/
+
+### sentry-sdk
+
+Error tracking and performance monitoring integration. Configured via the `SENTRY_DSN`
+environment variable; reports unhandled exceptions to Sentry in production.
+
+- **License:** MIT
+- **Docs:** https://docs.sentry.io/platforms/python/
+
+## Development & Testing
+
+### pytest / pytest-django
+
+Test runner and Django plugin. All backend tests are written as pytest functions; no
+`unittest.TestCase` subclasses are used.
+
+- **License:** MIT
+- **Docs:** https://pytest-django.readthedocs.io/
+
+### factory-boy
+
+Fixture library for creating model instances in tests. Each module defines a
+`factories.py` with a factory per model, keeping test data creation DRY.
+
+- **License:** MIT
+- **Docs:** https://factoryboy.readthedocs.io/
+
+### coverage
+
+Measures code coverage during the test run. Configured to include only
+`slrt_project/**` and exclude migrations.
+
+- **License:** Apache-2.0
+- **Docs:** https://coverage.readthedocs.io/
+
+### ruff
+
+Fast Python linter and formatter written in Rust. Enforces code style and catches
+common errors across the entire backend codebase.
+
+- **License:** MIT
+- **Docs:** https://docs.astral.sh/ruff/

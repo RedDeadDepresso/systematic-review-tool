@@ -1,0 +1,161 @@
+# Testing
+
+The backend test suite uses [pytest](https://docs.pytest.org/) with
+[pytest-django](https://pytest-django.readthedocs.io/) and
+[factory-boy](https://factoryboy.readthedocs.io/). Coverage is measured with
+[coverage.py](https://coverage.readthedocs.io/) and tests are run in parallel with
+[pytest-xdist](https://pytest-xdist.readthedocs.io/).
+
+## Setup
+
+No extra setup is required beyond the standard Docker Compose stack. The test settings
+module (`config.settings.test`) is selected automatically via the `addopts` entry in
+`pyproject.toml`:
+
+```toml
+[tool.pytest.ini_options]
+addopts = "--ds=config.settings.test --reuse-db --import-mode=importlib"
+```
+
+The test settings use:
+
+- An **in-memory cache** (avoids Redis dependency in tests)
+- A **fast password hasher** (MD5 instead of Argon2) to speed up user creation
+- The standard PostgreSQL database (the `--reuse-db` flag keeps it between runs unless
+  the schema changes)
+
+## Running the Tests
+
+### Using `just` (recommended)
+
+```bash
+# Run the full backend test suite with coverage
+just pytest
+
+# Run a specific test file
+just pytest slrt_project/reviews/tests/test_models.py
+
+# Run a specific test by name
+just pytest -k "test_compute_opinion_stats"
+
+# Run with verbose output
+just pytest -v
+
+# Show coverage report in the terminal after the run
+just pytest --cov-report=term-missing
+```
+
+### Using Docker Compose directly
+
+```bash
+docker compose -f docker-compose.local.yml exec django sh -c \
+  'export DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB} \
+   && coverage run -m pytest -n auto --cov=slrt_project'
+```
+
+## Test Structure
+
+Each Django app has a `tests/` directory with the following layout:
+
+```
+<app>/tests/
+├── factories.py       # factory-boy model factories for this app
+├── test_models.py     # unit tests for model methods and properties
+├── test_tasks.py      # tests for Celery tasks (where applicable)
+├── test_utils.py      # tests for utility functions (where applicable)
+└── api/
+    ├── test_<resource>.py   # API-level integration tests per endpoint
+    └── ...
+```
+
+## Test Layers
+
+The suite is split into two layers depending on whether a database is needed.
+
+### No-DB unit tests
+
+Model methods and utility functions that do not touch the database are tested without the
+`@pytest.mark.django_db` marker. A shared `_make()` helper constructs unsaved model
+instances by bypassing `__init__` and manually initialising `_state`, so Django's FK
+descriptor cache is satisfied without a database round-trip. These tests run extremely
+fast and can be executed without a live database.
+
+```python
+# Example - no DB required
+def test_search_method_upload_path():
+    sm = _make(SearchMethod, review=_make(Review))
+    path = search_method_upload_path(sm, "results.bib")
+    assert path.startswith("search_methods/")
+    assert path.endswith(".bib")
+```
+
+### Database integration tests
+
+Tests that create or query records are marked with `@pytest.mark.django_db` and use
+factory-boy factories to create realistic data. The `--reuse-db` flag means migrations
+only run once per schema change, keeping repeated test runs fast.
+
+```python
+@pytest.mark.django_db
+def test_unique_user_per_review(review, user):
+    ReviewMemberFactory(review=review, user=user)
+    with pytest.raises(IntegrityError):
+        ReviewMemberFactory(review=review, user=user)
+```
+
+## Factories
+
+Every model has a corresponding factory in its app's `factories.py`. Factories use
+`faker` to generate realistic data and handle related object creation automatically:
+
+```python
+# Example factory (simplified)
+class ReviewFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Review
+
+    title = factory.Faker("sentence", nb_words=4)
+    description = factory.Faker("paragraph")
+    is_blinded = True
+```
+
+Factories are used both in tests and in the `conftest.py` fixtures that are shared
+across the project.
+
+## Testing Celery Tasks
+
+Celery tasks are tested without a running broker by using `push_request` /
+`pop_request` to set the task's request context, and patching `task.retry` via
+`unittest.mock.patch.object` to avoid actually retrying:
+
+```python
+@contextlib.contextmanager
+def _patch_task(task, retries=0, max_retries=3):
+    task.push_request(retries=retries, called_directly=False)
+    with patch.object(task, "retry", side_effect=task.retry) as mock_retry:
+        yield mock_retry
+    task.pop_request()
+```
+
+WebSocket channel layer calls inside tasks are stubbed by replacing the channel layer
+with an `InMemoryChannelLayer` in the test settings.
+
+## Coverage
+
+Coverage is configured in `pyproject.toml` to include only application code:
+
+```toml
+[tool.coverage.run]
+include = ["slrt_project/**"]
+omit = ["*/migrations/*", "*/tests/*"]
+```
+
+After running the suite, a coverage report can be generated:
+
+```bash
+# Terminal summary
+just pytest --cov-report=term-missing
+
+# HTML report (opens in browser)
+just django coverage html
+```

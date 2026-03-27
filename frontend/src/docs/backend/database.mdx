@@ -1,0 +1,98 @@
+# Database Design
+
+The database schema follows the workflow of a systematic review: references are imported
+into a review, screened by members, included papers proceed to full-text screening, and
+the final set is then coded, themed, and extracted. The principal entity groups are
+described below.
+
+## Reviews and Membership
+
+A `Review` record is the top-level container for all data in a single systematic review.
+It stores the title, description, and aggregate statistics such as reference counts and
+duplicate-detection status. A `ReviewMember` join table associates users with reviews
+and records their role (Owner, Collaborator, Reviewer, or Viewer), which is enforced
+throughout the application by a centralised permission check.
+
+## References
+
+The `Reference` model is the most central entity in the schema. It stores all
+bibliographic metadata (title, abstract, authors, journal, year, DOI, and publication
+type) alongside the search method from which it was imported. A `SearchVectorField`
+column maintained by a database-level trigger enables efficient full-text search across
+title and abstract without an external search service. PostgreSQL represents this as a
+`tsvector`: a pre-processed list of lexemes (normalised word stems) derived from the
+text, queried using a `tsquery` expression. Because the vector is stored and indexed
+rather than computed at query time, searches across tens of thousands of references
+remain fast regardless of abstract length. References are logically scoped to a review
+and can carry per-reviewer opinion records, labels, and notes.
+
+## Duplicate Detection
+
+Near-duplicate references are grouped into `ReferenceCluster` records. Similarity
+between titles is measured using trigram similarity: each string is broken into
+overlapping three-character sequences (trigrams), and two strings are considered similar
+if a sufficient proportion of their trigrams match. This tolerates minor variations in
+punctuation, word order, or spelling that would cause exact matching to fail. A GIN
+(Generalised Inverted Index) index stores a mapping from each trigram to the rows that
+contain it, allowing the database to locate candidate pairs without scanning every row in
+the table. This index structure makes the similarity search practical even over large
+reference sets. Each cluster tracks its resolution status, and individual
+`ReferenceClusterMember` records capture which references belong to the cluster, which
+was designated the canonical record, and which were deleted.
+
+## Screening and Opinions
+
+A `ReferenceOpinion` record captures one reviewer's decision (Include, Exclude, Maybe,
+or Undecided) about one reference at a given stage (title/abstract screening or full-text
+screening). A reference's aggregate opinion is derived from the set of opinions held by
+all members of the review, permitting conflict detection and resolution workflows.
+Exclusion decisions can be accompanied by a `Reason` record to support PRISMA reporting.
+
+## Data Extraction
+
+Extraction is modelled as a grid of questions and answers. `ExtractionSection` groups
+questions thematically; `ExtractionQuestion` defines a single column in the extraction
+table (with a type of Free Text, Number, Date, Boolean, Single Select, or Multi Select);
+`ExtractionAnswer` records one cell of the grid for a specific reference and question
+pairing.
+
+## Coding and Theming
+
+The coding schema uses a three-level hierarchy: `Code` records capture highlighted
+passages or observations from a specific reference and PDF location; `SubTheme` groups
+related codes; and `MainTheme` groups related sub-themes.
+
+## Supporting Entities
+
+Several auxiliary tables support the core workflow. `UploadedPDF` records track PDF
+files attached to references, storing a file path and a filename-similarity score used
+during the automated matching process. `Label` records provide colour-coded categorical
+tags that can be applied to references for personal organisation and filtering.
+`ScreeningCriteria` records store the inclusion and exclusion criteria visible to all
+reviewers during screening. Finally, the `ZoteroIntegration` model stores a user's
+Zotero API key and preferred collection, enabling background synchronisation of
+references and PDFs from a connected Zotero library.
+
+## Entity Relationship Overview
+
+```
+User ──< ReviewMember >── Review
+                  │           │
+                  │           ├──< SearchMethod ──< Reference
+                  │           │                        │
+                  │           │                        ├──< ReferenceOpinion >── ReviewMember
+                  │           │                        ├──< ReferenceLabel   >── Label (owned by User)
+                  │           │                        ├──< Note             >── ReviewMember
+                  │           │                        ├──< Code             >── SubTheme ──< MainTheme
+                  │           │                        ├──< ExtractionAnswer >── ExtractionQuestion
+                  │           │                        └──< ReferenceClusterMember >── ReferenceCluster
+                  │           │
+                  │           ├──< ScreeningCriteria
+                  │           ├──< ExtractionSection ──< ExtractionQuestion
+                  │           ├──< ReviewChatMessage
+                  │           ├──< ReviewInvitation
+                  │           ├──< ScreeningStat >── ReviewMember
+                  │           └──── ZoteroIntegration ──< ZoteroSyncLog
+                  │
+                  └── ScreeningStat
+```

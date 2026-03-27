@@ -1,0 +1,120 @@
+# Project Structure
+
+The backend is generated from the [Django Cookie Cutter](https://cookiecutter-django.readthedocs.io/)
+template. This establishes a well-known project layout with separate settings files per
+environment, Docker-based local development, and a modular application structure.
+
+## Top-level Layout
+
+```
+backend/
+├── compose/                  # Dockerfiles and entrypoint scripts
+│   ├── local/                #   - local development images
+│   └── production/           #   - production images (Django, Postgres, Traefik, Nginx)
+├── config/                   # Project-wide Django configuration
+│   ├── settings/
+│   │   ├── base.py           #   - shared settings (installed apps, middleware, etc.)
+│   │   ├── local.py          #   - development overrides (DEBUG=True, email backend)
+│   │   ├── production.py     #   - production overrides (security headers, Sentry)
+│   │   └── test.py           #   - test overrides (fast password hasher, in-memory cache)
+│   ├── api_router.py         # Top-level DRF router wiring all app routers
+│   ├── celery_app.py         # Celery application instance
+│   ├── asgi.py               # ASGI entrypoint (Channels routing)
+│   └── urls.py               # Root URL configuration
+├── slrt_project/             # Application code (all Django apps live here)
+│   ├── users/                # App: authentication, registration, user profiles
+│   ├── reviews/              # App: reviews, members, invitations, screening criteria
+│   ├── references/           # App: references, opinions, labels, duplicate detection
+│   ├── coding/               # App: qualitative codes, sub-themes, main themes
+│   ├── extraction/           # App: extraction sections, questions, and answers
+│   ├── integrations/         # App: Zotero integration and sync logs
+│   ├── shared/               # Shared utilities: permissions, base classes
+│   └── conftest.py           # Project-wide pytest fixtures
+├── pyproject.toml            # Python project metadata and all dependencies
+├── manage.py                 # Django management command entrypoint
+└── ruff.toml                 # Ruff linter configuration
+```
+
+## Application Modules
+
+The application logic is divided into six Django apps under `slrt_project/`. Each app
+follows the same internal structure:
+
+```
+<app>/
+├── api/
+│   ├── serializers.py        # DRF serialisers
+│   ├── views.py              # DRF viewsets / APIViews
+│   └── urls.py               # App-level router
+├── migrations/               # Django database migrations
+├── tests/
+│   ├── factories.py          # factory-boy model factories
+│   ├── test_models.py        # Unit tests for model methods
+│   ├── test_tasks.py         # Tests for Celery tasks (where applicable)
+│   └── api/                  # API-level integration tests
+├── admin.py                  # Django admin registration
+├── apps.py                   # AppConfig
+├── models.py                 # ORM models
+└── tasks.py                  # Celery tasks (where applicable)
+```
+
+### `users`
+
+Handles user registration, login, JWT token issuance, password reset, and profile
+management. Extends Django's built-in `AbstractUser` with custom fields. Authentication
+is powered by `django-allauth` and `drf-auth-kit`.
+
+### `reviews`
+
+The top-level container module. Manages `Review`, `ReviewMember`, `ReviewInvitation`,
+`ScreeningCriteria`, `SearchMethod`, `ScreeningStat`, and `ReviewChatMessage` models.
+Also owns the reference import tasks (`import_references_task`) and the real-time
+WebSocket consumers (`ReviewGroupConsumer`, `ScreeningStatConsumer`,
+`TaskStatusConsumer`).
+
+### `references`
+
+The most data-intensive module. Manages the `Reference` model and all entities that
+annotate it: `ReferenceOpinion`, `ReferenceLabel`, `Label`, `Note`, `Keyword`,
+`UploadedPDF`, `ReferenceCluster`, and `ReferenceClusterMember`. Also contains the
+duplicate detection engine (`DuplicateClusterDetector`, `DuplicateClusterManager`,
+`UnionFind`).
+
+### `coding`
+
+Manages qualitative annotation. The three-level hierarchy (`MainTheme` → `SubTheme` →
+`Code`) allows reviewers to highlight passages in PDFs and organise them thematically.
+Code positions are stored as JSON payloads compatible with `react-pdf-highlighter-plus`.
+
+### `extraction`
+
+Manages structured data capture for included references. The schema is a grid:
+`ExtractionSection` → `ExtractionQuestion` → `ExtractionAnswer`. Question types include
+free text, number, date, boolean, single-select, and multi-select.
+
+### `integrations`
+
+Manages the Zotero integration. `ZoteroIntegration` stores encrypted credentials and
+sync state per review. `ZoteroSyncLog` provides an append-only audit trail of every
+push/pull operation. The `ZoteroService` class wraps the `pyzotero` library so it can
+be mocked cleanly in tests.
+
+### `shared`
+
+Cross-cutting utilities used by all other apps. Notably `permissions.py`, which defines
+the `Permission` enum and the `PERMISSIONS` map that enforces role-based access control
+consistently across REST and WebSocket layers.
+
+## Settings Strategy
+
+Settings are split across four files inheriting from `base.py`:
+
+| File            | Used when                                                                    |
+| --------------- | ---------------------------------------------------------------------------- |
+| `base.py`       | Always: defines installed apps, middleware, templates, static files          |
+| `local.py`      | `DJANGO_SETTINGS_MODULE=config.settings.local` (development)                 |
+| `production.py` | `DJANGO_SETTINGS_MODULE=config.settings.production` (deployed)               |
+| `test.py`       | Automatically selected by pytest via `addopts = "--ds=config.settings.test"` |
+
+The test settings use an in-memory cache and a fast password hasher to keep the test
+suite as fast as possible.

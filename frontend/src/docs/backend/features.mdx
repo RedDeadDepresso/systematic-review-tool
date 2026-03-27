@@ -1,0 +1,276 @@
+# Features
+
+## Reference Import Pipeline
+
+Importing references is the entry point to every review. Handling diverse file formats
+and encodings reliably was a design requirement from the start.
+
+### Multi-format Parsing
+
+Three file formats are supported: BibTeX (`.bib`), RIS (`.ris`), and EndNote XML
+(`.xml`). Each format is handled by a dedicated parser wrapped in a private helper
+function within `references_tasks.py`.
+
+BibTeX files are parsed with the `bibtexparser` library. A fallback encoding strategy
+was implemented after discovering that many files exported from academic databases use
+the `latin-1` encoding rather than UTF-8: the parser first attempts UTF-8, catching
+`UnicodeDecodeError` and retrying with `latin-1` before raising. RIS files use the
+`rispy` library with the same two-pass encoding strategy. EndNote XML files are
+processed with `lxml`'s C-backed parser, which is faster than the standard library's
+`xml.etree` for large exports; each `<record>` element is passed to a custom
+field-extraction function that handles EndNote's idiosyncratic field naming.
+
+All three parsers produce unsaved `Reference` instances via a unified extractor
+interface, which are then committed to the database in a single `bulk_create` call to
+minimise round trips. This pattern was important for performance: in testing, a BibTeX
+file containing 3,000 entries imported in under two seconds.
+
+### Asynchronous Execution and Progress Feedback
+
+Because import can take several seconds for large files, the parsing and insertion logic
+runs inside a Celery task (`import_references_task`) rather than in the HTTP request
+handler. The view returns an HTTP 202 Accepted immediately after queuing the task, and
+the frontend connects to a WebSocket endpoint scoped to the task ID
+(`/ws/task-status/<task_id>/`) to receive live progress.
+
+A challenge arose when implementing the progress feedback: the task needed to notify the
+frontend of completion without the frontend polling. The solution was the
+`send_review_chat_message` utility function, which persists a `ReviewChatMessage` record
+and then calls `channel_layer.group_send` to broadcast a payload to the review's
+WebSocket group. This meant that all members of a review with the review page open would
+see a system chat message (e.g. "✓ Import complete! Imported 3,000 references") as soon
+as the task finished, without any polling.
+
+Tasks are declared with `bind=True` and `max_retries=3`, with a 60-second countdown
+between attempts, so transient storage or network failures do not cause silent data loss.
+On exhausting retries the `SearchMethod` record holding the uploaded file is deleted to
+avoid orphaned upload entries.
+
+---
+
+## Duplicate Detection
+
+Duplicate detection was one of the most technically involved components to implement.
+Research databases frequently export slightly different versions of the same record:
+different capitalisation, missing subtitles, abbreviated journal names. A simple
+equality check on titles is insufficient.
+
+### Two-pass Detection Algorithm
+
+The `DuplicateClusterDetector` class implements a two-pass approach.
+
+**Pass 1: DOI hard-match.** All references with a non-empty DOI are grouped by their
+lower-cased, trimmed DOI string. Any group containing more than one reference forms a
+cluster with a similarity score of 1.0. Since DOIs are unique identifiers, any two
+records sharing a DOI are guaranteed duplicates regardless of how the other fields
+differ.
+
+**Pass 2: Trigram fuzzy similarity.** The `pg_trgm` PostgreSQL extension is used to
+compute a weighted similarity score across four fields: title (weight 0.50), abstract
+(0.30), authors (0.15), and journal (0.05). The weights reflect the relative reliability
+of each field as a duplicate signal. A single raw SQL query using `similarity()` and
+`word_similarity()` functions computes pairwise scores across the entire reference set,
+exploiting the GIN trigram index on the `title` column. Pairs with a weighted score
+above the configurable threshold (default 50%) are flagged as candidate duplicates.
+
+Both passes feed into a **Union-Find** (disjoint-set) structure. As each duplicate pair
+is discovered the two reference IDs are unioned, so transitively similar records (A ~ B,
+B ~ C) end up in the same cluster without an explicit three-way comparison. The
+resulting clusters are then persisted as `ReferenceCluster` and
+`ReferenceClusterMember` rows in a single database transaction.
+
+### Auto-resolution
+
+The `auto_deduplicate_task` chains detection with automatic resolution. For each cluster
+above the auto-resolution confidence threshold (default 90%) the system selects one
+record to keep and marks the rest as `DELETED`. DOI-matched clusters are always resolved
+regardless of the threshold, since their score is always 1.0. When the user specifies a
+preferred source (e.g. "keep references from this search database"), the reference whose
+`SearchMethod` name matches is preferred over others with higher completeness scores.
+
+Clusters below the threshold are left with status `UNRESOLVED` and queued for manual
+review, where the user sees a side-by-side comparison view and can choose which record
+to keep.
+
+---
+
+## Real-time Communication with WebSockets
+
+Real-time updates are essential in two places: feedback during long-running background
+tasks (import, duplicate detection, Zotero sync), and live collaboration features
+(review chat, screening time tracking). Django Channels was used to implement both, with
+three WebSocket consumers.
+
+### TaskStatusConsumer
+
+The `TaskStatusConsumer` subscribes to a channel group named `task_<task_id>`. On
+connection it immediately queries the Celery `AsyncResult` for the task's current state
+using `loop.run_in_executor`, keeping the async event loop unblocked during the
+synchronous Redis call. When background tasks broadcast state transitions into the group,
+the consumer forwards them to the connected client as JSON. On receiving a terminal
+status (`SUCCESS`, `FAILURE`, or `ERROR`) the consumer closes the socket with code 1000,
+avoiding dangling connections.
+
+On the frontend, the `useTaskWebSocket` hook manages the WebSocket lifecycle for a given
+task ID. It implements exponential-backoff reconnection (up to five attempts, doubling
+from 1s to 10s) to handle transient network interruptions, but suppresses reconnection
+once a terminal status is received to avoid re-opening a closed task. On task success
+the hook automatically invalidates the relevant TanStack Query caches so the UI reflects
+the updated data without a manual refresh.
+
+### ReviewGroupConsumer
+
+The `ReviewGroupConsumer` powers both the review-scoped chat and the system notification
+stream. Each consumer instance joins a Redis channel group named
+`review_<review_id>`. On connect it loads the 50 most recent messages from the database
+(ordered oldest-first) and sends them as a `message_history` payload, so a user opening
+the review after some activity sees context immediately without a separate REST call.
+
+Authentication is handled by `AuthenticateReviewMemberMixin`, shared with
+`ScreeningStatConsumer`. The mixin looks up the `ReviewMember` row for the current user
+and the URL-captured `review_id`, closing the socket with code 4003 if the user is not
+a member. This check runs on every WebSocket upgrade request, not just on REST requests,
+so role-based access control applies consistently across both transport layers.
+
+Incoming messages are dispatched by a `type` field. Chat messages are validated
+(non-empty, at most 5,000 characters), persisted, and broadcast to the group including
+the sender. Broadcasting back to the sender is a deliberate design choice: the client
+treats the server response as the authoritative save confirmation rather than
+optimistically adding the message to the UI before it is stored. A lightweight
+typing-indicator message type is also supported but is not persisted.
+
+### ScreeningStatConsumer
+
+The `ScreeningStatConsumer` tracks each reviewer's active time on the screening page. A
+challenge in this domain is accurately recording time when a user has the review open in
+multiple browser tabs simultaneously. The solution uses Django's cache (backed by Redis)
+to maintain a set of active connection IDs per user per review under the key
+`screening_stat_<user_id>_<review_id>`. The session counter in `ScreeningStat` is only
+incremented when the first tab connects, and decremented-to-zero logic runs only when
+the last tab disconnects, preventing inflated session counts from multi-tab usage.
+
+The consumer requires the client to send periodic heartbeat messages (at least once every
+60 seconds). A background `asyncio` task running inside the consumer checks the elapsed
+time since the last heartbeat and closes stale connections with code 4008 (idle timeout),
+saving any in-progress tracking session to the database before closing. Sessions shorter
+than five seconds are discarded to filter out accidental page loads.
+
+---
+
+## PDF Viewer and Highlight Annotation
+
+The PDF viewer is used in two contexts: reading a reference during full-text screening
+(read-only), and annotating a reference during coding (read-write). Both modes share the
+same `PDFDialog` component; a `readOnly` prop disables highlight creation in the
+screening context.
+
+### Rendering and Highlight Storage
+
+PDF rendering is handled by `react-pdf` (a React wrapper for PDF.js), with the highlight
+annotation layer provided by `react-pdf-highlighter-plus`. The library renders each page
+as a canvas element and overlays a transparent selection layer that intercepts mouse
+events. When the user selects a region, the library captures the position as a
+bounding-box relative to the page dimensions plus a list of text tokens within the
+selection.
+
+The highlight position data is stored in the `Code` model's `position` JSON field
+(serialised as a `react-pdf-highlighter` `ScaledPosition` object), and the selected text
+is stored in the `content` JSON field. Storing the position in a coordinate-relative
+format rather than character offsets means the annotation remains accurate across
+different page renderings.
+
+### Jump-to-Source Navigation
+
+A "jump to source" feature links a code back to its origin in the PDF. On the coding
+page, each `CodeCard` displays a link icon; clicking it opens the PDF viewer
+pre-scrolled to the page containing the highlight. This was implemented by passing a
+`pendingHighlightId` prop to `PDFDialog`. On mounting, the dialog scans the loaded
+highlights for the matching ID and scrolls to it using the
+`PdfHighlighterUtils.scrollTo` API, consuming the pending ID once the scroll has been
+executed.
+
+A challenge arose because the PDF document is loaded asynchronously. If the dialog
+attempted to scroll before the page containing the highlight had been rendered, the
+scroll silently failed. The fix was to listen to the `onDocumentReady` callback and only
+attempt the scroll after the document had fully loaded, using a `useEffect` that depends
+on both the document-ready flag and the pending highlight ID.
+
+### Coding Sidebar Integration
+
+Inside the PDF viewer, a coding sidebar lists all codes associated with the review. A
+"filter by current reference" toggle narrows the list to codes from the currently open
+paper. Clicking a code in the sidebar scrolls the PDF to the corresponding highlight via
+the same `pendingHighlightId` mechanism. When a new highlight is created the sidebar
+refreshes immediately, since code creation is handled by a TanStack Query mutation that
+invalidates the `['codes', reviewId]` cache key on success.
+
+---
+
+## Zotero Integration
+
+Integration with Zotero allows researchers to push included references to their Zotero
+library and to pull new items from Zotero into a review without manual export. The
+integration is implemented as a service class (`ZoteroService`) that wraps `pyzotero`
+so that no other module imports `pyzotero` directly, making the service trivial to mock
+in tests.
+
+### Push and Pull Operations
+
+The push task (`push_references_to_zotero_task`) iterates over in-full-text references
+that do not yet have a `zotero_key`, converts them to the Zotero JSON schema, and calls
+`create_items` in batches of 50 (the Zotero API hard limit per request). Progress is
+broadcast to the frontend after each batch via `send_task_update`, so the sync panel
+shows a live percentage bar.
+
+The pull task (`pull_references_from_zotero_task`) performs incremental synchronisation
+using the Zotero library version number stored in `ZoteroIntegration.last_sync_version`.
+On each run only items modified since the last sync version are fetched, which keeps the
+task fast for established integrations. PDF attachments are downloaded from Zotero in a
+subsequent pass and stored via Django's file storage backend; if a pull run encounters a
+reference it already has (matched by `zotero_key`) it updates the existing record rather
+than creating a duplicate.
+
+### Credential Security
+
+Zotero API keys are encrypted before being stored in the database so that raw key values
+are never persisted in plaintext. The key is decrypted only at the point where the
+`ZoteroService` is instantiated inside a Celery task, limiting the exposure window.
+
+---
+
+## Permissions
+
+Access to every action in the system is governed by a centralised permission map defined
+in `slrt_project/shared/permissions.py`. Rather than scattering role checks across views,
+all logic flows through the `can(permission, user, review)` helper, which looks up the
+user's `ReviewMember` role and checks it against the `PERMISSIONS` map. On failure,
+`check_permission` raises a DRF `PermissionDenied` with a human-readable message.
+
+The same `AuthenticateReviewMemberMixin` applies these checks to WebSocket consumers,
+so the access model is consistent across both HTTP and WebSocket transport layers.
+
+### Role-based Access Matrix
+
+The four roles are **Owner**, **Collaborator**, **Reviewer**, and **Viewer**. The table
+below shows which permissions each role holds.
+
+| Permission                  | Description                                   | Owner | Collaborator | Reviewer | Viewer |
+| --------------------------- | --------------------------------------------- | :---: | :----------: | :------: | :----: |
+| `access_review`             | View the review and all its data              |  ✅   |      ✅      |    ✅    |   ✅   |
+| `modify_opinion`            | Submit include / exclude / maybe decisions    |  ✅   |      ✅      |    ✅    |   ❌   |
+| `modify_note`               | Add or edit personal notes on references      |  ✅   |      ✅      |    ✅    |   ❌   |
+| `modify_reference`          | Edit reference metadata fields                |  ✅   |      ✅      |    ✅    |   ❌   |
+| `assign_label`              | Apply colour labels to references             |  ✅   |      ✅      |    ✅    |   ❌   |
+| `modify_keyword`            | Add or remove screening keywords              |  ✅   |      ✅      |    ✅    |   ❌   |
+| `modify_reason`             | Add or remove exclusion reasons               |  ✅   |      ✅      |    ✅    |   ❌   |
+| `modify_screening_criteria` | Create or edit inclusion / exclusion criteria |  ✅   |      ✅      |    ❌    |   ❌   |
+| `upload_files`              | Upload BibTeX / RIS / XML / PDF files         |  ✅   |      ✅      |    ❌    |   ❌   |
+| `add_data`                  | Import new references or search methods       |  ✅   |      ✅      |    ❌    |   ❌   |
+| `manage_duplicates`         | Resolve or dismiss duplicate clusters         |  ✅   |      ✅      |    ❌    |   ❌   |
+| `modify_themes_codes`       | Create, edit, or delete themes and codes      |  ✅   |      ✅      |    ❌    |   ❌   |
+| `modify_review`             | Edit review title, description, and settings  |  ✅   |      ❌      |    ❌    |   ❌   |
+| `assign`                    | Assign references to specific reviewers       |  ✅   |      ❌      |    ❌    |   ❌   |
+| `invite`                    | Invite new members to the review              |  ✅   |      ❌      |    ❌    |   ❌   |
+
+> **Note:** Owners cannot be invited via the invitation flow. The Owner role is only
+> assigned at review creation time.

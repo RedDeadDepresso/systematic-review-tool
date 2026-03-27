@@ -1,0 +1,107 @@
+# Getting Started
+
+This guide covers how to install and run the backend locally using Docker Compose.
+
+## Prerequisites
+
+Make sure the following are installed on your machine:
+
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+- [just](https://github.com/casey/just): a command runner (recommended, but optional)
+
+## 1. Clone the Repository
+
+```bash
+git clone <repository-url>
+cd <project-root>
+```
+
+## 2. Build and Start
+
+### Using `just` (recommended)
+
+The project ships with a `justfile` that wraps common Docker Compose commands.
+
+```bash
+# Build images
+just build
+
+# Start all services in the background
+just up
+
+# View logs (all services)
+just logs
+
+# View logs for a specific service
+just logs django
+```
+
+### Using Docker Compose directly
+
+```bash
+docker compose -f docker-compose.local.yml build
+docker compose -f docker-compose.local.yml up -d
+```
+
+## 3. Run Migrations
+
+```bash
+# Using just
+just manage migrate
+
+# Using Docker Compose directly
+docker compose -f docker-compose.local.yml exec django python manage.py migrate
+```
+
+## 4. Create a Superuser (optional)
+
+```bash
+just manage createsuperuser
+```
+
+## 5. Access the Services
+
+| Service        | URL                          | Notes                       |
+| -------------- | ---------------------------- | --------------------------- |
+| Django API     | http://localhost:8000/api/   | REST API                    |
+| Django Admin   | http://localhost:8000/admin/ | Superuser login required    |
+| React frontend | http://localhost:3000        | Vite dev server with HMR    |
+| Mailpit        | http://localhost:8025        | Catches all outgoing emails |
+| Flower         | http://localhost:5555        | Celery task monitor         |
+
+## Available `just` Commands
+
+Run `just` with no arguments to list all available commands:
+
+```
+build     Build python image
+up        Start up containers
+down      Stop containers
+prune     Remove containers and their volumes
+logs      View container logs
+django    Execute any command in the django container
+manage    Execute a manage.py command
+pytest    Run the backend test suite with coverage
+react     Execute any command in the react container
+pnpm      Execute a pnpm command
+vitest    Run the frontend test suite
+```
+
+### Examples
+
+```bash
+# Run a management command
+just manage makemigrations
+
+# Open a Django shell
+just django python manage.py shell
+
+# Install a new frontend package
+just pnpm add some-package
+
+# Run backend tests
+just pytest
+
+# Run frontend tests
+just vitest
+```
