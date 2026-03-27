@@ -4,7 +4,10 @@ import { mdxComponents } from '@/components/blocks/docs/mdx-components';
 import { useRef } from 'react';
 import { useTocFromContent } from '@/hooks/use-toc';
 
-const modules = import.meta.glob('/src/docs/**/*.mdx');
+const modules =
+  import.meta.env.MODE === 'development'
+    ? import.meta.glob('/src/docs/**/*.mdx')
+    : import.meta.glob('/src/docs/user-guide/*.mdx');
 
 export const Route = createFileRoute('/docs/$/slug')({
   loader: async ({ params }) => {
