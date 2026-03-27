@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ReviewsTable } from './reviews-table';
@@ -19,15 +19,21 @@ vi.mock('@tanstack/react-query', () => ({
   })),
 }));
 
+vi.mock('@/features/users/hooks/use-auth', () => ({
+  useFetchUser: vi.fn(),
+}));
+
 import {
   useCreateReview,
   useUpdateReview,
   useDeleteReview,
 } from '@/features/reviews/hooks/use-reviews';
+import { useFetchUser } from '@/features/users/hooks/use-auth';
 
 const mockUseCreateReview = vi.mocked(useCreateReview);
 const mockUseUpdateReview = vi.mocked(useUpdateReview);
 const mockUseDeleteReview = vi.mocked(useDeleteReview);
+const mockUseFetchUser = vi.mocked(useFetchUser);
 
 const noopMutation = { mutate: vi.fn(), isPending: false };
 
@@ -53,9 +59,13 @@ const mockReviews = [
 describe('Components - ReviewsTable', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+
     mockUseCreateReview.mockReturnValue(noopMutation as any);
     mockUseUpdateReview.mockReturnValue(noopMutation as any);
     mockUseDeleteReview.mockReturnValue(noopMutation as any);
+    mockUseFetchUser.mockReturnValue({
+      data: { displayName: 'Alice' },
+    } as any);
   });
 
   it('should render review titles in the table', () => {
@@ -102,17 +112,20 @@ describe('Components - ReviewsTable', () => {
         isLoading={false}
       />
     );
-    await userEvent.type(
-      screen.getByPlaceholderText('Filter reviews...'),
-      'Climate'
-    );
+
+    const user = userEvent.setup();
+    const filterInput = screen.getByPlaceholderText('Filter reviews...');
+    await user.type(filterInput, 'Climate');
+
     expect(screen.getByText('Climate Change Study')).toBeInTheDocument();
     expect(screen.queryByText('Urban Health Review')).not.toBeInTheDocument();
   });
 
   it('should open the create review dialog when Create Review is clicked', async () => {
     render(<ReviewsTable data={[]} isActive={true} isLoading={false} />);
-    await userEvent.click(screen.getByText('Create Review'));
+    const user = userEvent.setup();
+    await user.click(screen.getByText('Create Review'));
+
     expect(
       screen.getByText('Create a new review for this project.')
     ).toBeInTheDocument();
@@ -123,16 +136,22 @@ describe('Components - ReviewsTable', () => {
     mockUseCreateReview.mockReturnValue({ ...noopMutation, mutate } as any);
 
     render(<ReviewsTable data={[]} isActive={true} isLoading={false} />);
-    await userEvent.click(screen.getByText('Create Review'));
-    await userEvent.type(screen.getByLabelText('Title'), 'My New Review');
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    const user = userEvent.setup();
 
-    expect(mutate).toHaveBeenCalledWith(
-      expect.objectContaining({ title: 'My New Review' })
+    await user.click(screen.getByText('Create Review'));
+    await user.type(screen.getByLabelText('Title'), 'My New Review');
+
+    const saveButton = screen.getByRole('button', { name: /save/i });
+    await user.click(saveButton);
+
+    await waitFor(() =>
+      expect(mutate).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'My New Review' })
+      )
     );
   });
 
-  it('should show Archive option for active reviews', async () => {
+  it('should show Archive option only for reviews owned by current user', async () => {
     render(
       <ReviewsTable
         data={mockReviews as any}
@@ -140,16 +159,30 @@ describe('Components - ReviewsTable', () => {
         isLoading={false}
       />
     );
+
+    const user = userEvent.setup();
+    // Find menu button for the review owned by Alice
     const menuBtn = screen
       .getAllByRole('button')
-      .find((b) => b.querySelector('svg') && b.className.includes('size-8'));
+      .find(
+        (b) => b.querySelector('svg') && b.textContent?.includes('Climate')
+      );
     if (menuBtn) {
-      await userEvent.click(menuBtn);
+      await user.click(menuBtn);
       expect(screen.getByText('Archive')).toBeInTheDocument();
+    }
+
+    // Ensure Bob's review does not show Archive (currentUser is Alice)
+    const bobMenuBtn = screen
+      .getAllByRole('button')
+      .find((b) => b.querySelector('svg') && b.textContent?.includes('Urban'));
+    if (bobMenuBtn) {
+      await user.click(bobMenuBtn);
+      expect(screen.queryByText('Archive')).not.toBeInTheDocument();
     }
   });
 
-  it('should show Unarchive option for archived reviews', async () => {
+  it('should show Unarchive option for archived reviews owned by current user', async () => {
     const archivedReview = [{ ...mockReviews[0], isActive: false }];
     render(
       <ReviewsTable
@@ -158,11 +191,15 @@ describe('Components - ReviewsTable', () => {
         isLoading={false}
       />
     );
+
+    const user = userEvent.setup();
     const menuBtn = screen
       .getAllByRole('button')
-      .find((b) => b.querySelector('svg') && b.className.includes('size-8'));
+      .find(
+        (b) => b.querySelector('svg') && b.textContent?.includes('Climate')
+      );
     if (menuBtn) {
-      await userEvent.click(menuBtn);
+      await user.click(menuBtn);
       expect(screen.getByText('Unarchive')).toBeInTheDocument();
     }
   });
