@@ -49,7 +49,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useMediaQuery } from 'usehooks-ts';
-import { cn } from '@/lib/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface ReviewHeaderProps {
   reviewId: number;
@@ -89,7 +93,11 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
   });
 
   const tabs = [
-    { label: 'Overview', path: `/reviews/${reviewId}` },
+    {
+      label: 'Overview',
+      path: `/reviews/${reviewId}`,
+      docPath: '/docs/user-guide/review-overview',
+    },
     {
       label: 'Review Data',
       path: `/reviews/${reviewId}/review-data`,
@@ -126,6 +134,8 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
       docPath: '/docs/user-guide/prisma',
     },
   ];
+  const activeTab = tabs.find((t) => t.path === pathname);
+  const docPath = activeTab?.docPath;
 
   const onSubmitUpdate = async (formData: {
     title: string;
@@ -205,19 +215,36 @@ export function ReviewHeader({ reviewId }: ReviewHeaderProps) {
         </div>
 
         {/* Help Button */}
-        <Button
-          variant="outline"
-          size="sm"
-          className={cn('h-8 w-8 p-0 relative')}
-        >
-          <Info className="h-4 w-4" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0 relative"
+              onClick={() => {
+                if (docPath) {
+                  router.navigate({ to: docPath });
+                } else {
+                  router.navigate({ to: tabs[0].docPath });
+                }
+              }}
+            >
+              <Info className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Open {activeTab?.label} Documentation</TooltipContent>
+        </Tooltip>
 
         {/* Chat Button */}
-        <ChatButton
-          onClick={() => setIsDrawerOpen(true)}
-          unreadCount={unreadCount}
-        />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <ChatButton
+              onClick={() => setIsDrawerOpen(true)}
+              unreadCount={unreadCount}
+            />
+          </TooltipTrigger>
+          <TooltipContent>Open Chat</TooltipContent>
+        </Tooltip>
 
         {/* Actions */}
         <div className="flex items-center gap-2 shrink-0">

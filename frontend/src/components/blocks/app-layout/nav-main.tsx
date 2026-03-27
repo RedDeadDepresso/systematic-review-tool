@@ -65,6 +65,7 @@ const DEV_DOC_SECTIONS =
     : [];
 
 const DOC_LINKS = [
+  ...DEV_DOC_SECTIONS,
   {
     title: 'User Guide',
     children: [
@@ -82,7 +83,6 @@ const DOC_LINKS = [
       { title: 'PRISMA', href: '/docs/user-guide/prisma' },
     ],
   },
-  ...DEV_DOC_SECTIONS,
 ];
 
 function DocsSection() {
