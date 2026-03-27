@@ -7,7 +7,8 @@ export interface TocItem {
 }
 
 export function useTocFromContent(
-  contentRef: React.RefObject<HTMLElement | null>
+  contentRef: React.RefObject<HTMLElement | null>,
+  deps: any[] = []
 ) {
   const [toc, setToc] = useState<TocItem[]>([]);
 
@@ -35,7 +36,7 @@ export function useTocFromContent(
         depth: parseInt(h.tagName[1]),
       }))
     );
-  }, [contentRef]);
+  }, [contentRef, ...deps]); // ← add deps so it reruns when MDX changes
 
   return toc;
 }

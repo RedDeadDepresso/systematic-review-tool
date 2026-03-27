@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import mdx from '@mdx-js/rollup'
+import remarkGfm from 'remark-gfm' // <-- import remark-gfm
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import { resolve } from 'node:path'
 
@@ -10,7 +11,13 @@ const isTest = process.env.VITEST === 'true'
 export default defineConfig({
   plugins: [
     tanstackRouter({ autoCodeSplitting: !isTest }),
-    { enforce: 'pre', ...mdx({ jsxImportSource: 'react' }) },
+    {
+      enforce: 'pre',
+      ...mdx({
+        jsxImportSource: 'react',
+        remarkPlugins: [remarkGfm]
+      }),
+    },
     viteReact({
       include: /\.(jsx|tsx|mdx)$/,
       babel: {

@@ -107,16 +107,17 @@ export const mdxComponents = {
     <hr className="my-4 md:my-8" {...props} />
   ),
   table: ({ className, ...props }: React.ComponentProps<'table'>) => (
-    <div className="no-scrollbar my-6 w-full overflow-y-auto rounded-xl border">
+    <div className="no-scrollbar my-6 w-full overflow-x-auto rounded-xl border">
       <table
         className={cn(
-          'relative w-full overflow-hidden border-none text-sm [&_tbody_tr:last-child]:border-b-0',
+          'min-w-full table-auto border-collapse text-sm [&_tbody_tr:last-child]:border-b-0',
           className
         )}
         {...props}
       />
     </div>
   ),
+
   tr: ({ className, ...props }: React.ComponentProps<'tr'>) => (
     <tr className={cn('m-0 border-b', className)} {...props} />
   ),

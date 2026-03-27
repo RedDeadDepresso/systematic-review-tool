@@ -31,7 +31,7 @@ export const Route = createFileRoute('/docs/$/slug')({
 function DocsPage() {
   const { Component } = Route.useLoaderData();
   const contentRef = useRef<HTMLDivElement>(null);
-  const toc = useTocFromContent(contentRef);
+  const toc = useTocFromContent(contentRef, [Component]);
 
   return (
     <div className="flex scroll-mt-24 items-stretch pb-8 text-[15px] xl:w-full overflow-y-auto">
