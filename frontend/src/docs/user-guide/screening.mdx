@@ -5,7 +5,10 @@ reference: Include, Maybe, or Exclude. It is designed for sustained focus; the t
 layout keeps the full list navigable, the detail panel visible, and the filters
 accessible without switching pages.
 
-<Image src="/screenshots/screening/screening.png" alt="Screening page showing the reference list on the left, the detail panel in the centre, and the filter sidebar on the right" />
+<Image
+  src="/screenshots/screening/screening.png"
+  alt="Screening page showing the reference list on the left, the detail panel in the centre, and the filter sidebar on the right"
+/>
 
 ---
 
@@ -37,14 +40,14 @@ Opens automatically when a reference is selected. It shows:
 
 The **action footer** is pinned to the bottom of the panel with five buttons:
 
-| Button | Action |
-|---|---|
-| **Include** ✓ | Mark the reference as included |
-| **Maybe** ? | Mark the reference as uncertain |
-| **Exclude** ✗ | Mark the reference as excluded |
-| **Reason** | Attach an exclusion reason (visible in the PRISMA breakdown) |
-| **Label** | Apply or create a colour-coded personal label |
-| **PDF** | Attach a PDF file to this reference |
+| Button        | Action                                                       |
+| ------------- | ------------------------------------------------------------ |
+| **Include** ✓ | Mark the reference as included                               |
+| **Maybe** ?   | Mark the reference as uncertain                              |
+| **Exclude** ✗ | Mark the reference as excluded                               |
+| **Reason**    | Attach an exclusion reason (visible in the PRISMA breakdown) |
+| **Label**     | Apply or create a colour-coded personal label                |
+| **PDF**       | Attach a PDF file to this reference                          |
 
 Clicking Include, Maybe, or Exclude immediately saves the opinion and auto-advances to
 the next reference in the list, keeping the screening flow uninterrupted.
@@ -54,17 +57,17 @@ the next reference in the list, keeping the screening flow uninterrupted.
 The filter sidebar provides faceted filtering. All filters are additive and debounced;
 changes take effect after a short pause to avoid firing a request on every keystroke.
 
-| Filter | Description |
-|---|---|
-| **Opinion Status** | Undecided / Included / Maybe / Excluded |
+| Filter                   | Description                                                                         |
+| ------------------------ | ----------------------------------------------------------------------------------- |
+| **Opinion Status**       | Undecided / Included / Maybe / Excluded                                             |
 | **Keywords for include** | Add green-highlighted terms; matching words are highlighted in titles and abstracts |
-| **Keywords for exclude** | Add red-highlighted terms; matching words are highlighted in red |
-| **Search Method** | Filter by the source file the reference was imported from |
-| **Label** | Filter by your personal labels |
-| **Publication Type** | Journal Article, Conference Paper, etc. |
-| **Publication Year** | Year checkboxes |
-| **File Status** | Has PDF / No PDF |
-| **Assignee** | Filter to references assigned to a specific reviewer |
+| **Keywords for exclude** | Add red-highlighted terms; matching words are highlighted in red                    |
+| **Search Method**        | Filter by the source file the reference was imported from                           |
+| **Label**                | Filter by your personal labels                                                      |
+| **Publication Type**     | Journal Article, Conference Paper, etc.                                             |
+| **Publication Year**     | Year checkboxes                                                                     |
+| **File Status**          | Has PDF / No PDF                                                                    |
+| **Assignee**             | Filter to references assigned to a specific reviewer                                |
 
 Click the **search icon** (🔍) at the top of the filter sidebar to search within a filter
 section. The three-dot menu next to the search icon lets you reset all active filters.
@@ -73,13 +76,13 @@ section. The three-dot menu next to the search icon lets you reset all active fi
 
 ## Toolbar
 
-| Button | Action |
-|---|---|
-| **Take Break** | Pauses your active screening time session; the server stops counting your time until you resume |
-| **Search** (🔍) | Full-text search across titles and abstracts |
-| **Export** | Download the current filtered set as BibTeX |
-| **Title ↑** | Sort toggle |
-| **Filters** | Show or hide the filter sidebar |
+| Button          | Action                                                                                          |
+| --------------- | ----------------------------------------------------------------------------------------------- |
+| **Take Break**  | Pauses your active screening time session; the server stops counting your time until you resume |
+| **Search** (🔍) | Full-text search across titles and abstracts                                                    |
+| **Export**      | Download the current filtered set as BibTeX                                                     |
+| **Title ↑**     | Sort toggle                                                                                     |
+| **Filters**     | Show or hide the filter sidebar                                                                 |
 
 ---
 
