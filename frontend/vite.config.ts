@@ -2,24 +2,22 @@ import { defineConfig } from 'vite'
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import mdx from '@mdx-js/rollup'
-
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import { resolve } from 'node:path'
 
-// https://vitejs.dev/config/
+const isTest = process.env.VITEST === 'true'
+
 export default defineConfig({
   plugins: [
-    tanstackRouter({ autoCodeSplitting: true }),
+    tanstackRouter({ autoCodeSplitting: !isTest }),
     { enforce: 'pre', ...mdx({ jsxImportSource: 'react' }) },
-viteReact({
-  include: /\.(jsx|tsx|mdx)$/,
-  babel: {
-    plugins: [
-      ["babel-plugin-react-compiler"]
-    ]
-    }
-} ),    
-  tailwindcss(),
+    viteReact({
+      include: /\.(jsx|tsx|mdx)$/,
+      babel: {
+        plugins: [["babel-plugin-react-compiler"]],
+      },
+    }),
+    tailwindcss(),
   ],
   resolve: {
     alias: {
