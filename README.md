@@ -1,5 +1,8 @@
 # Systematic Review Tool
-
+<img
+  src="frontend/public/screenshots/full-text-screening/create-label.png"
+  alt="Labels popover with a search field, an existing label, and a Create option"
+/>
 ## Overview
 
 The aim of this project is to build a systematic literature review (SLR) tool that will help researchers to synthesise results on a specific research question from multiple academic research studies. The tool needs to create new SLR projects, and for each project to import sets of references in BibTex format, automatically remove duplicates, allow sets of papers to be allocated to different reviewers for screening, allow reviewers to code and theme included papers and pull out relevant results.
